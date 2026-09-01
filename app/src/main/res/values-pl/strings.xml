@@ -769,6 +769,7 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="server_settings_default_agent_preset">Domyślny preset agenta nowych sesji</string>
     <string name="session_details_agent_preset">Preset agenta</string>
     <string name="a11y_icon_agent_preset">Preset agenta</string>
+    <string name="server_settings_defaults_loopback_hint">Poziomy domyślne są dostępne tylko przez połączenie loopback. Użyj adb reverse (127.0.0.1), aby nimi zarządzać.</string>
     <!-- ============ Goal (backlog #286) / Context pressure ============ -->
     <string name="toolbar_goal">Cel</string>
     <string name="goal_phase_active">Aktywny</string>

@@ -848,6 +848,8 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="server_settings_default_agent_preset">New session default Agent preset</string>
     <string name="session_details_agent_preset">Agent preset</string>
     <string name="a11y_icon_agent_preset">Agent preset</string>
+    <!-- #298：默认档非 loopback 连接（Host 栅栏 403）标注 -->
+    <string name="server_settings_defaults_loopback_hint">Default tiers are only accessible over a loopback connection. Use adb reverse (127.0.0.1) to manage them.</string>
     <!-- ============ Goal（backlog #286） ============ -->
     <string name="toolbar_goal">Goal</string>
     <string name="goal_phase_active">Active</string>

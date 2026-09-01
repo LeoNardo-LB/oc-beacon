@@ -41,7 +41,13 @@ fun AgentPresetDefaultRow(
     presets: List<AgentPreset>,
     currentValue: String?,
     onSelect: (String) -> Unit,
+    /** #298：非 loopback 连接 403——区块保留但显示 loopback 标注（替代整块消失）。 */
+    blocked: Boolean = false,
 ) {
+    if (blocked) {
+        DefaultsBlockedSection(stringResource(R.string.server_settings_default_agent_preset))
+        return
+    }
     if (presets.isEmpty() || currentValue == null) return
     var expanded by remember { mutableStateOf(false) }
     val currentName = presets.firstOrNull { it.id == currentValue }?.name ?: currentValue

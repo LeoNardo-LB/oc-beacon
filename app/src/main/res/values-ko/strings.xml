@@ -761,6 +761,7 @@
     <string name="server_settings_default_agent_preset">새 세션 기본 에이전트 프리셋</string>
     <string name="session_details_agent_preset">에이전트 프리셋</string>
     <string name="a11y_icon_agent_preset">에이전트 프리셋</string>
+    <string name="server_settings_defaults_loopback_hint">기본 등급은 루프백 연결에서만 접근할 수 있습니다. 관리하려면 adb reverse(127.0.0.1)로 연결하세요.</string>
     <!-- ============ Goal (backlog #286) / Context pressure ============ -->
     <string name="toolbar_goal">목표</string>
     <string name="goal_phase_active">진행 중</string>

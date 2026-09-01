@@ -761,6 +761,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="server_settings_default_agent_preset">Preset agente predefinito nuove sessioni</string>
     <string name="session_details_agent_preset">Preset agente</string>
     <string name="a11y_icon_agent_preset">Preset agente</string>
+    <string name="server_settings_defaults_loopback_hint">I livelli predefiniti sono accessibili solo tramite una connessione loopback. Usa adb reverse (127.0.0.1) per gestirli.</string>
     <!-- ============ Goal (backlog #286) / Context pressure ============ -->
     <string name="toolbar_goal">Obiettivo</string>
     <string name="goal_phase_active">Attivo</string>

@@ -56,11 +56,14 @@ fun ServerSettingsContent(
     permissionSwitchSupported: Boolean = false,
     permissionDefault: DshPermissionDefault? = null,
     onSetPermissionDefault: (String) -> Unit = {},
+    // #298：非 loopback 连接 403——区块保留但显示 loopback 标注
+    permissionDefaultBlocked: Boolean = false,
     // DSH 新会话默认 Agent 预设（能力位门控 + roster + 当前档 + 写回回调）
     agentPresetSupported: Boolean = false,
     agentPresets: List<AgentPreset> = emptyList(),
     agentPresetDefault: DshAgentPresetDefault? = null,
     onSetAgentPresetDefault: (String) -> Unit = {},
+    agentPresetDefaultBlocked: Boolean = false,
 ) {
     var mcpExpanded by remember { mutableStateOf(false) }
 
@@ -74,6 +77,7 @@ fun ServerSettingsContent(
                     currentValue = permissionDefault?.currentValue,
                     onSelect = onSetPermissionDefault,
                     options = permissionDefault?.options.orEmpty(),
+                    blocked = permissionDefaultBlocked,
                 )
             }
         }
@@ -85,6 +89,7 @@ fun ServerSettingsContent(
                     presets = agentPresets,
                     currentValue = agentPresetDefault?.currentValue,
                     onSelect = onSetAgentPresetDefault,
+                    blocked = agentPresetDefaultBlocked,
                 )
             }
         }

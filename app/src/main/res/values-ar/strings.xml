@@ -777,6 +777,7 @@
     <string name="server_settings_default_agent_preset">إعداد الوكيل الافتراضي للجلسات الجديدة</string>
     <string name="session_details_agent_preset">إعداد الوكيل</string>
     <string name="a11y_icon_agent_preset">إعداد الوكيل</string>
+    <string name="server_settings_defaults_loopback_hint">لا يمكن الوصول إلى المستويات الافتراضية إلا عبر اتصال loopback. استخدم adb reverse (127.0.0.1) لإدارتها.</string>
     <!-- ============ Goal (backlog #286) / Context pressure ============ -->
     <string name="toolbar_goal">الهدف</string>
         <string name="goal_phase_active">نشط</string>

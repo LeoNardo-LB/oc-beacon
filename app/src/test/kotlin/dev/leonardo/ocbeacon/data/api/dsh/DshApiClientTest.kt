@@ -414,6 +414,56 @@ class DshApiClientTest {
         assertNull(client(engine).getPermissionDefault(conn))
     }
 
+    // ============ #298：settings 特权面 403（非 loopback 连接）============
+
+    /** 活体形态（#298）：Host 栅栏 403 + 纯文本 body "forbidden" → 抛 DshSettingsForbiddenException。 */
+    @Test
+    fun `getPermissionDefault throws forbidden on 403 describe`() = runTest {
+        val engine = MockEngine { respond("forbidden", HttpStatusCode.Forbidden) }
+        val outcome = runCatching { client(engine).getPermissionDefault(conn) }
+        assertTrue(outcome.isFailure)
+        assertTrue(outcome.exceptionOrNull() is dev.leonardo.ocbeacon.domain.repository.DshSettingsForbiddenException)
+    }
+
+    /** 非 403 失败（5xx）维持静默降级 null——只有栅栏 403 才上抛。 */
+    @Test
+    fun `getPermissionDefault null on non-403 server error`() = runTest {
+        val engine = MockEngine { respond("boom", HttpStatusCode.InternalServerError) }
+        assertNull(client(engine).getPermissionDefault(conn))
+    }
+
+    /** 读 agent-presets 默认档同栅栏 → 抛 DshSettingsForbiddenException。 */
+    @Test
+    fun `getDefaultAgentPreset throws forbidden on 403 describe`() = runTest {
+        val engine = MockEngine { respond("forbidden", HttpStatusCode.Forbidden) }
+        val outcome = runCatching { client(engine).getDefaultAgentPreset(conn) }
+        assertTrue(outcome.isFailure)
+        assertTrue(outcome.exceptionOrNull() is dev.leonardo.ocbeacon.domain.repository.DshSettingsForbiddenException)
+    }
+
+    /** 写路径经 getter 先行读 → describe 403 同样上抛（不静默 false）。 */
+    @Test
+    fun `setPermissionDefault throws forbidden on 403 describe`() = runTest {
+        val engine = MockEngine { respond("forbidden", HttpStatusCode.Forbidden) }
+        val outcome = runCatching { client(engine).setPermissionDefault(conn, "read-only") }
+        assertTrue(outcome.isFailure)
+        assertTrue(outcome.exceptionOrNull() is dev.leonardo.ocbeacon.domain.repository.DshSettingsForbiddenException)
+    }
+
+    /** settings.mutate 独立受栅栏：describe 放行 + mutate 403 → 上抛。 */
+    @Test
+    fun `setDefaultAgentPreset throws forbidden when mutate 403`() = runTest {
+        val engine = MockEngine { req ->
+            when (req.url.encodedPath) {
+                "/api/settings.describe" -> respond(ok(agentPresetSettingsDescribe), HttpStatusCode.OK, jsonHeaders())
+                else -> respond("forbidden", HttpStatusCode.Forbidden)
+            }
+        }
+        val outcome = runCatching { client(engine).setDefaultAgentPreset(conn, "build") }
+        assertTrue(outcome.isFailure)
+        assertTrue(outcome.exceptionOrNull() is dev.leonardo.ocbeacon.domain.repository.DshSettingsForbiddenException)
+    }
+
     /** settings.mutate 写 defaultPreset：ops=[{set,path:[defaultPreset],value}] + expectedRevision。 */
     @Test
     fun `setPermissionDefault mutates defaultPreset with expectedRevision`() = runTest {

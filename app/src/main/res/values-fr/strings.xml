@@ -759,6 +759,7 @@
     <string name="server_settings_default_agent_preset">Preset agent par défaut des nouvelles sessions</string>
     <string name="session_details_agent_preset">Preset agent</string>
     <string name="a11y_icon_agent_preset">Preset agent</string>
+    <string name="server_settings_defaults_loopback_hint">Les niveaux par défaut ne sont accessibles que via une connexion loopback. Utilisez adb reverse (127.0.0.1) pour les gérer.</string>
     <!-- ============ Goal (backlog #286) / Context pressure ============ -->
     <string name="toolbar_goal">Objectif</string>
     <string name="goal_phase_active">Actif</string>

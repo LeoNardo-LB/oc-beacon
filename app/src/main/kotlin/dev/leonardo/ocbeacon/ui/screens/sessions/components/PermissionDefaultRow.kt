@@ -5,6 +5,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Security
@@ -24,9 +25,39 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /** 部署固定三档（本部署 settings enum；档数由部署决定，此处仅作默认档选择器回退）。 */
 private val PERMISSION_PRESET_VALUES = listOf("read-only", "workspace-write", "danger-full-access")
+
+/**
+ * #298：默认档区块在非 loopback 连接（Host 栅栏 403）下的降级形态——
+ * 标题保留 + 「需 loopback 连接（adb reverse）」标注（两个默认档区块共用）；
+ * 不可展开、无当前值（读写均被服务端拒）。
+ */
+@Composable
+internal fun DefaultsBlockedSection(title: String) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.MD.dp),
+        )
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
+        )
+        Text(
+            text = stringResource(R.string.server_settings_defaults_loopback_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.MD.dp),
+        )
+    }
+}
 
 /** 档名 → 本地化产品名（3 已知档固定映射，未知档回退原串）。 */
 @Composable
@@ -52,7 +83,13 @@ fun PermissionDefaultRow(
     onSelect: (String) -> Unit = {},
     /** #283：settings.describe schema enum 动态档集（空 = 回退已知三档）。 */
     options: List<String> = emptyList(),
+    /** #298：非 loopback 连接 403——区块保留但显示 loopback 标注（替代整块消失）。 */
+    blocked: Boolean = false,
 ) {
+    if (blocked) {
+        DefaultsBlockedSection(stringResource(R.string.server_settings_default_permission))
+        return
+    }
     if (currentValue == null) return
     val presets = options.ifEmpty { PERMISSION_PRESET_VALUES }
     var expanded by remember { mutableStateOf(false) }

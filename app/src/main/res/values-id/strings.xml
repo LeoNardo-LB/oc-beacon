@@ -767,6 +767,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="server_settings_default_agent_preset">Preset agen default sesi baru</string>
     <string name="session_details_agent_preset">Preset agen</string>
     <string name="a11y_icon_agent_preset">Preset agen</string>
+    <string name="server_settings_defaults_loopback_hint">Tingkat bawaan hanya dapat diakses melalui koneksi loopback. Gunakan adb reverse (127.0.0.1) untuk mengelolanya.</string>
     <!-- ============ Goal (backlog #286) / Context pressure ============ -->
     <string name="toolbar_goal">Tujuan</string>
     <string name="goal_phase_active">Aktif</string>

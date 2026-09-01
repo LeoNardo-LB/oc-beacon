@@ -761,6 +761,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="server_settings_default_agent_preset">Standard-Agent-Preset für neue Sitzungen</string>
     <string name="session_details_agent_preset">Agent-Preset</string>
     <string name="a11y_icon_agent_preset">Agent-Preset</string>
+    <string name="server_settings_defaults_loopback_hint">Standardstufen sind nur über eine Loopback-Verbindung erreichbar. Verwende adb reverse (127.0.0.1), um sie zu verwalten.</string>
     <!-- ============ Goal (backlog #286) / Context pressure ============ -->
     <string name="toolbar_goal">Ziel</string>
     <string name="goal_phase_active">Aktiv</string>

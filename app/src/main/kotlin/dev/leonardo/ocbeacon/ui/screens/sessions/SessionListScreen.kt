@@ -489,10 +489,12 @@ viewModel.consumePendingReadSessionId()
                         permissionSwitchSupported = viewModel.serverCapabilities.collectAsStateWithLifecycle().value.permissionSwitchSupported,
                         permissionDefault = viewModel.permissionDefault.collectAsStateWithLifecycle().value,
                         onSetPermissionDefault = viewModel::setPermissionDefault,
+                        permissionDefaultBlocked = viewModel.permissionDefaultBlocked.collectAsStateWithLifecycle().value,
                         agentPresetSupported = viewModel.serverCapabilities.collectAsStateWithLifecycle().value.agentPresetSupported,
                         agentPresets = viewModel.agentPresetsList.collectAsStateWithLifecycle().value,
                         agentPresetDefault = viewModel.agentPresetDefault.collectAsStateWithLifecycle().value,
                         onSetAgentPresetDefault = viewModel::setAgentPresetDefault,
+                        agentPresetDefaultBlocked = viewModel.agentPresetDefaultBlocked.collectAsStateWithLifecycle().value,
                     )
                 }
             }

@@ -22,6 +22,7 @@ import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
+import dev.leonardo.ocbeacon.domain.repository.DshSettingsForbiddenException
 import dev.leonardo.ocbeacon.domain.repository.DshSettingsRepository
 import dev.leonardo.ocbeacon.domain.repository.FileRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
@@ -289,12 +290,23 @@ class SessionListViewModel @Inject constructor(
     private val _permissionDefault = MutableStateFlow<dev.leonardo.ocbeacon.domain.model.DshPermissionDefault?>(null)
     val permissionDefault: StateFlow<dev.leonardo.ocbeacon.domain.model.DshPermissionDefault?> = _permissionDefault.asStateFlow()
 
+    /** #298：非 loopback 连接（Host 栅栏 403）——行保留但标注需 adb reverse。 */
+    private val _permissionDefaultBlocked = MutableStateFlow(false)
+    val permissionDefaultBlocked: StateFlow<Boolean> = _permissionDefaultBlocked.asStateFlow()
+
     /** 读 settings.describe ns=permission 默认档（DSH-only；能力位外 no-op）。 */
     fun loadPermissionDefault() {
         if (!_serverCapabilities.value.permissionSwitchSupported) return
         val conn = _mcpConn ?: return
         viewModelScope.launch {
-            _permissionDefault.value = dshSettingsRepository.getPermissionDefault(conn)
+            _permissionDefaultBlocked.value = false
+            try {
+                _permissionDefault.value = dshSettingsRepository.getPermissionDefault(conn)
+            } catch (e: DshSettingsForbiddenException) {
+                AppLogger.w(TAG_SESSION_LIST_VM, "permission default blocked: loopback-only connection (403)")
+                _permissionDefault.value = null
+                _permissionDefaultBlocked.value = true
+            }
         }
     }
 
@@ -303,8 +315,12 @@ class SessionListViewModel @Inject constructor(
         if (!_serverCapabilities.value.permissionSwitchSupported) return
         val conn = _mcpConn ?: return
         viewModelScope.launch {
-            if (dshSettingsRepository.setPermissionDefault(conn, preset)) {
-                _permissionDefault.value = dshSettingsRepository.getPermissionDefault(conn)
+            try {
+                if (dshSettingsRepository.setPermissionDefault(conn, preset)) {
+                    _permissionDefault.value = dshSettingsRepository.getPermissionDefault(conn)
+                }
+            } catch (e: DshSettingsForbiddenException) {
+                _permissionDefaultBlocked.value = true
             }
         }
     }
@@ -324,15 +340,26 @@ class SessionListViewModel @Inject constructor(
     private val _agentPresetDefault = MutableStateFlow<dev.leonardo.ocbeacon.domain.model.DshAgentPresetDefault?>(null)
     val agentPresetDefault: StateFlow<dev.leonardo.ocbeacon.domain.model.DshAgentPresetDefault?> = _agentPresetDefault.asStateFlow()
 
+    /** #298：非 loopback 连接（Host 栅栏 403）——行保留但标注需 adb reverse。 */
+    private val _agentPresetDefaultBlocked = MutableStateFlow(false)
+    val agentPresetDefaultBlocked: StateFlow<Boolean> = _agentPresetDefaultBlocked.asStateFlow()
+
     /** 读 roster + 默认档（DSH-only；能力位外 no-op；roster 失败软降级空列表）。 */
     fun loadAgentPresets() {
         if (!_serverCapabilities.value.agentPresetSupported) return
         val conn = _mcpConn ?: return
         viewModelScope.launch {
+            _agentPresetDefaultBlocked.value = false
             chatRepository.listAgentPresets(serverId)
                 .onSuccess { list -> _agentPresets.value = list }
                 .onFailure { AppLogger.w(TAG_SESSION_LIST_VM, "listAgentPresets failed") }
-            _agentPresetDefault.value = dshSettingsRepository.getDefaultAgentPreset(conn)
+            try {
+                _agentPresetDefault.value = dshSettingsRepository.getDefaultAgentPreset(conn)
+            } catch (e: DshSettingsForbiddenException) {
+                AppLogger.w(TAG_SESSION_LIST_VM, "agent preset default blocked: loopback-only connection (403)")
+                _agentPresetDefault.value = null
+                _agentPresetDefaultBlocked.value = true
+            }
         }
     }
 
@@ -341,8 +368,12 @@ class SessionListViewModel @Inject constructor(
         if (!_serverCapabilities.value.agentPresetSupported) return
         val conn = _mcpConn ?: return
         viewModelScope.launch {
-            if (dshSettingsRepository.setDefaultAgentPreset(conn, preset)) {
-                _agentPresetDefault.value = dshSettingsRepository.getDefaultAgentPreset(conn)
+            try {
+                if (dshSettingsRepository.setDefaultAgentPreset(conn, preset)) {
+                    _agentPresetDefault.value = dshSettingsRepository.getDefaultAgentPreset(conn)
+                }
+            } catch (e: DshSettingsForbiddenException) {
+                _agentPresetDefaultBlocked.value = true
             }
         }
     }

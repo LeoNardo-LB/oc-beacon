@@ -769,6 +769,7 @@
     <string name="server_settings_default_agent_preset">Пресет агента за замовчуванням для нових сесій</string>
     <string name="session_details_agent_preset">Пресет агента</string>
     <string name="a11y_icon_agent_preset">Пресет агента</string>
+    <string name="server_settings_defaults_loopback_hint">Стандартні рівні доступні лише через loopback-з\'єднання. Використовуйте adb reverse (127.0.0.1), щоб керувати ними.</string>
     <!-- ============ Goal (backlog #286) / Context pressure ============ -->
     <string name="toolbar_goal">Мета</string>
     <string name="goal_phase_active">Активно</string>

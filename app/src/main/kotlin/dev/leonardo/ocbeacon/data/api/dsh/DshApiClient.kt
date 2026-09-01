@@ -54,6 +54,7 @@ import dev.leonardo.ocbeacon.domain.model.SessionPage
 import dev.leonardo.ocbeacon.domain.model.ShellJob
 import dev.leonardo.ocbeacon.domain.model.ShellOutput
 import dev.leonardo.ocbeacon.domain.model.SseEvent
+import dev.leonardo.ocbeacon.domain.repository.DshSettingsForbiddenException
 import dev.leonardo.ocbeacon.logging.AppLogger
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
@@ -1218,6 +1219,12 @@ class DshApiClient @Inject constructor(
     /** settings.describe → 指定 ns 条目（缺席/失败 → null；日志带 ns 便于分诊）。 */
     private suspend fun settingsNamespace(conn: ServerConnection, ns: String): JsonObject? {
         val value = rpc.call(conn, "settings.describe", buildJsonObject {}) { it }.getOrElse { e ->
+            // #298：Host 栅栏 403（非 loopback 连接对特权面恒 403，body 恒 "forbidden"）
+            // ——上抛让 UI 显式标注「需 loopback 连接」，不当普通失败静默降级
+            if (e is DshApiError && e.httpStatus == 403) {
+                AppLogger.w(TAG, "settings.describe forbidden for ns=$ns (403, loopback-only)")
+                throw DshSettingsForbiddenException()
+            }
             AppLogger.w(TAG, "settings.describe failed for ns=$ns: " + e.message)
             return null
         }
@@ -1237,7 +1244,17 @@ class DshApiClient @Inject constructor(
             })))
             put("expectedRevision", expectedRevision)
         }
-        return rpc.call(conn, "settings.mutate", payload) { Unit }.isSuccess
+        val outcome = rpc.call(conn, "settings.mutate", payload) { Unit }
+        if (outcome.isFailure) {
+            val e = outcome.exceptionOrNull()
+            // #298：与 settingsNamespace 同栅栏（settings.mutate 同属特权面）
+            if (e is DshApiError && e.httpStatus == 403) {
+                AppLogger.w(TAG, "settings.mutate forbidden for ns=$ns (403, loopback-only)")
+                throw DshSettingsForbiddenException()
+            }
+            return false
+        }
+        return true
     }
 
     // ============ 共用 ============
