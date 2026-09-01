@@ -107,6 +107,18 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
         }
     }
 
+    /**
+     * #282-b：last-wins 投影帧同形折叠（7 处 handler 共用）——id 匹配的会话
+     * 应用 transform，其余原样；会话尚未入列表（事件早于 session.list 基线）
+     * 时 no-op，投影基线随后补齐。permission 三 knob 事件为字段级合并形
+     *（保留 options 基线），不走此口。
+     */
+    private fun updateSession(sessionId: String, transform: (Session) -> Session) {
+        _sessions.update { current ->
+            current.map { s -> if (s.id != sessionId) s else transform(s) }
+        }
+    }
+
     private fun handleSessionCreated(event: SseEvent.SessionCreated, serverId: String) {
         trackSession(serverId, event.info.id)
         _sessions.update { current ->
@@ -174,11 +186,7 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
      * 会话尚未入列表（事件早于 session.list 基线）时 no-op——基线随后补齐。
      */
     private fun handleSessionAgentPresetChanged(event: SseEvent.SessionAgentPresetChanged) {
-        _sessions.update { current ->
-            current.map { s ->
-                if (s.id != event.sessionId) s else s.copy(agentPreset = event.agentPreset)
-            }
-        }
+        updateSession(event.sessionId) { it.copy(agentPreset = event.agentPreset) }
     }
 
     /**
@@ -186,57 +194,33 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
      * 会话尚未入列表（事件早于 session.list 基线）时 no-op——基线随后补齐（DshSessionMapper）。
      */
     private fun handleSessionTokenUsageChanged(event: SseEvent.SessionTokenUsageChanged) {
-        _sessions.update { current ->
-            current.map { s ->
-                if (s.id != event.sessionId) s else s.copy(tokenUsage = event.tokenUsage)
-            }
-        }
+        updateSession(event.sessionId) { it.copy(tokenUsage = event.tokenUsage) }
     }
 
     /** session/projection subagentTiming 帧 → 折叠进 Session.subagentTiming（last-wins）。 */
     private fun handleSessionSubagentTimingChanged(event: SseEvent.SessionSubagentTimingChanged) {
-        _sessions.update { current ->
-            current.map { s ->
-                if (s.id != event.sessionId) s else s.copy(subagentTiming = event.timing)
-            }
-        }
+        updateSession(event.sessionId) { it.copy(subagentTiming = event.timing) }
     }
 
 
     /** goal 投影（goal/change 事件 / session/projection key=goal）→ 折叠进 Session.goal（last-wins 全量快照；null = clear）。 */
     private fun handleSessionGoalChanged(event: SseEvent.SessionGoalChanged) {
-        _sessions.update { current ->
-            current.map { s ->
-                if (s.id != event.sessionId) s else s.copy(goal = event.goal)
-            }
-        }
+        updateSession(event.sessionId) { it.copy(goal = event.goal) }
     }
 
     /** contextPressure 投影帧 → 折叠进 Session.contextPressure（环分子/分母源，last-wins）。 */
     private fun handleSessionContextPressureChanged(event: SseEvent.SessionContextPressureChanged) {
-        _sessions.update { current ->
-            current.map { s ->
-                if (s.id != event.sessionId) s else s.copy(contextPressure = event.pressure)
-            }
-        }
+        updateSession(event.sessionId) { it.copy(contextPressure = event.pressure) }
     }
 
     /** contextBreakdown 投影帧 → 折叠进 Session.contextBreakdown（last-wins）。 */
     private fun handleSessionContextBreakdownChanged(event: SseEvent.SessionContextBreakdownChanged) {
-        _sessions.update { current ->
-            current.map { s ->
-                if (s.id != event.sessionId) s else s.copy(contextBreakdown = event.breakdown)
-            }
-        }
+        updateSession(event.sessionId) { it.copy(contextBreakdown = event.breakdown) }
     }
 
     /** sessionStats 投影帧 → 折叠进 Session.sessionStats（last-wins）。 */
     private fun handleSessionStatsChanged(event: SseEvent.SessionStatsChanged) {
-        _sessions.update { current ->
-            current.map { s ->
-                if (s.id != event.sessionId) s else s.copy(sessionStats = event.stats)
-            }
-        }
+        updateSession(event.sessionId) { it.copy(sessionStats = event.stats) }
     }
 
     private fun handleSessionDeleted(event: SseEvent.SessionDeleted) {
