@@ -101,7 +101,10 @@ class OpenCodeApp : Application() {
         // [perf/compose-tracing] #258：DEBUG 构建的组合追踪由 runtime-tracing 的
         // ComposeTracingInitializer（androidx.startup）自动初始化——systrace/perfetto
         // 中可见 Compose:recomposition 等段，用于定位 fling 组合热点。release 不打包。
-        // 若需要显式开关：androidx.compose.runtime.tracing.Tracing.enable()。
+        // 2026-09-02 勘误：细粒度 CC: 段（按调用点）依赖 tracing-perfetto SDK 与系统
+        // traced 的 ENABLE_TRACING 广播握手——本设备（MIUI user 版）traced 不发该
+        // 广播，isTraceInProgress 恒 false，CC: 段不可达（1.11.2 同构）。
+        // #258 热点归因改走自插桩 atrace 段（ChatMessageList per-item，debug 门控）。
         if (BuildConfig.DEBUG) {
             AppLogger.i("App", "Compose composition tracing available (debug, initializer)")
         }

@@ -58,6 +58,25 @@ import kotlinx.serialization.json.jsonPrimitive
 internal fun reasoningDurationMs(start: Long, end: Long): Long? =
     if (start > 0) end - start else null
 
+/**
+ * [perf-flng] #258 块级组合成本取证：所有 part 渲染的汇聚点（分片/非分片两路
+ * 共用）——DEBUG 下按 part 形态包 atrace 段（flng:pt:*，嵌套于 item 段内），
+ * perfetto/atrace 帧内归因用；细粒度 CC: 段依赖 tracing-perfetto SDK 广播握手，
+ * 本设备不可达（勘误见 OpenCodeApp）。
+ */
+private fun partTraceName(part: Part): String = when (part) {
+    is Part.Text -> "flng:pt:text"
+    is Part.Reasoning -> "flng:pt:reason"
+    is Part.Tool -> "flng:pt:tool:" + part.tool.take(24)
+    is Part.File -> "flng:pt:file"
+    is Part.Patch -> "flng:pt:patch"
+    is Part.Permission -> "flng:pt:perm"
+    is Part.Question -> "flng:pt:question"
+    is Part.Abort -> "flng:pt:abort"
+    is Part.Retry -> "flng:pt:retry"
+    else -> "flng:pt:other"
+}
+
 @Composable
 internal fun PartContent(
     part: Part,
@@ -72,6 +91,41 @@ internal fun PartContent(
     // 2026-08-13 根本方案：跳转目标预解析结果（见 MarkdownContent）
     preParsedState: State? = null,
     // 2026-08-22 滚动巨帧根治：非流式 fallback 异步解析（见 MarkdownContent）
+    asyncParse: Boolean = false,
+) {
+    // try/catch 包 composable 调用为编译器所禁——直包 begin/end（组合中途异常
+    // 会击穿进程，未闭合段无观察意义）。
+    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+        android.os.Trace.beginSection(partTraceName(part))
+    }
+    PartContentInner(
+        part = part,
+        textColor = textColor,
+        isUser = isUser,
+        onViewSubSession = onViewSubSession,
+        turnAgentName = turnAgentName,
+        onOpenFile = onOpenFile,
+        onViewTool = onViewTool,
+        markdownStateOverride = markdownStateOverride,
+        preParsedState = preParsedState,
+        asyncParse = asyncParse,
+    )
+    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+        android.os.Trace.endSection()
+    }
+}
+
+@Composable
+private fun PartContentInner(
+    part: Part,
+    textColor: Color,
+    isUser: Boolean = false,
+    onViewSubSession: ((String) -> Unit)? = null,
+    turnAgentName: String? = null,
+    onOpenFile: ((filePath: String) -> Unit)? = null,
+    onViewTool: ((ViewToolRequest) -> Unit)? = null,
+    markdownStateOverride: MarkdownState? = null,
+    preParsedState: State? = null,
     asyncParse: Boolean = false,
 ) {
     when (part) {

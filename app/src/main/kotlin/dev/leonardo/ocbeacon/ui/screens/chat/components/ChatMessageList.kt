@@ -1221,10 +1221,15 @@ fun ChatMessageList(
                                             }
                                         }
                                 ) {
-                                    // [perf-flng] #258 组合成本取证（DEBUG-only）
+                                    // [perf-flng] #258 组合成本取证（DEBUG-only）。
+                                    // return@Box 先行提出——保证 begin/end 段闭合。
                                     val chunkT0 = android.os.SystemClock.elapsedRealtimeNanos()
+                                    val chunkTurn = renderableTurns[displayItemIndex] ?: return@Box
+                                    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                        android.os.Trace.beginSection("flng:it:chunk")
+                                    }
                                     ChunkedAssistantMessage(
-                                        renderableTurn = renderableTurns[displayItemIndex] ?: return@Box,
+                                        renderableTurn = chunkTurn,
                                         currentMessage = msg,
                                         chunk = entry,
                                         isAmoled = isAmoled,
@@ -1242,6 +1247,9 @@ fun ChatMessageList(
                                         eventExpandedStates = eventCardExpandedStates,
                                     )
                                     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                        android.os.Trace.endSection()
+                                    }
+                                    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                                         dev.leonardo.ocbeacon.logging.AppLogger.d(
                                             "perf-flng",
                                             "chunk compose " + (android.os.SystemClock.elapsedRealtimeNanos() - chunkT0) / 1e6 +
@@ -1258,6 +1266,10 @@ fun ChatMessageList(
                                         if (entry.isLast) m.padding(bottom = messageSpacing) else m
                                     }
                                 ) {
+                                    // [perf-flng] #258 组合成本取证（DEBUG-only）
+                                    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                        android.os.Trace.beginSection("flng:it:uchunk")
+                                    }
                                     ChunkedUserMessage(
                                         currentMessage = chatMessage,
                                         chunk = entry,
@@ -1290,6 +1302,9 @@ fun ChatMessageList(
                                         },
                                         isAmoled = isAmoled,
                                     )
+                                    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                        android.os.Trace.endSection()
+                                    }
                                 }
                             }
                             is ChatEntry.Turn -> {
@@ -1413,6 +1428,10 @@ fun ChatMessageList(
                                 // 嵌入该消息的思考卡片（ReasoningBlock）内部渲染
                                 val embeddedQ = embeddedQuestionByMsgId[msg.message.id]
 
+                                // [perf-flng] #258 组合成本取证（DEBUG-only）
+                                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                    android.os.Trace.beginSection("flng:it:turn-a")
+                                }
                                 MessageCard(
                                     role = MessageCardRole.ASSISTANT,
                                     renderableTurn = renderableTurns[displayItemIndex],
@@ -1444,6 +1463,9 @@ fun ChatMessageList(
                                     questionAnswersCache = viewModel.questionAnswerStore,
                                     eventExpandedStates = eventCardExpandedStates,
                                 )
+                                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                    android.os.Trace.endSection()
+                                }
                             }
                             msg.isUser -> {
                                 val chatMessage = msg
@@ -1671,6 +1693,10 @@ fun ChatMessageList(
                                     }
                                 }
 
+                                // [perf-flng] #258 组合成本取证（DEBUG-only）
+                                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                    android.os.Trace.beginSection("flng:it:turn-u")
+                                }
                                 MessageCard(
                                     role = if (chatMessage.message is Message.User &&
                                         (chatMessage.message as Message.User).role == "synthetic"
@@ -1714,6 +1740,9 @@ fun ChatMessageList(
                                     // #243 连续同内容去重：本卡为保留首张时显示 ×N
                                     eventDupCount = syntheticDupCounts[chatMessage.message.id] ?: 0
                                 )
+                                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                    android.os.Trace.endSection()
+                                }
                             }
                         }
                         } // Box freeze
