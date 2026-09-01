@@ -136,6 +136,40 @@ class DshApiClientTest {
     }
 
     @Test
+    fun `readAttachment returns media type and base64 pair`() = runTest {
+        // #287：value = {attachment:{mediaType,…}, data:"<base64>"}（无 data: 前缀）
+        val engine = MockEngine {
+            respond(
+                ok("""{"attachment":{"attachmentId":"a-1","mediaType":"image/png","bytes":4,"width":2,"height":2,"name":"dot.png"},"data":"aGk="}"""),
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        val pair = client(engine).readAttachment(conn, "s-1", "a-1")
+        assertEquals("image/png" to "aGk=", pair)
+        val req = captureRequests(engine).single()
+        assertEquals("/api/session.attachment", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("session.attachment", body["method"]!!.jsonPrimitive.content)
+        val payload = body["payload"]!!.jsonObject
+        assertEquals("s-1", payload["sessionId"]!!.jsonPrimitive.content)
+        assertEquals("a-1", payload["attachmentId"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `readAttachment missing data degrades to null`() = runTest {
+        val engine = MockEngine {
+            respond(ok("""{"attachment":{"attachmentId":"a-1","mediaType":"image/png"}}"""), HttpStatusCode.OK, jsonHeaders())
+        }
+        assertNull(client(engine).readAttachment(conn, "s-1", "a-1"))
+    }
+
+    @Test
+    fun `readAttachment transport failure degrades to null`() = runTest {
+        val engine = MockEngine { respond("boom", HttpStatusCode.InternalServerError) }
+        assertNull(client(engine).readAttachment(conn, "s-1", "a-1"))
+    }
+
+    @Test
     fun `renameSession calls session rename`() = runTest {
         val engine = MockEngine { respond(ok("{\"sessionId\":\"s-1\",\"updatedAt\":9}"), HttpStatusCode.OK, jsonHeaders()) }
         val session = client(engine).renameSession(conn, "s-1", "new title")
