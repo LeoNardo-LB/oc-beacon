@@ -62,8 +62,9 @@ interface SubagentTreeController {
  * AgentSheet 多级树状态机（2026-09 树化，已裁决双轨数据源）：
  *
  * - **DSH**（fetcher 命中）：subagent.list 权威域——面板打开 [refreshRoot] 拉根层、
- *   展开未缓存层时逐层懒加载；失败软降级本地递归（AppLogger.w 告警，
- *   仓库既有降级风格），refreshRoot 重试成功即恢复权威域。diagnostic 行灰显不可点。
+ *   展开未缓存层时逐层懒加载；失败**逐层**软降级本地镜像（AppLogger.w 告警，
+ *   仓库既有降级风格；#284-a：仅失败层回退，缓存层保持权威渲染），失败层
+ *   防重探，refreshRoot 成功复位根层。diagnostic 行灰显不可点。
  * - **OpenCode V1/V2**（fetcher 返回 null）：本地 session 镜像按 parentId 递归
  *   子树（visited 防环），展开/收起纯本地重算（localMode 锁定后不再逐层探测）。
  *
@@ -80,8 +81,14 @@ internal class SubagentTreeHolder(
     private val loadingIds = MutableStateFlow<Set<String>>(emptySet())
     /** DSH 逐层缓存：parentSessionId → 目录行（展开过即缓存）。 */
     private val catalog = MutableStateFlow<Map<String, List<SubagentChild>>>(emptyMap())
-    /** DSH 域故障软降级标记（本地递归顶上；refreshRoot 成功后复位）。 */
-    private val degraded = MutableStateFlow(false)
+    /**
+     * #284-a：DSH 逐层降级集——fetch 失败的父层。仅服务 toggle 防重探
+     * （失败层不再逐次展开打请求）；**渲染不用它**——行源规则是
+     * catalog 命中层权威、缺席层回退本地镜像（缓存层不受失败层牵连，
+     * 根因：原全局 degraded 开关把单层失败放大成整树退回本地镜像）。
+     * refreshRoot 成功复位根层。
+     */
+    private val degradedIds = MutableStateFlow<Set<String>>(emptySet())
     /** OpenCode 无权威域标记（根探测 null）——本地模式，toggle 不再发请求。 */
     private val localMode = MutableStateFlow(false)
     private val rootId = MutableStateFlow("")
@@ -96,7 +103,7 @@ internal class SubagentTreeHolder(
                 expandedIds.value = emptySet()
                 loadingIds.value = emptySet()
                 catalog.value = emptyMap()
-                degraded.value = false
+                degradedIds.value = emptySet()
                 localMode.value = false
             }
         }
@@ -107,13 +114,11 @@ internal class SubagentTreeHolder(
         expandedIds,
         loadingIds,
         catalog,
-        degraded,
-    ) { snapshot, expanded, loading, catalogMap, isDegraded ->
-        val rows = if (!isDegraded && catalogMap.containsKey(snapshot.rootSessionId)) {
-            buildCatalogTreeRows(snapshot.rootSessionId, catalogMap, expanded, snapshot.titleById)
-        } else {
-            buildLocalTreeRows(snapshot, expanded)
-        }
+    ) { snapshot, expanded, loading, catalogMap ->
+        // #284-a：逐层降级合并展平——catalog 命中层权威、缺席层（根引导未
+        // 完成/该层拉取失败/OpenCode 本地模式）回退本地镜像；空 catalog 时
+        // 退化形态即纯本地递归。
+        val rows = buildMergedTreeRows(snapshot.rootSessionId, catalogMap, snapshot, expanded)
         SubagentTreeUiState(rows = rows, loadingIds = loading)
     }.stateIn(scope, SharingStarted.Eagerly, SubagentTreeUiState())
 
@@ -129,18 +134,18 @@ internal class SubagentTreeHolder(
                 if (entries != null) {
                     catalog.update { it + (root to entries) }
                     localMode.value = false
+                    degradedIds.update { it - root }
                 } else {
                     // OpenCode：无权威域（探测一次即锁定本地模式）
                     localMode.value = true
                 }
-                degraded.value = false
             } else {
                 AppLogger.w(
                     TAG,
-                    "subagent.list failed for root (falling back to local mirror): " +
+                    "subagent.list failed for root (layer falls back to local mirror): " +
                         (result.exceptionOrNull()?.message ?: "unknown"),
                 )
-                degraded.value = true
+                degradedIds.update { it + root }
             }
             loadingIds.update { it - root }
         }
@@ -152,21 +157,23 @@ internal class SubagentTreeHolder(
             return
         }
         val fetch = fetcher
-        if (fetch != null && !degraded.value && !localMode.value && sessionId !in catalog.value) {
+        if (fetch != null && !localMode.value && sessionId !in catalog.value && sessionId !in degradedIds.value) {
             // DSH 逐层懒加载：展开未缓存层时才请求该层（点箭头=发请求）。
+            // #284-a：降级逐层——其他层失败不阻止本层探测；已失败层防重探。
             scope.launch {
                 loadingIds.update { it + sessionId }
                 val result = fetch(sessionId)
                 val entries = result.getOrNull()
                 if (result.isSuccess) {
                     entries?.let { list -> catalog.update { it + (sessionId to list) } }
+                    degradedIds.update { it - sessionId }
                 } else {
                     AppLogger.w(
                         TAG,
-                        "subagent.list failed for $sessionId (falling back to local mirror): " +
+                        "subagent.list failed for $sessionId (layer falls back to local mirror): " +
                             (result.exceptionOrNull()?.message ?: "unknown"),
                     )
-                    degraded.value = true
+                    degradedIds.update { it + sessionId }
                 }
                 loadingIds.update { it - sessionId }
                 expandedIds.update { it + sessionId }
@@ -206,49 +213,40 @@ private fun flattenTreeRows(
 }
 
 /**
- * 本地镜像递归子树展平（OpenCode 权威路径 + DSH 软降级路径）。
- * hasChildren 由本地子代表推导；label 缺失兜底裸 id。
+ * 合并展平（#284-a 逐层降级）：每层子源 **catalog 命中层权威、缺席层回退
+ * 本地镜像**——缺席层涵盖三种形态：根引导未完成、该层拉取失败（降级层）、
+ * OpenCode 本地模式（catalog 恒空，退化为纯本地递归）。任一层失败只影响
+ * 该层，缓存层保持权威目录渲染（根因：原全局 degraded 开关把单层失败放大
+ * 成整树退回本地镜像）。
+ *
+ * 行映射：catalog 层 hasChildren 权威来自条目字段、diagnostic 行原样透传
+ * （灰显不可点、不下钻）；本地层 hasChildren 由镜像子表推导（catalog 有
+ * 缓存孙层也计入），label 缺失回退 title 投影再兜底裸 id。visited 防环。
  */
-internal fun buildLocalTreeRows(
+internal fun buildMergedTreeRows(
+    rootSessionId: String,
+    catalog: Map<String, List<SubagentChild>>,
     snapshot: SubagentLocalSnapshot,
     expanded: Set<String>,
 ): List<SubagentTreeRow> = flattenTreeRows(
-    rootId = snapshot.rootSessionId,
-    expanded = expanded,
-    childrenOf = { parent -> snapshot.childrenByParent[parent].orEmpty() },
-    rowOf = { child, depth ->
-        SubagentTreeRow(
-            sessionId = child.sessionId,
-            depth = depth,
-            label = child.label ?: child.sessionId,
-            isRunning = child.isRunning,
-            hasChildren = !snapshot.childrenByParent[child.sessionId].isNullOrEmpty(),
-            isExpanded = child.sessionId in expanded,
-        )
-    },
-    shouldDescend = { it.hasChildren },
-)
-
-/**
- * DSH subagent.list 缓存展平：hasChildren 权威来自条目字段；label 缺失
- * （one-shot 可选）回退本地镜像 title 投影，再兜底裸 id。diagnostic 行原样
- * 透传（灰显不可点）且不下钻（无子代语义）。
- */
-internal fun buildCatalogTreeRows(
-    rootSessionId: String,
-    catalog: Map<String, List<SubagentChild>>,
-    expanded: Set<String>,
-    titleById: Map<String, String>,
-): List<SubagentTreeRow> = flattenTreeRows(
     rootId = rootSessionId,
     expanded = expanded,
-    childrenOf = { parent -> catalog[parent].orEmpty() },
+    childrenOf = { parent ->
+        catalog[parent] ?: snapshot.childrenByParent[parent].orEmpty().map { child ->
+            // 本地层行装饰：镜像（或 catalog 缓存孙层）推导 hasChildren，
+            // 使两源行映射同形（展开箭头不因降级丢失）。
+            child.copy(
+                hasChildren = !snapshot.childrenByParent[child.sessionId].isNullOrEmpty() ||
+                    catalog.containsKey(child.sessionId)
+            )
+        }
+    },
     rowOf = { entry, depth ->
         SubagentTreeRow(
             sessionId = entry.sessionId,
             depth = depth,
             label = entry.label
-                ?: titleById[entry.sessionId]
+                ?: snapshot.titleById[entry.sessionId]
                 ?: entry.sessionId,
             isRunning = entry.isRunning,
             hasChildren = entry.hasChildren,

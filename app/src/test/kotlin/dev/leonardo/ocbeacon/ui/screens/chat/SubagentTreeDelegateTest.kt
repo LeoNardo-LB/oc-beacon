@@ -202,6 +202,61 @@ class SubagentTreeDelegateTest {
     }
 
     @Test
+    fun `dsh single layer failure degrades only that layer keeping cached layers authoritative`() = runTest {
+        // #284-a 逐层降级：根层成功缓存后，某子层拉取失败——失败层子行回退
+        // 本地镜像，根层（及其余缓存层）保持权威目录行；失败层防重探。
+        val fetchCalls = mutableListOf<String>()
+        val snapshots = MutableStateFlow(
+            snapshot(
+                root = "session-root",
+                childrenByParent = mapOf(
+                    // 失败层 a 的本地镜像子代（降级后顶上渲染）
+                    "a" to listOf(child("local-a1", label = "本地镜像子行")),
+                ),
+            ),
+        )
+        val holder = SubagentTreeHolder(
+            backgroundScope,
+            fetcher = { parent ->
+                fetchCalls.add(parent)
+                if (parent == "session-root") {
+                    Result.success(
+                        listOf(
+                            child("a", label = "权威行A", hasChildren = true),
+                            child("b", label = "权威行B"),
+                        )
+                    )
+                } else {
+                    Result.failure(IllegalStateException("layer rpc down"))
+                }
+            },
+            snapshots = snapshots,
+        )
+        runCurrent()
+        holder.refreshRoot()
+        runCurrent()
+        holder.toggle("a") // 展开失败层
+        runCurrent()
+
+        // 根层行保持权威目录（含 label），失败层 a 的子行来自本地镜像
+        val rows = holder.state.value.rows
+        assertEquals(listOf("a", "local-a1", "b"), rows.map { it.sessionId })
+        assertEquals("权威行A", rows[0].label)
+        assertEquals("本地镜像子行", rows[1].label)
+        assertEquals(1, rows[1].depth)
+        assertEquals("权威行B", rows[2].label)
+
+        // 失败层防重探：再展开不重打请求（b 无子代不触发）
+        holder.toggle("a")
+        runCurrent()
+        holder.toggle("a")
+        runCurrent()
+        assertEquals(listOf("session-root", "a"), fetchCalls)
+        // 防重探路径仍渲染本地镜像子行
+        assertEquals(listOf("a", "local-a1", "b"), holder.state.value.rows.map { it.sessionId })
+    }
+
+    @Test
     fun `opencode null catalog result stays local without fetch storm`() = runTest {
         val fetchCalls = mutableListOf<String>()
         val snapshots = MutableStateFlow(
