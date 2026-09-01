@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#294**。
+**编号**：全局递增，不回收。下一编号：**#298**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -61,9 +61,29 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#293 DSH 大库存服务器（470 会话）连接期发送通道长时间挂起——时钟态无 RPC 发出** `dsh` `infra`
-  - 2026-09-01 E2E 验收五轮实证：新会话发送均停留「时钟等待」，无 session.create/prompt Ktor 请求、无「Failed to send」日志（sendParts→ensureSession→sendPrompt 链内挂起）；读路径全通（list/history/attachment/export）；伴随「persist queue full, dropped 750 writes」+「L3 REST validation failed: StandaloneCoroutine was cancelled」洪泛链——走查批小库存服务器发送正常，疑与回放规模相关
-  - 方向：定位 DshConnectionOrchestrator/ensureSession 的连接态门禁与协程取消交互；阻塞 #278 真机验收
+- [ ] **#296 host/remote-event 解包缺失——commands/change 消费分支是死代码，五类转发通知全静默** `dsh` `infra`
+  - 2026-09-01 差距调研（④ api-gap）发现：服务端把转发事件（commands/change、agent-preset/selected、credentials/reference-updated、llm/adapters-updated、settings/document-updated 等 11 个，api-remotes index.js:19-31）一律包在 `host/remote-event` 帧里发送；DshEventMapper.kt:162 的裸 `commands/change` 分支永不命中——#285 命令注册表 WS 刷新链路实际不触发
+  - 修复=DshEventMapper 加 `host/remote-event` 解包分支（取 payload.event 分发到既有裸帧逻辑；官方客户端 client-runtime client.js:10518 同构）；验证=改权限档/预设后 commands/change 驱动 roster 重拉（logcat CommandsChanged 行）
+  - → `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §0-0a
+
+- [ ] **#297 /compact 通道存疑——命令文本经 session.prompt 发送，疑似进模型而非执行压缩** `dsh` `data`
+  - 2026-09-01 差距调研发现：compactSession 把 `"/compact"` 文本当 session.prompt 文本块发送（DshApiClient.kt:196-204）；与 2026-08-31 permission 调研活体实证「prompt 不派发斜杠命令（leading-/ 变 user/message 进模型）」直接冲突——若该结论全局成立，压缩实际发出的是普通用户消息
+  - 方向：E2E 复核（观察 compact 后是否出现 user/message 转录 + 模型回应）；若坐实改走 commands/execute（"/compact"）对齐 /permission 先例；验证=压缩触发后 Room 无 "/compact" user 消息 + compaction/end 到达
+  - → `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §0-0b
+
+- [ ] **#295 DSH 附件缩略图跨进程丢失——Room 回读路径不触发 session.attachment 回源** `dsh` `data`
+  - 2026-09-01 #293 二批实证：Test Lab 首进程内缩略图渲染 + 回源请求正常；进程重启后再进同一会话，Room part 仅存 attachmentId 信封（无 url 无 data），零 session.attachment 请求，像素扫描 1×1 测试图缩略图消失——#287 的 attachmentUrlCache/patchFileUrl 均内存态，loadMessagesForSession 本地缓存路径不喂 eventDispatcher.parts，collectPendingAttachmentFetches 无从触发
+  - 方向：Room part 反序列化后统一过一遍回源判定（url 空且有 attachmentId 即入队），或持久化 data URL（注意 payload 体积）；验证=冷启二次进会话缩略图仍在 + session.attachment 请求出现
+  - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
+
+- [ ] **#294 DSH 回放期通知风暴 + heads-up 点按劫持（重放历史完成被当作新完成）** `dsh` `infra` `ui`
+  - 2026-09-01 #293 批实证：冷启回放期 app 发 57 条通知（7 分钟窗），MIUI heads-up 横幅两次劫持顶栏「新建会话」点按（深链拽进历史会话，logcat Deep-link 行实锤）；机制=重放的 SessionIdle 事件经 checkNewAssistantMessage 缓存未命中 → 误判「新完成」
+  - 方向（二选一/组合）：①对账基线落定（subscribed 静默窗）前抑制完成类通知；②事件年龄过滤——需把 DSH 帧 `time` 透传进 SseEvent（现 SessionIdle 无时间戳，映射时丢弃）；验证=冷启大库存期无通知弹出、点按不被劫持
+  - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
+
+- [ ] **#293 DSH 连接期发送通道「挂起」——判决：不成立（E2E 坐标伪影），待用户裁决关闭** `dsh` `infra`
+  - 2026-09-01 二批复现三轮推翻原判：dump 定位发送键后洪泛期三轮发送全部 <100ms 成功（selectModel→prompt→回证链 logcat 实证）；原五轮「时钟态无 RPC」根因=键盘弹起后输入栏随 imePadding 上移，盲点 (1092,2530) 落键盘——发送从未发生；sendStateStore 卡 sending 嫌疑排除（静态+动态双证）
+  - 附带发现已拆卡：#294（回放期通知风暴，真缺陷）；E2E 脚本已修（tap_text dump 定位 + 懒建导航链 + 禁切用户会话权限档）
   - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
 
 - [ ] **#288 workflow 阶段卡（tool-workflow agent-start/end 聚合渲染）** `dsh` `ui`
@@ -71,9 +91,9 @@
   - 方向：run 级聚合器（成员 label/outcome/phase 折叠进阶段卡，参照官方 tool-workflow 装配）；验证=真机 workflow 运行会话卡片分阶段展示
   - **2026-09-01 活体四面包夹（走查 #9 定性）**：当前服务器对客户端**不暴露** tool-workflow 进度事件——events.mux 实况帧（两次 WS tap + 现跑 workflow 对照，仅 tool/code-dispatch* 渲染伴生）、session.history journal（39 页全翻 0 行，fresh run 亦不入）、session/projection（仅 permissions）、session/jobs（仅 bash 后台任务）四面皆无 → app 侧映射链（DshEventMapper:469 + DshMessageAssembler）为休眠代码路径，非缺陷；走查期「18 事件在 a6c4」不复现（疑当时另有来源/版本窗口）。重开丢卡=结构性（无服务器数据源），DSH synthetic 消息零持久化同因。**升级前置**：待服务器在任何客户端面暴露 tool-workflow 事件后重验，再启聚合器
 
-- [~] **#278 DSH 僵尸 Busy 的 L3 自愈缺失——无状态端点下的真相源设计** `infra`
-  - 87238a1c 方向二落地：fetchSessionStatus 由恒空 map 改 session.list running 字段播种 busy/idle（DshApiClientTest 专测）；E2E 观察 syncFromRest 行在跑
-  - 残余：running 中强杀重开收敛场景待 #293 解锁发送通道后方可真机代跑
+- [ ] **#278 DSH 僵尸 Busy 的 L3 自愈缺失——播种层已修但集成被启动竞态取消（退回进行中）** `infra`
+  - 87238a1c API 层播种正确（session.list running→busy/idle，DshApiClientTest 专测）；**2026-09-01 二批裁决实验推翻集成假设**：RPC 起活轮次（running=true 窗口内冷启），syncFromRest 报 `aggregated=0/1 busy=0`——播种 session.list 全部 JobCancellationException（DSH 分支 preloadJob 被启动竞态 cancel：SseConnectionManager:399-417 finally cancelAndJoin + 双服务器自动连/重连风暴）；更糟：部分运行走缺失语义把 running 会话盖成 Idle（aggregated=1 busy=0 = 本地兜底误判实锤）
+  - 方向：①播种改连接稳定后执行/防取消（connected 稳态触发或 syncFromRest 内 NonCancellable + 拉取失败不落缺失语义）；②per-project catch 显式放行 CancellationException（现被吞成 warn）；③回归验证=RPC 起活轮次 + 冷启 + syncFromRest busy≥1（可复现实验模式见 journal §七）
   - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
 
 - [ ] **#277 单测偶发跨类污染：UncaughtExceptionsBeforeTest（Dispatchers.Main 未设窗口泄漏）** `test`

@@ -223,3 +223,178 @@ DSH 3080（node，本机即 192.168.110.248）。
   的连接态等待、DSH queue 入队等待）；另查时钟气泡的 UI 状态来源
   （疑堆积/queued 态而非 sending 态）。
 
+## 七、#293 二批：判决反转（2026-09-01 深夜，接力点续）
+
+> 按上节「下一步」执行：宿主侧连续 logcat（`adb logcat -v time > file`，根治
+> 旋转丢失）+ dump 定位点按，四轮真机复现。**结论：#293 不成立——发送通道
+> 健康；五轮「挂起」全系 E2E 坐标伪影。真缺陷是另一个：回放期通知风暴。**
+
+### 静态链路收口（发前排除）
+
+- 发送链三连 RPC（懒建）：`session.create` →（model 非空时）`session.selectModel`
+  → `session.prompt`，全部走 Ktor/OkHttp，`NetworkModule` 配
+  `requestTimeout=socketTimeout=120s / connect=15s`——**纯传输挂死上限 120s 必自愈**，
+  与「长时间挂起」矛盾。
+- `persist queue full`（MessageEventHandler:125）= `Channel.trySend` 丢写计数，
+  **非阻塞**，只证洪泛；`L3 REST validation failed: StandaloneCoroutine was
+  cancelled`（SessionStateService:686）= `activeValidations.merge` 取消旧 job 的
+  正常回显（:690-693），与发送路径无交集——两个「伴随症状」双双排除。
+- Ktor REQUEST 行在进入 HTTP 管线时即打出：**无 REQUEST 行 ⇒ 挂在协程层或
+  发送从未发生**，不可能是「RPC 发出但无响应」。
+
+### 四轮复现（真机，全程序宿主侧连续 logcat 录档 /tmp/293-repro*.log）
+
+- **轮 1**（盲点复刻旧 E2E）：`input text` 后键盘弹起，输入栏随 imePadding
+  上移，「发送」键实际位于 **(1086,1616)**（dump 实测 [1056,1586][1116,1646]），
+  盲点 (1092,2530) 落在键盘区 ~900px——**历轮「发送」实为按了个键盘字符**。
+  全场零 `ChatSendDelegate` 日志、零三连 RPC：发送从未被调用。
+  （AppLogger.d 确认写 logcat——EventDispatcher DEBUG 行同场在场，「零日志」证据成立。）
+- **轮 3**（dump 定位发送键，既有会话 Test Lab，洪泛进行中：118 个 .248 请求
+  + persist queue full×17）：`selectModel` → `prompt` 两 RPC 90ms 内完成，
+  `Sent prompt to session session-320c5915` 两轮发送全过——**洪泛期发送通道健康**。
+- **轮 4**（躲风暴 +12s 再走新会话链）：导航被 heads-up 通知劫持（见下），
+  深链进既有会话后发送依然 90ms 成功。
+- 「时钟态」勘误：SendStopButton 无时钟图标——「发送中」形态 =
+  `CircularProgressIndicator` 环绕纸飞机（SendKey spinner），视觉上易读作表盘；
+  isSending 卡 true 嫌疑随之排除（无 already-sending 日志 + 发送皆即时成功）。
+
+### 真缺陷：回放期通知风暴 + heads-up 点按劫持（→ 新卡 #294）
+
+- 轮 3/4 两次「新建会话」点按（(936,224)/(975,185)，均在按钮 touch target 内）
+  被 MIUI heads-up 横幅吃掉：`Session deep-link: … ACTION_OPEN_SESSION` →
+  `Deep-link → native Chat`（logcat 20:26:33.683 / 20:36:10.298 两条实锤），
+  通知的 contentIntent 直接把导航拽进历史会话。冷启回放期 7 分钟窗内 app 发
+  **57 条通知**（onNotificationPosted 计数）——重放的历史 SessionIdle 事件经
+  `checkNewAssistantMessage` 缓存未命中被误判「新完成」。
+- E2E 首跑（沉降误判 8s，见下）四卡全灭也是同一风暴的牺牲品。
+
+### 事故与处置（如实记录，含一次误判勘误）
+
+- 轮 4 被劫持后，测试串 `E2E_293d_203758` 发进了**用户真实法律工作会话**
+  b95bebc7（外包维权工作区，违反上一节「禁注入真实会话」约束）。
+- **初判「零污染」是错的**：当时查 `session.history` 尾部仍为用户 turn 3 完结
+  （seq 13231、turns=3）且队列空，判「投递失败静默丢弃，仅 lastPromptAt 残留」。
+  勘误证据：二跑 E2E 的 SAF dump 拍到该会话聊天页含 agent 对测试串的完整回复
+  （「E2E_293d_203758 是什么？误粘贴/证据编号/任务代号…」，含两次工具调用与
+  reasoning）；回查轮 4 logcat，20:38:02.400 `Sent prompt` 后 b95bebc7 立即
+  Busy/Waiting → Busy/Streaming（dsh-t3s1 骨架播种 + TextDelta 流）——**真实活
+  轮次于发送当刻即执行**，app 已全程缓存进 Room。DSH 服务端 journal 未落该轮次
+  事件（13232 事件止于 turn 3）属服务端持久化怪癖，与 UI 可见性无关——教训：
+  **「服务端无痕」≠「无污染」，客户端 Room 缓存是独立真相源**。
+- **外科清理（已执行并验证）**：force-stop → 活库三件套拉取 → 删
+  `cached_messages`（b95bebc7 × 7 行：2 user + 5 assistant，created ≥ 20:38:03
+  时间簇；CASCADE 清 parts）+ `message_fts` 幽灵行 6 条（宿主 sqlite3 无 FTS5
+  模块，用 python3 sqlite3 补删）→ checkpoint(TRUNCATE) → run-as cp 回推 →
+  删设备侧陈旧 -wal/-shm。回读验证：该会话 60→53 行、E2E parts 0、FTS 0、
+  integrity ok、冷启渲染正常。Room 侧残留仅 message_fts 已删净、
+  session_sync_state 水位不动（服务端 max seq 13231 ≥ 本地水位，对账只补不删，
+  无回填冲突）。
+- 防再发已固化进脚本：发送/切档实验只落懒建 scratch 会话（dsh-openapi-scratch
+  目录），card_283 无懒建会话即 SKIP（拒绝 top-updated 兜底误切用户会话权限档）。
+- 受控实验另证（Test Lab）：空闲会话 queue 模式立即出队开轮；queue 帧
+  items[].id 即 itemId；`session.updateQueue` remove 可清队列项（payload
+  `{sessionId,itemId,action:{kind:remove}}`）。
+
+### E2E 脚本修复（本批落地，scripts/e2e-acceptance-dsh.sh）
+
+1. `tap_text` 升级：匹配 `text=` **或 `content-desc=`**（发送键/新建会话均无文本
+   只有 desc），多命中取 **y 最小**（顶栏按钮优先于同名列表项），带重试。
+2. `open_new_chat` 劫持防护：表未开时 dump 查顶栏——无「新建会话」= 被深链
+   劫持 → BACK 回列表重试（有则直接重按，避免在列表误 BACK 退桌面）。
+3. card_285/278 导航链 dump 化：新建会话 → **目录选择表（dsh-openapi-scratch，
+   懒建会话不落用户项目）** → 提问框 → dump 定位发送键。
+4. **宿主侧全程序连续 logcat** + 行号偏移（`grep_from`/`wait_logcat` 带起点行）：
+   根治洪泛期设备缓冲旋转吃行（#287 早抓取窗口、#283 派发行、#278 syncFromRest
+   全部受益），卡内隔离不再依赖 `logcat -c`。
+5. 沉降两段式：先等回放证据（persist queue full 出现，60s 上限）再等 24s 静默
+   ——原 quiet≥8（步长 4s = 8s）在回放开始前检查会**假通过**（首跑 8s「沉降
+   完成」四卡全灭的根因）。
+6. card_283 取消 top-updated 兜底：无懒建会话即 SKIP（拒绝在未知/用户会话上
+   切权限档）；#278 等 running=true 窗口 10s→30s 命中即杀（保活轮次造僵尸现场）。
+
+### 卡面处置
+
+- **#293 改判「不成立（坐标伪影）」**，待用户裁决关闭（卡面已改写）。
+- **#294 新立**：回放期通知风暴 + heads-up 劫持（方向：对账基线前抑制完成类
+  通知 / 帧 `time` 透传进 SseEvent 做年龄过滤——现 SessionIdle 无时间戳）。
+- **#295 新立**：DSH 附件缩略图跨进程丢失（Room 回读不回源；见下「run 迭代链」）。
+- **#278**：随修复后的 E2E 复跑收口（结果见下节补记）。
+
+### E2E 复跑迭代链（run1-9，脚本系统性缺陷逐一现形）
+
+- **run1（盲点坐标版）**：4 FAIL 全系假沉降——原静默判据 quiet≥8（步长 4s）
+  在回放开始前检查即假通过（8s「沉降完成」），导航/发送全撞通知风暴窗。
+- **run3（宿主 logcat 版）**：4 卡全灭于「未到达会话列表」——**pipefail +
+  `tail | grep -q` 早退 SIGPIPE(141)**：宿主档大，grep 命中即退 → tail 被管道
+  杀 → 管道状态 141 → 匹配被误判失败。run1/2 用设备端小缓冲 -d 输出赢了竞态
+  所以偶发通过。修复：grep_from 改进程替换（grep 退出码独立）。
+- **run4（pipefail 修复版）**：导航通了，#285/#278 死于「目录表未命中」——
+  目录选择表按活跃度排序，dsh-openapi-scratch 落折叠区下方（首屏仅 4 目录）。
+  修复：滑动翻找 + oc-beacon 回落目录。
+- **run5-6**：scratch 目录在 dsh 重启后从工作区注册表消失（固定回落 oc-beacon）；
+  run6 #285 弱通过（commands/list 请求实证）。
+- **run7-8**：落框验证捕获「文本未落框」——两连根因：①目录表是 overlay，
+  dump 同时含表后列表节点，y-min 的 'oc-beacon' 命中表后 Test Lab 路径行
+  （y634 < 表内标题 y1032）→ 点空表关；②自造 sheet 解析器单对 bounds 翻车
+  （X2 解析空 → tap(114,737)）。修复：tap_text 参数化 ymin/ymax 表区过滤，
+  删除独立解析器；新建会话改固定坐标（顶栏 desc 节点间歇从 a11y 消失——
+  #158，dump 定位反而命中列表行）+「打开其他项目」表出现验证。
+- **run9 前宿主磁盘写满**（7.3G tmpfs 100%——8 轮 host-logcat 各百 MB +
+  6 份 300MB DB 拷贝）：清证据大件后恢复。教训：E2E 产物要周期性清理，
+  pull-app-db 拷贝用完即删。
+- **run9**：oc-beacon 表内点击成功但预设表态输入仍未打通（文本二次未落框）——
+  新会话（目录后预设选择表）输入交互未解，#285/#278 的 UI 路径暂用
+  RPC 直驱替代验证（见下）。
+
+### #278 裁决实验（RPC 直驱，绕开 UI 导航）——发现集成缺口，退回 [ ]
+
+- 实验：RPC `session.prompt` 在 Test Lab 起长输出轮次（数到 200/300）→
+  running=true 窗口内冷启 app → 等 syncFromRest 行 → 服务端 history 核对
+  轮次起止时刻（turn/end 时间戳 vs app session.list 请求时刻）。
+- **结果**：轮次确在运行（turn/end 晚于 syncFromRest 15-70s），但
+  `syncFromRest aggregated=0/1 busy=0`——播种失败。证据链：
+  ①播种 session.list 全部 `JobCancellationException: StandaloneCoroutine
+  was cancelled`（23:22:57-58 风暴）；②DSH 分支 `preloadJob`（含
+  preLoadSessions→syncFromRest）挂在事件循环 finally 的 cancelAndJoin 下
+  （SseConnectionManager:399-417），启动期双服务器自动连/重连风暴触发反复
+  取消（.248 同窗口 Pre-loaded ×2 实锤竞态环境）；③`aggregated=1 busy=0`
+  的 1 来自**本地 FSM 缺失语义兜底**而非服务器——running 会话被盖成 Idle
+  的反向风险实锤（hasIncompleteAssistant 冷启动必 false）。
+- **结论**：87238a1c 的 API 层播种正确（单测覆盖），但集成层在启动竞态下
+  被取消且部分运行误判——#278 退回 [ ]，修复方向入卡（稳态触发/防取消/
+  失败不落缺失语义/CancellationException 放行）。
+- **#293 判决对该实验的支撑**：发送通道健康（本文 §七三轮实证）使 RPC 直驱
+  造活轮次成为可靠实验手段——原「#278 阻塞于 #293」关系解除，但解除的
+  方向是暴露了更深的集成缺口。
+
+### 草稿污染事故（b95bebc7 之外的二次残留，已清）
+
+- 预设表实验中盲点 tap 误入用户会话（仲裁申请书）输入框，`E2E_PRESET_A`
+  草稿被持久化（跨进程存活）。清除：UI 定位 + Ctrl+A(`input keycombination
+  113 29`) + DEL 后 UI dump 0 处；DB 全表扫 parts 0 处。教训：**实验前先
+  dump 确认当前屏是测试目标会话**，盲点输入一律禁止。
+
+### 本批终局清单（2026-09-01 深夜）
+
+- #293：判决不成立（待用户裁决关闭）；#294/#295 新立；#278 退回 [ ]（集成
+  缺口 + 修复方向 + 可复现实验模式）；#285/#279 维持 [~]（各自有既有证据）；
+  E2E 脚本七处系统性修复落地；dsh 服务器重启一次（清 live buffer，journal
+  无损）；两起污染事故全部清零并验证。
+
+### 污染复活链与终局（事故处置续）
+
+- **第一次手术后污染复活**（run4 SAF dump 又见 E2E 内容）——两层原因：
+  ① python sqlite3 默认不开外键 → 消息删除未 CASCADE，6 条 part 残留
+  （surg2 只查了消息数没查 parts，误判「服务器重推」）；
+  ② DSH 服务器把未入 journal 的轮次事件留在**内存 live buffer**，且其 seq
+  与 journal 空间重叠（11691-13229 vs journal 13231），每个新 mux 订阅者
+  都被重推 → app 折叠重持久化（run4 的复活主体）。
+- **终局处置**：核无 running 会话 + journal 落盘安全后重启 dsh 守护进程
+  （pid 3734621 → 963714，同命令 nohup）清空 live buffer → 重做完整外科
+  （msg + parts 显式删 + 孤儿 parts + FTS，PRAGMA foreign_keys=ON）→ 回推 →
+  冷启 45s 后回读：**E2E parts=0、消息 53、无复活**。
+- **教训三则**：① python sqlite3 外键默认关，CASCADE 删除必须显式
+  `PRAGMA foreign_keys=ON`；② 验证删除要查**所有**目标表（parts/FTS/孤儿）；
+  ③ DSH 未 journal 化轮次的 live buffer 重推是复活源——**服务器侧清源优先于
+  客户端清库**，顺序反了白干。
+
