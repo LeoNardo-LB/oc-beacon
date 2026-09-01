@@ -428,12 +428,24 @@ class DshApiClient @Inject constructor(
     override suspend fun listSessionStatus(conn: ServerConnection, directory: String?): Map<String, SessionStatusInfo> = emptyMap()
 
     /** 存活探测 = host.describe 成功（§2.5：DSH 无 /health）——空 map 起步（#276 任务契约）。 */
+    /**
+     * #278（僵尸 Busy L3 兜底）：DSH 无 host.describe 状态端点——改由 session.list
+     * 的 running 字段播种（true=busy / false=idle，服务器权威）。原恒空 map 使
+     * syncFromRest 对 DSH 会话零信息——无 turn/end 终态的异常会话永远停在 Busy。
+     * directory 参数不参与（DSH list 全局；聚合层幂等合并）。
+     */
     override suspend fun fetchSessionStatus(
         conn: ServerConnection,
         directory: String?,
     ): Result<Map<String, RestSessionStatusInfo>> =
-        rpc.call(conn, "host.describe", buildJsonObject {}) { Unit }
-            .map { emptyMap<String, RestSessionStatusInfo>() }
+        rpc.call(conn, "session.list", buildJsonObject {}) { value ->
+            (value.dshArr("items") ?: emptyList()).mapNotNull { el ->
+                (el as? JsonObject)?.let { item ->
+                    val sid = item.dshStr("sessionId") ?: return@let null
+                    sid to RestSessionStatusInfo(type = if (item.dshBool("running") == true) "busy" else "idle")
+                }
+            }.toMap()
+        }
 
     /**
      * session.create/rename/fork 响应形状待 E2E 回填——按 list 条目形状容忍解析，

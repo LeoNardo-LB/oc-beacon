@@ -126,11 +126,13 @@ class DshApiClientTest {
     }
 
     @Test
-    fun `fetchSessionStatus probes host describe for liveness`() = runTest {
-        val engine = MockEngine { respond(ok("{\"version\":\"0.0.1\"}"), HttpStatusCode.OK, jsonHeaders()) }
+    fun `fetchSessionStatus probes session list for liveness`() = runTest {
+        // #278：数据源改 session.list（running 播种）——探活语义保留（200 即成功）
+        val engine = MockEngine { respond(ok("{\"items\":[]}"), HttpStatusCode.OK, jsonHeaders()) }
         val result = client(engine).fetchSessionStatus(conn)
         assertTrue(result.isSuccess)
-        assertEquals("/api/host.describe", captureRequests(engine).single().url.encodedPath)
+        assertEquals(0, result.getOrThrow().size)
+        assertEquals("/api/session.list", captureRequests(engine).single().url.encodedPath)
     }
 
     @Test
@@ -322,6 +324,21 @@ class DshApiClientTest {
         {"ns":"llm-deepseek","value":{},"revision":1,"applies":"live","secrets":[]},
         {"ns":"permission","value":{"defaultPreset":"danger-full-access"},"revision":42,"applies":"live","secrets":[]}
     ]}""".trimIndent()
+
+    /** #278：DSH 状态播种——session.list running 字段 → busy/idle（原恒空 map）。 */
+    @Test
+    fun `fetchSessionStatus seeds from session list running`() = runTest {
+        val engine = MockEngine {
+            respond(
+                ok("""{"items":[{"sessionId":"s1","running":true},{"sessionId":"s2","running":false}]}"""),
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        val statuses = client(engine).fetchSessionStatus(conn, directory = null).getOrThrow()
+        assertEquals("busy", statuses["s1"]?.type)
+        assertEquals("idle", statuses["s2"]?.type)
+        assertEquals(2, statuses.size)
+    }
 
     /** 活体（perm-4）：settings.describe 的 ns=permission value.defaultPreset + revision。 */
     @Test
