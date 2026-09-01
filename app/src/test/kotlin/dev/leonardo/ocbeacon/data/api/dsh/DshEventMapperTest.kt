@@ -460,6 +460,61 @@ class DshEventMapperTest {
     }
 
 
+    // ============ host/remote-event 转发解包（#296） ============
+
+    @Test
+    fun `remote-event unpacks commands change to CommandsChanged`() {
+        // 信封黄金样本（mux-frames-extra.jsonl 末行追加）：服务端只以 host/remote-event
+        // 包装发送转发事件（api-proxy.ts:3626），args 是 cordis 位置参数列表（此处 void 事件为空）。
+        val m = mappedFrames("dsh/mux-frames-extra.jsonl")[13]
+        assertEquals("host/remote-event", m.method)
+        assertEquals(listOf(DshMappedEvent.Sse(SseEvent.CommandsChanged)), m.mapped)
+    }
+
+    @Test
+    fun `remote-event unpacks agent preset selected positional args`() {
+        // agent-preset/selected(sessionId, agentPreset) 位置参数——host 流双保险，
+        // 与 SessionEvent 内层分支同语义（SessionAgentPresetChanged 驱动卡片高亮）。
+        val m = mappedFrames("dsh/mux-frames-extra.jsonl")[14]
+        assertEquals(
+            listOf(DshMappedEvent.Sse(SseEvent.SessionAgentPresetChanged(sessionId = "fixture-0001", agentPreset = "build"))),
+            m.mapped,
+        )
+    }
+
+    @Test
+    fun `remote-event preset args malformed is ignored`() {
+        val mapped = DshEventMapper.mapFrame(
+            "host/remote-event",
+            json.parseToJsonElement(
+                """{"type":"host/remote-event","event":"agent-preset/selected","args":["s1"]}"""
+            ).jsonObject,
+        )
+        assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED)), mapped)
+    }
+
+    @Test
+    fun `remote-event unconsumed whitelist event is ignored with remote-event reason`() {
+        // 白名单其余项（credentials/updated、cordis 转发六事件、llm/adapters-updated、
+        // settings/document-updated）无 Android 消费端 → 解包后 Ignored 留痕（非 HOST_WORKSPACE）。
+        val mapped = DshEventMapper.mapFrame(
+            "host/remote-event",
+            json.parseToJsonElement(
+                """{"type":"host/remote-event","event":"llm/adapters-updated","args":[{}]}"""
+            ).jsonObject,
+        )
+        assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.REMOTE_EVENT)), mapped)
+    }
+
+    @Test
+    fun `remote-event missing event key is malformed`() {
+        val mapped = DshEventMapper.mapFrame(
+            "host/remote-event",
+            json.parseToJsonElement("""{"type":"host/remote-event","args":[]}""").jsonObject,
+        )
+        assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED)), mapped)
+    }
+
     @Test
     fun `host workspace frames and unknown frame methods are ignored`() {
         val ws = mappedFrames("dsh/mux-frames-extra.jsonl")[6]

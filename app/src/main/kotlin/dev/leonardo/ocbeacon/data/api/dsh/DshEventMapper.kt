@@ -159,6 +159,9 @@ object DshEventMapper {
 
         // #285：命令注册表变更（全局未过滤通知，cordis 契约 "unfiltered registry
         // notification"）——非会话域，消费端带各自 sessionId 重取 commands/list。
+        // #296 勘误：服务端对此类转发事件**只以 host/remote-event 包装发送**
+        // （api-proxy.ts:3626-3632，白名单见 mapForwardedRemoteEvent）——裸帧
+        // 实际不命中，保留作防御（若服务端未来直发裸帧）。
         "commands/change" -> listOf(DshMappedEvent.Sse(SseEvent.CommandsChanged))
 
         // 后台任务整快照（A：session/jobs → JobsSnapshot，last-wins 整替换）
@@ -352,6 +355,17 @@ object DshEventMapper {
             else listOf(DshMappedEvent.Sse(SseEvent.SessionError(sessionId = sid, error = payload.errorText("message", "error"))))
         }
 
+        // #296：转发事件解包——服务端把白名单 cordis 事件（commands/change、
+        // agent-preset/selected 等 11 个，API_REMOTE_FORWARDED_EVENTS）一律包在
+        // 本帧（zod: {type, event, args:[位置参数]}）经 events.host 流发送；官方
+        // 客户端 client.js:10518 host/remote-event → $dispatch(frame.event, frame.args)。
+        // 未解包前裸 commands/change 分支是死代码——#285 命令注册表刷新链路不触发。
+        "host/remote-event" -> {
+            val forwarded = payload.str("event")
+            if (forwarded == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+            else mapForwardedRemoteEvent(forwarded, payload.arr("args") ?: emptyList())
+        }
+
         // host/workspace-* 与 archived-sessions-changed：整快照姿态，oc-beacon 无 Workspace 域对应
         else -> {
             if (!method.startsWith("host/")) {
@@ -364,6 +378,38 @@ object DshEventMapper {
             )
         }
     }
+
+    /**
+     * 转发事件分派（#296）。[args] 是 cordis 事件的位置参数列表（Host 原样转发、
+     * 无投影——README「no projection, no redaction, no renaming」）；只解包有
+     * 消费端的事件，白名单其余项（credentials/updated、cordis 转发六事件、
+     * llm/adapters-updated、settings/document-updated）无对应 UI/域 → Ignored 留痕。
+     */
+    private fun mapForwardedRemoteEvent(event: String, args: List<JsonElement>): List<DshMappedEvent> =
+        when (event) {
+            // 命令注册表变更（void 事件，args 恒空）——与裸帧分支同语义，
+            // #285 消费端（MiscEventHandler.commandsChanged）重取 commands/list。
+            "commands/change" -> listOf(DshMappedEvent.Sse(SseEvent.CommandsChanged))
+            // (sessionId, agentPreset) 位置参数——与 SessionEvent 内层分支同语义
+            // （host 流双保险：select 变更即使不经会话事件面也驱动卡片高亮）。
+            "agent-preset/selected" -> {
+                val sid = args.elementAtOrNull(0)?.text()
+                val preset = args.elementAtOrNull(1)?.text()
+                if (sid == null || preset == null) {
+                    listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+                } else {
+                    listOf(
+                        DshMappedEvent.Sse(
+                            SseEvent.SessionAgentPresetChanged(sessionId = sid, agentPreset = preset)
+                        )
+                    )
+                }
+            }
+            else -> {
+                AppLogger.d(TAG, "转发事件无消费端（#296 白名单其余项）: event=" + event)
+                listOf(DshMappedEvent.Ignored(DshIgnoreReason.REMOTE_EVENT))
+            }
+        }
 
     /** AskUserQuestionItem → QuestionAsked.Question（多题单事件 questions 列表）。 */
     private fun mapQuestionItem(q: JsonObject): SseEvent.QuestionAsked.Question =
@@ -1015,6 +1061,10 @@ object DshEventMapper {
 
     private fun JsonObject.arr(key: String): JsonArray? = this[key] as? JsonArray
 
+    /** 位置参数取文本（#296 host/remote-event args 列表元素）。 */
+    private fun JsonElement.text(): String? =
+        (this as? JsonPrimitive)?.takeIf { it !is JsonNull }?.contentOrNull
+
     /** 错误载荷转可读文本：对象优先 message，其次 code，最后整体序列化。 */
     /** 错误载荷转可读文本：对象优先 message，其次 code，最后整体序列化。
      *  [keys] 按序探测——2026-08-31：host/agent-error 真实现载荷键是 message，
@@ -1076,6 +1126,9 @@ object DshIgnoreReason {
 
     /** host/workspace-* / archived-sessions-changed（oc-beacon 无 Workspace 域）。 */
     const val HOST_WORKSPACE = "host-workspace"
+
+    /** host/remote-event 已解包但转发事件无消费端（#296 白名单其余项）。 */
+    const val REMOTE_EVENT = "remote-event"
 
     /** chunk block-end（空载荷终态 part 会清空流式文本——见 mapChunk 注释）。 */
     const val CHUNK_BLOCK_END = "chunk-block-end"
