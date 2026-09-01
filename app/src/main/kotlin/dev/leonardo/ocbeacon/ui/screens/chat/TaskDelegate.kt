@@ -169,6 +169,15 @@ class TaskAggregator(
         val snapshot: SubagentLocalSnapshot = SubagentLocalSnapshot(""),
     )
 
+    /**
+     * #282-d：任务排序共用比较器（两处同形提取）——创建时间倒序（新任务在前）
+     * + id tie-break 保证同毫秒创建的稳定排序（避免上游混合序抖动）。
+     * 树化分组（childrenByParent）与根层摘要（rootSummaries）共用同一序。
+     */
+    private val subagentOrder: Comparator<dev.leonardo.ocbeacon.domain.model.Session> =
+        compareByDescending<dev.leonardo.ocbeacon.domain.model.Session> { it.time.created }
+            .thenByDescending { it.id }
+
     private val aggregatedSubagents = combine(
         sessionRepository.getSessionsFlow(serverId),
         sessionRepository.getSessionStatusesFlow(serverId),
@@ -188,10 +197,7 @@ class TaskAggregator(
             .filter { !it.parentId.isNullOrEmpty() }
             .groupBy { it.parentId!! }
             .mapValues { (_, kids) ->
-                kids.sortedWith(
-                    compareByDescending<dev.leonardo.ocbeacon.domain.model.Session> { it.time.created }
-                        .thenByDescending { it.id }
-                ).map { s ->
+                kids.sortedWith(subagentOrder).map { s ->
                     dev.leonardo.ocbeacon.domain.model.SubagentChild(
                         sessionId = s.id,
                         label = s.title,
@@ -211,11 +217,8 @@ class TaskAggregator(
         val children = sessions
             .filter { it.parentId == currentSessionId }
             // 2026-08-16（用户需求）：任务列表按创建时间倒序（新任务在前）；
-            // id tie-break 保证同毫秒创建的稳定排序（避免上游混合序抖动）。
-            .sortedWith(
-                compareByDescending<dev.leonardo.ocbeacon.domain.model.Session> { it.time.created }
-                    .thenByDescending { it.id }
-            )
+            // 序规则收口 subagentOrder（#282-d，与树化分组一致）。
+            .sortedWith(subagentOrder)
         val toolParts = partsMap[currentSessionId].orEmpty()
             .filterIsInstance<Part.Tool>()
 
