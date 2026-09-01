@@ -442,9 +442,9 @@ internal class SessionActionsDelegate(
                 .setProgress(0, 0, true)
 
             try {
-                // #276 终验 V6：DSH session.export 响应体是 ZIP 流，而 SAF CreateDocument
-                // 的 MIME 与建议名由 ChatScreen 固定 application/json + $slug.json（本轮
-                // ChatScreen 冻结）——写盘前把文档显示名规范成 .zip（provider 不支持
+                // DSH session.export 响应体是 ZIP 流——SAF CreateDocument 的 MIME 与建议
+                // 名扩展名已按 exportIsArchive 能力位切换（#279：ChatAttachmentsHandler /
+                // ChatScreen）；此处 renameDocument 仅作落盘后兜底（provider 不支持
                 // renameDocument 或非文档 URI 时静默回退原名）。OpenCode 导出是 JSON
                 // 文档（exportIsArchive=false），维持 .json 命名。
                 val targetUri = if (exportIsArchiveProvider()) renameToZipExtension(context, uri) else uri
