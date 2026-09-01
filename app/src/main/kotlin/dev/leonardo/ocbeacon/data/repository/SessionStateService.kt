@@ -736,15 +736,27 @@ class SessionStateService @Inject constructor(
         val sid = currentServerId ?: return SyncResult(0, 0)
         val aggregated = mutableMapOf<String, SessionStatus>()
         val dirs: List<String?> = if (projects.isEmpty()) listOf(null) else projects.map { it.worktree }
+        var fetchIncomplete = false
         for (dir in dirs) {
             sessionRepoProvider.get().fetchSessionStatuses(sid, dir)
                 .onSuccess { aggregated += it }
+                .onFailure { fetchIncomplete = true }
         }
         // 缺失语义：本地非 Idle 但在 REST 中缺失
-        for ((sessionId, state) in _fsmStates.value) {
-            if (state.core !is SessionStatus.Idle && sessionId !in aggregated) {
-                aggregated[sessionId] = if (collaborator.hasIncompleteAssistant(sessionId)) state.core  // 保护（SSE 可能仍在流式传输）
-                                          else SessionStatus.Idle                                       // 缺失 = idle
+        // #278（2026-09-01 集成缺口修复）：任一目录拉取失败时聚合不完整——「缺失」
+        // 不可信（拉取被取消/超时表现为缺失，而非服务器真没有）。此时跳过缺失
+        // 语义，防止把服务器侧 running 的会话误盖 Idle（真机实证：播种被启动竞态
+        // 取消后本地 Busy 会话被兜底盖成 Idle，aggregated=1 busy=0）。
+        if (fetchIncomplete) {
+            if (BuildConfig.DEBUG) {
+                AppLogger.d(TAG, "[syncFromRest] REST fetch incomplete (some dirs failed) - skip absent-idle semantics")
+            }
+        } else {
+            for ((sessionId, state) in _fsmStates.value) {
+                if (state.core !is SessionStatus.Idle && sessionId !in aggregated) {
+                    aggregated[sessionId] = if (collaborator.hasIncompleteAssistant(sessionId)) state.core  // 保护（SSE 可能仍在流式传输）
+                                              else SessionStatus.Idle                                       // 缺失 = idle
+                }
             }
         }
         if (BuildConfig.DEBUG) {

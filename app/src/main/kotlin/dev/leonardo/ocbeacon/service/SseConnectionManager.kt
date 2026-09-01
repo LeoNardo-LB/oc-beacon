@@ -46,6 +46,9 @@ private const val COOLDOWN_CHECK_INTERVAL_MS = 30_000L
 /** #150 方向③：preLoadSessions 项目间并发拉取 /session 的受控并发上限。 */
 private const val PRELOAD_PROJECT_CONCURRENCY = 4
 
+/** #278：播种（syncFromRest）NonCancellable 保护区的时间上限——服务器失联时防悬挂。 */
+private const val PRELOAD_SEED_TIMEOUT_MS = 30_000L
+
 /**
  * 每服务器的连接状态。
  */
@@ -519,6 +522,21 @@ class SseConnectionManager @Inject constructor(
     private suspend fun preLoadSessions(server: ServerConfig, conn: ServerConnection) {
         try {
             val projects = fileApi.listProjects(conn)
+            // 状态先行（#278）：播种（syncFromRest）先于会话正文预载——僵尸 Busy
+            // 收敛依赖 running 语义尽早落地；正文预载（百级会话列表）在启动期
+            // 占大头，若播种排其后会拉宽「强杀重启→Busy 恢复显示」窗口
+            //（2026-09-01 真机实测：预载 8s + 播种 6s）。
+            sessionStateRepository.setServerId(server.id)
+            // #278（2026-09-01 集成缺口修复）：播种在启动取消风暴下曾被掐死——
+            // DSH 分支事件循环 finally cancelAndJoin(preloadJob) 撞上双服务器
+            // 自动连/重连竞态 → 播种 session.list 全灭（JobCancellationException
+            // 风暴，真机实证）→ 僵尸 Busy 收敛失效。NonCancellable 保证已开始的
+            // 播种跑完（cancelAndJoin 会等它落地）；30s 上限防服务器失联时悬挂。
+            withContext(NonCancellable) {
+                withTimeout(PRELOAD_SEED_TIMEOUT_MS) {
+                    sessionStateRepository.syncFromRest(projects)
+                }
+            }
             if (projects.isEmpty()) {
                 // 降级：加载不带 directory 头的会话（仅服务器 CWD）
                 val sessions = sessionApi.listSessions(conn)
@@ -539,6 +557,10 @@ class SseConnectionManager @Inject constructor(
                                     eventDispatcher.setSessions(server.id, sessions)
                                     totalSessions.addAndGet(sessions.size)
                                 } catch (e: Exception) {
+                                    // #278（2026-09-01 集成缺口）：取消必须传播——
+                                    // 原实现吞掉 CancellationException 会让取消风暴
+                                    // 静默变成"预加载完成"假象。
+                                    if (e is CancellationException) throw e
                                     AppLogger.w(TAG, "[${server.displayName}] Failed to pre-load sessions for project ${project.displayName}: ${e.message}")
                                 }
                             }
@@ -547,10 +569,10 @@ class SseConnectionManager @Inject constructor(
                 }
                 AppLogger.i(TAG, "[${server.displayName}] Pre-loaded ${totalSessions.get()} sessions across ${projects.size} projects")
             }
-            // 通过统一的 FSM 管线从服务器初始化会话状态
-            //（跨项目 worktree 聚合 + 缺失=idle + 不完整保护）。
-            sessionStateRepository.setServerId(server.id)
-            sessionStateRepository.syncFromRest(projects)
+        } catch (e: TimeoutCancellationException) {
+            AppLogger.w(TAG, "[${server.displayName}] Session status seeding timed out after ${PRELOAD_SEED_TIMEOUT_MS}ms (server unreachable?)")
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppLogger.w(TAG, "[${server.displayName}] Failed to pre-load sessions: ${e.message}")
         }

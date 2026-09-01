@@ -345,6 +345,41 @@ class SessionStateServiceTest {
         assertEquals(SessionStatus.Busy, service.statusFlow.value["s1"])  // 受到保护
     }
 
+    /**
+     * #278（2026-09-01 集成缺口）：任一目录拉取失败（取消/超时）时聚合不完整，
+     * 「缺失」不可信——本地非 Idle 会话不得被缺失语义盖成 Idle（真机实证：
+     * 播种被启动竞态取消后，服务器侧 running 的会话被兜底盖成 Idle）。
+     */
+    @Test
+    fun `syncFromRest skips absent-idle semantics when a directory fetch fails`() {
+        val fakeRepo = mockk<SessionRepository>(relaxed = true)
+        coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } returns Result.failure(RuntimeException("JobCancellationException simulated"))
+        val collab = StubCollaborator()
+        val service = newServiceWith(fakeRepo, collab)
+        service.setServerId("svr1")
+        collab.hasIncompleteAssistantImpl = { false }   // 无不完整保护——纯护栏生效
+        service.onClientSendParts("s1")                 // 本地 Busy（服务器侧 running）
+        runBlocking { service.syncFromRest(listOf(Project(worktree = "D:/p"))) }
+        testScope.runCurrent()
+        assertEquals(SessionStatus.Busy, service.statusFlow.value["s1"])  // 拉取失败 → 不盖 Idle
+    }
+
+    /** #278 护栏不得误伤：部分成功时，成功聚合的会话仍正常应用（busy 播种照常）。 */
+    @Test
+    fun `syncFromRest still applies fetched statuses when another directory fails`() {
+        val fakeRepo = mockk<SessionRepository>(relaxed = true)
+        coEvery { fakeRepo.fetchSessionStatuses("svr1", "D:/ok") } returns Result.success(mapOf("s1" to SessionStatus.Busy))
+        coEvery { fakeRepo.fetchSessionStatuses("svr1", "D:/bad") } returns Result.failure(RuntimeException("timeout"))
+        val collab = StubCollaborator()
+        val service = newServiceWith(fakeRepo, collab)
+        service.setServerId("svr1")
+        service.onClientSendParts("s2")                 // 本地 Busy，仅存在于失败目录
+        runBlocking { service.syncFromRest(listOf(Project(worktree = "D:/ok"), Project(worktree = "D:/bad"))) }
+        testScope.runCurrent()
+        assertEquals(SessionStatus.Busy, service.statusFlow.value["s1"])   // 成功部分正常播种
+        assertEquals(SessionStatus.Busy, service.statusFlow.value["s2"])   // 失败目录会话不被盖 Idle
+    }
+
     // ============ 2026-08-16 根治（回复不可见）：断连窗口补漏 ============
 
     /**
