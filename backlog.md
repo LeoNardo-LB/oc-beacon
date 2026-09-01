@@ -61,38 +61,36 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#287 DSH 附件字节拉取（session.attachment → Part.File url/图片缩略图接线）** `dsh` `ui`
-  - Task 3c 落地 file/image ContentBlock → Part.File 分支（数据不再丢），但 DSH 图片块仅存 attachment 引用（attachmentId/mediaType/字节数）——既有 ImageThumbnailRow 需 url 才渲染
-  - 方向：DshApiClient readAttachment（sessions.d.ts:381-388 成功形态=ImageAttachmentRef+base64）→ 转 data URL 填 Part.File.url / 本地缓存键；验证=真机 DSH 会话带图消息缩略图可见
+- [~] **#287 DSH 附件字节拉取（session.attachment → Part.File url/图片缩略图接线）** `dsh` `ui`
+  - d252eab4 全链落地（readAttachment → data URL → patchFileUrl 回填）+ 705d889c 三态专测补齐；真机代跑（2026-09-01）：Test Lab 会话 2 处缩略图渲染通过
+  - 待用户验收：真机 DSH 带图会话缩略图目验（代跑未区分 Room 缓存路径）
+  - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
 
 - [ ] **#288 workflow 阶段卡（tool-workflow agent-start/end 聚合渲染）** `dsh` `ui`
   - Task 3b 落地 workflow run-start/run-end 降级单卡（同 runId 原位更新 running→终态）；agent-start/end 维持 Ignored（防逐成员刷卡）
   - 方向：run 级聚合器（成员 label/outcome/phase 折叠进阶段卡，参照官方 tool-workflow 装配）；验证=真机 workflow 运行会话卡片分阶段展示
   - **2026-09-01 活体四面包夹（走查 #9 定性）**：当前服务器对客户端**不暴露** tool-workflow 进度事件——events.mux 实况帧（两次 WS tap + 现跑 workflow 对照，仅 tool/code-dispatch* 渲染伴生）、session.history journal（39 页全翻 0 行，fresh run 亦不入）、session/projection（仅 permissions）、session/jobs（仅 bash 后台任务）四面皆无 → app 侧映射链（DshEventMapper:469 + DshMessageAssembler）为休眠代码路径，非缺陷；走查期「18 事件在 a6c4」不复现（疑当时另有来源/版本窗口）。重开丢卡=结构性（无服务器数据源），DSH synthetic 消息零持久化同因。**升级前置**：待服务器在任何客户端面暴露 tool-workflow 事件后重验，再启聚合器
 
-- [ ] **#290 会话重开期「 Room 撕裂副本」取证假象——run-as 活库拉取需 WAL 三件套** `qa`
-  - 2026-09-01 #9/#10 取证两次踩坑：adb exec-out run-as 单拉主 db 报 database disk image is malformed（01:21 版）；补 -wal/-shm 三件套后 integrity ok，但活写中拉取仍可能撕裂（多次拉取取首个 integrity ok 副本）
-  - 方向：观测 runbook 补标准拉取脚本（三件套 + integrity 循环校验）；低优先（仅影响取证效率不影响产品）
-
-- [ ] **#285 DSH 斜杠命令补全的会话龄缺口：懒建会话/首连期命令列表空 + commands/change 事件未消费** `dsh` `ui`
-  - 2026-08-31 定音：commands/list typert 通道活体可用且已实现（能力位转真 + 选择填入/执行）——残留缺口：新会话懒建（sessionId 空）时 loadCommands 只跑一次 → 建会话后服务端命令不刷新；commands/change 事件（命令注册变化）未订阅；技能在 DSH 无对应域
-  - 方向：sessionId 就绪后重载 commands + 订阅 commands/change 失效重取（参照官方 CommandDirectory warm/invalidate）；验证=真机输入 / 看服务端命令列表
-  - → docs/journal/2026-08-31-goal-token-ring-slash.md
+- [~] **#285 DSH 斜杠命令补全的会话龄缺口：懒建会话/首连期命令列表空 + commands/change 事件未消费** `dsh` `ui`
+  - 0a925220 双缺口闭合（sessionIdFlow 就绪重载 + commands/change 全链消费）+ 测试；真机代跑（2026-09-01）：DSH 会话输入 / 弹出服务端命令（/permission /sandbox /approval /model）
+  - 待用户验收：真机输入 / 目验；懒建首连全链因 DSH 连接洪泛未代跑（逻辑有单测覆盖）
+  - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
 
 
-- [ ] **#283 权限默认档动态渲染 + projection permissions 键闭合（双轴审查 Spec 轴 a1/a2）** dsh
-  - PermissionDefaultRow 硬编码三档（PERMISSION_PRESET_VALUES），未按 settings.describe options/schema enum 动态渲染（输入切换器已动态，双轨不一致）；session/projection key=permissions 帧仍 Ignored——中途切档投影推送被丢（现靠 list 投影+三 knob 事件，够用未闭环）
-  - → docs/research/2026-08-31-dsh-permission-sandbox-approval.md
+- [~] **#283 权限默认档动态渲染 + projection permissions 键闭合（双轴审查 Spec 轴 a1/a2）** dsh
+  - a1=7d6761ef（settings.describe schema enum 动态档集，空回退三档）；a2=5c2d44cc（permissions 投影帧整值替换 Session.permissions，JsonNull tombstone）；全量 255 套件/2519 用例 0 失败
+  - 待用户验收：设置页档集动态渲染目验 + 中途切档后 app 内权限态刷新
+  - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
 
-- [ ] **#278 DSH 僵尸 Busy 的 L3 自愈缺失——无状态端点下的真相源设计** `infra`
-  - 现状：DSH fetchSessionStatus 恒空 map + directory 空时 absent→idle 跳过；对账回放已治主径（015ed7de），本卡为无 turn/end 终态异常会话的兜底
-  - 方向：对账完成后按回放终态强制收敛 FSM，或 session.list running 字段播种状态
-  - → `docs/journal/2026-08-30-dsh-integration-and-disconnect-design.md`
+- [~] **#278 DSH 僵尸 Busy 的 L3 自愈缺失——无状态端点下的真相源设计** `infra`
+  - 87238a1c 方向二落地：fetchSessionStatus 由恒空 map 改 session.list running 字段播种 busy/idle（DshApiClientTest 专测）；对账回放主径 015ed7de 在前
+  - 待用户验收：running 中强杀 app 重开会话状态收敛（代跑受阻：470 会话连接洪泛挡住发送通道，无法造 busy 现场，如实注记）
+  - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
 
-- [ ] **#279 导出 SAF intent MIME 按服务器类型设置（ChatScreen 解冻前置）** `ui`
-  - 现状：DSH 导出 SAF 预填 .json→落盘 .zip，落盘前 renameDocument 兜底可用（终验 V6' PASS）
-  - 解冻后：exportIsArchive 能力位直通 SAF intent mime，预填即正确
-  - → `docs/journal/2026-08-30-dsh-integration-and-disconnect-design.md`
+- [~] **#279 导出 SAF intent MIME 按服务器类型设置（ChatScreen 解冻前置）** `ui`
+  - 6cb3c8a7 落地：CreateDocument MIME 与建议名扩展名按 exportIsArchive 切换 + renameDocument 落盘后兜底；真机代跑（2026-09-01）：DSH 导出 SAF 预填 test-lab-initialization-20260901.zip 通过
+  - 待用户验收：真机导出落盘 .zip 可正常打开
+  - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
 
 - [ ] **#277 单测偶发跨类污染：UncaughtExceptionsBeforeTest（Dispatchers.Main 未设窗口泄漏）** `test`
   - 现象（2026-08-31 实证）：ChatViewModelQueuedTest 偶发 UncaughtExceptionsBeforeTest（原始异常=「Main was accessed when the platform dispatcher was absent」）；顺序/时序依赖
@@ -103,9 +101,6 @@
   - 现象（2026-08-29 测量矩阵，journal 二十八轮）：高速 fling（60ms 甩）下新 item 首组合帧 p95 65ms/p99 129ms；prefetch ON 亦 p90 53ms（预组合与渲染抢主线程）；中速滚动全绿（jank 0.00-0.23%）。崩溃根因（331365999 家族）已经 ComposeFoundationFlags flag=false 机制级修复，本项纯性能
   - 测量：gfxinfo 三配置矩阵 + SafeFling 出口内速日志（全部自然衰减尾，无异常终止）；atrace 需先 Tracing.enable 才有 compose 段
   - 方向：Tracing.enable + perfetto 定位组合热点 → chunk 组合瘦身（block 级惰性/SelectionContainer 开销/ clickable wrapper 精简）；新线索（2026-08-30 调研）：androidx 1.13.0-alpha02 `ComposeUiFlags.isVectorDrawCacheSharingEnabled`（VectorPainter 列表缓存共享）待试 → `docs/journal/2026-08-27-event-card-unification.md` §二十八轮
-
-
-  - 待验证：用户真机确认已完成思考卡时长正常 → `docs/journal/2026-08-30-backlog-triage-closure.md`
 
 ## P3 — 观察与低价值改进
 
