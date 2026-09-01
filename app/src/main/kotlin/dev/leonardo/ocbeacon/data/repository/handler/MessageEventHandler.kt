@@ -510,18 +510,23 @@ class MessageEventHandler @Inject constructor(
      * #287：附件 data URL 回填（Part.File.url 原位更新，幂等——url 已非空跳过）。
      * 拉取由 ChatViewModel 驱动（见 collectPendingAttachmentFetches）；此处仅
      * 热视图补写，Room 落盘随下次全量 upsert 收敛。
+     * #295 勘误（2026-09-01）：_parts 是 **messageId 键**（见 applyMessageCap/
+     * upsert 各读点）——原实现以 sessionId 索引恒 null、补写从未生效。改为全表
+     * 按 partId 匹配（part id 全局唯一：seq-/dsh- 前缀携带会话命名空间）；
+     * [sessionId] 参数保留（调用方语义与日志定位用）。
      */
     fun patchFileUrl(sessionId: String, partId: String, url: String) {
         _parts.update { current ->
-            val parts = current[sessionId] ?: return@update current
             var mutated = false
-            val next = parts.map { part ->
-                if (part is Part.File && part.id == partId && part.url == null) {
-                    mutated = true
-                    part.copy(url = url)
-                } else part
+            val next = current.mapValues { (_, parts) ->
+                parts.map { part ->
+                    if (part is Part.File && part.id == partId && part.url == null) {
+                        mutated = true
+                        part.copy(url = url)
+                    } else part
+                }
             }
-            if (mutated) current + (sessionId to next) else current
+            if (mutated) next else current
         }
     }
 

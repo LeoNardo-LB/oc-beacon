@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
@@ -835,6 +836,11 @@ class ChatViewModel @Inject constructor(
     /** ⑤会话操作簇：REST 刷新/状态同步/中断/权限应答。 */
     internal val sessionOps: SessionActionsDelegate get() = sessionActions
 
+    /** #287：附件拉取去重表（attachmentId → data URL；空串 = 拉取中/失败哨兵）。
+     *  #295：必须在 init 块之前声明——combine 首次发射在 init 内同步执行，
+     *  后置声明会读到未初始化引用（NPE 崩溃，2026-09-01 真机实证）。 */
+    private val attachmentUrlCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     init {
         val isNewSession = sessionId.isEmpty()
 
@@ -1023,30 +1029,55 @@ class ChatViewModel @Inject constructor(
         collectPendingAttachmentFetches()
     }
 
-    /** #287：附件拉取去重表（attachmentId → data URL；null = 拉取中/失败哨兵）。 */
-    private val attachmentUrlCache = java.util.concurrent.ConcurrentHashMap<String, String?>()
-
     private fun collectPendingAttachmentFetches() {
         viewModelScope.launch {
-            eventDispatcher.parts.collect { partsByMessage ->
-                val sid = sessionLifecycle.sessionId
+            // #295（2026-09-01 跨进程丢图根因，两处叠加）：
+            // ① parts 是 StateFlow（合并语义），回放/Room 回读的 parts 常在进入
+            //   会话**之前**到达——原实现以发射时的 sessionId 为门（空白即跳过），
+            //   进会话后无新发射、永不复扫；
+            // ② **EventDispatcher.parts 是 messageId 键**（非 sessionId 键）——
+            //   原实现 partsByMessage[sid] 恒 null，扫描从未命中过任何部件。
+            // 修复：combine(sid, parts, messages)——按当前会话的消息 id 集过滤
+            // parts 条目；进会话（sid 变化）即用当前快照复扫，流式增量照旧；
+            // attachmentUrlCache 去重防风暴。
+            combine(
+                sessionLifecycle.sessionIdFlow,
+                eventDispatcher.parts,
+                eventDispatcher.messages,
+            ) { sid, partsByMsg, messagesBySession ->
+                Triple(sid, partsByMsg, messagesBySession[sid].orEmpty().map { it.id }.toSet())
+            }.collect { (sid, partsByMsg, sessionMessageIds) ->
                 if (sid.isBlank()) return@collect
-                partsByMessage[sid].orEmpty().forEach { part ->
-                    val file = part as? dev.leonardo.ocbeacon.domain.model.Part.File ?: return@forEach
-                    if (file.url != null) return@forEach
-                    val source = file.source as? kotlinx.serialization.json.JsonObject ?: return@forEach
-                    val attId = (source["attachmentId"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return@forEach
-                    if (attachmentUrlCache.containsKey(attId)) return@forEach
-                    attachmentUrlCache[attId] = null
-                    viewModelScope.launch {
-                        val url = runCatching {
-                            chatRepository.fetchAttachmentDataUrl(serverId, sid, attId)
-                        }.getOrNull()
-                        attachmentUrlCache[attId] = url
-                        if (url != null) {
-                            eventDispatcher.patchFileUrl(sid, file.id, url)
+                var scanCandidates = 0
+                partsByMsg.forEach { (messageId, msgParts) ->
+                    if (messageId !in sessionMessageIds) return@forEach
+                    msgParts.forEach { part ->
+                        val file = part as? dev.leonardo.ocbeacon.domain.model.Part.File ?: return@forEach
+                        if (file.url != null) return@forEach
+                        val source = file.source as? kotlinx.serialization.json.JsonObject ?: return@forEach
+                        val attId = (source["attachmentId"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return@forEach
+                        scanCandidates++
+                        if (attachmentUrlCache.containsKey(attId)) return@forEach
+                        if (BuildConfig.DEBUG) {
+                            AppLogger.d("ChatViewModel", "attachment fetch enqueue: sid=${sid.take(18)} attId=${attId.take(20)}")
+                        }
+                        // ConcurrentHashMap 不接受 null 值——空串作「拉取中/失败」
+                        // 哨兵（containsKey 即已处理；原 null 哨兵写法运行时 NPE，
+                        // #287 期因 parts 键型 bug 从未执行过而未暴露）。
+                        attachmentUrlCache[attId] = ""
+                        viewModelScope.launch {
+                            val url = runCatching {
+                                chatRepository.fetchAttachmentDataUrl(serverId, sid, attId)
+                            }.getOrNull()
+                            attachmentUrlCache[attId] = url ?: ""
+                            if (url != null) {
+                                eventDispatcher.patchFileUrl(sid, file.id, url)
+                            }
                         }
                     }
+                }
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d("ChatViewModel", "attachment scan: sid=${sid.take(18)} msgs=${sessionMessageIds.size} candidates=$scanCandidates")
                 }
             }
         }
