@@ -29,7 +29,10 @@ data class JobView(
     val startedAt: Long,
     val finishedAt: Long? = null,
 ) {
-    val isRunning: Boolean get() = status == "running"
+    val isRunning: Boolean get() = status == STATUS_RUNNING
+
+    /** #284：语义化状态枚举（wire 字符串保持不变——服务器权威值直存）。 */
+    val statusKind: JobStatus get() = JobStatus.fromWire(status)
 
     companion object {
         const val STATUS_RUNNING = "running"
@@ -37,5 +40,25 @@ data class JobView(
         const val STATUS_COMPLETED = "completed"
         const val STATUS_KILLED = "killed"
         const val STATUS_FAILED = "failed"
+    }
+}
+
+/** #284：JobView.status 语义枚举（unknown = 服务器新增枚举，渲染走默认分支）。 */
+@Serializable
+enum class JobStatus {
+    RUNNING, STOPPING, COMPLETED, KILLED, FAILED, UNKNOWN;
+
+    val isTerminal: Boolean get() = this == COMPLETED || this == KILLED || this == FAILED
+    val isActive: Boolean get() = this == RUNNING || this == STOPPING
+
+    companion object {
+        fun fromWire(raw: String): JobStatus = when (raw) {
+            JobView.STATUS_RUNNING -> RUNNING
+            JobView.STATUS_STOPPING -> STOPPING
+            JobView.STATUS_COMPLETED -> COMPLETED
+            JobView.STATUS_KILLED -> KILLED
+            JobView.STATUS_FAILED -> FAILED
+            else -> UNKNOWN
+        }
     }
 }
