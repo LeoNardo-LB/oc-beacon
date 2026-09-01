@@ -381,6 +381,60 @@ DSH 3080（node，本机即 192.168.110.248）。
   E2E 脚本七处系统性修复落地；dsh 服务器重启一次（清 live buffer，journal
   无损）；两起污染事故全部清零并验证。
 
+## 八、三连修（2026-09-02 凌晨）：#278/#295/#294 全部修复并真机验证
+
+### #278（b10513c9）：播种防取消 + 缺失语义护栏 + 状态先行
+
+- 三件套：`withContext(NonCancellable){ withTimeout(30s){ syncFromRest } }`
+  （取消风暴下已开始的播种跑完，cancelAndJoin 等它落地）；per-project 与外层
+  catch 放行 CancellationException（TimeoutCancellationException 单列记录）；
+  syncFromRest 任一目录拉取失败即跳过缺失语义（`fetchIncomplete` 标记——
+  「缺失」在聚合不完整时不可信）。播种移到会话正文预载之前（状态先行：
+  僵尸收敛窗口 ~14s→~4s）。
+- 单测 +2：拉取失败不盖 Idle / 部分成功仍播种（SessionStateServiceTest 26/26）。
+- 真机裁决实验复跑：活轮次（服务器 running=true）窗口内冷启 →
+  `syncFromRest aggregated=471 busy=1`（**修复前同实验恒 busy=0**；第一轮复验
+  曾 busy=0 系模型把重复数数请求捷径答完的时序伪影——换不可捷径的长输出
+  任务后通过）。全量 2521→2524/0/0。
+- 遗留观察（非本卡）：.248（V2 服务器）的 syncFromRest aggregated=0
+  （其 fetchSessionStatus 返回空或失败——V2 端点行为，另行观察）。
+
+### #295（4d025786）：parts 键型勘误——#287 链路从未真正工作过
+
+- 根因三叠（逐层引爆）：①`EventDispatcher.parts` 是 **messageId 键**
+  （applyMessageCap 的 `filterKeys{ it !in droppedIds }` 与全部读点实证），
+  原 collector 以 sessionId 索引恒 null——**#287 的附件扫描从未命中任何部件**；
+  ②`patchFileUrl` 同样错键（`current[sessionId]` 恒 null）——data URL 补写从未
+  生效；③`ConcurrentHashMap` 不接受 null 值——原「null=拉取中哨兵」运行时
+  NPE（因 ①从未执行而潜伏，修 ①后即炸，真机 FATAL 两次定位）。
+- 修复：ChatViewModel 改 `combine(sid, parts, messages)` 按当前会话消息 id 集
+  复扫（同时解决 StateFlow 合并语义下「进会话前到达的 parts 永不复扫」）；
+  patchFileUrl 全表按 partId 匹配；空串哨兵；attachmentUrlCache 声明前移至
+  init 之前（combine 首次发射在 init 内同步执行——后置声明读未初始化引用
+  NPE，Kotlin 属性初始化顺序陷阱）。
+- 真机验证：进 Test Lab（58 msgs）→ `candidates=1` → enqueue →
+  session.attachment REQUEST+FROM 1.7s 完成 → 重扫去重正常（无重复请求）→
+  零崩溃。附件消息在旧历史区（视口外），像素目验留给用户验收。
+- 调试副产物：`attachment scan/enqueue` DEBUG 行保留（复验可观测性）。
+
+### #294（b9327811）：方向②年龄过滤——DSH turn/end 时刻透传 + 陈旧完成不通知
+
+- `SseEvent.SessionIdle` 增 `time`（epoch ms，默认 null=V1/V2 保持原行为）；
+  DshEventMapper turn/end 透传（帧与历史行同构，`time` 本就解析在场）；
+  coordinator `onSessionIdle` 时龄 >5min 直接 return（回放历史时龄以小时/天计，
+  实时事件 <1s——阈值两侧无重叠，无需调参）。
+- 单测 +3（陈旧跳过/新鲜照常/无时刻保持原行为）+ DshHistoryFolder golden
+  断言 6 处补 time。真机验证：冷启 60s 回放窗 **38 条陈旧跳过、完成类通知
+  0 条**（修复前同窗 57 条风暴 + heads-up 劫持）；连接/摘要类常驻通知不受
+  影响；`Response ready`（真实完成）路径单测保障。
+
+### 环境与收尾
+
+- 全量套件终态 **2524 tests / 0 failures / 0 errors**；三个修复独立成commit
+  （b10513c9 / 4d025786 / b9327811）；三卡转 [~] 待用户目验。
+- 期间事故：MIUI 电池优化警告弹窗与搜索框空格转义（`input text 'Test%sLab'`）
+  两次干扰真机验证——均已绕过并记录。
+
 ### 污染复活链与终局（事故处置续）
 
 - **第一次手术后污染复活**（run4 SAF dump 又见 E2E 内容）——两层原因：

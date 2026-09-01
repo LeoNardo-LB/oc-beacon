@@ -71,14 +71,14 @@
   - 方向：E2E 复核（观察 compact 后是否出现 user/message 转录 + 模型回应）；若坐实改走 commands/execute（"/compact"）对齐 /permission 先例；验证=压缩触发后 Room 无 "/compact" user 消息 + compaction/end 到达
   - → `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §0-0b
 
-- [ ] **#295 DSH 附件缩略图跨进程丢失——Room 回读路径不触发 session.attachment 回源** `dsh` `data`
-  - 2026-09-01 #293 二批实证：Test Lab 首进程内缩略图渲染 + 回源请求正常；进程重启后再进同一会话，Room part 仅存 attachmentId 信封（无 url 无 data），零 session.attachment 请求，像素扫描 1×1 测试图缩略图消失——#287 的 attachmentUrlCache/patchFileUrl 均内存态，loadMessagesForSession 本地缓存路径不喂 eventDispatcher.parts，collectPendingAttachmentFetches 无从触发
-  - 方向：Room part 反序列化后统一过一遍回源判定（url 空且有 attachmentId 即入队），或持久化 data URL（注意 payload 体积）；验证=冷启二次进会话缩略图仍在 + session.attachment 请求出现
+- [~] **#295 DSH 附件缩略图跨进程丢失——parts 键型勘误 + 三流复扫已修，待用户目验** `dsh` `data`
+  - 4d025786 修复（根因三叠，比卡面原推断更深）：①EventDispatcher.parts 是 **messageId 键**，原 collector 以 sessionId 索引恒 null——#287 扫描从未命中；②patchFileUrl 同样错键，补写从未生效；③ConcurrentHashMap 不接受 null 值，原哨兵写法 NPE（因①从未执行而潜伏）。修复=combine(sid,parts,messages) 按会话消息 id 集复扫 + patchFileUrl 全表按 partId + 空串哨兵 + cache 声明前移（init 顺序 NPE）
+  - 真机验证：进 Test Lab（58 msgs）candidates=1 → enqueue → session.attachment REQUEST+FROM 1.7s → 去重正常 → 零崩溃；全量 2524/0/0。待用户目验：旧附件消息（需滚动到历史区）缩略图显示
   - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
 
-- [ ] **#294 DSH 回放期通知风暴 + heads-up 点按劫持（重放历史完成被当作新完成）** `dsh` `infra` `ui`
-  - 2026-09-01 #293 批实证：冷启回放期 app 发 57 条通知（7 分钟窗），MIUI heads-up 横幅两次劫持顶栏「新建会话」点按（深链拽进历史会话，logcat Deep-link 行实锤）；机制=重放的 SessionIdle 事件经 checkNewAssistantMessage 缓存未命中 → 误判「新完成」
-  - 方向（二选一/组合）：①对账基线落定（subscribed 静默窗）前抑制完成类通知；②事件年龄过滤——需把 DSH 帧 `time` 透传进 SseEvent（现 SessionIdle 无时间戳，映射时丢弃）；验证=冷启大库存期无通知弹出、点按不被劫持
+- [~] **#294 DSH 回放期通知风暴 + heads-up 点按劫持——方向②年龄过滤已修，待用户目验** `dsh` `infra` `ui`
+  - b9327811 落地方向②：SseEvent.SessionIdle 增 time（DSH 帧/历史行透传；V1/V2 null 保持原行为）+ coordinator 时龄 >5min 直接跳过（回放历史时龄以小时/天计，实时 <1s，阈值无重叠）
+  - 真机验证：冷启 60s 回放窗 38 条陈旧跳过、完成类通知 0 条（修复前同窗 57 条风暴）、劫持源消失；连接/摘要常驻通知不受影响；单测 +3 + golden 6 处；全量 2524/0/0。待用户目验：日常使用中冷启无通知轰炸
   - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
 
 - [ ] **#293 DSH 连接期发送通道「挂起」——判决：不成立（E2E 坐标伪影），待用户裁决关闭** `dsh` `infra`
@@ -91,9 +91,9 @@
   - 方向：run 级聚合器（成员 label/outcome/phase 折叠进阶段卡，参照官方 tool-workflow 装配）；验证=真机 workflow 运行会话卡片分阶段展示
   - **2026-09-01 活体四面包夹（走查 #9 定性）**：当前服务器对客户端**不暴露** tool-workflow 进度事件——events.mux 实况帧（两次 WS tap + 现跑 workflow 对照，仅 tool/code-dispatch* 渲染伴生）、session.history journal（39 页全翻 0 行，fresh run 亦不入）、session/projection（仅 permissions）、session/jobs（仅 bash 后台任务）四面皆无 → app 侧映射链（DshEventMapper:469 + DshMessageAssembler）为休眠代码路径，非缺陷；走查期「18 事件在 a6c4」不复现（疑当时另有来源/版本窗口）。重开丢卡=结构性（无服务器数据源），DSH synthetic 消息零持久化同因。**升级前置**：待服务器在任何客户端面暴露 tool-workflow 事件后重验，再启聚合器
 
-- [ ] **#278 DSH 僵尸 Busy 的 L3 自愈缺失——播种层已修但集成被启动竞态取消（退回进行中）** `infra`
-  - 87238a1c API 层播种正确（session.list running→busy/idle，DshApiClientTest 专测）；**2026-09-01 二批裁决实验推翻集成假设**：RPC 起活轮次（running=true 窗口内冷启），syncFromRest 报 `aggregated=0/1 busy=0`——播种 session.list 全部 JobCancellationException（DSH 分支 preloadJob 被启动竞态 cancel：SseConnectionManager:399-417 finally cancelAndJoin + 双服务器自动连/重连风暴）；更糟：部分运行走缺失语义把 running 会话盖成 Idle（aggregated=1 busy=0 = 本地兜底误判实锤）
-  - 方向：①播种改连接稳定后执行/防取消（connected 稳态触发或 syncFromRest 内 NonCancellable + 拉取失败不落缺失语义）；②per-project catch 显式放行 CancellationException（现被吞成 warn）；③回归验证=RPC 起活轮次 + 冷启 + syncFromRest busy≥1（可复现实验模式见 journal §七）
+- [~] **#278 DSH 僵尸 Busy 的 L3 自愈——防取消+缺失语义护栏+状态先行已修，待用户目验** `infra`
+  - b10513c9 修复三件套：①syncFromRest 包 NonCancellable+30s 上限（启动取消风暴下已开始的播种跑完）且移到会话预载**之前**（状态先行，收敛窗口 ~14s→~4s）；②per-project/外层 catch 放行 CancellationException（TimeoutCancellationException 单列）；③syncFromRest 任一目录拉取失败跳过缺失语义（防把服务器 running 盖成 Idle——真机实证反向误判）
+  - 真机验证（RPC 直驱裁决实验）：活轮次窗口冷启 syncFromRest aggregated=471 **busy=1**（修复前恒 busy=0）；单测 +2（26/26）；全量 2524/0/0。待用户目验：DSH 会话运行中强杀 app 重开应显示进行中态
   - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
 
 - [ ] **#277 单测偶发跨类污染：UncaughtExceptionsBeforeTest（Dispatchers.Main 未设窗口泄漏）** `test`
