@@ -202,38 +202,42 @@ class DshApiClientTest {
     }
 
     /**
-     * #276 后端接口补全：compact 根治——/compact 走斜杠命令通道（§1.6：prompt
-     * 单文本块以 / 开头 = 服务端命令注册表执行，不进模型），受理成功即 true
-     * （压缩完成信号走 compaction/end → SessionCompacted 事件）。providerId/
-     * modelId 对 DSH 无效（命令通道无模型参数）。
+     * #276 后端接口补充 + #297 通道勘误：compact 走 commands/execute 命令通道
+     * （部署版 session.prompt 无斜杠派发——prompt 文本块 "/compact" 会变
+     * user/message 进模型；官方先例 client.js:7366 同走 commands/execute）。
+     * kind:"success" → true；providerId/modelId 对 DSH 无效（签名兼容保留）。
      */
     @Test
-    fun `compactSession sends compact slash command via session prompt`() = runTest {
-        val engine = MockEngine { respond(ok("{}"), HttpStatusCode.OK, jsonHeaders()) }
-        assertTrue(client(engine).compactSession(conn, "s-1", "ignored-provider", "ignored-model"))
-        val req = captureRequests(engine).single()
-        assertEquals("/api/session.prompt", req.url.encodedPath)
-        val payload = json.parseToJsonElement(bodyTextOf(req)).jsonObject["payload"]!!.jsonObject
-        assertEquals("s-1", payload["sessionId"]!!.jsonPrimitive.content)
-        assertEquals("queue", payload["mode"]!!.jsonPrimitive.content)
-        val content = payload["content"]!!.jsonArray
-        assertEquals(1, content.size)
-        assertEquals("text", content[0].jsonObject["type"]!!.jsonPrimitive.content)
-        assertEquals("/compact", content[0].jsonObject["text"]!!.jsonPrimitive.content)
-    }
-
-    /** 命令被服务端拒绝（如 unknown-command）→ 异常上抛（repository 层收编为失败）。 */
-    @Test
-    fun `compactSession propagates command rejection`() = runTest {
+    fun `compactSession sends compact via commands execute`() = runTest {
         val engine = MockEngine {
             respond(
-                """{"type":"server-response","rpcId":"r","result":{"ok":false,"error":{"code":"unknown-command","message":"no such command"}}}""",
+                ok("""{"commandId":"c-4","result":{"kind":"success"}}"""),
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        assertTrue(client(engine).compactSession(conn, "s-1", "ignored-provider", "ignored-model"))
+        val req = captureRequests(engine).single()
+        assertEquals("/api/commands/execute", req.url.encodedPath)
+        val args = json.parseToJsonElement(bodyTextOf(req)).jsonObject["payload"]!!.jsonObject["args"]!!.jsonObject
+        assertEquals("s-1", args["agentId"]!!.jsonPrimitive.content)
+        assertEquals("/compact", args["line"]!!.jsonPrimitive.content)
+    }
+
+    /**
+     * 压缩不可用（活跃压缩中/agent 非 idle → kind:"error"）→ 抛 DshApiError
+     * （command-error）——repository 收编失败、UI 失败 snackbar（静默失败不可接受）。
+     */
+    @Test
+    fun `compactSession throws on compaction unavailable`() = runTest {
+        val engine = MockEngine {
+            respond(
+                ok("""{"commandId":"c-5","result":{"kind":"error","text":"Compaction is unavailable because this process has an active compaction, or the agent is not idle."}}"""),
                 HttpStatusCode.OK, jsonHeaders(),
             )
         }
         val outcome = runCatching { client(engine).compactSession(conn, "s-1", "p", "m") }
         assertTrue(outcome.isFailure)
-        assertEquals("unknown-command", (outcome.exceptionOrNull() as DshApiError).code?.wire)
+        assertEquals("command-error", (outcome.exceptionOrNull() as DshApiError).code?.wire)
     }
 
     /**

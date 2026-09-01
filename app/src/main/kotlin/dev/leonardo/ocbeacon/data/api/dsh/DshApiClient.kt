@@ -186,12 +186,20 @@ class DshApiClient @Inject constructor(
         getSession(conn, sessionId)
 
     /**
-     * 压缩根治（#276 后端接口补全）：/compact 走斜杠命令通道（§1.6：prompt 单
-     * 文本块以 / 开头 = 服务端命令注册表执行，mode 无关、不进模型）——复用
-     * [promptAsync]（mode=queue）。受理成功即 true；压缩**完成**信号走事件：
+     * 压缩根治（#276 后端接口补全；#297 通道勘误）：/compact 走 commands/execute
+     * 命令通道——部署版（0.1.1-rc.2）session.prompt 处理器**无斜杠命令派发**
+     * （apiproxy prompt 直接 agent.followup：leading-/ 文本块变 user/message 进
+     * 模型，2026-08-31 perm-7b 活体实证 + 2026-09-02 部署产物复核；新版源码契约
+     * 虽有派发描述但未部署）。官方客户端先例 client-runtime command() 同走
+     * commands/execute；/compact 是注册命令（dsh-command-compact 包）。
+     *
+     * kind:"success" → true；拒绝（活跃压缩中/agent 非 idle → kind:"error"）→
+     * 抛 [DshApiError]（command-error）——repository 收编 Result.failure、
+     * SessionActionsDelegate catch → onResult(false) → 失败 snackbar（静默
+     * 失败不可接受，2026-08-26 用户裁决）。压缩**完成**信号走事件：
      * compaction/end → SseEvent.SessionCompacted（mapper）→ compactedSessions
-     * 计数 → ChatViewModel 刷新 + 完成 snackbar。[providerId]/[modelId] 对
-     * DSH 无效（命令通道无模型参数，调用方签名兼容保留）。
+     * 计数 → ChatViewModel 刷新。[providerId]/[modelId] 对 DSH 无效（命令通道
+     * 无模型参数，调用方签名兼容保留）。
      */
     override suspend fun compactSession(
         conn: ServerConnection,
@@ -199,7 +207,24 @@ class DshApiClient @Inject constructor(
         providerId: String,
         modelId: String,
     ): Boolean {
-        promptAsync(conn, sessionId, listOf(PromptPart(type = "text", text = "/compact")))
+        val payload = buildJsonObject {
+            put("args", buildJsonObject {
+                put("agentId", sessionId)
+                put("line", "/compact")
+                put("images", JsonArray(emptyList()))
+            })
+        }
+        val value = rpc.call(conn, "commands/execute", payload) { it }.getOrElse { e -> throw e }
+        val result = value?.dshObj("result")
+        val kind = result?.dshStr("kind")
+        if (kind != "success") {
+            throw DshApiError(
+                code = DshRpcErrorCode.CommandError,
+                message = result?.dshStr("text") ?: "compact rejected: kind=" + kind,
+                details = null,
+                httpStatus = null,
+            )
+        }
         return true
     }
 
