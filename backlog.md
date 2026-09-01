@@ -61,12 +61,6 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#298 LAN 部署下设置面 403——settings.* 属服务端特权名单，权限/预设默认档在真机 WiFi 场景静默降级** `dsh` `infra`
-  - 2026-09-02 深调发现（源码+活体双证）：dsh-client-connection 有 PRIVILEGED_METHODS 15 项硬门禁（settings 全域/credentials 全域/llm.discoverModels/agentPreset.read·copy·openDocument·remove/host.pickDirectory·openPath），恒以空信任表校验——trustedHosts 也不解锁，只有 Host 头为 loopback 才放行；活体：settings.describe@LAN IP → 403，@127.0.0.1 → 200
-  - 波及：#282-a/#283-a1 的 getPermissionDefault/setPermissionDefault/get/setDefaultAgentPreset（DshApiClient.kt:1150-1203）在真机 WiFi/Tailscale 连接下全部 403 → settingsNamespace 返 null → UI 回退已知三档（静默降级，无提示）；adb reverse（Host=127.0.0.1）不受影响——既有 E2E 均走 adb reverse 故未暴露
-  - 方向：403/forbidden 错误形态识别 → 默认档 UI 显式标注「需 loopback 连接（adb reverse）」；不做 Host 头伪造绕栅栏（属安全边界）
-  - → `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §11.2
-
 - [ ] **#288 workflow 阶段卡（tool-workflow agent-start/end 聚合渲染）** `dsh` `ui`
   - Task 3b 落地 workflow run-start/run-end 降级单卡（同 runId 原位更新 running→终态）；agent-start/end 维持 Ignored（防逐成员刷卡）
   - 方向：run 级聚合器（成员 label/outcome/phase 折叠进阶段卡，参照官方 tool-workflow 装配）；验证=真机 workflow 运行会话卡片分阶段展示
@@ -86,6 +80,7 @@
   - 真机 12 次跳转 1 次退化（~8%，均 ~15s 内自愈、零用户可感知影响）；与「跳转+蒙版周期」相关性高，机制未定位（候选：全屏遮罩后 semantics 刷新延迟）
   - 八轮复核：向前导航箭头=会话切换路由（EventCard.kt:139/SyntheticNotificationCard.kt:128）**不经过 JumpMaskOverlay**（蒙版仅服务快速定位/定位卡跳转）；箭头路径 15/15 即时 dump 满内容未复现——历史 8% 样本若来自蒙版路径，后续探测应改走「快速定位」抽屉跳转；采样功效不足断言已修
   - 2026-09-02 抽屉路径探针（真机 Test Lab）：快速定位抽屉开→点项跳转 ×10，dump 全满（size>5K + 输入栏在场）0 退化——箭头 15/15 + 抽屉 10/10 = **25 连不复现**（两条修正路径均未见）；8% 现象自 2026-08-27 后未再现，不排除期间改动已间接消除；维持观察，下次大规模 E2E 顺带计数即可
+  - 2026-09-02 #298 E2E 顺带追计：抽屉跳转 ×10 再 0 退化（dump 恒 34499B + 输入栏在场 ×20）——累计 **35 连不复现**（→ `docs/journal/2026-09-02-298-lan-403-loopback-hint.md` §四）
   - → `docs/journal/2026-08-20-queue-todo.md` · `docs/research/2026-08-27-backlog-recheck-158-238-243-245.md`
 
 
