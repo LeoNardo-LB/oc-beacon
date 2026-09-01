@@ -1127,14 +1127,7 @@ class DshApiClient @Inject constructor(
      * 取 ns=permission 的 value.defaultPreset + revision。部署未挂 permission 插件 → null。
      */
     suspend fun getPermissionDefault(conn: ServerConnection): dev.leonardo.ocbeacon.domain.model.DshPermissionDefault? {
-        val value = rpc.call(conn, "settings.describe", buildJsonObject {}) { it }.getOrElse { e ->
-            AppLogger.w(TAG, "settings.describe failed: " + e.message)
-            return null
-        }
-        val permission = (value.dshArr("namespaces") ?: emptyList())
-            .filterIsInstance<JsonObject>()
-            .firstOrNull { it.dshStr("ns") == "permission" }
-            ?: return null
+        val permission = settingsNamespace(conn, "permission") ?: return null
         val currentValue = permission.dshObj("value")?.dshStr("defaultPreset") ?: return null
         // #283：schema enum 动态档集（部署权威）。schema 形态防御：对象直取 /
         // JSON 字符串解析 / 缺席 → 空（UI 回退已知三档）。
@@ -1155,17 +1148,9 @@ class DshApiClient @Inject constructor(
      * expectedRevision 先经 settings.describe 取当前 revision（乐观并发，陈旧 → settings-conflict）。
      */
     suspend fun setPermissionDefault(conn: ServerConnection, preset: String): Boolean {
+        // #282-a：同形 payload 收口到 settingsMutateSet（先行读复用 getter 的 revision）
         val current = getPermissionDefault(conn) ?: return false
-        val payload = buildJsonObject {
-            put("ns", "permission")
-            put("ops", JsonArray(listOf(buildJsonObject {
-                put("op", "set")
-                put("path", JsonArray(listOf(JsonPrimitive("defaultPreset"))))
-                put("value", JsonPrimitive(preset))
-            })))
-            put("expectedRevision", current.revision)
-        }
-        return rpc.call(conn, "settings.mutate", payload) { Unit }.isSuccess
+        return settingsMutateSet(conn, "permission", "defaultPreset", preset, current.revision)
     }
 
     /**
@@ -1174,14 +1159,8 @@ class DshApiClient @Inject constructor(
      * 的 value.default + revision。部署未挂 agent-presets 插件 → null。
      */
     suspend fun getDefaultAgentPreset(conn: ServerConnection): DshAgentPresetDefault? {
-        val value = rpc.call(conn, "settings.describe", buildJsonObject {}) { it }.getOrElse { e ->
-            AppLogger.w(TAG, "settings.describe failed: " + e.message)
-            return null
-        }
-        val ns = (value.dshArr("namespaces") ?: emptyList())
-            .filterIsInstance<JsonObject>()
-            .firstOrNull { it.dshStr("ns") == "agent-presets" }
-            ?: return null
+        // #282-a：ns 提取收口到 settingsNamespace
+        val ns = settingsNamespace(conn, "agent-presets") ?: return null
         val currentValue = ns.dshObj("value")?.dshStr("default") ?: return null
         return DshAgentPresetDefault(
             currentValue = currentValue,
@@ -1194,17 +1173,9 @@ class DshApiClient @Inject constructor(
      * expectedRevision 先经 settings.describe 取当前 revision（乐观并发，陈旧 → settings-conflict）。
      */
     suspend fun setDefaultAgentPreset(conn: ServerConnection, preset: String): Boolean {
+        // #282-a：同形 payload 收口到 settingsMutateSet
         val current = getDefaultAgentPreset(conn) ?: return false
-        val payload = buildJsonObject {
-            put("ns", "agent-presets")
-            put("ops", JsonArray(listOf(buildJsonObject {
-                put("op", "set")
-                put("path", JsonArray(listOf(JsonPrimitive("default"))))
-                put("value", JsonPrimitive(preset))
-            })))
-            put("expectedRevision", current.revision)
-        }
-        return rpc.call(conn, "settings.mutate", payload) { Unit }.isSuccess
+        return settingsMutateSet(conn, "agent-presets", "default", preset, current.revision)
     }
 
     override suspend fun updateConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse =
@@ -1216,6 +1187,33 @@ class DshApiClient @Inject constructor(
     override suspend fun disposeGlobal(conn: ServerConnection): Boolean = false
 
     override suspend fun disposeInstance(conn: ServerConnection): Boolean = false
+
+    // ============ #282-a：settings 域同形收口 ============
+
+    /** settings.describe → 指定 ns 条目（缺席/失败 → null；日志带 ns 便于分诊）。 */
+    private suspend fun settingsNamespace(conn: ServerConnection, ns: String): JsonObject? {
+        val value = rpc.call(conn, "settings.describe", buildJsonObject {}) { it }.getOrElse { e ->
+            AppLogger.w(TAG, "settings.describe failed for ns=$ns: " + e.message)
+            return null
+        }
+        return (value.dshArr("namespaces") ?: emptyList())
+            .filterIsInstance<JsonObject>()
+            .firstOrNull { it.dshStr("ns") == ns }
+    }
+
+    /** settings.mutate → 单键 set（乐观并发：expectedRevision 由调用方先行读取）。 */
+    private suspend fun settingsMutateSet(conn: ServerConnection, ns: String, key: String, value: String, expectedRevision: Long): Boolean {
+        val payload = buildJsonObject {
+            put("ns", ns)
+            put("ops", JsonArray(listOf(buildJsonObject {
+                put("op", "set")
+                put("path", JsonArray(listOf(JsonPrimitive(key))))
+                put("value", JsonPrimitive(value))
+            })))
+            put("expectedRevision", expectedRevision)
+        }
+        return rpc.call(conn, "settings.mutate", payload) { Unit }.isSuccess
+    }
 
     // ============ 共用 ============
 
