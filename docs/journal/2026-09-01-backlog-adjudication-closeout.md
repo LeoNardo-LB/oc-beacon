@@ -209,3 +209,17 @@ DSH 3080（node，本机即 192.168.110.248）。
 **#293**：DSH 大库存服务器连接期发送通道挂起（证据链见 §五.3 与 §六五轮记录；
 阻塞 #278 真机验收与懒建发送链目验）。
 
+### #293 诊断接力点（2026-09-01 晚首轮排除，未完）
+
+- **已排除**：`resolveConnection`（SessionRepositoryImpl:337，平凡查表无 await）；
+  HTTP 传输层（读路径同层全通）；鉴权（占位密码下读/导出全过）。
+- **头号嫌疑**：`ChatSendDelegate.sendParts` 入口的 `sendStateStore.isSendingValue`
+  防双击守卫——首次发送协程在某处挂起不返回 → `finally { setSending(false) }`
+  不执行 → 后续所有发送静默 return（仅 DEBUG「already sending, ignoring
+  duplicate」且 logcat 旋转后不可见）。与「时钟气泡+无 Ktor 请求+无错误日志」
+  三特征吻合。
+- **下一步**：现场复现首轮发送，`logcat -c` 后立即发送并持续 `logcat -d` 快照
+  （防旋转），定位首次挂起点（候选：ensureSession mutex 竞争、sendPrompt 前置
+  的连接态等待、DSH queue 入队等待）；另查时钟气泡的 UI 状态来源
+  （疑堆积/queued 态而非 sending 态）。
+
