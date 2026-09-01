@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#291**。
+**编号**：全局递增，不回收。下一编号：**#292**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -61,6 +61,11 @@
 
 ## P2 — 优化与锦上添花
 
+- [ ] **#291 翻译文件一行一 key 惯例修复（历史批量追加同列破坏格式）** `i18n`
+  - #284 残项迁出（其余子项已完结于 2026-09-01 重构清尾批）：14 个翻译文件历史新 key 存在同列追加，破坏一行一 key 惯例，批量整理
+  - 验证=i18n 检查脚本 + 抽样 diff 目检
+  - → docs/journal/2026-09-01-dsh-refactor-closeout.md
+
 - [ ] **#289 本地堆积消息链路因忙碌双键裁决失去 UI 入口（enqueuePendingMessage 无人调用）** `refactor` `ui`
   - 2026-09-01 走查 #8 双键裁决移除 busy 气泡，「堆积」唯一入口（ChatInputBar.onEnqueue → BottomBar lambda）随之删除；PendingMessageRepository/PendingMessagePipeline/PendingSheets/VM enqueue/edit/delete/clear/reorder 保留但从 UI 不可达
   - 方向：裁决去留——整体拆除（含 SessionListViewModel 角标计数）或另立入口；验证=静态 grep 无孤儿 + 拆除时跑全量回归
@@ -89,17 +94,9 @@
   - 2026-09-25 发现（AgentSheet 树化批次顺带）：compileDevDebugAndroidTestKotlin 在基线 64079b57 即失败——FakeServerRepository 缺 promoteDebugBackend、FakeSessionRepository 缺 listSessionsPage、ArchiveBucketDaoTest 引用已不存在的 leastAccessed/lastAccessedAt
   - 单测 2376 基线不受影响（仅 androidTest 源集）；修复=补齐 fakes 成员 + 对齐 DAO 测试字段
 
-- [ ] **#282 DSH 特性批重构群（双轴审查 Standards 轴）——4 处同形逻辑提取** refactor
-  - DshApiClient settings 域四方法同形（describe/mutate 仅 ns/key 差）；SessionEventHandler 四新 handler 同形折叠可提 updateSession；SubagentTreeDelegate 双 DFS 仅行映射异；TaskDelegate 两处排序重复；DshPermissionDefault/DshAgentPresetDefault 同形双值类型
-  - → docs/journal/2026-08-30-dsh-integration-and-disconnect-design.md §9
-
 - [ ] **#283 权限默认档动态渲染 + projection permissions 键闭合（双轴审查 Spec 轴 a1/a2）** dsh
   - PermissionDefaultRow 硬编码三档（PERMISSION_PRESET_VALUES），未按 settings.describe options/schema enum 动态渲染（输入切换器已动态，双轨不一致）；session/projection key=permissions 帧仍 Ignored——中途切档投影推送被丢（现靠 list 投影+三 knob 事件，够用未闭环）
   - → docs/research/2026-08-31-dsh-permission-sandbox-approval.md
-
-- [ ] **#284 特性批小项集（审查判断性提示）** polish
-  - SubagentTreeHolder.degraded 全局开关→逐层降级（任一子层失败现整树退回本地镜像）；JobView.status 立 enum（isRunning 用裸 running、kind==diagnostic 裸串）；DshJobsStore.jobsFor()/clear() 与 JobView.isRunning 死代码处置；14 个翻译文件新 key 同列追加破坏一行一 key 惯例（批量整理）
-  - → docs/journal/2026-08-30-dsh-integration-and-disconnect-design.md §9
 
 - [ ] **#278 DSH 僵尸 Busy 的 L3 自愈缺失——无状态端点下的真相源设计** `infra`
   - 现状：DSH fetchSessionStatus 恒空 map + directory 空时 absent→idle 跳过；对账回放已治主径（015ed7de），本卡为无 turn/end 终态异常会话的兜底
