@@ -1847,15 +1847,17 @@ internal fun extractToolSubagentSessionId(tool: Part.Tool): String? {
 
 // 预解析/分片调参常量已随渲染供给协调器外移 RenderSupplyCoordinator.companion（候选 1）。
 
-/** 任务状态 → 既有 dsh_job_status_* 文案（Task 3d 降级 Shell 卡；零新增 i18n）。 */
+/** 任务状态 → 既有 dsh_job_status_* 文案（Task 3d 降级 Shell 卡；零新增 i18n；
+ *  #284：statusKind 枚举分支，UNKNOWN 沿用 completed 兜底保持原渲染）。 */
 @Composable
-private fun dshJobStatusLabel(status: String): String = stringResource(
+private fun dshJobStatusLabel(status: dev.leonardo.ocbeacon.domain.model.JobStatus): String = stringResource(
     when (status) {
-        dev.leonardo.ocbeacon.domain.model.JobView.STATUS_RUNNING -> R.string.dsh_job_status_running
-        dev.leonardo.ocbeacon.domain.model.JobView.STATUS_STOPPING -> R.string.dsh_job_status_stopping
-        dev.leonardo.ocbeacon.domain.model.JobView.STATUS_KILLED -> R.string.dsh_job_status_killed
-        dev.leonardo.ocbeacon.domain.model.JobView.STATUS_FAILED -> R.string.dsh_job_status_failed
-        else -> R.string.dsh_job_status_completed
+        dev.leonardo.ocbeacon.domain.model.JobStatus.RUNNING -> R.string.dsh_job_status_running
+        dev.leonardo.ocbeacon.domain.model.JobStatus.STOPPING -> R.string.dsh_job_status_stopping
+        dev.leonardo.ocbeacon.domain.model.JobStatus.KILLED -> R.string.dsh_job_status_killed
+        dev.leonardo.ocbeacon.domain.model.JobStatus.FAILED -> R.string.dsh_job_status_failed
+        dev.leonardo.ocbeacon.domain.model.JobStatus.COMPLETED,
+        dev.leonardo.ocbeacon.domain.model.JobStatus.UNKNOWN -> R.string.dsh_job_status_completed
     }
 )
 
@@ -1869,12 +1871,12 @@ private fun DshJobTimelineCard(
     job: dev.leonardo.ocbeacon.domain.model.JobView,
     expandedStates: MutableMap<String, Boolean>,
 ) {
-    val failed = job.status == dev.leonardo.ocbeacon.domain.model.JobView.STATUS_FAILED ||
-        job.status == dev.leonardo.ocbeacon.domain.model.JobView.STATUS_KILLED
+    val failed = job.statusKind == dev.leonardo.ocbeacon.domain.model.JobStatus.FAILED ||
+        job.statusKind == dev.leonardo.ocbeacon.domain.model.JobStatus.KILLED
     EventCard(
         eventKey = "dsh_job_" + job.id,
         timeMs = job.startedAt,
-        label = dshJobStatusLabel(job.status),
+        label = dshJobStatusLabel(job.statusKind),
         leadingIcon = if (job.kind == "subagent") Icons.Filled.AccountTree else Icons.Filled.Terminal,
         failed = failed,
         // 描述行：kind · label · detail（Q15 槽位——数据在才显示；无命令/输出）

@@ -24,9 +24,6 @@ class DshJobsStore @Inject constructor() {
     /** sessionId → 后台任务整快照（last-wins）。 */
     val jobsBySession: StateFlow<Map<String, List<JobView>>> = _jobsBySession.asStateFlow()
 
-    /** 指定会话的任务列表。 */
-    fun jobsFor(sessionId: String): List<JobView> = _jobsBySession.value[sessionId].orEmpty()
-
     /** 整快照 last-wins：空集删键，非空整替换。 */
     fun applySnapshot(sessionId: String, jobs: List<JobView>) {
         _jobsBySession.update { all ->
@@ -36,9 +33,5 @@ class DshJobsStore @Inject constructor() {
 
     fun clearForSession(sessionId: String) {
         _jobsBySession.update { all -> all - sessionId }
-    }
-
-    fun clear() {
-        _jobsBySession.value = emptyMap()
     }
 }

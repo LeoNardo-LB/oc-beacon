@@ -29,8 +29,6 @@ data class JobView(
     val startedAt: Long,
     val finishedAt: Long? = null,
 ) {
-    val isRunning: Boolean get() = status == STATUS_RUNNING
-
     /** #284：语义化状态枚举（wire 字符串保持不变——服务器权威值直存）。 */
     val statusKind: JobStatus get() = JobStatus.fromWire(status)
 

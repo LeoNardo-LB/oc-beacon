@@ -64,6 +64,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.domain.model.JobStatus
 import dev.leonardo.ocbeacon.domain.model.JobView
 import dev.leonardo.ocbeacon.domain.model.ServerType
 import dev.leonardo.ocbeacon.domain.model.ShellJob
@@ -419,9 +420,9 @@ private fun DshJobRow(job: JobView) {
         leadingContent = {
             Icon(
                 imageVector = Icons.Default.FiberManualRecord,
-                contentDescription = dshJobStatusLabel(job.status),
+                contentDescription = dshJobStatusLabel(job.statusKind, job.status),
                 modifier = Modifier.size(12.dp),
-                tint = dshJobStatusColor(job.status),
+                tint = dshJobStatusColor(job.statusKind),
             )
         },
         headlineContent = {
@@ -461,7 +462,7 @@ private fun DshJobRow(job: JobView) {
                     )
                 }
                 Text(
-                    text = dshJobStatusLabel(job.status) + " · " + formatDuration(dshJobDurationMs(job)),
+                    text = dshJobStatusLabel(job.statusKind, job.status) + " · " + formatDuration(dshJobDurationMs(job)),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
                 )
@@ -472,23 +473,23 @@ private fun DshJobRow(job: JobView) {
 
 /** 状态点颜色：running=primary · stopping/killed=警告 · completed=完成绿 · failed=失败红。 */
 @Composable
-private fun dshJobStatusColor(status: String): Color = when (status) {
-    JobView.STATUS_RUNNING -> MaterialTheme.colorScheme.primary
-    JobView.STATUS_STOPPING, JobView.STATUS_KILLED -> AgentWarning
-    JobView.STATUS_COMPLETED -> AgentSuccess
-    JobView.STATUS_FAILED -> AgentError
-    else -> MaterialTheme.colorScheme.outline
+private fun dshJobStatusColor(status: JobStatus): Color = when (status) {
+    JobStatus.RUNNING -> MaterialTheme.colorScheme.primary
+    JobStatus.STOPPING, JobStatus.KILLED -> AgentWarning
+    JobStatus.COMPLETED -> AgentSuccess
+    JobStatus.FAILED -> AgentError
+    JobStatus.UNKNOWN -> MaterialTheme.colorScheme.outline
 }
 
-/** 状态文案本地化（闭集五值 + 未知原串兜底）。 */
+/** 状态文案本地化（闭集五值；UNKNOWN=服务器新增枚举 → 原串兜底）。 */
 @Composable
-private fun dshJobStatusLabel(status: String): String = when (status) {
-    JobView.STATUS_RUNNING -> stringResource(R.string.dsh_job_status_running)
-    JobView.STATUS_STOPPING -> stringResource(R.string.dsh_job_status_stopping)
-    JobView.STATUS_KILLED -> stringResource(R.string.dsh_job_status_killed)
-    JobView.STATUS_COMPLETED -> stringResource(R.string.dsh_job_status_completed)
-    JobView.STATUS_FAILED -> stringResource(R.string.dsh_job_status_failed)
-    else -> status
+private fun dshJobStatusLabel(status: JobStatus, raw: String): String = when (status) {
+    JobStatus.RUNNING -> stringResource(R.string.dsh_job_status_running)
+    JobStatus.STOPPING -> stringResource(R.string.dsh_job_status_stopping)
+    JobStatus.KILLED -> stringResource(R.string.dsh_job_status_killed)
+    JobStatus.COMPLETED -> stringResource(R.string.dsh_job_status_completed)
+    JobStatus.FAILED -> stringResource(R.string.dsh_job_status_failed)
+    JobStatus.UNKNOWN -> raw
 }
 
 /** 时长：finishedAt 或 now（运行中）——实时走时可选，此处静态（重进面板重算）。 */

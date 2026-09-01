@@ -23,7 +23,7 @@ class DshJobsStoreTest {
         store.applySnapshot("s1", listOf(job("a", "running"), job("b", "completed")))
         // 第二帧整替换：不含 a——last-wins 不合并旧集
         store.applySnapshot("s1", listOf(job("c", "running")))
-        assertEquals(listOf("c"), store.jobsFor("s1").map { it.id })
+        assertEquals(listOf("c"), store.jobsBySession.value["s1"].orEmpty().map { it.id })
     }
 
     @Test
@@ -32,17 +32,14 @@ class DshJobsStoreTest {
         store.applySnapshot("s1", listOf(job("a", "running")))
         store.applySnapshot("s1", emptyList())
         assertTrue(store.jobsBySession.value["s1"] == null)
-        assertTrue(store.jobsFor("s1").isEmpty())
     }
 
     @Test
-    fun `clearForSession and clear release state`() {
+    fun `clearForSession releases session state`() {
         val store = DshJobsStore()
         store.applySnapshot("s1", listOf(job("a", "running")))
         store.applySnapshot("s2", listOf(job("b", "completed")))
         store.clearForSession("s1")
         assertEquals(setOf("s2"), store.jobsBySession.value.keys)
-        store.clear()
-        assertTrue(store.jobsBySession.value.isEmpty())
     }
 }
