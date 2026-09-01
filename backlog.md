@@ -89,11 +89,6 @@
   - 2026-09-25 发现（AgentSheet 树化批次顺带）：compileDevDebugAndroidTestKotlin 在基线 64079b57 即失败——FakeServerRepository 缺 promoteDebugBackend、FakeSessionRepository 缺 listSessionsPage、ArchiveBucketDaoTest 引用已不存在的 leastAccessed/lastAccessedAt
   - 单测 2376 基线不受影响（仅 androidTest 源集）；修复=补齐 fakes 成员 + 对齐 DAO 测试字段
 
-- [ ] **#280 DSH agent 预设切换（#276 遗留尾）：agentPreset 仅 blank 会话可设的语义适配** `dsh` `ui`
-  - 现状（2026-08-31 调研）：`agentPreset.select` 仅对 blank（零轮次）会话生效，首轮后 agent-preset-locked；`agentPreset.list` 是会话构成模式（standard/code/minimal/cordis），非 V2 每-prompt agent 切换语义；`session.prompt` 无 agent 参数
-  - 方向：模型切换链已通（e8a90d67），本卡需 UI 层 blank 门控（有轮次即隐藏/禁用 agent 选择）+ 语义重设计（预设=建会话时选，非发送时切）
-  - → `docs/api/dsh-openapi-notes.md`
-
 - [ ] **#282 DSH 特性批重构群（双轴审查 Standards 轴）——4 处同形逻辑提取** refactor
   - DshApiClient settings 域四方法同形（describe/mutate 仅 ns/key 差）；SessionEventHandler 四新 handler 同形折叠可提 updateSession；SubagentTreeDelegate 双 DFS 仅行映射异；TaskDelegate 两处排序重复；DshPermissionDefault/DshAgentPresetDefault 同形双值类型
   - → docs/journal/2026-08-30-dsh-integration-and-disconnect-design.md §9

@@ -30,6 +30,17 @@
 3. edit 工具写文件保留原 mtime → gradle up-to-date 误判（touch 源文件可破）——本批「build 2 条幅消失」疑云即此伪象链；
 4. SnackbarDuration.Short ~4s：a11y dump 须在动作后 <3s 取，否则错过。
 
+## 批量清欠轮追加（goal-cd39dbd4）
+
+本 journal 同时收 #281/#285/#289/#279/#290 证据（各 commit message 全量）；
+
+### #280 定性收口（2026-09-01 三轮核查：已结构性满足，非缺口）
+
+agentPreset 选择 UI 只存在于 ChatEmptyState（`messages.isEmpty() && 无 pending 卡`
+才渲染，ChatScreen.kt:880）——有轮次会话天然无预设入口；「预设=建会话时选」
+语义已在位（组件 doc 明示「会话此时必 blank」；select locked → snackbar 兜底）。
+无需代码变更，卡片迁出 backlog。
+
 ## V6（用户复验邀请）
 
 条幅观感（errorContainer 细条幅 + CloudOff 14dp）与报错文案手感——随时在任意断连场景目验。
