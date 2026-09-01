@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#292**。
+**编号**：全局递增，不回收。下一编号：**#293**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -61,16 +61,6 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#291 翻译文件一行一 key 惯例修复（历史批量追加同列破坏格式）** `i18n`
-  - #284 残项迁出（其余子项已完结于 2026-09-01 重构清尾批）：14 个翻译文件历史新 key 存在同列追加，破坏一行一 key 惯例，批量整理
-  - 验证=i18n 检查脚本 + 抽样 diff 目检
-  - → docs/journal/2026-09-01-dsh-refactor-closeout.md
-
-- [ ] **#289 本地堆积消息链路因忙碌双键裁决失去 UI 入口（enqueuePendingMessage 无人调用）** `refactor` `ui`
-  - 2026-09-01 走查 #8 双键裁决移除 busy 气泡，「堆积」唯一入口（ChatInputBar.onEnqueue → BottomBar lambda）随之删除；PendingMessageRepository/PendingMessagePipeline/PendingSheets/VM enqueue/edit/delete/clear/reorder 保留但从 UI 不可达
-  - 方向：裁决去留——整体拆除（含 SessionListViewModel 角标计数）或另立入口；验证=静态 grep 无孤儿 + 拆除时跑全量回归
-  - → `docs/journal/2026-09-01-busy-dual-key-send.md`
-
 - [ ] **#287 DSH 附件字节拉取（session.attachment → Part.File url/图片缩略图接线）** `dsh` `ui`
   - Task 3c 落地 file/image ContentBlock → Part.File 分支（数据不再丢），但 DSH 图片块仅存 attachment 引用（attachmentId/mediaType/字节数）——既有 ImageThumbnailRow 需 url 才渲染
   - 方向：DshApiClient readAttachment（sessions.d.ts:381-388 成功形态=ImageAttachmentRef+base64）→ 转 data URL 填 Part.File.url / 本地缓存键；验证=真机 DSH 会话带图消息缩略图可见
@@ -89,10 +79,6 @@
   - 方向：sessionId 就绪后重载 commands + 订阅 commands/change 失效重取（参照官方 CommandDirectory warm/invalidate）；验证=真机输入 / 看服务端命令列表
   - → docs/journal/2026-08-31-goal-token-ring-slash.md
 
-
-- [ ] **#281 androidTest 编译基线破损：fakes 缺接口成员 + ArchiveBucketDaoTest 字段漂移** `refactor`
-  - 2026-09-25 发现（AgentSheet 树化批次顺带）：compileDevDebugAndroidTestKotlin 在基线 64079b57 即失败——FakeServerRepository 缺 promoteDebugBackend、FakeSessionRepository 缺 listSessionsPage、ArchiveBucketDaoTest 引用已不存在的 leastAccessed/lastAccessedAt
-  - 单测 2376 基线不受影响（仅 androidTest 源集）；修复=补齐 fakes 成员 + 对齐 DAO 测试字段
 
 - [ ] **#283 权限默认档动态渲染 + projection permissions 键闭合（双轴审查 Spec 轴 a1/a2）** dsh
   - PermissionDefaultRow 硬编码三档（PERMISSION_PRESET_VALUES），未按 settings.describe options/schema enum 动态渲染（输入切换器已动态，双轨不一致）；session/projection key=permissions 帧仍 Ignored——中途切档投影推送被丢（现靠 list 投影+三 knob 事件，够用未闭环）
@@ -122,6 +108,11 @@
   - 待验证：用户真机确认已完成思考卡时长正常 → `docs/journal/2026-08-30-backlog-triage-closure.md`
 
 ## P3 — 观察与低价值改进
+
+- [ ] **#292 goal mutations 批 broken WIP 归档分支裁决（archive/goal-mutations-20260901）** `refactor`
+  - 2026-09-01 收尾裁决批 stash 清理：原 stash@{1}（diag agent 标注 broken，基座 e5581a36 落后 54 commits，含 DshProjection/ContextDetailDialog/ChatViewModel 瘦身等未落地工作）转归档分支保留；stash@{0}（堆积链路拆除 WIP）已被 706d1f1e 完整超越故径弃
+  - 方向：需要 goal/上下文详情域重构时先掂量该分支可 salvage 部分否则删
+  - → docs/journal/2026-09-01-291281-stash-v6.md
 
 - [ ] **#158 面板开关/跳转期间 a11y 树偶发只剩遮罩或空文本节点——维持观察** `queue` `ui` `a11y`
   - 真机 12 次跳转 1 次退化（~8%，均 ~15s 内自愈、零用户可感知影响）；与「跳转+蒙版周期」相关性高，机制未定位（候选：全屏遮罩后 semantics 刷新延迟）
