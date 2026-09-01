@@ -71,11 +71,6 @@
   - 方向：run 级聚合器（成员 label/outcome/phase 折叠进阶段卡，参照官方 tool-workflow 装配）；验证=真机 workflow 运行会话卡片分阶段展示
   - **2026-09-01 活体四面包夹（走查 #9 定性）**：当前服务器对客户端**不暴露** tool-workflow 进度事件——events.mux 实况帧（两次 WS tap + 现跑 workflow 对照，仅 tool/code-dispatch* 渲染伴生）、session.history journal（39 页全翻 0 行，fresh run 亦不入）、session/projection（仅 permissions）、session/jobs（仅 bash 后台任务）四面皆无 → app 侧映射链（DshEventMapper:469 + DshMessageAssembler）为休眠代码路径，非缺陷；走查期「18 事件在 a6c4」不复现（疑当时另有来源/版本窗口）。重开丢卡=结构性（无服务器数据源），DSH synthetic 消息零持久化同因。**升级前置**：待服务器在任何客户端面暴露 tool-workflow 事件后重验，再启聚合器
 
-- [~] **#283 权限默认档动态渲染 + projection permissions 键闭合（双轴审查 Spec 轴 a1/a2）** dsh
-  - a1=7d6761ef（schema enum 动态档集，空回退三档）；a2=5c2d44cc + E2E 五轮全过（外部切档 → SessionPermissionsChanged 派发实证）；全量 255 套件/2519 用例 0 失败
-  - 残余：a1 设置页档集动态渲染 UI 抽查（a11y 退化期未抓到 dump，代码+单测已覆盖）；懒建会话发送链待 #293 解锁
-  - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
-
 - [~] **#278 DSH 僵尸 Busy 的 L3 自愈缺失——无状态端点下的真相源设计** `infra`
   - 87238a1c 方向二落地：fetchSessionStatus 由恒空 map 改 session.list running 字段播种 busy/idle（DshApiClientTest 专测）；E2E 观察 syncFromRest 行在跑
   - 残余：running 中强杀重开收敛场景待 #293 解锁发送通道后方可真机代跑

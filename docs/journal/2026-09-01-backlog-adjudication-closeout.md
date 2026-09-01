@@ -183,6 +183,17 @@ DSH 3080（node，本机即 192.168.110.248）。
 
 留存 `[~]`：#283（a2 E2E 五轮过；a1 设置页 UI 抽查残余）、#278（待 #293 解锁）。
 
+**#283 用户验收（2026-09-01 晚，「283 ok」）——当场迁入**，原文保留：
+
+> - [~] **#283 权限默认档动态渲染 + projection permissions 键闭合（双轴审查 Spec 轴 a1/a2）** dsh
+>   - a1=7d6761ef（schema enum 动态档集，空回退三档）；a2=5c2d44cc + E2E 五轮全过（外部切档 → SessionPermissionsChanged 派发实证）；全量 255 套件/2519 用例 0 失败
+>   - 残余：a1 设置页档集动态渲染 UI 抽查（a11y 退化期未抓到 dump，代码+单测已覆盖）；懒建会话发送链待 #293 解锁
+>   - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
+
+完结依据：a2 E2E 五轮确定性通过 + a1 由用户验收 OK；懒建发送链残余随 #293 立案
+（该缺口属发送通道环境问题，非 #283 权限域缺陷）。
+留存 `[~]` 仅剩：#278（待 #293 解锁后代跑）。
+
 ### E2E 工具链踩坑录（复用必读）
 
 1. **MIUI DocumentsUI 树并入 app 包名**——`package="com.android.documentsui"` 判据
