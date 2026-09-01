@@ -44,6 +44,12 @@ internal class RenderSupplyCoordinator(
     /** 待提交分片计划（partId → plan + 入队时 display index[仅取证]）——私有。 */
     private val pendingChunkPlans = LinkedHashMap<String, Pair<MdChunkPlan, Int>>()
 
+    /**
+     * 待提交分片计划数——#254 测试确定性探针：解析回调里 `Parsed 可见` 与
+     * `计划入队` 非原子（RenderReadiness.preParse 124-125 行两语句间可被异线程
+     * 观察到 Parsed），测试以本计数替代 delay(100) 保险等待入队真实落地。
+     */
+    internal val pendingChunkPlanCount: Int get() = pendingChunkPlans.size
     /** 已提交计划的解析基准长度（partId → 解析时文本长度）——陈旧检测基准。
      *  #246 五轮反馈根治：部分文本快照一旦被解析，旧逻辑永不重析/永换 plan，
      *  分片即永久丢头（冷启动首屏只剩尾部段——现场截图+dump 实证）。 */

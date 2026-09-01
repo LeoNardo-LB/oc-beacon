@@ -80,6 +80,18 @@ class RenderSupplyCoordinatorTest {
         Unit
     }
 
+    /**
+     * #254（负载偶发根治）：等待分片计划真实入队——`Parsed 可见`与`计划入队`
+     * 非原子（preParse 在两语句间可被异线程抢先观察到 Parsed），原 delay(100)
+     * 保险在满载下不足。以 pendingChunkPlanCount 探针确定性收敛。
+     */
+    private fun awaitPendingEnqueued(env: Env, expect: Int = 1): Unit = runBlocking {
+        withTimeout(5000) {
+            while (env.coordinator.pendingChunkPlanCount < expect) delay(10)
+        }
+        Unit
+    }
+
     /** 目标 part 独占目标 assistant 的世界 fixture（避免多 launch 竞态）。 */
     private fun targetPartWorld(pairs: Int, partId: String, assistantIndex: Int, chunkable: Boolean = true) =
         { i: Int ->
@@ -96,7 +108,7 @@ class RenderSupplyCoordinatorTest {
         val partFor = targetPartWorld(pairs, partId, assistantIndex)
         env.coordinator.onViewportChanged(vp, vp, env.world(pairs, partFor = partFor))
         awaitParsedBlocking(env, partId)
-        delay(100) // preParse 回调与 flow 发射的相邻语句保险
+        awaitPendingEnqueued(env)   // #254：确定性入队等待
         Unit
     }
     @Test
@@ -193,7 +205,7 @@ class RenderSupplyCoordinatorTest {
         // 种入：a15 在 display 31
         env.coordinator.onViewportChanged(31, 31, env.world(20, partFor = part))
         awaitParsedBlocking(env, partId)
-        delay(100)
+        awaitPendingEnqueued(env)   // #254
         // 重建：display 31 前插入 3 对消息 → a15 移到 display 37（旧 index 全部失效）
         val shifted = { i: Int ->
             when {
@@ -219,7 +231,7 @@ class RenderSupplyCoordinatorTest {
             // 但从未进视口 → 冷 → 提交（提交评估在解析完成后的下一次视口变化跑）
             env.coordinator.onViewportChanged(15, 15, env.world(20, partFor = part))
             awaitParsedBlocking(env, partId)
-            delay(100)
+            awaitPendingEnqueued(env)   // #254
             env.coordinator.onViewportChanged(15, 15, env.world(20, partFor = part))
             assertTrue("冷 part 带内即提交（单体从未组合，裂变零成本）", env.coordinator.chunkPlans.value.containsKey(partId))
         }
@@ -229,7 +241,7 @@ class RenderSupplyCoordinatorTest {
             val env = Env()
             env.coordinator.onViewportChanged(11, 11, env.world(20, partFor = part)) // a5 进视口 → 热
             awaitParsedBlocking(env, partId)
-            delay(100)
+            awaitPendingEnqueued(env)   // #254
             assertTrue("视口内不提交", env.coordinator.chunkPlans.value.isEmpty())
             env.coordinator.onViewportChanged(11 + m, 11 + m, env.world(20, partFor = part)) // 带内 + 热 → 拦截
             assertTrue("热 part 带内不提交（缓存池保护）", env.coordinator.chunkPlans.value.isEmpty())
@@ -277,7 +289,7 @@ class RenderSupplyCoordinatorTest {
         // 第一阶段：短版文本（冷、带外）→ 提交 plan（基准长度记为短版）
         env.coordinator.onViewportChanged(15, 15, env.world(20, partFor = part))
         awaitParsedBlocking(env, partId)
-        delay(100)
+        awaitPendingEnqueued(env)   // #254
         env.coordinator.onViewportChanged(15, 15, env.world(20, partFor = part))
         assertTrue(env.coordinator.chunkPlans.value.containsKey(partId))
         val staleBlocks = env.coordinator.chunkPlans.value.getValue(partId).state.node.children.size
@@ -291,7 +303,7 @@ class RenderSupplyCoordinatorTest {
         // 视口挪远（确保出带），让重析后的 plan 走 pending→commit 常规路径之外也有覆盖保障
         env.coordinator.onViewportChanged(0, 0, env.world(20, partFor = grownPart))
         awaitParsedBlocking(env, partId)
-        delay(150)
+        delay(150) // T11 二阶段重析不走 pending 队列（直接覆盖已提交项）——探针不适用
         env.coordinator.onViewportChanged(0, 0, env.world(20, partFor = grownPart))
         delay(100)
 
@@ -312,7 +324,7 @@ class RenderSupplyCoordinatorTest {
         // 解析完成并让 turn 处于带外提交一次以外的状态：先在视口内种 pending
         env.coordinator.onViewportChanged(11, 11, env.world(20, partFor = part)) // 热
         awaitParsedBlocking(env, partId)
-        delay(100)
+        awaitPendingEnqueued(env)   // #254：入队确定性等待（替代 delay(100) 保险）
         assertTrue(env.coordinator.chunkPlans.value.isEmpty())
 
         // 连续停在带内（m=6 → 11+6=17）两轮：仍拦截
