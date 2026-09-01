@@ -413,7 +413,8 @@ object DshEventMapper {
             // turn/step start → busy（重复 busy 的节流/FSM 去重留给 #276 编排层）
             "turn/start", "step/start" ->
                 listOf(DshMappedEvent.Sse(SseEvent.SessionStatus(sessionId, SessionStatus.Busy)))
-            "turn/end" -> listOf(DshMappedEvent.Sse(SseEvent.SessionIdle(sessionId)))
+            // time 透传（#294）：重放的历史 turn/end 携带原始时刻供通知层陈旧过滤
+            "turn/end" -> listOf(DshMappedEvent.Sse(SseEvent.SessionIdle(sessionId, time.takeIf { it > 0 })))
             "todo/write" -> mapTodoWrite(sessionId, data)
             "session/title" -> mapSessionTitle(sessionId, time, data)
 

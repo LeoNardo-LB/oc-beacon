@@ -44,7 +44,12 @@ sealed class SseEvent {
     ) : SseEvent()
 
     @Serializable
-    data class SessionIdle(val sessionId: String) : SseEvent()
+    data class SessionIdle(
+        val sessionId: String,
+        /** 事件原始时刻（epoch ms；DSH 帧/历史行携带）。null=来源无时刻（V1/V2）。
+         *  #294：重放的历史 turn/end 携带原始时刻，供通知层做陈旧过滤。 */
+        val time: Long? = null,
+    ) : SseEvent()
 
     @Serializable
     data class SessionError(

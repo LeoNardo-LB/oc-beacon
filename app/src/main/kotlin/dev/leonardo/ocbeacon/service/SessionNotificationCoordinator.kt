@@ -28,6 +28,9 @@ private const val TAG = "SessionNotifCoord"
 private const val RESPONSE_READY_ATTEMPTS = 3
 private const val RESPONSE_READY_INTERVAL_MS = 250L
 
+/** #294：事件陈旧阈值——超过此时龄的 idle 完成不通知（回放的历史事件时龄以小时/天计，实时事件 <1s）。 */
+private const val STALE_EVENT_NOTIFY_MS = 5 * 60_000L
+
 /**
  * 通知/提示音动作端口（C9）：[SessionNotificationCoordinator] 的纯策略输出。
  *
@@ -128,6 +131,19 @@ class SessionNotificationCoordinator @Inject constructor(
     // ============ 分支策略 ============
 
     private suspend fun onSessionIdle(server: ServerConfig, event: SseEvent.SessionIdle) {
+        // #294（回放期通知风暴 + heads-up 劫持）：DSH 冷启回放把历史 turn/end
+        // 重放给新订阅者——缓存未命中被误判「新完成」→ 7 分钟 57 条通知轰炸 +
+        // MIUI heads-up 横幅劫持顶栏点按（2026-09-01 真机两次实锤）。事件携带
+        // 原始时刻（DSH 透传；V1/V2 无时刻为 null 保持原行为）——陈旧完成不通知。
+        event.time?.let { eventTime ->
+            val ageMs = System.currentTimeMillis() - eventTime
+            if (ageMs > STALE_EVENT_NOTIFY_MS) {
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(TAG, "[${server.displayName}] Skip stale idle notification (${ageMs / 60_000}min old, ${event.sessionId})")
+                }
+                return
+            }
+        }
         // #155：正在查看该会话 → 被抑制的系统通知转为会话内提示音
         //（策略镜像系统通知：渠道/铃声档/DND/开关，见 InSessionFeedbackPlayer）
         val inSession = sessionFocusHolder.shouldSuppress(server.id, event.sessionId)

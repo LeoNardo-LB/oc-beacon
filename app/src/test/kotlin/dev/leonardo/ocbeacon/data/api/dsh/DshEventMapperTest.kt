@@ -595,7 +595,8 @@ class DshEventMapperTest {
             DshEventMapper.mapSessionEvent("s9", sessionEvent("step/start", """{"turn":1,"step":1}""")),
         )
         assertEquals(
-            listOf(DshMappedEvent.Sse(SseEvent.SessionIdle("s9"))),
+            // #294：time 透传（sessionEvent 助手固定 time=1788109999000）
+            listOf(DshMappedEvent.Sse(SseEvent.SessionIdle("s9", 1788109999000))),
             DshEventMapper.mapSessionEvent("s9", sessionEvent("turn/end", """{"turn":1,"reason":{"kind":"completed"}}""")),
         )
     }

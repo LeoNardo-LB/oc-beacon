@@ -78,7 +78,7 @@ class DshHistoryFolderTest {
         assertEquals("thinking...", ((events[12] as SseEvent.MessagePartUpdated).part as Part.Reasoning).text)
         assertEquals("answer", ((events[13] as SseEvent.MessagePartUpdated).part as Part.Text).text)
         // turn/end → idle；todo/title
-        assertEquals(SseEvent.SessionIdle("fixture-0001"), events[14])
+        assertEquals(SseEvent.SessionIdle("fixture-0001", 1788109000021), events[14])  // #294：time 透传
         assertTrue(events[15] is SseEvent.TodoUpdated)
         val updated = events[16] as SseEvent.SessionUpdated
         assertEquals("fixture session", updated.info.title)
@@ -87,7 +87,7 @@ class DshHistoryFolderTest {
     @Test
     fun `golden sample yields session idle exactly once`() {
         val idles = DshHistoryFolder.fold(goldenRows()).sseEvents.filterIsInstance<SseEvent.SessionIdle>()
-        assertEquals(listOf(SseEvent.SessionIdle("fixture-0001")), idles)
+        assertEquals(listOf(SseEvent.SessionIdle("fixture-0001", 1788109000021)), idles)
     }
 
     @Test
@@ -142,7 +142,7 @@ class DshHistoryFolderTest {
             ).jsonObject,
         )
         val result = DshHistoryFolder.fold(rows)
-        assertEquals(listOf<SseEvent>(SseEvent.SessionIdle("w-1")), result.sseEvents)
+        assertEquals(listOf<SseEvent>(SseEvent.SessionIdle("w-1", 9)), result.sseEvents)  // #294
         assertEquals(7L, result.lastSeq)
     }
 
@@ -152,7 +152,7 @@ class DshHistoryFolderTest {
             json.parseToJsonElement("""{"type":"session","version":0,"id":"header-id","createdAt":1,"cwd":"/w"}""").jsonObject,
             json.parseToJsonElement("""{"type":"turn/end","seq":1,"time":2,"data":{"turn":1}}""").jsonObject,
         )
-        assertEquals(SseEvent.SessionIdle("param-id"), DshHistoryFolder.fold(rows, sessionId = "param-id").sseEvents.single())
+        assertEquals(SseEvent.SessionIdle("param-id", 2), DshHistoryFolder.fold(rows, sessionId = "param-id").sseEvents.single())  // #294
     }
 
     @Test
@@ -173,7 +173,7 @@ class DshHistoryFolderTest {
             """{"type":"turn/end","seq":3,"time":4,"data":{"turn":1}}""",
         ).joinToString("\n")
         val result = DshHistoryFolder.foldLines(text)
-        assertEquals(listOf<SseEvent>(SseEvent.SessionIdle("l-1")), result.sseEvents)
+        assertEquals(listOf<SseEvent>(SseEvent.SessionIdle("l-1", 4)), result.sseEvents)  // #294
         assertEquals(3L, result.lastSeq)
     }
 
@@ -190,7 +190,7 @@ class DshHistoryFolderTest {
             json.parseToJsonElement("""{"type":"turn/end","seq":5,"time":6,"data":{"turn":1}}""").jsonObject,
         )
         val result = DshHistoryFolder.fold(rows)
-        assertEquals(listOf<SseEvent>(SseEvent.SessionIdle("m-1")), result.sseEvents)
+        assertEquals(listOf<SseEvent>(SseEvent.SessionIdle("m-1", 6)), result.sseEvents)  // #294
         assertEquals(0, result.unknownUnignorable.size) // 帧型混入不拒绝重建
         assertEquals(false, result.refusedRebuild)
         assertEquals(5L, result.lastSeq) // 帧型行无 seq，lastSeq 只由活事件推进

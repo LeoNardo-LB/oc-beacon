@@ -128,6 +128,48 @@ class SessionNotificationCoordinatorTest {
         assertEquals(listOf("onTurnCompleted:server1:sess1", "showTurnComplete:sess1"), port.calls)
     }
 
+    // ============ #294：回放期陈旧 idle 不通知 ============
+
+    @Test
+    fun idleWithStaleEventTimeSkipsNotification() = runTest {
+        background()
+        every { appNotificationManager.checkNewAssistantMessage("server1", "sess1") } returns "msg_a1"
+
+        // 回放的历史 turn/end：事件时刻 = 1 小时前
+        val stale = SseEvent.SessionIdle(
+            sessionId = "sess1",
+            time = System.currentTimeMillis() - 60 * 60_000L,
+        )
+        coordinator.processEvent(server, stale)
+
+        assertEquals(emptyList<String>(), port.calls)   // 不通知、不响、不计完成
+    }
+
+    @Test
+    fun idleWithFreshEventTimeStillNotifies() = runTest {
+        background()
+        every { appNotificationManager.checkNewAssistantMessage("server1", "sess1") } returns "msg_a1"
+
+        // 实时 turn/end：事件时刻 = 1 秒前
+        val fresh = SseEvent.SessionIdle(
+            sessionId = "sess1",
+            time = System.currentTimeMillis() - 1_000L,
+        )
+        coordinator.processEvent(server, fresh)
+
+        assertEquals(listOf("onTurnCompleted:server1:sess1", "showTurnComplete:sess1"), port.calls)
+    }
+
+    @Test
+    fun idleWithoutEventTimeKeepsLegacyBehavior() = runTest {
+        background()
+        every { appNotificationManager.checkNewAssistantMessage("server1", "sess1") } returns "msg_a1"
+
+        coordinator.processEvent(server, idle())   // time=null（V1/V2）
+
+        assertEquals(listOf("onTurnCompleted:server1:sess1", "showTurnComplete:sess1"), port.calls)
+    }
+
     @Test
     fun idleBackgroundNoAssistantOutputDoesNothing() = runTest {
         background()
