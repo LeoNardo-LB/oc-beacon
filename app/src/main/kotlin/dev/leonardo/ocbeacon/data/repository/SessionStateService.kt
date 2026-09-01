@@ -527,10 +527,14 @@ class SessionStateService @Inject constructor(
         // 无归属（手动刷新等）回退全局 currentServerId。
         val sid = sessionServerOwnership[sessionId] ?: currentServerId ?: return
         val directory = collaborator.resolveDirectory(sessionId)
-        // RS-012 修复：对同一会话的并发校验去重。
-        // 模式：launch → merge（原子替换，取消前一个）→ invokeOnCompletion（清理）。
-        // merge 函数仅取消旧 job 并返回新 job——它不修改
-        // activeValidations，避免 ConcurrentHashMap.compute() 死锁。
+        // RS-012 + #278 残项（2026-09-02 回放风暴实证）：原「launch → merge 原子
+        // 替换取消旧 job」在回放期被每个 suspicious delta 触发——job 创建/取消
+        // 风暴 + 半途 Ktor 请求被取消（JobCancellationException）。校验是"服务器
+        // 真相快照"（结果与触发原因无关）：已有进行中校验则直接跳过；完成后
+        // 的下一个 suspicious 触发会再启校验，无丢步。
+        // 先查再 launch（Unconfined/抢跑 dispatcher 下 launch 体可能先于登记执行）。
+        val inFlight = activeValidations[sessionId]
+        if (inFlight != null && inFlight.isActive) return
         val job = appScope.launch {
             try {
                 val result = sessionRepoProvider.get().fetchSessionStatuses(sid, directory)
@@ -682,14 +686,32 @@ class SessionStateService @Inject constructor(
                         }
                     }
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // #278 残项（2026-09-02 真机实证）：取消不是失败——job 被去重/
+                // clearAll 取消时静默让位，不吞取消（原 catch Exception 落此产生
+                // 121 条 "StandaloneCoroutine was cancelled" warn 噪音）。
+                throw e
             } catch (e: Exception) {
                 AppLogger.w(TAG, "[$sessionId] L3 REST validation failed: ${e.message}")
             }
         }
-        // 原子替换此会话的任何现有 job（取消旧 job）
-        activeValidations.merge(sessionId, job) { oldJob, newJob ->
-            oldJob.cancel()
-            newJob
+        // RS-012 + #278 残项（2026-09-02 回放风暴实证）：原「新 job 原子替换取消
+        // 旧 job」在回放期被每个 suspicious delta 触发——job 创建/取消风暴 + 半途
+        // Ktor 请求被取消。校验是"服务器真相快照"（结果与触发原因无关）：已有
+        // 进行中校验时跳过 spawn，让其完成收敛；校验完成后的下一个 suspicious
+        // 触发会再次校验，无丢步。
+        val existing = activeValidations.putIfAbsent(sessionId, job)
+        if (existing != null) {
+            if (existing.isActive) {
+                job.cancel()
+                return
+            }
+            // 完成但清理回调未及执行的陈旧条目——替换之（其 remove(key,existing)
+            // 幂等失效；replace 失败=并发已变化，保守取消自己让位）。
+            if (!activeValidations.replace(sessionId, existing, job)) {
+                job.cancel()
+                return
+            }
         }
         // 清理：job 完成时从去重 map 中移除。
         // invokeOnCompletion 即使 job 已完成也会触发。

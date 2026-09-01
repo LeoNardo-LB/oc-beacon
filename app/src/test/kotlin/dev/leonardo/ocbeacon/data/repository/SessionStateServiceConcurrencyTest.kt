@@ -265,26 +265,23 @@ class SessionStateServiceConcurrencyTest {
     // ============ RS-012：triggerRestValidation 去重 ============
 
     /**
-     * RS-012 回归测试：对同一会话的多个并发 triggerRestValidation 调用，
-     * 应只有最新一次校验的结果被应用到 FSM。
+     * RS-012 回归测试（2026-09-02 #278 残项策略修订）：对同一会话的多个并发
+     * triggerRestValidation 调用，进行中的校验让后续触发直接跳过（原「新 job
+     * 取消旧 job」在回放风暴期产生 121 次 job 创建/取消 + 半途 Ktor 请求取消
+     * ——校验是服务器真相快照，结果与触发原因无关，首个在飞 job 完成即收敛）。
      *
-     * 注意：在 UnconfinedTestDispatcher 下，每次 launch 都同步执行到第一个
-     * 挂起点，因此 mock 确实被调用多次。但去重机制确保被取消的 job 的结果
-     * 不会被应用到 FSM —— 只有最新（未取消）的 job 的结果生效。
-     *
-     * 我们通过让每次校验返回不同状态来验证，并检查最终 FSM 状态只反映
-     * 最后一次校验。
+     * 验证：① 风暴期只发**一次** fetch；② 该次结果被应用到 FSM；
+     * ③ 校验完成后的新触发会再启校验（无丢步）。
      */
     @Test
-    fun `RS-012 concurrent triggerRestValidation applies only latest result`() {
+    fun `RS-012 concurrent triggerRestValidation skips while in-flight and re-triggers after completion`() {
         val fakeRepo = mockk<SessionRepository>(relaxed = true)
         val gate = CompletableDeferred<Unit>()
         val callCount = AtomicInteger(0)
         coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } coAnswers {
-            val n = callCount.incrementAndGet()
-            gate.await() // 所有校验在此挂起，直到被释放
-            // 每次调用返回不同状态：早期调用 = Busy，最后一次 = Idle
-            Result.success(mapOf("s1" to if (n < 5) SessionStatus.Busy else SessionStatus.Idle))
+            callCount.incrementAndGet()
+            gate.await()
+            Result.success(mapOf("s1" to SessionStatus.Busy))
         }
         val collab = StubCollaborator()
         val service = newServiceWith(fakeRepo, collab)
@@ -293,22 +290,29 @@ class SessionStateServiceConcurrencyTest {
         service.onClientSendParts("s1")
         testScope.runCurrent()
 
-        // 快速触发 5 次校验 —— merge 取消 job 1-4，保留 job 5
+        // 快速触发 5 次校验 —— 首个 job 在 gate 挂起，其余 4 次跳过（不 spawn）
         repeat(5) { service.triggerRestValidation("s1") }
         testScope.runCurrent()
+        assertEquals("风暴期只应发出一次 fetch", 1, callCount.get())
 
-        // 同时释放所有挂起的校验
+        // 释放挂起的校验 —— 唯一结果（Busy）被应用
         gate.complete(Unit)
         testScope.runCurrent()
-
-        // 最新校验（job 5，返回 Idle）的结果应被应用。
-        // job 1-4 被 merge 取消；即使其挂起函数执行完毕，
-        // FSM 也只反映最终应用的状态。
         assertEquals(
-            "FSM should reflect the latest validation result (Idle)",
-            SessionStatus.Idle,
+            "FSM should reflect the in-flight validation result (Busy)",
+            SessionStatus.Busy,
             service.statusFlow.value["s1"]
         )
+
+        // 校验完成后新触发应再启校验（结果幂等回 Busy）——coAnswers 保持计数
+        coEvery { fakeRepo.fetchSessionStatuses(any(), any()) } coAnswers {
+            callCount.incrementAndGet()
+            Result.success(mapOf("s1" to SessionStatus.Busy))
+        }
+        service.triggerRestValidation("s1")
+        testScope.runCurrent()
+        assertEquals("完成后应允许新校验", 2, callCount.get())
+        assertEquals(SessionStatus.Busy, service.statusFlow.value["s1"])
     }
 
     /**
