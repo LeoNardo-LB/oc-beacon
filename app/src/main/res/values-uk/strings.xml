@@ -754,7 +754,8 @@
     <string name="search_filter_time_all">Весь час</string>
     <string name="search_filter_time_7d">Останні 7 днів</string>
     <string name="search_filter_time_30d">Останні 30 днів</string>
-    <string name="search_content_no_hits">Немає збігів у повідомленнях</string>    <string name="permission_full_access">Повний доступ</string>
+    <string name="search_content_no_hits">Немає збігів у повідомленнях</string>
+    <string name="permission_full_access">Повний доступ</string>
     <string name="permission_workspace_write">Запис у робочу область</string>
     <string name="permission_read_only">Лише читання</string>
     <string name="permission_custom">Користувацький</string>
@@ -769,7 +770,30 @@
     <string name="session_details_agent_preset">Пресет агента</string>
     <string name="a11y_icon_agent_preset">Пресет агента</string>
     <!-- ============ Goal (backlog #286) / Context pressure ============ -->
-    <string name="toolbar_goal">Мета</string><string name="goal_phase_active">Активно</string><string name="goal_phase_paused">Призупинено</string><string name="goal_phase_blocked">Заблоковано</string><string name="goal_rounds_progress">Раунд %1$d / %2$d</string><string name="goal_rounds_plain">Розпочатий раунд: %1$d</string><string name="goal_blocked_reason">Причина: %1$s</string><string name="goal_action_pause">Пауза</string><string name="goal_action_resume">Продовжити</string><string name="goal_action_edit">Змінити</string><string name="goal_action_clear">Очистити</string><string name="goal_create_heading">Створити мету</string><string name="goal_objective_label">Мета</string><string name="goal_objective_placeholder">Чого має досягти ця сесія?</string><string name="goal_max_rounds_label">Макс. раундів (необов’язково)</string><string name="goal_btn_create">Створити</string><string name="goal_btn_save">Зберегти</string><string name="goal_failed">Не вдалося виконати дію з метою</string><string name="goal_busy">Сесія зайнята</string><string name="context_pressure_title">Використання контексту</string><string name="context_pressure_used">~%1$s / %2$s</string><string name="context_pressure_system">Системний промпт</string><string name="context_pressure_tools">Інструменти</string><string name="context_pressure_messages">Повідомлення</string>
+    <string name="toolbar_goal">Мета</string>
+    <string name="goal_phase_active">Активно</string>
+    <string name="goal_phase_paused">Призупинено</string>
+    <string name="goal_phase_blocked">Заблоковано</string>
+    <string name="goal_rounds_progress">Раунд %1$d / %2$d</string>
+    <string name="goal_rounds_plain">Розпочатий раунд: %1$d</string>
+    <string name="goal_blocked_reason">Причина: %1$s</string>
+    <string name="goal_action_pause">Пауза</string>
+    <string name="goal_action_resume">Продовжити</string>
+    <string name="goal_action_edit">Змінити</string>
+    <string name="goal_action_clear">Очистити</string>
+    <string name="goal_create_heading">Створити мету</string>
+    <string name="goal_objective_label">Мета</string>
+    <string name="goal_objective_placeholder">Чого має досягти ця сесія?</string>
+    <string name="goal_max_rounds_label">Макс. раундів (необов’язково)</string>
+    <string name="goal_btn_create">Створити</string>
+    <string name="goal_btn_save">Зберегти</string>
+    <string name="goal_failed">Не вдалося виконати дію з метою</string>
+    <string name="goal_busy">Сесія зайнята</string>
+    <string name="context_pressure_title">Використання контексту</string>
+    <string name="context_pressure_used">~%1$s / %2$s</string>
+    <string name="context_pressure_system">Системний промпт</string>
+    <string name="context_pressure_tools">Інструменти</string>
+    <string name="context_pressure_messages">Повідомлення</string>
     <string name="queue_edit">Редагувати повідомлення в черзі</string>
     <string name="queue_remove">Видалити повідомлення з черги</string>
     <string name="queue_steer">Спрямувати до наступного ходу</string>

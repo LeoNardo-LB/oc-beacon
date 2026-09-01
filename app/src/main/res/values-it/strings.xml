@@ -746,7 +746,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="search_filter_time_all">Tutto il periodo</string>
     <string name="search_filter_time_7d">Ultimi 7 giorni</string>
     <string name="search_filter_time_30d">Ultimi 30 giorni</string>
-    <string name="search_content_no_hits">Nessun messaggio corrispondente</string>    <string name="permission_full_access">Accesso completo</string>
+    <string name="search_content_no_hits">Nessun messaggio corrispondente</string>
+    <string name="permission_full_access">Accesso completo</string>
     <string name="permission_workspace_write">Scrittura area di lavoro</string>
     <string name="permission_read_only">Sola lettura</string>
     <string name="permission_custom">Personalizzato</string>
@@ -761,7 +762,30 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="session_details_agent_preset">Preset agente</string>
     <string name="a11y_icon_agent_preset">Preset agente</string>
     <!-- ============ Goal (backlog #286) / Context pressure ============ -->
-    <string name="toolbar_goal">Obiettivo</string><string name="goal_phase_active">Attivo</string><string name="goal_phase_paused">In pausa</string><string name="goal_phase_blocked">Bloccato</string><string name="goal_rounds_progress">Turno %1$d / %2$d</string><string name="goal_rounds_plain">Turno avviato: %1$d</string><string name="goal_blocked_reason">Motivo: %1$s</string><string name="goal_action_pause">Pausa</string><string name="goal_action_resume">Riprendi</string><string name="goal_action_edit">Modifica</string><string name="goal_action_clear">Cancella</string><string name="goal_create_heading">Crea un obiettivo</string><string name="goal_objective_label">Obiettivo</string><string name="goal_objective_placeholder">Cosa deve ottenere questa sessione?</string><string name="goal_max_rounds_label">Turni massimi (facoltativo)</string><string name="goal_btn_create">Crea</string><string name="goal_btn_save">Salva</string><string name="goal_failed">Azione sull’obiettivo non riuscita</string><string name="goal_busy">La sessione è occupata</string><string name="context_pressure_title">Uso del contesto</string><string name="context_pressure_used">~%1$s / %2$s</string><string name="context_pressure_system">Prompt di sistema</string><string name="context_pressure_tools">Strumenti</string><string name="context_pressure_messages">Messaggi</string>
+    <string name="toolbar_goal">Obiettivo</string>
+    <string name="goal_phase_active">Attivo</string>
+    <string name="goal_phase_paused">In pausa</string>
+    <string name="goal_phase_blocked">Bloccato</string>
+    <string name="goal_rounds_progress">Turno %1$d / %2$d</string>
+    <string name="goal_rounds_plain">Turno avviato: %1$d</string>
+    <string name="goal_blocked_reason">Motivo: %1$s</string>
+    <string name="goal_action_pause">Pausa</string>
+    <string name="goal_action_resume">Riprendi</string>
+    <string name="goal_action_edit">Modifica</string>
+    <string name="goal_action_clear">Cancella</string>
+    <string name="goal_create_heading">Crea un obiettivo</string>
+    <string name="goal_objective_label">Obiettivo</string>
+    <string name="goal_objective_placeholder">Cosa deve ottenere questa sessione?</string>
+    <string name="goal_max_rounds_label">Turni massimi (facoltativo)</string>
+    <string name="goal_btn_create">Crea</string>
+    <string name="goal_btn_save">Salva</string>
+    <string name="goal_failed">Azione sull’obiettivo non riuscita</string>
+    <string name="goal_busy">La sessione è occupata</string>
+    <string name="context_pressure_title">Uso del contesto</string>
+    <string name="context_pressure_used">~%1$s / %2$s</string>
+    <string name="context_pressure_system">Prompt di sistema</string>
+    <string name="context_pressure_tools">Strumenti</string>
+    <string name="context_pressure_messages">Messaggi</string>
     <string name="queue_edit">Modifica messaggio in coda</string>
     <string name="queue_remove">Rimuovi messaggio in coda</string>
     <string name="queue_steer">Dirigi al turno successivo</string>
