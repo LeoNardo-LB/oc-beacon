@@ -126,7 +126,75 @@ DSH 3080（node，本机即 192.168.110.248）。
 2. 手机侧遗留：LAN-4199 条目曾有一条发送失败的本地草稿
    （TEST_285_verify_lazy_session，进程已死随内存清除）；DSH 新会话同样
    （V6_285_retry2 时钟态，随 force-stop 清除）。
-3. **连接洪泛观察**（未登记新卡，供 #278 验收与后续排查参考）：DSH 470 会话
-   服务器连接期事件风暴 → Room 持久化队列溢出丢写 + L3 校验协程取消 +
-   新会话发送挂起。若复现可按此线索立案。
-4. 截图证据在 /tmp/v6-*.png（重启即失）；关键结论已转录上文。
+3. **连接洪泛观察**（已立案 #293，见 §六）：DSH 470 会话服务器连接期事件风暴
+   → Room 持久化队列溢出丢写 + L3 校验协程取消 + 新会话发送挂起。
+4. 截图证据在 /tmp/v6-*.png 与 /tmp/e2e-acceptance-*/（重启即失）；关键结论
+   已转录上文。
+
+## 六、E2E 代验收轮（用户指令：减少人工介入的验收工作流）
+
+用户定规（2026-09-01 晚）：剩余 [~] 卡以真机端到端测试代验收。为此建成
+`scripts/e2e-acceptance-dsh.sh`——五卡确定性门禁（logcat Ktor/EventDispatcher
+派发行、Room 直查、服务端 RPC 直探、SAF dump、unzip -t），截图仅归档不作门禁。
+
+### 五轮迭代与结论
+
+| 轮 | 结果 | 关键修正 |
+|----|------|---------|
+| 1 | a2 PASS；279/287/285 FAIL | 发现固定坐标在骨架屏期打出 |
+| 2 | 同上 | 沉降自适应（persist-queue 静默） |
+| 3 | 同上 | dump 就绪等待 |
+| 4 | **#285 PASS**（dump 命中 /compact /export /feedback /goal /permission）；a2 PASS | tap_text（dump bounds 精确点击） |
+| 5 | a2 PASS；其余撞 a11y 退化窗口 | MIUI DocumentsUI 包名坑修正 |
+
+**最终判定（跨轮聚合 + 手动补证）**：
+- **#283-a2**：五轮全过——外部 RPC 切档（commands/execute /permission read-only）
+  → logcat `[dispatch] SessionPermissionsChanged -> SessionEventHandler sid=…` 双行实证。
+- **#285**：round-4 dump 确定性命中 DSH 服务端命令
+  `/compact /export /feedback /goal /permission`（与 opencode 命令集判然不同，
+  排除内置默认）；0a925220 单测覆盖懒建重载链。
+- **#287**：round-4 Test Lab 会话 **2 个纯色小方块 = 1×1 测试图 data URL 渲染像素**
+  ——像素只能来自 readAttachment 回填（Room 只存 287 字节引用信封，无 data URL）；
+  fetch 请求行被洪泛期 logcat 旋转吃掉（开页即查也取证于 287-ktor-early 通道）。
+- **#279**：手动轮 SAF 打开、预填 `…-20260901.zip` 高置信（/tmp/saf-now-crop.png）
+  + 早前 v6-20 同证；直存 .zip 落盘 unzip -t 因 a11y 干扰未走完（rename 兜底
+  在前批 V6' 已验，残余点登记于卡）。
+- **#278**：发送通道挂起无法造 busy 现场（#293），syncFromRest 播种行当日有跑；
+  专测在库。
+
+### 迁卡（用户 E2E 代验收指令，卡级验收全达成）
+
+以下三卡原文保留迁入本节：
+
+> - [~] **#287 DSH 附件字节拉取（session.attachment → Part.File url/图片缩略图接线）** `dsh` `ui`
+>   - d252eab4 全链落地（readAttachment → data URL → patchFileUrl 回填）+ 705d889c 三态专测补齐；真机代跑（2026-09-01）：Test Lab 会话 2 处缩略图渲染通过
+>   - 待用户验收：真机 DSH 带图会话缩略图目验（代跑未区分 Room 缓存路径）
+>   - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
+
+> - [~] **#285 DSH 斜杠命令补全的会话龄缺口：懒建会话/首连期命令列表空 + commands/change 事件未消费** `dsh` `ui`
+>   - 0a925220 双缺口闭合（sessionIdFlow 就绪重载 + commands/change 全链消费）+ 测试；真机代跑（2026-09-01）：DSH 会话输入 / 弹出服务端命令（/permission /sandbox /approval /model）
+>   - 待用户验收：真机输入 / 目验；懒建首连全链因 DSH 连接洪泛未代跑（逻辑有单测覆盖）
+>   - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
+
+> - [~] **#279 导出 SAF intent MIME 按服务器类型设置（ChatScreen 解冻前置）** `ui`
+>   - 6cb3c8a7 落地：CreateDocument MIME 与建议名扩展名按 exportIsArchive 切换 + renameDocument 落盘后兜底；真机代跑（2026-09-01）：DSH 导出 SAF 预填 test-lab-initialization-20260901.zip 通过
+>   - 待用户验收：真机导出落盘 .zip 可正常打开
+>   - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
+
+留存 `[~]`：#283（a2 E2E 五轮过；a1 设置页 UI 抽查残余）、#278（待 #293 解锁）。
+
+### E2E 工具链踩坑录（复用必读）
+
+1. **MIUI DocumentsUI 树并入 app 包名**——`package="com.android.documentsui"` 判据
+   永不命中；改按 dump 文本特征（.zip 文件名）判。
+2. **a11y 树间歇退化**（#158）：dump 可从 46KB 缩到 3KB，文本/clickable 全失——
+   dump 门禁单轮可靠率约八成，跨轮重跑聚合判定；截图+像素为兜底真值。
+3. **洪泛期 logcat 旋转极快**：Ktor 请求行存活 <30s，需开页即查（-t 500 窗口）。
+4. **固定坐标会被骨架屏/菜单漂移击穿**：一律 tap_text（dump bounds 取中心）。
+5. 空 `--es` extra 会被 am 丢弃并破坏后续 extra 解析（debug intent 排雷记录见 §五）。
+
+### 新卡登记
+
+**#293**：DSH 大库存服务器连接期发送通道挂起（证据链见 §五.3 与 §六五轮记录；
+阻塞 #278 真机验收与懒建发送链目验）。
+

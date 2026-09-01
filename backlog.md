@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#293**。
+**编号**：全局递增，不回收。下一编号：**#294**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -61,9 +61,9 @@
 
 ## P2 — 优化与锦上添花
 
-- [~] **#287 DSH 附件字节拉取（session.attachment → Part.File url/图片缩略图接线）** `dsh` `ui`
-  - d252eab4 全链落地（readAttachment → data URL → patchFileUrl 回填）+ 705d889c 三态专测补齐；真机代跑（2026-09-01）：Test Lab 会话 2 处缩略图渲染通过
-  - 待用户验收：真机 DSH 带图会话缩略图目验（代跑未区分 Room 缓存路径）
+- [ ] **#293 DSH 大库存服务器（470 会话）连接期发送通道长时间挂起——时钟态无 RPC 发出** `dsh` `infra`
+  - 2026-09-01 E2E 验收五轮实证：新会话发送均停留「时钟等待」，无 session.create/prompt Ktor 请求、无「Failed to send」日志（sendParts→ensureSession→sendPrompt 链内挂起）；读路径全通（list/history/attachment/export）；伴随「persist queue full, dropped 750 writes」+「L3 REST validation failed: StandaloneCoroutine was cancelled」洪泛链——走查批小库存服务器发送正常，疑与回放规模相关
+  - 方向：定位 DshConnectionOrchestrator/ensureSession 的连接态门禁与协程取消交互；阻塞 #278 真机验收
   - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
 
 - [ ] **#288 workflow 阶段卡（tool-workflow agent-start/end 聚合渲染）** `dsh` `ui`
@@ -71,25 +71,14 @@
   - 方向：run 级聚合器（成员 label/outcome/phase 折叠进阶段卡，参照官方 tool-workflow 装配）；验证=真机 workflow 运行会话卡片分阶段展示
   - **2026-09-01 活体四面包夹（走查 #9 定性）**：当前服务器对客户端**不暴露** tool-workflow 进度事件——events.mux 实况帧（两次 WS tap + 现跑 workflow 对照，仅 tool/code-dispatch* 渲染伴生）、session.history journal（39 页全翻 0 行，fresh run 亦不入）、session/projection（仅 permissions）、session/jobs（仅 bash 后台任务）四面皆无 → app 侧映射链（DshEventMapper:469 + DshMessageAssembler）为休眠代码路径，非缺陷；走查期「18 事件在 a6c4」不复现（疑当时另有来源/版本窗口）。重开丢卡=结构性（无服务器数据源），DSH synthetic 消息零持久化同因。**升级前置**：待服务器在任何客户端面暴露 tool-workflow 事件后重验，再启聚合器
 
-- [~] **#285 DSH 斜杠命令补全的会话龄缺口：懒建会话/首连期命令列表空 + commands/change 事件未消费** `dsh` `ui`
-  - 0a925220 双缺口闭合（sessionIdFlow 就绪重载 + commands/change 全链消费）+ 测试；真机代跑（2026-09-01）：DSH 会话输入 / 弹出服务端命令（/permission /sandbox /approval /model）
-  - 待用户验收：真机输入 / 目验；懒建首连全链因 DSH 连接洪泛未代跑（逻辑有单测覆盖）
-  - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
-
-
 - [~] **#283 权限默认档动态渲染 + projection permissions 键闭合（双轴审查 Spec 轴 a1/a2）** dsh
-  - a1=7d6761ef（settings.describe schema enum 动态档集，空回退三档）；a2=5c2d44cc（permissions 投影帧整值替换 Session.permissions，JsonNull tombstone）；全量 255 套件/2519 用例 0 失败
-  - 待用户验收：设置页档集动态渲染目验 + 中途切档后 app 内权限态刷新
+  - a1=7d6761ef（schema enum 动态档集，空回退三档）；a2=5c2d44cc + E2E 五轮全过（外部切档 → SessionPermissionsChanged 派发实证）；全量 255 套件/2519 用例 0 失败
+  - 残余：a1 设置页档集动态渲染 UI 抽查（a11y 退化期未抓到 dump，代码+单测已覆盖）；懒建会话发送链待 #293 解锁
   - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
 
 - [~] **#278 DSH 僵尸 Busy 的 L3 自愈缺失——无状态端点下的真相源设计** `infra`
-  - 87238a1c 方向二落地：fetchSessionStatus 由恒空 map 改 session.list running 字段播种 busy/idle（DshApiClientTest 专测）；对账回放主径 015ed7de 在前
-  - 待用户验收：running 中强杀 app 重开会话状态收敛（代跑受阻：470 会话连接洪泛挡住发送通道，无法造 busy 现场，如实注记）
-  - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
-
-- [~] **#279 导出 SAF intent MIME 按服务器类型设置（ChatScreen 解冻前置）** `ui`
-  - 6cb3c8a7 落地：CreateDocument MIME 与建议名扩展名按 exportIsArchive 切换 + renameDocument 落盘后兜底；真机代跑（2026-09-01）：DSH 导出 SAF 预填 test-lab-initialization-20260901.zip 通过
-  - 待用户验收：真机导出落盘 .zip 可正常打开
+  - 87238a1c 方向二落地：fetchSessionStatus 由恒空 map 改 session.list running 字段播种 busy/idle（DshApiClientTest 专测）；E2E 观察 syncFromRest 行在跑
+  - 残余：running 中强杀重开收敛场景待 #293 解锁发送通道后方可真机代跑
   - → docs/journal/2026-09-01-backlog-adjudication-closeout.md
 
 - [ ] **#277 单测偶发跨类污染：UncaughtExceptionsBeforeTest（Dispatchers.Main 未设窗口泄漏）** `test`
