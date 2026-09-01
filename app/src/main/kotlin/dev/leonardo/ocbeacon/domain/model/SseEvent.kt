@@ -121,6 +121,18 @@ sealed class SseEvent {
     ) : SseEvent()
 
     /**
+     * DSH permissions 投影整值帧（session/projection key="permissions"，
+     * value={options,currentValue}——与 session.list 基线同形，DshSessionMapper
+     * 单源解析）。整值替换 [Session.permissions]（区别于三 knob 事件的字段级
+     * 合并：投影帧携带完整值，含部署预设表 options）；value=null 为 clear tombstone。
+     */
+    @Serializable
+    data class SessionPermissionsChanged(
+        val sessionId: String,
+        val permissions: SessionPermissions?,
+    ) : SseEvent()
+
+    /**
      * DSH 会话 Agent 预设变更（agent-preset/selected {agentPreset}）。
      * 由 SessionEventHandler 折叠进对应 [Session] 的 [Session.agentPreset]，驱动卡片高亮回显。
      */

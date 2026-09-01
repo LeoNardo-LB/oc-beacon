@@ -330,6 +330,54 @@ class DshEventMapperTest {
         assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.PROJECTION)), mapped)
     }
 
+    // ============ permissions 投影整值帧（#283-a2） ============
+
+    @Test
+    fun `projection permissions frame maps whole value with options`() {
+        val mapped = DshEventMapper.mapFrame(
+            "session/projection",
+            json.parseToJsonElement(
+                """{"type":"session/projection","sessionId":"s1","key":"permissions",""" +
+                    """"value":{"options":[{"value":"read-only","name":"只读"},""" +
+                    """{"value":"workspace-write","name":"工作区写入","description":"可写"}],"currentValue":"workspace-write"},"seq":11}"""
+            ).jsonObject,
+        )
+        val changed = eventsOf(mapped).single() as SseEvent.SessionPermissionsChanged
+        assertEquals("s1", changed.sessionId)
+        val p = changed.permissions!!
+        assertEquals("workspace-write", p.currentValue)
+        assertEquals(2, p.options.size)
+        assertEquals("read-only", p.options[0].value)
+        assertEquals("只读", p.options[0].name)
+        assertEquals(null, p.options[0].description)
+        assertEquals("可写", p.options[1].description)
+        assertEquals(listOf("read-only", "workspace-write"), p.switchableOptions.map { it.value })
+    }
+
+    @Test
+    fun `projection permissions null tombstone maps to clear`() {
+        val mapped = DshEventMapper.mapFrame(
+            "session/projection",
+            json.parseToJsonElement(
+                """{"type":"session/projection","sessionId":"s1","key":"permissions","value":null,"seq":12}"""
+            ).jsonObject,
+        )
+        val changed = eventsOf(mapped).single() as SseEvent.SessionPermissionsChanged
+        assertEquals("s1", changed.sessionId)
+        assertEquals(null, changed.permissions)
+    }
+
+    @Test
+    fun `projection permissions malformed value is ignored`() {
+        val mapped = DshEventMapper.mapFrame(
+            "session/projection",
+            json.parseToJsonElement(
+                """{"type":"session/projection","sessionId":"s1","key":"permissions","value":"workspace-write","seq":13}"""
+            ).jsonObject,
+        )
+        assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED)), mapped)
+    }
+
     @Test
     fun `queue and stream error frames map properly`() {
         val golden = mappedFrames("dsh/mux-frames.jsonl")

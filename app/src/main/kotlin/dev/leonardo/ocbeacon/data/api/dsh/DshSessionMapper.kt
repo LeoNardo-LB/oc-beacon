@@ -147,6 +147,14 @@ object DshSessionMapper {
      */
     private fun parsePermissions(item: JsonObject): SessionPermissions? {
         val value = item.dshObj("projections")?.dshObj("values")?.dshObj("permissions") ?: return null
+        return parsePermissionsValue(value)
+    }
+
+    /**
+     * permissions 投影值 → [SessionPermissions]。#283-a2：session/projection
+     * key="permissions" 实况帧与 session.list 基线同形，此处单源解析。
+     */
+    fun parsePermissionsValue(value: JsonObject): SessionPermissions {
         val options = (value.dshArr("options") ?: emptyList()).mapNotNull { el ->
             val o = el as? JsonObject ?: return@mapNotNull null
             val presetValue = o.dshStr("value") ?: return@mapNotNull null

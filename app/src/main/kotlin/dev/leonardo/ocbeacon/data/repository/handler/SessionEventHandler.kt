@@ -70,6 +70,7 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
             is SseEvent.SessionCreated -> { handleSessionCreated(event, serverId); true }
             is SseEvent.SessionUpdated -> { handleSessionUpdated(event, serverId); true }
             is SseEvent.SessionPermissionChanged -> { handleSessionPermissionChanged(event); true }
+            is SseEvent.SessionPermissionsChanged -> { handleSessionPermissionsChanged(event); true }
             is SseEvent.SessionAgentPresetChanged -> { handleSessionAgentPresetChanged(event); true }
             is SseEvent.SessionTokenUsageChanged -> { handleSessionTokenUsageChanged(event); true }
             is SseEvent.SessionSubagentTimingChanged -> { handleSessionSubagentTimingChanged(event); true }
@@ -179,6 +180,15 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
                 }
             }
         }
+    }
+
+    /**
+     * session/projection permissions 整值帧 → 整值替换 [Session.permissions]
+     * （#283-a2：帧携带完整值，含部署预设表 options——区别于三 knob 事件的
+     * 字段级合并，二者互补）。会话尚未入列表时 no-op——session.list 基线随后补齐。
+     */
+    private fun handleSessionPermissionsChanged(event: SseEvent.SessionPermissionsChanged) {
+        updateSession(event.sessionId) { it.copy(permissions = event.permissions) }
     }
 
     /**

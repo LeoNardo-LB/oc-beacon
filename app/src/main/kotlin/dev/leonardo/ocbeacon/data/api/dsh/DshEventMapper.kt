@@ -268,7 +268,26 @@ object DshEventMapper {
                         )
                     )
                 }
-                // 其余投影键（title/permissions…）：本任务不消费
+                "permissions" -> {
+                    // #283-a2：整值帧（含部署预设表 options）——与 session.list 基线
+                    // 同形（DshSessionMapper.parsePermissionsValue 单源解析）；
+                    // JsonNull = clear tombstone（同 goal 键语义）。
+                    when (val value = payload["value"]) {
+                        is JsonNull -> listOf(
+                            DshMappedEvent.Sse(SseEvent.SessionPermissionsChanged(sessionId = sid, permissions = null))
+                        )
+                        is JsonObject -> listOf(
+                            DshMappedEvent.Sse(
+                                SseEvent.SessionPermissionsChanged(
+                                    sessionId = sid,
+                                    permissions = DshSessionMapper.parsePermissionsValue(value),
+                                )
+                            )
+                        )
+                        else -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+                    }
+                }
+                // 其余投影键（title…）：本任务不消费
                 else -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.PROJECTION))
             }
         }

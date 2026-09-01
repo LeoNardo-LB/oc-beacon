@@ -53,6 +53,42 @@ class SessionEventHandlerTest {
     }
 
     @Test
+    fun `SessionPermissionsChanged replaces whole permissions value (#283-a2)`() = runTest {
+        val baseline = testSession("s1").copy(
+            permissions = SessionPermissions(
+                options = listOf(SessionPermissions.PermissionPresetOption("read-only", "只读")),
+                currentValue = "read-only",
+                sandboxMode = "read-only",
+                approvalPolicy = "ask",
+            )
+        )
+        handler.handle(SseEvent.SessionCreated(baseline), "server1")
+
+        // 投影整值帧：options+currentValue 全量替换（sandbox/approval 不在帧内，随之失落——
+        // 与三 knob 事件的字段级合并互补，非叠加）
+        val whole = SessionPermissions(
+            options = listOf(
+                SessionPermissions.PermissionPresetOption("workspace-write", "工作区写入"),
+                SessionPermissions.PermissionPresetOption("danger-full-access", "完全访问"),
+            ),
+            currentValue = "workspace-write",
+        )
+        assertTrue(handler.handle(SseEvent.SessionPermissionsChanged("s1", whole), "server1"))
+
+        assertEquals(whole, handler.sessions.value.single().permissions)
+    }
+
+    @Test
+    fun `SessionPermissionsChanged no-ops when session absent (#283-a2)`() = runTest {
+        handler.handle(
+            SseEvent.SessionPermissionsChanged("ghost", SessionPermissions(currentValue = "read-only")),
+            "server1",
+        )
+
+        assertTrue(handler.sessions.value.isEmpty())
+    }
+
+    @Test
     fun `handles SessionDeleted`() = runTest {
         handler.handle(SseEvent.SessionCreated(testSession("s1")), "server1")
         handler.handle(SseEvent.SessionCreated(testSession("s2")), "server1")
