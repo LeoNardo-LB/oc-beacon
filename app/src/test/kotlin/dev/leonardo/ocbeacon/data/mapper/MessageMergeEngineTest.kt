@@ -324,4 +324,37 @@ class MessageMergeEngineTest {
         val out = MessageMergeEngine.sanitized(listOf(reasoning("r1"), text("t1", text = "有字")))
         assertEquals(listOf("t1"), out.map { it.id })
     }
+
+    // ============ File url 客户端补丁保留（#295 残项 2026-09-02） ============
+
+    private fun filePart(id: String, url: String? = null) =
+        Part.File(id = id, sessionId = "s1", messageId = "m1", mime = "image/png", filename = "shot.png", url = url)
+
+    /** 服务器重刷（url=null）不得抹掉客户端 patch 的 data-url——否则缩略图退回文件 chip。 */
+    @Test
+    fun `mergePart keeps patched file url when incoming lacks it`() {
+        val existing = filePart("f1", url = "data:image/png;base64,AAA")
+        val incoming = filePart("f1") // REST/回放快照：url 恒 null
+        val merged = MessageMergeEngine.mergePart(existing, incoming)
+        assertEquals("data:image/png;base64,AAA", (merged as Part.File).url)
+        assertEquals("image/png", merged.mime)
+    }
+
+    /** incoming 自带 url（V1/V2 REST 可携带）→ incoming 权威。 */
+    @Test
+    fun `mergePart incoming file url wins over existing`() {
+        val existing = filePart("f1", url = "data:image/png;base64,OLD")
+        val incoming = filePart("f1", url = "https://cdn/real.png")
+        val merged = MessageMergeEngine.mergePart(existing, incoming)
+        assertEquals("https://cdn/real.png", (merged as Part.File).url)
+    }
+
+    /** 端到端：mergePartsList 重刷路径（REST_AUTHORITY/SSE_PRIORITY 共用 mergePart）。 */
+    @Test
+    fun `mergePartsList preserves patched file url across rest refresh`() {
+        val existing = listOf(filePart("f1", url = "data:image/png;base64,AAA"))
+        val incoming = listOf(filePart("f1"))
+        val out = MessageMergeEngine.mergePartsList(existing, incoming)
+        assertEquals("data:image/png;base64,AAA", (out.single() as Part.File).url)
+    }
 }

@@ -1057,6 +1057,13 @@ class ChatViewModel @Inject constructor(
                         val source = file.source as? kotlinx.serialization.json.JsonObject ?: return@forEach
                         val attId = (source["attachmentId"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return@forEach
                         scanCandidates++
+                        // 已拉取过（url 在缓存）但 part.url 又被清空（重刷覆盖路径，
+                        // mergeFile 已根治主源；此处兜底直接补写，免二次网络请求）
+                        val cached = attachmentUrlCache[attId]
+                        if (!cached.isNullOrEmpty()) {
+                            eventDispatcher.patchFileUrl(sid, file.id, cached)
+                            return@forEach
+                        }
                         if (attachmentUrlCache.containsKey(attId)) return@forEach
                         if (BuildConfig.DEBUG) {
                             AppLogger.d("ChatViewModel", "attachment fetch enqueue: sid=${sid.take(18)} attId=${attId.take(20)}")

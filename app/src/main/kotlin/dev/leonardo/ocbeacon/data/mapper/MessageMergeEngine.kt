@@ -105,6 +105,16 @@ internal object MessageMergeEngine {
                 }
                 merged
             }
+            // #295 残项（2026-09-02 真机实证）：File 的 url 是**客户端补丁字段**
+            // （DSH 附件 bytes 经 session.attachment 拉取后由 ChatViewModel/
+            // patchFileUrl 写入，服务器事件/REST 快照恒 url=null）——原落
+            // else -> incoming，REST/回放重刷即把已 patch 的 data-url 抹掉，
+            // 缩略图退回文件 chip（logcat candidates 1→0→1 翻转实证）。
+            // incoming 保持权威（mime/attId 等服务器字段），url 仅在 incoming
+            // 缺席时保留 existing。
+            existing is Part.File && incoming is Part.File ->
+                if (incoming.url == null && existing.url != null) incoming.copy(url = existing.url)
+                else incoming
             else -> incoming
         }
     }
