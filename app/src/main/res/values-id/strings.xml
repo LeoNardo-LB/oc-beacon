@@ -50,7 +50,6 @@
     <string name="session_rename_title">Judul</string>
     <string name="session_rename_button">Ganti Nama</string>
     <string name="session_delete">Hapus Sesi</string>
-    <string name="session_details_continue_queue">Kirim pesan antrean (%1$d)</string>
     <string name="session_delete_confirm">Hapus "%1$s"? Tindakan ini tidak dapat dibatalkan.</string>
     <string name="session_pending_question">Menunggu jawaban</string>
     <string name="session_changes_additions">+%1$d</string>
@@ -66,7 +65,6 @@
     <string name="pending_sheet_title">Antrean</string>
     <string name="pending_tab_stacked">Antrean %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
-    <string name="pending_tab_stacked_plain">Antrean</string>
     <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Lanjutkan</string>
     <string name="pending_clear">Hapus</string>
@@ -76,7 +74,6 @@
     <string name="pending_item_edit">Edit</string>
     <string name="pending_item_delete">Hapus</string>
     <string name="pending_item_send">Kirim sekarang</string>
-    <string name="pending_empty">Belum ada pesan antrean. Saat agen sedang membalas, ketuk ikon pemuatan untuk mengantrekan pesan.</string>
     <string name="pending_item_sending">Mengirim…</string>
     <string name="todo_empty">Tidak ada item TODO</string>
     <string name="chat_empty">Mulai sesi</string>

@@ -39,7 +39,6 @@
     <string name="session_rename_title">Заголовок</string>
     <string name="session_rename_button">Переименовать</string>
     <string name="session_delete">Удалить сессию</string>
-    <string name="session_details_continue_queue">Отправить сообщения из очереди (%1$d)</string>
     <string name="session_delete_confirm">Удалить «%1$s»? Это действие нельзя отменить.</string>
     <!-- Chat Screen -->
     <string name="chat_send">Отправить</string>
@@ -50,7 +49,6 @@
     <string name="pending_sheet_title">Очередь</string>
     <string name="pending_tab_stacked">В очереди %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
-    <string name="pending_tab_stacked_plain">Очередь</string>
     <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Продолжить</string>
     <string name="pending_clear">Очистить</string>
@@ -60,7 +58,6 @@
     <string name="pending_item_edit">Изменить</string>
     <string name="pending_item_delete">Удалить</string>
     <string name="pending_item_send">Отправить сейчас</string>
-    <string name="pending_empty">Нет сообщений в очереди. Пока агент отвечает, коснитесь значка загрузки, чтобы поставить сообщение в очередь.</string>
     <string name="pending_item_sending">Отправка…</string>
     <string name="todo_empty">Нет элементов TODO</string>
     <string name="chat_empty">Начать сессию</string>

@@ -118,7 +118,6 @@
     <string name="session_rename_title">Título</string>
     <string name="session_rename_button">Renomear</string>
     <string name="session_delete">Excluir sessão</string>
-    <string name="session_details_continue_queue">Enviar mensagens na fila (%1$d)</string>
     <string name="session_delete_confirm">Excluir "%1$s"? Isso não pode ser desfeito.</string>
     <string name="chat_stop">Parar</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
@@ -126,7 +125,6 @@
     <string name="pending_sheet_title">Fila</string>
     <string name="pending_tab_stacked">Na fila %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
-    <string name="pending_tab_stacked_plain">Fila</string>
     <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Continuar</string>
     <string name="pending_clear">Limpar</string>
@@ -136,7 +134,6 @@
     <string name="pending_item_edit">Editar</string>
     <string name="pending_item_delete">Excluir</string>
     <string name="pending_item_send">Enviar agora</string>
-    <string name="pending_empty">Nenhuma mensagem na fila. Enquanto o assistente responde, toque no indicador de carregamento para colocar uma mensagem na fila.</string>
     <string name="pending_item_sending">Enviando…</string>
     <string name="todo_empty">Nenhum item TODO</string>
     <string name="chat_copy">Copiar</string>

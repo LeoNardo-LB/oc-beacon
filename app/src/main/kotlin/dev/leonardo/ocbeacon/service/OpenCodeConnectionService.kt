@@ -126,8 +126,6 @@ class OpenCodeConnectionService : Service() {
 
     // C7（2026-08-26）：堆积消息状态补偿驱动改由 service 层（连接生命周期属主）启动；
     // 原在 EventDispatcher init（幂等 start，时序等价——service 本就注入 dispatcher）。
-    @Inject
-    lateinit var pendingMessagePipeline: dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline
 
     private val binder = LocalBinder()
     private val serviceScope = CoroutineScope(
@@ -169,7 +167,6 @@ class OpenCodeConnectionService : Service() {
 
         // C7：#176/#177 堆积消息状态补偿驱动（T1 心跳 + T3 Idle 观察）随服务启动
         //（幂等；原 EventDispatcher init 启动点迁此，边沿触发 naturalTurnEndListener 接线不变）
-        pendingMessagePipeline.start()
 
         appNotificationManager.createNotificationChannels()
         // #155：会话内提示音的上下文（Ringtone/Vibrator/渠道快照读取）

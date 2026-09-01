@@ -118,7 +118,6 @@
     <string name="session_rename_title">العنوان</string>
     <string name="session_rename_button">إعادة تسمية</string>
     <string name="session_delete">حذف الجلسة</string>
-    <string name="session_details_continue_queue">إرسال الرسائل في قائمة الانتظار (%1$d)</string>
     <string name="session_delete_confirm">حذف "%1$s"؟ لا يمكن التراجع عن ذلك.</string>
     <string name="chat_stop">إيقاف</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
@@ -126,7 +125,6 @@
     <string name="pending_sheet_title">قيد الانتظار</string>
     <string name="pending_tab_stacked">قيد الانتظار %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
-    <string name="pending_tab_stacked_plain">قيد الانتظار</string>
     <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">متابعة</string>
     <string name="pending_clear">مسح</string>
@@ -136,7 +134,6 @@
     <string name="pending_item_edit">تعديل</string>
     <string name="pending_item_delete">حذف</string>
     <string name="pending_item_send">إرسال الآن</string>
-    <string name="pending_empty">لا توجد رسائل قيد الانتظار. أثناء رد الوكيل، انقر على مؤشر التحميل لإضافة رسالة إلى قائمة الانتظار.</string>
     <string name="pending_item_sending">جارٍ الإرسال…</string>
     <string name="todo_empty">لا توجد عناصر TODO</string>
     <string name="chat_copy">نسخ</string>

@@ -44,8 +44,6 @@ interface SessionStateCollaborator {
  * 生产接线（原 EventDispatcher.init 75 行接线块整体迁入，逻辑零变更）。
  *
  * 依赖无环：messages/sessions/questions/permissions/unread 均为无状态依赖的单例；
- * [pendingMessagePipelineProvider] 经 Provider 打破 SessionStateService → 本类 →
- * PendingMessagePipeline → SessionStateService 的环（与原接线同款形状）。
  */
 @Singleton
 class SessionStateCollaboratorImpl @Inject constructor(
@@ -55,7 +53,6 @@ class SessionStateCollaboratorImpl @Inject constructor(
     private val permissionHandler: PermissionEventHandler,
     private val unreadBadgeService: UnreadBadgeService,
     private val sessionRepoProvider: Provider<SessionRepository>,
-    private val pendingMessagePipelineProvider: Provider<PendingMessagePipeline>,
 ) : SessionStateCollaborator {
 
     override fun hasIncompleteAssistant(sessionId: String): Boolean =
@@ -112,7 +109,6 @@ class SessionStateCollaboratorImpl @Inject constructor(
         // 堆积消息管线（2026-08-20 设计定稿）：自然成功 turn 结束 → 推进队列。
         // Pipeline 经 Provider 注入（其内部 SendMessageUseCase → ChatRepositoryImpl
         // → EventDispatcher 循环由 Provider 延迟解析打破）。
-        pendingMessagePipelineProvider.get().onNaturalTurnEnd(sessionId, serverId)
     }
 }
 

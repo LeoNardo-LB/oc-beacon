@@ -10,7 +10,6 @@ import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.FileRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
-import dev.leonardo.ocbeacon.domain.repository.PendingMessageRepository
 import dev.leonardo.ocbeacon.domain.repository.ProviderRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
@@ -62,12 +61,6 @@ abstract class FakeDomainModule {
     // 2026-08-16：androidTest 测试图补 MessageCacheRepository（此前源集从未编译、缺口被掩盖）
     @Binds @Singleton abstract fun bindMessageCacheRepository(impl: dev.leonardo.ocbeacon.fakes.FakeMessageCacheRepository): dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
     @Binds @Singleton abstract fun bindMcpRepository(impl: FakeMcpRepository): McpRepository
-
-    // 2026-08-24：androidTest 测试图补 PendingMessageRepository（同型存量缺口：主图
-    // 08-18 后新增 bindPendingMessageRepository，本模块整替后未同步，源集未编译掩盖至此）。
-    // 绑真实 Impl——EventDispatcher 在测试图中即真实实例，堆积队列语义依赖 Room
-    // （PendingMessageDao/clock 由未被替换的 DataModule 提供），fake 化无收益。
-    @Binds @Singleton abstract fun bindPendingMessageRepository(impl: dev.leonardo.ocbeacon.data.repository.PendingMessageRepositoryImpl): PendingMessageRepository
 
     // ServerRepository 及其 2 个子接口 —— 全部由单个 FakeServerRepository 支撑
     @Binds @Singleton abstract fun bindServerRepository(impl: FakeServerRepository): ServerRepository

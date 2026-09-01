@@ -217,8 +217,6 @@ class SessionListViewModelSearchTest {
                 io.mockk.every { allReadAt(any()) } returns kotlinx.coroutines.flow.flowOf(0L)
             },
             chatRepository = mockk(relaxed = true),
-            pendingMessageRepository = mockk(relaxed = true),
-            pendingMessageDrainController = mockk(relaxed = true),
             messageFtsIndex = ftsIndex,
             historySyncManager = mockk(relaxed = true),
         )

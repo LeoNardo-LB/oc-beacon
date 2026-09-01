@@ -624,12 +624,10 @@ fun ChatScreen(
     ) {
     var showQuickNavigate by remember { mutableStateOf(false) }
     // 贴底工具栏 + 四 sheet（2026-08-22 第十轮：任务面板拆解并入）
-    val pendingQueue by viewModel.pendingQueue.collectAsStateWithLifecycle()
     // D1③：会话运行错误持久卡（sendMessage 成功/手动 dismiss 清卡）
     val sessionErrors by viewModel.sessionErrors.collectAsStateWithLifecycle()
     val sessionTodos by viewModel.sessionTodos.collectAsStateWithLifecycle()
     val todoCapable by viewModel.todoCapable.collectAsStateWithLifecycle()
-    val pendingDrainingSet by viewModel.pendingDraining.collectAsStateWithLifecycle()
     val taskUi by viewModel.taskUiState.collectAsStateWithLifecycle()
     var toolbarSheet by remember { mutableStateOf<ChatToolbarEntry?>(null) }
     // #286：目标状态（GoalSheet 数据源 + FAB/菜单项角标）
@@ -1002,7 +1000,6 @@ fun ChatScreen(
                       modifier = Modifier.align(Alignment.BottomStart),
                   )
                   ChatFabMenu(
-                      stackedCount = pendingQueue.size,
                       todoPendingCount = sessionTodos.count { it.status == "pending" || it.status == "in_progress" },
                       agentRunningCount = taskUi.runningSubagentCount,
                       shellRunningCount = taskUi.runningShellCount,
@@ -1076,19 +1073,6 @@ fun ChatScreen(
     // （shell 输出三级 provider 已前移至 Scaffold 之前——#252 ShellJobsStrip 共用）
     toolbarSheet?.let { entry ->
         when (entry) {
-            ChatToolbarEntry.STACKED -> StackedSheet(
-                queue = pendingQueue,
-                isSessionIdle = sessionMeta.sessionStatus !is SessionStatus.Busy &&
-                    sessionMeta.sessionStatus !is SessionStatus.Retry,
-                isDraining = pendingDrainingSet.contains(viewModel.sessionId),
-                onContinue = viewModel::continuePendingQueue,
-                onClear = viewModel::clearPendingMessages,
-                onEdit = { id, text -> viewModel.editPendingMessage(id, text) },
-                onDelete = { id -> viewModel.deletePendingMessage(id) },
-                onSendOne = { id, text -> viewModel.sendPendingNow(id, text) },
-                onReorder = { ids -> viewModel.reorderPendingMessages(ids) },
-                onDismiss = { toolbarSheet = null },
-            )
             ChatToolbarEntry.TODO -> TodoSheet(
                 todos = sessionTodos,
                 onDismiss = { toolbarSheet = null },

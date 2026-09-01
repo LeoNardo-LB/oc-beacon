@@ -15,7 +15,6 @@ import dev.leonardo.ocbeacon.data.repository.SessionRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.SettingsRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.SessionTagRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.SessionStateService
-import dev.leonardo.ocbeacon.data.repository.PendingMessageRepositoryImpl
 import dev.leonardo.ocbeacon.data.repository.VcsRepositoryImpl
 import dev.leonardo.ocbeacon.data.local.MessageStore
 import dev.leonardo.ocbeacon.domain.repository.AgentRepository
@@ -25,7 +24,6 @@ import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.FileRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
 import dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
-import dev.leonardo.ocbeacon.domain.repository.PendingMessageRepository
 import dev.leonardo.ocbeacon.domain.repository.ProviderRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
@@ -84,8 +82,5 @@ abstract class DomainModule {
 
     @Binds
     abstract fun bindMessageCacheRepository(impl: MessageStore): MessageCacheRepository
-
-    @Binds
-    abstract fun bindPendingMessageRepository(impl: PendingMessageRepositoryImpl): PendingMessageRepository
 
 }

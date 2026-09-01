@@ -118,7 +118,6 @@
     <string name="session_rename_title">Titre</string>
     <string name="session_rename_button">Renommer</string>
     <string name="session_delete">Supprimer la session</string>
-    <string name="session_details_continue_queue">Envoyer les messages en attente (%1$d)</string>
     <string name="session_delete_confirm">Supprimer « %1$s » ? Cette action est irréversible.</string>
     <string name="chat_stop">Arrêter</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
@@ -126,7 +125,6 @@
     <string name="pending_sheet_title">File d\'attente</string>
     <string name="pending_tab_stacked">En file d\'attente %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
-    <string name="pending_tab_stacked_plain">File d\'attente</string>
     <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Continuer</string>
     <string name="pending_clear">Effacer</string>
@@ -136,7 +134,6 @@
     <string name="pending_item_edit">Modifier</string>
     <string name="pending_item_delete">Supprimer</string>
     <string name="pending_item_send">Envoyer maintenant</string>
-    <string name="pending_empty">Aucun message en file d\'attente. Pendant que l\'assistant répond, touchez l\'indicateur de chargement pour mettre un message en file d\'attente.</string>
     <string name="pending_item_sending">Envoi…</string>
     <string name="todo_empty">Aucun élément TODO</string>
     <string name="chat_copy">Copier</string>

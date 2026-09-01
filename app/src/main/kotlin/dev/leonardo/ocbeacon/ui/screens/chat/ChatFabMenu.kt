@@ -68,7 +68,7 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlin.math.roundToInt
 
 /** 工具栏入口 id（沿用第十轮四入口独立 sheet 语义）。 */
-internal enum class ChatToolbarEntry { STACKED, TODO, AGENT, SHELL, GOAL }
+internal enum class ChatToolbarEntry { TODO, AGENT, SHELL, GOAL }
 
 /** 贴边滑动顶边距（#194 D1：上限 = 容器高 − 按钮高 − 此边距）。 */
 internal val FabSlideTopMargin: Dp = 8.dp
@@ -233,7 +233,6 @@ private const val ExpandShiftAnimMs = 300
  */
 @Composable
 internal fun ChatFabMenu(
-    stackedCount: Int,
     todoPendingCount: Int,
     agentRunningCount: Int,
     shellRunningCount: Int,
@@ -300,7 +299,7 @@ internal fun ChatFabMenu(
         )
     }
 
-    val totalBadge = stackedCount + todoPendingCount + agentRunningCount + shellRunningCount
+    val totalBadge = todoPendingCount + agentRunningCount + shellRunningCount
     // #286：goal 运行点——active/blocked 态 FAB 角标（运行点）；菜单项角标按 phase 着色（blocked 警示）。
     val goalActive = goalPhase == "active" || goalPhase == "blocked"
 
@@ -339,13 +338,6 @@ internal fun ChatFabMenu(
                 exit = shrinkVertically(animationSpec = tween(ExpandShiftAnimMs)) + fadeOut(),
             ) {
                 Column(horizontalAlignment = Alignment.End) {
-                    FabMenuEntry(
-                        icon = Icons.Default.Inbox,
-                        label = stringResource(R.string.pending_tab_stacked_plain),
-                        count = stackedCount,
-                        onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.STACKED) },
-                    )
-                    Spacer(Modifier.height(FabMenuItemSpacingVertical))
                     FabMenuEntry(
                         icon = Icons.Default.Checklist,
                         label = stringResource(R.string.pending_tab_todo_plain),

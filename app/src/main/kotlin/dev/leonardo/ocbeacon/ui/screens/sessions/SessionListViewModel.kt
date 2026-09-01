@@ -25,7 +25,6 @@ import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.DshSettingsRepository
 import dev.leonardo.ocbeacon.domain.repository.FileRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
-import dev.leonardo.ocbeacon.domain.repository.PendingMessageRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
@@ -91,9 +90,7 @@ class SessionListViewModel @Inject constructor(
     private val unreadBadgeService: dev.leonardo.ocbeacon.data.repository.UnreadBadgeService,
     private val chatRepository: ChatRepository,
     // #176/#177：堆积队列手动「继续」入口（详情对话框）+ 计数可见性
-    private val pendingMessageRepository: PendingMessageRepository,
     // 走查修复（UI→Data 分层）：经 domain 接口触发，不直依赖具体管线
-    private val pendingMessageDrainController: dev.leonardo.ocbeacon.domain.usecase.PendingMessageDrainController,
     // #272：BM25 内容检索（FTS5 索引，纯本地）
     private val messageFtsIndex: dev.leonardo.ocbeacon.data.local.MessageFtsIndex,
     // #271：历史全量同步（drain 状态机 + 长按菜单手动触发/取消）
@@ -129,16 +126,6 @@ class SessionListViewModel @Inject constructor(
         if (sseConnectionManager.linkState(serverId) == dev.leonardo.ocbeacon.service.ServerLinkState.Connected) return false
         _error.value = ERROR_SERVER_DISCONNECTED
         return true
-    }
-
-    /** #177：会话 → 堆积队列计数（详情对话框「继续发送堆积消息」可见性）。 */
-    val pendingCounts: StateFlow<Map<String, Int>> =
-        pendingMessageRepository.observeCounts()
-            .stateIn(viewModelScope, WhileSubscribed5s, emptyMap())
-
-    /** #177：详情对话框手动放行队首（堆积状态补偿的显式逃生口）。 */
-    fun continuePendingQueue(sessionId: String) {
-        pendingMessageDrainController.continueFromList(sessionId)
     }
 
     // ============ 服务器配置异步加载（backlog #38：消除构造期主线程 runBlocking） ============

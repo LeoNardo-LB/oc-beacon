@@ -118,7 +118,6 @@
     <string name="session_rename_title">Título</string>
     <string name="session_rename_button">Renombrar</string>
     <string name="session_delete">Eliminar sesión</string>
-    <string name="session_details_continue_queue">Enviar mensajes en cola (%1$d)</string>
     <string name="session_delete_confirm">¿Eliminar "%1$s"? Esto no se puede deshacer.</string>
     <string name="chat_stop">Detener</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
@@ -126,7 +125,6 @@
     <string name="pending_sheet_title">En cola</string>
     <string name="pending_tab_stacked">En cola %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
-    <string name="pending_tab_stacked_plain">En cola</string>
     <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Continuar</string>
     <string name="pending_clear">Borrar</string>
@@ -136,7 +134,6 @@
     <string name="pending_item_edit">Editar</string>
     <string name="pending_item_delete">Eliminar</string>
     <string name="pending_item_send">Enviar ahora</string>
-    <string name="pending_empty">No hay mensajes en cola. Mientras el asistente responde, toca el indicador de carga para poner un mensaje en cola.</string>
     <string name="pending_item_sending">Enviando…</string>
     <string name="todo_empty">No hay elementos TODO</string>
     <string name="chat_copy">Copiar</string>

@@ -66,7 +66,6 @@
     <string name="session_rename_title">Title</string>
     <string name="session_rename_button">Rename</string>
     <string name="session_delete">Delete Session</string>
-    <string name="session_details_continue_queue">Send queued messages (%1$d)</string>
     <string name="session_delete_confirm">Delete \"%1$s\"? This cannot be undone.</string>
     <string name="session_changes_additions">+%1$d</string>
     <string name="session_changes_deletions">-%1$d</string>
@@ -116,7 +115,6 @@
     <string name="pending_tab_stacked">Queued %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
     <!-- 2026-08-22 抽屉 segment 常显版（数量进 Badge 角标，不进文案） -->
-    <string name="pending_tab_stacked_plain">Queued</string>
     <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Continue</string>
     <string name="pending_clear">Clear</string>
@@ -126,7 +124,6 @@
     <string name="pending_item_edit">Edit</string>
     <string name="pending_item_delete">Delete</string>
     <string name="pending_item_send">Send now</string>
-    <string name="pending_empty">No queued messages. While the agent is replying, tap the spinner to queue a message.</string>
     <string name="pending_item_sending">Sending…</string>
     <string name="todo_empty">No TODO items</string>
     <string name="chat_empty">Start a session</string>

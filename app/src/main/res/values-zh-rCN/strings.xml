@@ -120,7 +120,6 @@
     <string name="session_rename_title">标题</string>
     <string name="session_rename_button">重命名</string>
     <string name="session_delete">删除会话</string>
-    <string name="session_details_continue_queue">发送堆积消息（%1$d）</string>
     <string name="session_delete_confirm">确定要删除“%1$s”？此操作无法撤销。</string>
     <string name="chat_stop">停止</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
@@ -128,7 +127,6 @@
     <string name="pending_sheet_title">堆积消息</string>
     <string name="pending_tab_stacked">堆积 %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
-    <string name="pending_tab_stacked_plain">堆积</string>
     <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">继续</string>
     <string name="pending_clear">清除</string>
@@ -138,7 +136,6 @@
     <string name="pending_item_edit">编辑</string>
     <string name="pending_item_delete">删除</string>
     <string name="pending_item_send">立即发送</string>
-    <string name="pending_empty">暂无堆积消息。智能体回复期间，点按加载图标即可暂存消息。</string>
     <string name="pending_item_sending">发送中…</string>
     <string name="todo_empty">暂无 TODO 项</string>
     <string name="chat_copy">复制</string>

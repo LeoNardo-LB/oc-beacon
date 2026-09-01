@@ -118,7 +118,6 @@
     <string name="session_rename_title">Titolo</string>
     <string name="session_rename_button">Rinomina</string>
     <string name="session_delete">Elimina sessione</string>
-    <string name="session_details_continue_queue">Invia messaggi in coda (%1$d)</string>
     <string name="session_delete_confirm">Eliminare "%1$s"? Questa operazione non può essere annullata.</string>
     <string name="chat_stop">Ferma</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
@@ -126,7 +125,6 @@
     <string name="pending_sheet_title">In coda</string>
     <string name="pending_tab_stacked">In coda %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
-    <string name="pending_tab_stacked_plain">In coda</string>
     <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Continua</string>
     <string name="pending_clear">Cancella</string>
@@ -136,7 +134,6 @@
     <string name="pending_item_edit">Modifica</string>
     <string name="pending_item_delete">Elimina</string>
     <string name="pending_item_send">Invia ora</string>
-    <string name="pending_empty">Nessun messaggio in coda. Mentre l\'assistente risponde, tocca l\'indicatore di caricamento per mettere un messaggio in coda.</string>
     <string name="pending_item_sending">Invio…</string>
     <string name="todo_empty">Nessun elemento TODO</string>
     <string name="chat_copy">Copia</string>

@@ -36,7 +36,6 @@ class SessionStateCollaboratorTest {
         permissionHandler = permissionHandler,
         unreadBadgeService = unread,
         sessionRepoProvider = Provider { mockk(relaxed = true) },
-        pendingMessagePipelineProvider = Provider { mockk(relaxed = true) },
     )
 
     private fun assistant(id: String, sessionId: String, completed: Long?): MessageWithParts =
@@ -95,21 +94,5 @@ class SessionStateCollaboratorTest {
     @Test
     fun `hasPendingUserInput false without questions or permissions`() {
         assertFalse(impl().hasPendingUserInput("s1"))
-    }
-
-    @Test
-    fun `onNaturalTurnEnd delegates to pending pipeline`() {
-        val pipeline = mockk<PendingMessagePipeline>(relaxed = true)
-        val c = SessionStateCollaboratorImpl(
-            messageHandler = messageHandler,
-            sessionHandler = sessionHandler,
-            questionHandler = questionHandler,
-            permissionHandler = permissionHandler,
-            unreadBadgeService = unread,
-            sessionRepoProvider = Provider { mockk(relaxed = true) },
-            pendingMessagePipelineProvider = Provider { pipeline },
-        )
-        c.onNaturalTurnEnd("s1", "svr1")
-        verify(exactly = 1) { pipeline.onNaturalTurnEnd("s1", "svr1") }
     }
 }

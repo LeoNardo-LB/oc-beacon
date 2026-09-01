@@ -53,10 +53,6 @@ class EventDispatcher @Inject constructor(
     // respondPermission + 专属协程）收进 PermissionAutoApprover.maybeAutoApprove——
     // 本类只在 PermissionAsked 分发点异步触发，不再持有 chatRepoProvider/scope。
     private val permissionAutoApprover: PermissionAutoApprover,
-    // 堆积消息管线（2026-08-20）：Provider 打破 EventDispatcher→ChatRepository 循环。
-    // C7（2026-08-26）：start() 迁 OpenCodeConnectionService 启动；本类仅保留
-    // SessionDeleted 级联队列清理入口（onSessionDeleted，替代原 runBlocking 同步删除）。
-    private val pendingMessagePipelineProvider: javax.inject.Provider<PendingMessagePipeline>,
     // #271：Provider 打破 HistorySyncManager→SessionRepository→EventDispatcher 环
     private val historySyncManagerProvider: javax.inject.Provider<HistorySyncManager>,
 ) {
@@ -309,11 +305,7 @@ class EventDispatcher @Inject constructor(
             dshJobsHandler.clearForSession(deletedSessionId)
             dshQueueHandler.clearForSession(deletedSessionId)
             sessionStateRepository.clearSession(deletedSessionId)
-            // 堆积消息级联删除（2026-08-20）：会话没了，队列无意义。
-            // C7（2026-08-26）：原 runBlocking 同步删除改异步——管线自有 appScope
-            // launch（失败仅日志），SSE 分发协程不再被 Room 写阻塞。
-            pendingMessagePipelineProvider.get().onSessionDeleted(deletedSessionId)
-            // #271：同步状态行 + 本地缓存（热表/冷存/FTS）级联清理
+                // #271：同步状态行 + 本地缓存（热表/冷存/FTS）级联清理
             historySyncManagerProvider.get().onSessionDeleted(deletedSessionId)
         }
 

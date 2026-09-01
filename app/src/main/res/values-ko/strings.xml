@@ -118,7 +118,6 @@
     <string name="session_rename_title">제목</string>
     <string name="session_rename_button">이름 변경</string>
     <string name="session_delete">세션 삭제</string>
-    <string name="session_details_continue_queue">대기 중인 메시지 보내기(%1$d)</string>
     <string name="session_delete_confirm">"%1$s"을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</string>
     <string name="chat_stop">중지</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
@@ -126,7 +125,6 @@
     <string name="pending_sheet_title">대기열</string>
     <string name="pending_tab_stacked">대기열 %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
-    <string name="pending_tab_stacked_plain">대기열</string>
     <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">계속</string>
     <string name="pending_clear">지우기</string>
@@ -136,7 +134,6 @@
     <string name="pending_item_edit">편집</string>
     <string name="pending_item_delete">삭제</string>
     <string name="pending_item_send">지금 보내기</string>
-    <string name="pending_empty">대기열의 메시지가 없습니다. 에이전트가 응답하는 동안 로딩 아이콘을 탭하면 메시지를 대기열에 추가할 수 있습니다.</string>
     <string name="pending_item_sending">전송 중…</string>
     <string name="todo_empty">TODO 항목이 없습니다</string>
     <string name="chat_copy">복사</string>

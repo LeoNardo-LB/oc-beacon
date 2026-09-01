@@ -95,9 +95,6 @@ class ChatViewModel @Inject constructor(
     private val dshJobsStore: dev.leonardo.ocbeacon.data.repository.DshJobsStore,
     private val dshQueueStore: dev.leonardo.ocbeacon.data.repository.DshQueueStore,
     private val eventDispatcher: dev.leonardo.ocbeacon.data.repository.EventDispatcher,
-    // 堆积消息（2026-08-20 设计定稿）：本地暂存队列 + 推进管线
-    private val pendingMessageRepository: dev.leonardo.ocbeacon.domain.repository.PendingMessageRepository,
-    private val pendingMessagePipeline: dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline,
     // #271：首开自动 drain 全量历史（HistorySyncManager 唯一所有者；已 synced / 进行中时 no-op）
     private val historySyncManager: dev.leonardo.ocbeacon.data.repository.HistorySyncManager,
     // #267：连接三态真源（断连条幅 + 写操作快速失败守卫，spec docs/specs/2026-08-30-server-disconnect-gating-design.md）
@@ -252,58 +249,6 @@ class ChatViewModel @Inject constructor(
         onStartObservingMessages = { startObservingMessages() },
     )
     val sessionId: String get() = sessionLifecycle.sessionId
-
-    // ============ 堆积消息（turn 结束后待发送，2026-08-20 设计定稿） ============
-    /** 当前会话的堆积队列（面板列表 + 角标计数数据源）。 */
-    @kotlinx.coroutines.ExperimentalCoroutinesApi
-    val pendingQueue: kotlinx.coroutines.flow.StateFlow<List<dev.leonardo.ocbeacon.domain.model.PendingMessage>> =
-        sessionLifecycle.sessionIdFlow
-            .flatMapLatest { sid -> pendingMessageRepository.observeQueue(sid) }
-            .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000), emptyList())
-
-    /** 推送中会话集合（UI 标记「发送中」并锁定编辑/删除）。 */
-    val pendingDraining: kotlinx.coroutines.flow.StateFlow<Set<String>> =
-        pendingMessagePipeline.drainingSessions
-
-    /** busy 气泡菜单「堆积消息」入口：入队当前输入文本。 */
-    fun enqueuePendingMessage(text: String) {
-        val trimmed = text.trim()
-        if (trimmed.isEmpty()) return
-        val sid = sessionLifecycle.sessionId
-        viewModelScope.launch {
-            pendingMessageRepository.enqueue(sid, trimmed)
-            dev.leonardo.ocbeacon.logging.AppLogger.i("ChatViewModel", "pending message enqueued: " + sid)
-            // #176：入队即时补偿——若 FSM 已 Idle（turn 在入队前结束的 TOCTOU 窗口）
-            // 立即 drain，不等边沿/心跳
-            pendingMessagePipeline.onEnqueued(sid)
-        }
-    }
-
-    fun editPendingMessage(id: Long, text: String) {
-        viewModelScope.launch { pendingMessageRepository.updateText(id, text.trim()) }
-    }
-
-    fun deletePendingMessage(id: Long) {
-        viewModelScope.launch { pendingMessageRepository.delete(id) }
-    }
-
-    fun clearPendingMessages() {
-        viewModelScope.launch { pendingMessageRepository.clear(sessionLifecycle.sessionId) }
-    }
-
-    fun reorderPendingMessages(orderedIds: List<Long>) {
-        viewModelScope.launch { pendingMessageRepository.reorder(sessionLifecycle.sessionId, orderedIds) }
-    }
-
-    /** 面板「继续」：空闲会话手动放行队首 1 条。 */
-    fun continuePendingQueue() {
-        pendingMessagePipeline.continueNow(sessionLifecycle.sessionId, serverId)
-    }
-
-    /** 面板单条「发送」：插队立即发送指定条目。 */
-    fun sendPendingNow(id: Long, text: String) {
-        pendingMessagePipeline.sendOneNow(sessionLifecycle.sessionId, serverId, id, text)
-    }
 
     // ============ TODO（面板数据源 + 服务器能力探测，2026-08-20） ============
     /** 当前会话 TODO（SSE 实时 + REST hydrate 同源）。 */

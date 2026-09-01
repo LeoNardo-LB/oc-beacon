@@ -39,8 +39,7 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
  *   用户需求：会话状态表示放按钮上）。
  *
  * 本组件取代 2026-08-20 的 busy 气泡菜单（立即发送/堆积消息两项目）——
- * 双键裁决下「立即发送」升级为常驻发送键，气泡入口移除；本地堆积
- * （PendingMessageRepository）链路保留，后续去向见 backlog。
+ * 双键裁决下「立即发送」升级为常驻发送键；本地堆积链路已随 #289 整体拆除。
  *
  * 可见键集与变体由 [sendStopAreaState] 纯函数决定（单测覆盖全组合）。
  *

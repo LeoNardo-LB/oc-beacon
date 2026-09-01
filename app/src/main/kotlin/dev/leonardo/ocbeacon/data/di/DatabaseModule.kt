@@ -11,7 +11,6 @@ import dev.leonardo.ocbeacon.data.local.ArchiveBucketDao
 import dev.leonardo.ocbeacon.data.local.LogDao
 import dev.leonardo.ocbeacon.data.local.MessageDao
 import dev.leonardo.ocbeacon.data.local.Migrations
-import dev.leonardo.ocbeacon.data.local.PendingMessageDao
 import dev.leonardo.ocbeacon.data.local.OcBeaconDatabase
 import dev.leonardo.ocbeacon.data.local.SessionSyncDao
 import javax.inject.Singleton
@@ -28,7 +27,7 @@ object DatabaseModule {
         // 小米等 ROM 系统 SQLite 无 fts5，BM25 检索需全设备可用的 FTS5。
         Room.databaseBuilder(context, OcBeaconDatabase::class.java, "ocbeacon.db")
             .openHelperFactory(io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory())
-            .addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3, Migrations.MIGRATION_3_4, Migrations.MIGRATION_4_5)
+            .addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3, Migrations.MIGRATION_3_4, Migrations.MIGRATION_4_5, OcBeaconDatabase.MIGRATION_5_6)
             .build()
 
     @Provides
@@ -39,9 +38,6 @@ object DatabaseModule {
 
     @Provides
     fun provideArchiveBucketDao(database: OcBeaconDatabase): ArchiveBucketDao = database.archiveBucketDao()
-
-    @Provides
-    fun providePendingMessageDao(database: OcBeaconDatabase): PendingMessageDao = database.pendingMessageDao()
 
     @Provides
     fun provideSessionSyncDao(database: OcBeaconDatabase): SessionSyncDao = database.sessionSyncDao()

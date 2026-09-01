@@ -97,7 +97,6 @@ class ChatViewModelRevertTest {
             shellJobsHandler = ShellJobsHandler(ShellJobsStore(), messageStore),
             ownershipRegistry = StreamingOwnershipRegistry(),
             permissionAutoApprover = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PermissionAutoApprover>(relaxed = true),
-            pendingMessagePipelineProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline>(relaxed = true) },
             historySyncManagerProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.HistorySyncManager>(relaxed = true) },
             dshJobsHandler = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.handler.DshJobsHandler>(relaxed = true),
             dshQueueHandler = dev.leonardo.ocbeacon.data.repository.handler.DshQueueHandler(mockk(relaxed = true)),
@@ -252,10 +251,6 @@ class ChatViewModelRevertTest {
             shellJobsStore = ShellJobsStore(),
             eventDispatcher = mockk<EventDispatcher>(relaxed = true).also {
                 io.mockk.every { it.commandsChanged } returns kotlinx.coroutines.flow.MutableSharedFlow<Unit>()
-            },
-            pendingMessageRepository = mockk(relaxed = true),
-            pendingMessagePipeline = mockk<dev.leonardo.ocbeacon.data.repository.PendingMessagePipeline>(relaxed = true).also { mk ->
-                every { mk.drainingSessions } returns kotlinx.coroutines.flow.MutableStateFlow(emptySet<String>())
             },
             historySyncManager = mockk(relaxed = true),
             dshJobsStore = dev.leonardo.ocbeacon.data.repository.DshJobsStore(),

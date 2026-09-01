@@ -81,9 +81,6 @@ internal fun SessionRow(
     onDelete: () -> Unit,
     onCopyId: (String) -> Unit = {},
     onAssignCategory: () -> Unit = {},
-    /** #177：堆积队列条数（>0 时详情对话框显示「继续发送堆积消息」）。 */
-    pendingCount: Int = 0,
-    onContinueQueue: () -> Unit = {},
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {},
     /** #276 能力位门控：DSH 无 session.delete——详情对话框删除按钮隐藏。 */
@@ -302,11 +299,6 @@ internal fun SessionRow(
                 showDetailsDialog = false
                 onAssignCategory()
             },
-            pendingCount = pendingCount,
-            onContinueQueue = {
-                showDetailsDialog = false
-                onContinueQueue()
-            },
             deleteSupported = deleteSupported,
             agentPresetSupported = agentPresetSupported,
             agentPresetNames = agentPresetNames,
@@ -327,8 +319,6 @@ private fun SessionDetailsDialog(
     onDelete: () -> Unit,
     onCopyId: () -> Unit,
     onAssignCategory: () -> Unit,
-    pendingCount: Int,
-    onContinueQueue: () -> Unit,
     deleteSupported: Boolean,
     // UI-B：Agent 预设只读标签（DSH 专属）
     agentPresetSupported: Boolean,
@@ -533,20 +523,6 @@ private fun SessionDetailsDialog(
                         border = ButtonTokens.amoledBorder(),
                     ) {
                         Text(stringResource(R.string.assign_tag))
-                    }
-                    // #177：堆积队列非空时的手动「继续」入口（状态补偿的显式逃生口）
-                    if (pendingCount > 0) {
-                        Button(
-                            onClick = {
-                                onDismiss()
-                                onContinueQueue()
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonTokens.filledColors(),
-                            border = ButtonTokens.amoledBorder(),
-                        ) {
-                            Text(stringResource(R.string.session_details_continue_queue, pendingCount))
-                        }
                     }
                     // 第三行：删除（#276 能力位门控：DSH 无 session.delete——隐藏）
                     if (deleteSupported) {

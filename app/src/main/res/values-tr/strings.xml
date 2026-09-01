@@ -118,7 +118,6 @@
     <string name="session_rename_title">Başlık</string>
     <string name="session_rename_button">Yeniden Adlandır</string>
     <string name="session_delete">Oturumu Sil</string>
-    <string name="session_details_continue_queue">Kuyruktaki mesajları gönder (%1$d)</string>
     <string name="session_delete_confirm">"%1$s" silinsin mi? Bu işlem geri alınamaz.</string>
     <string name="chat_stop">Dur</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
@@ -126,7 +125,6 @@
     <string name="pending_sheet_title">Kuyruk</string>
     <string name="pending_tab_stacked">Kuyrukta %1$d</string>
     <string name="pending_tab_todo">TODO %1$d/%2$d</string>
-    <string name="pending_tab_stacked_plain">Kuyruk</string>
     <string name="pending_tab_todo_plain">TODO</string>
     <string name="pending_continue">Devam et</string>
     <string name="pending_clear">Temizle</string>
@@ -136,7 +134,6 @@
     <string name="pending_item_edit">Düzenle</string>
     <string name="pending_item_delete">Sil</string>
     <string name="pending_item_send">Şimdi gönder</string>
-    <string name="pending_empty">Kuyrukta mesaj yok. Ajan yanıt verirken bir mesajı kuyruğa eklemek için yükleme simgesine dokunun.</string>
     <string name="pending_item_sending">Gönderiliyor…</string>
     <string name="todo_empty">TODO öğesi yok</string>
     <string name="chat_copy">Kopyala</string>

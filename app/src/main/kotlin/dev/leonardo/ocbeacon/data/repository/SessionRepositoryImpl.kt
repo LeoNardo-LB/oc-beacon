@@ -35,8 +35,6 @@ class SessionRepositoryImpl @Inject constructor(
     private val messageApi: MessageApi,
     private val eventDispatcher: EventDispatcher,
     private val serverRepo: ServerDataStore,
-    // 堆积消息级联删除（2026-08-20）：deleteSession 成功后清空该会话队列
-    private val pendingMessageRepository: dev.leonardo.ocbeacon.domain.repository.PendingMessageRepository,
 ) : SessionRepository {
 
     // ============ listMessages 在途去重（#91，2026-08-18） ============
@@ -218,9 +216,6 @@ class SessionRepositoryImpl @Inject constructor(
     override suspend fun deleteSession(serverId: String, sessionId: String): Result<Unit> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         sessionApi.deleteSession(conn, sessionId)
-        // 堆积消息级联删除（2026-08-20）：REST 删除成功即清队列（SSE
-        // SessionDeleted 路径也有兜底，双保险幂等）
-        runCatching { pendingMessageRepository.deleteForSession(sessionId) }
     }
 
     override suspend fun getSession(serverId: String, sessionId: String): Result<Session> = runCatchingCancellable {
