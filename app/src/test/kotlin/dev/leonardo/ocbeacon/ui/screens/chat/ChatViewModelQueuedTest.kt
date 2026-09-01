@@ -28,6 +28,9 @@ import dev.leonardo.ocbeacon.ui.screens.sessions.SessionScrollSignal
 import io.mockk.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -52,6 +55,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.viewModelScope
 
 /**
  * 针对 4 个功能的综合测试：
@@ -176,9 +180,22 @@ class ChatViewModelQueuedTest {
 
     @After
     fun teardown() {
+        // #277（跨类污染根治）：真实 VM 的 viewModelScope 挂在 Dispatchers.Main 上
+        // ——teardown 不取消则悬挂收集协程可能在 resetMain 后醒来（「Main was
+        // accessed when the platform dispatcher was absent」→ UncaughtExceptionsBeforeTest
+        // 污染后续测试）。resetMain 前先逐个取消。
+        // cancel 后必须 join 落地再 resetMain——Default 线程上的 flow 生产者在完成
+        // 回调里向 Main 派发续体，直接 reset 会与之微秒级竞态（DispatchException）。
+        runBlocking {
+            createdViewModels.forEach { it.viewModelScope.coroutineContext[Job]?.cancelAndJoin() }
+        }
+        createdViewModels.clear()
         Dispatchers.resetMain()
         unmockkAll()
     }
+
+    /** #277：createViewModel 登记簿——teardown 统一取消作用域。 */
+    private val createdViewModels = mutableListOf<ChatViewModel>()
 
     // === 辅助方法 ===
 
@@ -327,7 +344,7 @@ class ChatViewModelQueuedTest {
             dshJobsStore = dev.leonardo.ocbeacon.data.repository.DshJobsStore(),
             dshQueueStore = dev.leonardo.ocbeacon.data.repository.DshQueueStore(),
 
-        )
+        ).also { createdViewModels.add(it) }   // #277：登记供 teardown 取消
     }
 
     /**

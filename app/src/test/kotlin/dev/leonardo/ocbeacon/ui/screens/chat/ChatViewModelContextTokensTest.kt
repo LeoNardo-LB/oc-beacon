@@ -28,6 +28,10 @@ import dev.leonardo.ocbeacon.ui.screens.sessions.SessionScrollSignal
 import io.mockk.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,6 +47,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.viewModelScope
 
 /**
  * 2026-08-17 上下文占用口径修正（ACP：input+cache.read）的回归测试。
@@ -173,9 +178,20 @@ class ChatViewModelContextTokensTest {
 
     @After
     fun teardown() {
+        // #277：真实 VM 的 viewModelScope 挂在 Main 上——resetMain 前先取消，
+        // 防悬挂收集协程在 Main 卸除后醒来（UncaughtExceptionsBeforeTest 跨类污染）。
+        // cancel 后必须 join 落地再 resetMain——Default 线程上的 flow 生产者在完成
+        // 回调里向 Main 派发续体，直接 reset 会与之微秒级竞态（DispatchException）。
+        runBlocking {
+            createdViewModels.forEach { it.viewModelScope.coroutineContext[Job]?.cancelAndJoin() }
+        }
+        createdViewModels.clear()
         Dispatchers.resetMain()
         unmockkAll()
     }
+
+    /** #277：createViewModel 登记簿——teardown 统一取消作用域。 */
+    private val createdViewModels = mutableListOf<ChatViewModel>()
 
     // === 辅助方法 ===
 
@@ -285,7 +301,8 @@ class ChatViewModelContextTokensTest {
             dshJobsStore = dev.leonardo.ocbeacon.data.repository.DshJobsStore(),
             dshQueueStore = dev.leonardo.ocbeacon.data.repository.DshQueueStore(),
 
-        )
+        ).also { createdViewModels.add(it) }   // #277
+
     }
 
     private fun pushMessages(messages: List<Pair<Message, List<Part>>>) {
