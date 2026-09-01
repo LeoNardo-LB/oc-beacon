@@ -72,6 +72,7 @@
   - 测量：gfxinfo 三配置矩阵 + SafeFling 出口内速日志（全部自然衰减尾，无异常终止）；atrace 需先 Tracing.enable 才有 compose 段
   - 方向：Tracing.enable + perfetto 定位组合热点 → chunk 组合瘦身（block 级惰性/SelectionContainer 开销/ clickable wrapper 精简）；新线索（2026-08-30 调研）：androidx 1.13.0-alpha02 `ComposeUiFlags.isVectorDrawCacheSharingEnabled`（VectorPainter 列表缓存共享）待试 → `docs/journal/2026-08-27-event-card-unification.md` §二十八轮
   - **2026-09-02 质量门复测（journal 2026-09-02 §六/§九）**：修复版 p99 32/40/53ms、janky 0.00%、FATAL 0——无回归且优于基线；脚本趟间回底复位已修（1a03ed7e）；vector-cache flag 需 Compose 1.13.0-alpha02（现 1.12.0 stable）——为 perf flag 全栈升 alpha 与 SSE 滚动稳定铁律冲突，裁决不做、待 stable 跟进；tracing 基建已就位（debug 自动初始化），剩 perfetto 取证→组合瘦身战役
+  - **2026-09-02 Stage A 取证完结（journal 258-perfetto-stage-a）**：SDK 细粒度 CC: 段在本设备不可达（traced 不发 ENABLE_TRACING 广播，勘误入档）→ 自插桩 atrace 段（e3f0de61，flng:it:*/flng:pt:*，DEBUG 门控）+ 采集/分析工具入库；归因定音：**历史长 turn 恒走整 turn 单 item**（chunkPlans 仅流式期产物，MarkdownChunking.kt:289）——首组合 165-334ms/turn = p99 冻帧本体；parts 自身：小 part 固定 ~1.5ms ×55 + 长文本 11-33ms×6；方向更新=Stage B 做历史长 turn 分片（结构修复），SelectionContainer 降为二阶
 
 ## P3 — 观察与低价值改进
 

@@ -1,0 +1,21 @@
+buffers: { size_kb: 65536 }
+data_sources: {
+  config {
+    name: "linux.ftrace"
+    ftrace_config {
+      ftrace_events: "sched_switch"
+      ftrace_events: "sched_wakeup"
+      atrace_categories: "view"
+      atrace_categories: "gfx"
+      atrace_apps: "dev.leonardo.ocbeacon.dev"
+    }
+  }
+}
+data_sources: {
+  config {
+    name: "android.frames"
+  }
+}
+duration_ms: 60000
+write_into_file: true
+file_write_period_ms: 5000
