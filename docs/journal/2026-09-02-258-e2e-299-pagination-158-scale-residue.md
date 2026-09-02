@@ -73,5 +73,37 @@ E2E 顺带 10）——「2026-08-27 后期间改动已间接消除」假说增�
 **暴露的下一层瓶颈（卡片续项）**：页 RPC 1.9s 后**落库+FTS 后处理 ~20s**
 （drain 页 RESPONSE 21:27:54 → synced 日志 21:28:15；loadOlder RPC 1s →
 完成 13.5s）——118 msgs ≈ 170ms/条，疑 FTS 分词大 part 文本 + 逐条事务；
-方向：批事务化 / FTS 挂后台队列 / 大 part 截断索引。 战役残项（中间带 turn / _rea 之谜 /
+方向：批事务化 / FTS 挂后台队列 / 大 part 截断索引。
+
+## §二B #299 第二刀：FTS 全表扫描定罪与幂等收窄（探针驱动）
+
+**分段探针**（[299-probe] tx/fts/archive 三段，常驻 DEBUG）定罪链：
+
+1. 批事务化后仍慢：`upsert n=50 tx=60ms fts=13605ms`——Room 事务仅 60ms，
+   **FTS 13.6s**；小批恒 ~616ms/次 = 全表扫描特征值。
+2. 根因：`DELETE FROM message_fts WHERE partId=?` 在 FTS5 虚表上**无索引可走
+   （非 MATCH 谓词）→ 全表扫描 ~600ms/次**；每 text part 一次 → 页级爆炸。
+   （第一刀的"批事务"只消了 fsync，没消扫描。）
+3. 同场发现：`replaceSessionMessages`（prefetch 对账路径）**未做 #79 工具载荷
+   截断**——全量 JSON 落库把 #79 省的 97% DB 体积每进场写回一次。
+
+**第二刀修复**：
+
+1. **FTS 幂等收窄**：写前 `existingPartTexts` 快照（PK 批查，chunked 500）——
+   文本未变的 part **整体跳过索引**（重进场零 FTS）；新 part 免 DELETE
+   （`IndexedTextPart.existing` 标志——FTS 行只可能跟随 cached_parts 行存在，
+   无行可删）；仅「文本变化重索引」走 DELETE。upsert 与 replace 两路径同收窄。
+2. **replace 路径对齐 #79 截断**（tool 载荷 500 字符预览，内存渲染不受影响）。
+
+**验证（真机）**：
+
+| 场景 | 前 | 后 |
+|---|---|---|
+| 未缓存页 FTS（n=95） | 13.6s（n=50 批） | **4ms** |
+| 未缓存页落库总时长（n=95） | ~14s | **68ms** |
+| 缓存重进场首渲染（V1 loaded） | ~17s | **0.6s** |
+| 缓存重进场后台整定（prefetch complete） | —（未及） | **4s** |
+
+全量单测 2554/0/0（MessageStoreTest 假 DAO 补 existingPartTexts）；FTS 批事务
+含防御降级（SQLException 吞并降级，索引是增强可幂等补齐）。 战役残项（中间带 turn / _rea 之谜 /
 SelectionContainer 二阶 / pendingSegmentSkeletons 上限）另立卡承接（见 §四）。

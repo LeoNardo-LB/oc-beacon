@@ -150,6 +150,19 @@ class MessageStore @Inject constructor(
                 // （replaceSessionMessages 的 clear+重写）插入两步之间时，parts 落库
                 // 同样触发 FK 787。归档/裁剪（archiveOverflow 自持事务）保持事务外，
                 // 不构成嵌套。
+                // [299-probe] DEBUG 观测：页落库分段计时（tx/FTS/归档）
+                val probeT0 = android.os.SystemClock.elapsedRealtime()
+                // #299 续项：写前快照现存 part 文本——FTS 只索引「新增或文本变化」
+                // 的 part（幂等跳过；原 DELETE FROM fts WHERE partId=? 在 FTS5 虚表
+                // 上全表扫描 ~600ms/次，重进场/多写者重复索引同一批 part 时是页
+                // 后处理的主成本，真机探针 fts=13.6s/50 msgs 实证）。
+                val incomingIds = toPersist.flatMap { m ->
+                    m.parts.mapIndexed { index, p -> p.id.ifEmpty { "${m.info.id}_p$index" } }
+                }
+                val existingTexts = HashMap<String, String?>()
+                incomingIds.chunked(SQLITE_IN_CHUNK).forEach { chunk ->
+                    dao.existingPartTexts(chunk).forEach { existingTexts[it.id] = it.text }
+                }
                 database.withTransaction {
                     dao.upsertMessages(
                         toPersist.map { m ->
@@ -191,22 +204,29 @@ class MessageStore @Inject constructor(
                         },
                     )
                 }
-                // #272：FTS5 增量索引——text part 正文全量可搜（prune 不删 FTS 行，冷数据保持可搜）
+                val probeT1 = android.os.SystemClock.elapsedRealtime()
+                // #272：FTS5 增量索引（#299 幂等收窄：仅「新增或文本变化」的 part
+                // ——文本未变跳过，重进场零 FTS；FTS 行不删，冷数据保持可搜）
                 fts.indexTextParts(
                     sessionId,
                     toPersist.flatMap { m ->
                         m.parts.mapIndexed { index, p ->
                             (p as? Part.Text)?.let { t ->
-                                IndexedTextPart(
-                                    partId = p.id.ifEmpty { "${m.info.id}_p$index" },
+                                val partId = p.id.ifEmpty { "${m.info.id}_p$index" }
+                                // 快照文本一致 → 索引行已正确，跳过
+                                if (existingTexts[partId] == t.text) null
+                                else IndexedTextPart(
+                                    partId = partId,
                                     messageId = m.info.id,
                                     role = m.info.role,
                                     text = t.text,
+                                    existing = existingTexts.containsKey(partId),
                                 )
                             }
                         }.filterNotNull()
                     },
                 )
+                val probeT2 = android.os.SystemClock.elapsedRealtime()
                 // ---- 归档编排（prune 前）：count → 查 overflow 最老 → 归档+裁剪原子化 ----
                 // overflow>0 时 archiveOverflow 内含事务（upsertAll+pruneToLimit 原子，并返回裁剪数）；
                 // overflow==0 时无需裁剪（已在限额内）。裁剪不再单独无条件执行——避免与事务内裁剪重复。
@@ -217,6 +237,15 @@ class MessageStore @Inject constructor(
                     if (BuildConfig.DEBUG && pruned > 0) {
                         AppLogger.d(TAG, "[prune] session=$sessionId: removed $pruned oldest msgs (limit=$SESSION_MESSAGE_LIMIT)")
                     }
+                }
+                if (BuildConfig.DEBUG) {
+                    val probeT3 = android.os.SystemClock.elapsedRealtime()
+                    AppLogger.d(
+                        TAG,
+                        "[299-probe] upsert n=" + toPersist.size + " tx=" + (probeT1 - probeT0) +
+                            "ms fts=" + (probeT2 - probeT1) + "ms archive=" + (probeT3 - probeT2) +
+                            "ms total=" + (probeT3 - probeT0) + "ms overflow=" + overflow,
+                    )
                 }
             }
         }.onFailure { e ->
@@ -427,11 +456,25 @@ class MessageStore @Inject constructor(
         if (messages.isEmpty()) return
         withContext(Dispatchers.IO) {
             runCatchingCancellable {
+                // [299-probe] DEBUG 观测
+                val probeT0 = android.os.SystemClock.elapsedRealtime()
+                // #299 续项：clear 前快照（replace 删行重建——文本未变的 part 其
+                // FTS 行仍正确，跳过重索引）
+                val existingTexts = HashMap<String, String?>()
+                messages.flatMap { m ->
+                    m.parts.mapIndexed { index, p -> p.id.ifEmpty { "${m.info.id}_p$index" } }
+                }.chunked(SQLITE_IN_CHUNK).forEach { chunk ->
+                    dao.existingPartTexts(chunk).forEach { existingTexts[it.id] = it.text }
+                }
                 databaseRecovery.withCorruptionRecovery {
                     database.withTransaction {
                         dao.clearSession(sessionId)
-                        upsertInTransaction(sessionId, messages)
+                        upsertInTransaction(sessionId, messages, existingTexts)
                     }
+                }
+                val probeT1 = android.os.SystemClock.elapsedRealtime()
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(TAG, "[299-probe] replace n=" + messages.size + " txTotal=" + (probeT1 - probeT0) + "ms")
                 }
             }.onFailure { e ->
                 AppLogger.e(TAG, "replaceSessionMessages failed (keep existing cache)", e)
@@ -439,8 +482,13 @@ class MessageStore @Inject constructor(
         }
     }
 
-    /** 事务内写入（不嵌套 withTransaction；不触发归档——对账场景写入量=服务器全量，超限由下次常规 upsert 的 prune 管理）。 */
-    private suspend fun upsertInTransaction(sessionId: String, messages: List<MessageWithParts>) {
+    /** 事务内写入（不嵌套 withTransaction；不触发归档——对账场景写入量=服务器全量，超限由下次常规 upsert 的 prune 管理）。
+     *  [existingTexts]：写前快照（#299 FTS 幂等收窄判据，由调用方采集传入）。 */
+    private suspend fun upsertInTransaction(
+        sessionId: String,
+        messages: List<MessageWithParts>,
+        existingTexts: Map<String, String?>,
+    ) {
         dao.upsertMessages(
             messages.map { m ->
                 CachedMessageEntity(
@@ -461,22 +509,32 @@ class MessageStore @Inject constructor(
                         sessionId = sessionId,
                         type = p.typeName(),
                         text = (p as? Part.Text)?.text,
-                        payload = json.encodeToString(p),
+                        // #299 续项：与 upsertMessages 对齐 #79 工具载荷截断——原全量
+                        // encode 把 #79 省下的 97% DB 体积整会话写回（prefetch 对账
+                        // 路径每进场一次），大 tool 会话（test-lab 实测）后处理拖到
+                        // 数十秒；内存渲染不受影响（内存态完整，DB 只存 500 字符预览）。
+                        payload = when (p) {
+                            is Part.Tool -> ToolOutputTruncator.truncateIfNeeded(json.encodeToString(p))
+                            else -> json.encodeToString(p)
+                        },
                     )
                 }
             },
         )
-        // #272：REST_AUTHORITY 全量替换路径同样维护 FTS 索引
+        // #272：REST_AUTHORITY 全量替换路径同样维护 FTS 索引（#299 幂等收窄同上）
         fts.indexTextParts(
             sessionId,
             messages.flatMap { m ->
                 m.parts.mapIndexed { index, p ->
                     (p as? Part.Text)?.let { t ->
-                        IndexedTextPart(
-                            partId = p.id.ifEmpty { "${m.info.id}_p$index" },
+                        val partId = p.id.ifEmpty { "${m.info.id}_p$index" }
+                        if (existingTexts[partId] == t.text) null
+                        else IndexedTextPart(
+                            partId = partId,
                             messageId = m.info.id,
                             role = m.info.role,
                             text = t.text,
+                            existing = existingTexts.containsKey(partId),
                         )
                     }
                 }.filterNotNull()
@@ -597,6 +655,9 @@ class MessageStore @Inject constructor(
 
     companion object {
         private const val TAG = "MessageStore"
+
+        /** SQLite IN 参数段长（#299 快照批查）。 */
+        private const val SQLITE_IN_CHUNK = 500
         const val SESSION_MESSAGE_LIMIT = MessageCacheRepository.SESSION_MESSAGE_LIMIT
         const val ARCHIVE_BUCKET_WINDOW_MS = 86_400_000L          // 1 天
         const val ARCHIVE_BUCKET_MAX_BYTES = 512 * 1024           // 512KB（调研约束）

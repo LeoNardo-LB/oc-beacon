@@ -55,6 +55,12 @@ data class IndexedTextPart(
     val messageId: String,
     val role: String,
     val text: String,
+    /**
+     * #299 续项：该 part 索引前在 cached_parts 已有行（文本变化重索引）——
+     * 仅此类项需要 DELETE 旧行；新 part 无 FTS 行可删（FTS 行只可能跟随
+     * cached_parts 行存在），免 FTS5 虚表全扫（~600ms/次）。
+     */
+    val existing: Boolean = false,
 )
 
 /**
@@ -111,15 +117,33 @@ class MessageFtsIndex @Inject constructor(
      * 索引一批 text part（upsert 语义：按 partId 先删后插）。
      * 阻塞式 SQL——调用方必须在 IO 上下文（MessageStore 写路径已在 IO/事务内）。
      */
+    /**
+     * #299 续项（2026-09-02）：整批单事务——原逐条裸 execSQL 各自 autocommit，
+     * 118 msgs 页（~200 text part）≈ 400 次闪存 fsync 事务 ≈ 20s（真机实测，
+     * RPC 仅 1.9s）；批事务后整页 1 次 fsync。嵌套调用（replaceSessionMessages
+     * 在 Room withTransaction 内调用）走 Android 嵌套事务（savepoint）语义不变。
+     */
     fun indexTextParts(sessionId: String, items: List<IndexedTextPart>) {
         if (items.isEmpty() || !ensureAvailable()) return
         val db = database.openHelper.writableDatabase
-        for (item in items) {
-            db.execSQL("DELETE FROM ${MessageFtsSchema.TABLE} WHERE partId = ?", arrayOf(item.partId))
-            db.execSQL(
-                "INSERT INTO ${MessageFtsSchema.TABLE}(sessionId, messageId, partId, role, text) VALUES(?, ?, ?, ?, ?)",
-                arrayOf(sessionId, item.messageId, item.partId, item.role, item.text),
-            )
+        // 防御性降级：批事务失败（如测试环境 DB 关闭竞态）不外抛——索引是增强，
+        // 与本文件既有降级哲学一致（缺行仅影响可搜性，下次 upsert 幂等补齐）。
+        try {
+            db.beginTransaction()
+            for (item in items) {
+                if (item.existing) {
+                    db.execSQL("DELETE FROM ${MessageFtsSchema.TABLE} WHERE partId = ?", arrayOf(item.partId))
+                }
+                db.execSQL(
+                    "INSERT INTO ${MessageFtsSchema.TABLE}(sessionId, messageId, partId, role, text) VALUES(?, ?, ?, ?, ?)",
+                    arrayOf(sessionId, item.messageId, item.partId, item.role, item.text),
+                )
+            }
+            db.setTransactionSuccessful()
+        } catch (e: android.database.SQLException) {
+            android.util.Log.w("MessageFtsIndex", "batch index failed (degraded): " + e.message)
+        } finally {
+            runCatching { db.endTransaction() }
         }
     }
 

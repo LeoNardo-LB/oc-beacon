@@ -385,6 +385,7 @@ class MessageStoreTest {
             override suspend fun upsertMessages(entities: List<CachedMessageEntity>) = Unit
             override suspend fun insertMessagesIfAbsent(entities: List<CachedMessageEntity>) = Unit
             override suspend fun upsertParts(entities: List<CachedPartEntity>) = Unit
+            override suspend fun existingPartTexts(ids: List<String>): List<PartTextRow> = emptyList()
         }
         val realStore = MessageStore(realDao, archiveDao, json, databaseRecovery, database, clock = { 1_000_000L })
 

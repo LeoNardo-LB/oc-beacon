@@ -27,6 +27,14 @@ interface MessageDao {
     suspend fun upsertParts(entities: List<CachedPartEntity>)
 
     /**
+     * #299 续项：按 id 批查现存 part 文本——FTS 索引幂等跳过判据（文本未变的
+     * part 整体跳过索引：新 part 免 FTS 虚表全扫 DELETE，重进场零 FTS 工作）。
+     * 只取 text 列（PK 索引命中，量小）。
+     */
+    @Query("SELECT id AS id, text AS text FROM cached_parts WHERE id IN (:ids)")
+    suspend fun existingPartTexts(ids: List<String>): List<PartTextRow>
+
+    /**
      * #97（H-6）：增量追加 part 文本——流式 delta 落盘（O(delta) 写，替代全量重写）。
      * UPSERT 语义：part 行不存在时插入（V2 流式中 REST 快照可能未到，
      * 纯 UPDATE 影响 0 行 → 增量丢失——2026-08-14 模拟器 DB 实测发现）。
@@ -170,3 +178,6 @@ interface MessageDao {
     @Query("DELETE FROM cached_messages WHERE sessionId = :sessionId")
     suspend fun clearSession(sessionId: String)
 }
+
+/** #299 续项：现存 part 文本快照行（FTS 幂等跳过判据）。 */
+data class PartTextRow(val id: String, val text: String?)

@@ -74,7 +74,8 @@
   - 现象（2026-09-02 Stage B 顺带观察）：58 msgs 会话进场 session.history 逐页拉取 ~1 页/s × ~10 页，三点加载约 10s
   - 取证（同日主机直测）：服务器页延迟非瓶颈（maxMessages=50→79ms / 200→220ms / 500→672ms，随事件量线性 ~14μs/event；50 msg 页 ≈ 7K events）；成本在 app 侧逐页串行管线（fold+装配+dispatch+Room 双写）
   - **2026-09-02 第一刀完结（journal 258-e2e §二）**：fetchAllMessages 50→200+IO 化+同会在途去重、drain 页放大——真机双走者消灭、总请求 12-19→8、drain 1 页拉完（926d81c7）
-  - 续项：**落库+FTS 后处理 ~170ms/条**（118 msgs 页后处理 ~20s，RPC 仅 1.9s）——批事务化/FTS 后台队列/大 part 截断索引；beforeSeq 游标链天然串行，并发窗口风险高二阶
+  - **2026-09-02 第二刀完结（journal §二B）**：[299-probe] 定罪 `DELETE FROM fts WHERE partId=?` FTS5 虚表全扫（~600ms/次 × 每 text part）——写前快照幂等收窄（未变跳过/新免删/仅变化重索引）+ replace 路径对齐 #79 工具截断；**未缓存页 FTS 13.6s→4ms、重进场首渲染 17s→0.6s**；2554 单测绿
+  - 残余观察：进场 ~17s 首渲染的其余成分已基本消除（对照见 §二B 表）；beforeSeq 游标链天然串行，并发窗口风险高二阶（不做）
   - → `docs/journal/2026-09-02-258-stage-b-history-chunking.md` §四观察备注
 
 - [ ] **#288 workflow 阶段卡（tool-workflow agent-start/end 聚合渲染）** `dsh` `ui`
