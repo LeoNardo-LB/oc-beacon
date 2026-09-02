@@ -186,7 +186,8 @@ fun computeTurnSegments(
             cuts.removeAt(cuts.size - 1)
         }
     }
-    if (cuts.size <= 1) return null
+    // 单 GiantHole 也是合法分段（AST 展开后 ≥2 chunk）；纯 Items 单段 = 无需分片。
+    if (cuts.size <= 1 && cuts.none { it is TurnSegmentSkeleton.GiantHole }) return null
     return TurnSegmentSkeleton(turnKey, representativeMsgId, fingerprint, cuts)
 }
 

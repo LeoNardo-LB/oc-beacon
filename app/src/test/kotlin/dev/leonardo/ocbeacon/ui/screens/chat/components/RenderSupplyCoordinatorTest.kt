@@ -3,7 +3,9 @@ package dev.leonardo.ocbeacon.ui.screens.chat.components
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
+import dev.leonardo.ocbeacon.domain.model.ToolState
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
+import dev.leonardo.ocbeacon.ui.screens.chat.tools.computeRenderableTurn
 import dev.leonardo.ocbeacon.ui.screens.chat.util.computeTurnGroups
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -15,6 +17,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -76,7 +79,8 @@ class RenderSupplyCoordinatorTest {
     }
 
     private fun awaitParsedBlocking(env: Env, key: String): Unit = runBlocking {
-        withTimeout(5000) { env.registry.flow(key).first { it is RenderReadiness.Parsed } }
+        // 15s：全量套件（forkEvery=50 邻居组合漂移）下 Default 池争饿曾致 5s 偶发
+        withTimeout(15_000) { env.registry.flow(key).first { it is RenderReadiness.Parsed } }
         Unit
     }
 
@@ -86,7 +90,8 @@ class RenderSupplyCoordinatorTest {
      * 保险在满载下不足。以 pendingChunkPlanCount 探针确定性收敛。
      */
     private fun awaitPendingEnqueued(env: Env, expect: Int = 1): Unit = runBlocking {
-        withTimeout(5000) {
+        // 15s：同 awaitParsedBlocking——负载偶发根治（#254 同族，fork 邻居漂移）
+        withTimeout(15_000) {
             while (env.coordinator.pendingChunkPlanCount < expect) delay(10)
         }
         Unit
@@ -339,9 +344,102 @@ class RenderSupplyCoordinatorTest {
             env.coordinator.chunkPlans.value.containsKey(partId),
         )
     }
-}
 
-// ============ 文件级 fixtures ============
+    // ============ #258 Stage B：到达扫描（onWorldArrived / TurnSegmentPlan）============
+
+    /** 世界 + renderableTurns（到达扫描分段依赖预计算渲染序列）。 */
+    private fun arrivalWorld(
+        env: Env,
+        pairs: Int,
+        streaming: String? = null,
+        partFor: (assistantIndex: Int) -> List<Part>,
+    ): RenderSupplyWorld {
+        val msgs = (0 until pairs).flatMap { i -> listOf(userMsg(i), assistantMsg(i, partFor(i))) }
+        val displayItems = msgs.mapIndexed { idx, m -> idx to m }
+        val groups = computeTurnGroups(msgs)
+        val entries = buildChatEntries(displayItems, groups, streaming, emptyMap(), emptySet())
+        val turns = displayItems.map { (_, m) ->
+            if (m.isAssistant) computeRenderableTurn(listOf(m), m, true) { null } else null
+        }
+        return RenderSupplyWorld(
+            displayItems, groups, entries, bannerCount = 0,
+            streamingMsgId = streaming, renderableTurns = turns,
+        )
+    }
+
+    /** part 数量主导 turn（30 tool ≈ 16500 当量 ≥ 12000 门槛；无巨型 part）。 */
+    private fun heavyToolTurn(i: Int) = (0 until 30).map { k ->
+        Part.Tool(
+            id = "tool_${i}_$k", sessionId = "s", messageId = "a$i", callId = "c$k",
+            tool = if (k % 2 == 0) "read" else "bash",
+            state = ToolState.Pending(input = emptyMap()),
+        )
+    }
+
+    @Test
+    fun `S1_到达扫描带外提交无巨型turn分段`() {
+        val env = Env()
+        val w = arrivalWorld(env, 20) { i -> if (i == 1) heavyToolTurn(1) else listOf(textPart("f$i", plainText(250))) }
+        // 视口在 display 31（assistant a15）；目标 turn a1 在 display 3（带外）
+        env.coordinator.onWorldArrived(31, 31, w)
+        val plans = env.coordinator.segmentPlans.value
+        assertTrue("带外重 turn 应被分段提交", plans.containsKey("t_a1"))
+        assertTrue("分段 chunk 数应 ≥ 2", plans.getValue("t_a1").chunkCount >= 2)
+    }
+
+    @Test
+    fun `S2_裂变带内turn不被分段`() {
+        val env = Env()
+        val w = arrivalWorld(env, 20) { i -> if (i == 3) heavyToolTurn(3) else listOf(textPart("f$i", plainText(250))) }
+        // 视口盖住 display 7（assistant a3）
+        env.coordinator.onWorldArrived(7, 7, w)
+        assertTrue("裂变带内 turn 绝不分段（F2 语义）", env.coordinator.segmentPlans.value.isEmpty())
+    }
+
+    /** ≥TURN_SEGMENT_MIN_WEIGHT 的多块巨型文本（chunkableText ~9.5K 不达门槛）。 */
+    private fun bigChunkable(): String =
+        (0 until 30).joinToString("\n\n") { "# 标题 $it\n\n" + "内容段落文本。".repeat(64) }
+
+    @Test
+    fun `S3_巨型turn解析完成后装配提交`() = runBlocking {
+        val env = Env()
+        val giantId = "g_arr"
+        fun w() = arrivalWorld(env, 20) { i ->
+            if (i == 1) listOf(textPart(giantId, bigChunkable())) else listOf(textPart("f$i", plainText(250)))
+        }
+        // 首轮：骨架入 pending + 解析启动（display 3 带外，视口 31）
+        env.coordinator.onWorldArrived(31, 31, w())
+        awaitParsedBlocking(env, giantId)
+        // 解析完成后：下一次世界到达/视口巡检装配提交
+        env.coordinator.onWorldArrived(31, 31, w())
+        val plan = env.coordinator.segmentPlans.value["t_a1"]
+        assertNotNull("巨型 turn 解析后应装配提交", plan)
+        assertTrue(
+            "Giant 段应展开为多 chunk",
+            plan!!.segments.any { it.chunkCount > 1 },
+        )
+    }
+
+    @Test
+    fun `S4_旧MdChunkPlan已提交的turn不被分段`() = runBlocking {
+        val env = Env()
+        // a1 有巨型 part；先用视口循环走旧路径提交 MdChunkPlan（display 3 视口）
+        val partFor = targetPartWorld(20, "g_old", 1)
+        env.coordinator.onViewportChanged(3, 3, env.world(20, partFor = partFor))
+        awaitParsedBlocking(env, "g_old")
+        awaitPendingEnqueued(env)
+        // 滚离带外（视口 31）→ 旧 pending 提交
+        env.coordinator.onViewportChanged(31, 31, env.world(20, partFor = partFor))
+        assertTrue(env.coordinator.chunkPlans.value.containsKey("g_old"))
+        // 到达扫描：a1 已有旧计划 → 不分段
+        val w = arrivalWorld(env, 20) { i -> partFor(i) }
+        env.coordinator.onWorldArrived(31, 31, w)
+        assertTrue(
+            "旧 MdChunkPlan 优先，同 turn 不再分段",
+            !env.coordinator.segmentPlans.value.containsKey("t_a1"),
+        )
+    }
+}
 
 private fun userMsg(i: Int) = ChatMessage(
     message = Message.User(id = "u$i", sessionId = "s", time = TimeInfo(created = 1L)),

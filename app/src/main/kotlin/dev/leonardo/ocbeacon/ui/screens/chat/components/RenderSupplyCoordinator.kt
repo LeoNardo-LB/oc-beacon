@@ -173,17 +173,16 @@ internal class RenderSupplyCoordinator(
                 }
             } else {
                 // 巨型 part 需解析：Pending 才启动（Parsing = 在途解析勿双发；
-                // Parsed/Failed 由装配入口消费），骨架入 pending 等齐。
+                // Parsed/Failed 由装配入口消费），骨架入 pending 等齐。解析回调
+                // **不做装配**（协调器状态单线程约定——测试域 Unconfined 回调
+                // 线程不受限），装配由世界到达/视口巡检在调用线程驱动（生产
+                // 滚动期 tick 恒有；静止用户无渲染紧迫性）。
                 pendingSegmentSkeletons[turnKey] = skeleton
                 for (g in giants) {
                     if (registry.current(g.partId) is RenderReadiness.Pending &&
                         g.text.length >= PREPARSE_MIN_CHARS
                     ) {
-                        val textForParse = g.text
-                        registry.preParse(g.partId, textForParse, parseScope) {
-                            // 主线程回调：立即重查装配（幂等）。
-                            materializePendingSegments(items, groups, fissionHead, fissionTail)
-                        }
+                        registry.preParse(g.partId, g.text, parseScope)
                     }
                 }
                 materializePendingSegments(items, groups, fissionHead, fissionTail)
@@ -210,6 +209,13 @@ internal class RenderSupplyCoordinator(
                 continue
             }
             if (di in fissionHead..fissionTail) continue // 可见/缓存池内——滚出带再说
+            // 旧路径优先复查：等待解析期间视口循环可能已提交 MdChunkPlan
+            //（先兆：骨架入 pending 前解析已启动）——让位并清 pending。
+            val turnMsgsNow = groups[items[di].first] ?: listOf(items[di].second)
+            if (turnMsgsNow.any { cm -> cm.parts.any { it.id in _chunkPlans.value } }) {
+                done += turnKey
+                continue
+            }
             val giants = skeleton.cuts.filterIsInstance<TurnSegmentSkeleton.GiantHole>()
             val allTerminal = giants.all { g ->
                 val st = registry.current(g.partId)
