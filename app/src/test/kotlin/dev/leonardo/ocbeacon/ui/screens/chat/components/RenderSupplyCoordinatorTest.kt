@@ -447,6 +447,44 @@ class RenderSupplyCoordinatorTest {
             !env.coordinator.segmentPlans.value.containsKey("t_a1"),
         )
     }
+
+    /**
+     * #300④：pending 骨架驻留上限（MAX_PENDING_SEGMENT_SKELETONS=48）。
+     * 深滚大会话到达扫描持续入队、装配依赖后续世界到达驱动——无上限时巨型
+     * part 全文（≥3000 字符）被骨架无界持有。确定性设计：巨型 part 预播种
+     * Parsing 态（非 terminal）→ 扫描不启动解析（Pending 才启动）、装配
+     * 永不触发（allTerminal 恒假）——pending 数量仅由入队/淘汰驱动。
+     */
+    @Test
+    fun `S5_pending骨架超过上限逐出最旧`() {
+        val env = Env()
+        val pairs = 60 // 59 个可分段 turn（a59 视口带内跳过），每轮入队预算 24
+        fun w() = arrivalWorld(env, pairs) { i ->
+            if (i == pairs - 1) listOf(textPart("f$i", plainText(250)))
+            else {
+                val id = "g$i"
+                // 预播种 Parsing：解析不启动（Pending 才启动）、pending 不排空
+                //（allTerminal 恒假）——数量仅由入队/淘汰驱动，测试确定性。
+                // registry.flow() 返回只读视图，底座实例恒为 MutableStateFlow。
+                (env.registry.flow(id) as MutableStateFlow<RenderReadiness>).value = RenderReadiness.Parsing
+                listOf(textPart(id, bigChunkable()))
+            }
+        }
+        // 视口 119 = a59 带内；三轮入队 24+24+11 = 59 > 48 → 逐出 11 个最旧
+        repeat(3) { env.coordinator.onWorldArrived(2 * pairs - 1, 2 * pairs - 1, w()) }
+        assertEquals(
+            "pending 应被钉在上限（59 入队 → 48 驻留）",
+            RenderSupplyCoordinator.MAX_PENDING_SEGMENT_SKELETONS,
+            env.coordinator.pendingSkeletonCount,
+        )
+        // 第四轮：被逐出的最旧 turn 落回带外扫描范围 → 重算重入队，仍钉上限
+        env.coordinator.onWorldArrived(2 * pairs - 1, 2 * pairs - 1, w())
+        assertEquals(
+            "被逐 turn 重入队后仍钉上限（FIFO 逐出最旧）",
+            RenderSupplyCoordinator.MAX_PENDING_SEGMENT_SKELETONS,
+            env.coordinator.pendingSkeletonCount,
+        )
+    }
 }
 
 private fun userMsg(i: Int) = ChatMessage(

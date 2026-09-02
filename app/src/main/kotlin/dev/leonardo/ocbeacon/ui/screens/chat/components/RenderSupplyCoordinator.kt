@@ -72,6 +72,9 @@ internal class RenderSupplyCoordinator(
      */
     internal fun pendingSkipCountFor(partId: String): Int = pendingSkipCounts[partId] ?: 0
 
+    /** #300④ 测试探针：pending 骨架驻留数（上限淘汰回归护栏）。 */
+    internal val pendingSkeletonCount: Int get() = pendingSegmentSkeletons.size
+
     /** 已提交计划的解析基准长度（partId → 解析时文本长度）——陈旧检测基准。
      *  #246 五轮反馈根治：部分文本快照一旦被解析，旧逻辑永不重析/永换 plan，
      *  分片即永久丢头（冷启动首屏只剩尾部段——现场截图+dump 实证）。 */
@@ -186,7 +189,12 @@ internal class RenderSupplyCoordinator(
                 // **不做装配**（协调器状态单线程约定——测试域 Unconfined 回调
                 // 线程不受限），装配由世界到达/视口巡检在调用线程驱动（生产
                 // 滚动期 tick 恒有；静止用户无渲染紧迫性）。
+                // #300④：有界插入（超上限逐出最旧到达序骨架）。
                 pendingSegmentSkeletons[turnKey] = skeleton
+                while (pendingSegmentSkeletons.size > MAX_PENDING_SEGMENT_SKELETONS) {
+                    val eldest = pendingSegmentSkeletons.keys.firstOrNull() ?: break
+                    pendingSegmentSkeletons.remove(eldest)
+                }
                 for (g in giants) {
                     if (registry.current(g.partId) is RenderReadiness.Pending &&
                         g.text.length >= PREPARSE_MIN_CHARS
@@ -557,6 +565,16 @@ internal class RenderSupplyCoordinator(
          * 到达时节流；剩余由下一次世界变化/视口巡检捡起）。
          */
         const val ARRIVAL_PLAN_MAX_TURNS = 24
+
+        /**
+         * #300④：pending 骨架驻留上限。骨架的 GiantHole 持巨型 part 全文引用
+         * （≥3000 字符，实测可达数十 KB），深滚大会话到达扫描持续入队、装配
+         * 依赖世界到达/视口巡检驱动——用户静止或单向深滚时旧骨架无界驻留。
+         * 超限逐出最旧（到达序 FIFO）；被逐 turn 若再进入带外扫描范围会被
+         * 重算（computeTurnSegments 纯权重循环，成本可忽略）。与 PREPARSE_LRU
+         * 同量级（同为防 AST/文本无界增长的有界化）。
+         */
+        const val MAX_PENDING_SEGMENT_SKELETONS = 48
     }
 }
 
