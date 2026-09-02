@@ -5,6 +5,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonContentPolymorphicSerializer
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -38,6 +39,13 @@ object PartSerializer : JsonContentPolymorphicSerializer<Part>(Part::class) {
             // ——按顶层字段推断，避免降级为 Unknown（Unknown 导致消息流
             // 误导显示 "Running command…"——用户反馈"缺少数据/对话快速访问问题"）
             else -> when {
+                // #300②：缓存 payload 恒无 type（序列化按具体类进行，子类无 type
+                // 属性），Reasoning 的内容字段名就是 "text"——若 containsKey("text")
+                // 先命中，Reasoning 恒误判为 Text（下方 "reasoning" 键分支是任何
+                // Part 都不会序列化出的死分支）。派生 id 契约（PartIdContract，
+                // kind 编入 id）先于字段推断。
+                obj["id"]?.jsonPrimitive?.contentOrNull
+                    ?.contains(PartIdContract.REASONING_MARKER) == true -> Part.Reasoning.serializer()
                 obj.containsKey("text") -> Part.Text.serializer()
                 obj.containsKey("reasoning") -> Part.Reasoning.serializer()
                 obj.containsKey("tool") || obj.containsKey("state") -> Part.Tool.serializer()

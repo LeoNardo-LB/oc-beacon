@@ -145,6 +145,37 @@ class MessageStoreTest {
     }
 
     @Test
+    fun loadRange_reasoningPayloadWithoutType_decodesByColumnNotFieldInference() = runTest {
+        // #300②（_rea 之谜）：缓存 payload 恒无 type 判别键——裸解码走字段推断
+        // 会把 Reasoning（内容字段名即 text）误判为 Part.Text（真机 DB 3,876 行
+        // 实证）。回读必须以行 type 列为权威：reasoning 列 → Reasoning，
+        // 同形 text 行（仅 id/列不同）→ Text。
+        val info = json.encodeToString(Message.User(id = "msg_r", sessionId = "ses_1", time = TimeInfo(created = 100)))
+        coEvery { dao.messagesForSession("ses_1", 10) } returns listOf(
+            CachedMessageEntity("msg_r", "ses_1", 100, "user", info)
+        )
+        coEvery { dao.partsForMessagesChunked(listOf("msg_r")) } returns listOf(
+            CachedPartEntity(
+                id = "msg_r_reasoning_ord_0", messageId = "msg_r", sessionId = "ses_1",
+                type = "reasoning", text = "think",
+                payload = """{"id":"msg_r_reasoning_ord_0","sessionID":"ses_1","messageID":"msg_r","text":"think"}""",
+            ),
+            CachedPartEntity(
+                id = "msg_r_text_ord_1", messageId = "msg_r", sessionId = "ses_1",
+                type = "text", text = "body",
+                payload = """{"id":"msg_r_text_ord_1","sessionID":"ses_1","messageID":"msg_r","text":"body"}""",
+            ),
+        )
+
+        val result = store.loadRange("ses_1", limit = 10, beforeId = null)
+
+        assertEquals(2, result.single().parts.size)
+        assertTrue("reasoning column must decode Reasoning, got ${result[0].parts[0]::class.simpleName}", result[0].parts[0] is Part.Reasoning)
+        assertTrue(result[0].parts[1] is Part.Text)
+        assertEquals("think", (result[0].parts[0] as Part.Reasoning).text)
+    }
+
+    @Test
     fun oldestMessageId_delegates() = runTest {
         coEvery { dao.oldestMessageId("ses_1") } returns "msg_1"
         coEvery { dao.oldestMessageId("ses_2") } returns null

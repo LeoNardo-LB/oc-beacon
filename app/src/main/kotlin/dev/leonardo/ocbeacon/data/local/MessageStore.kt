@@ -276,9 +276,9 @@ class MessageStore @Inject constructor(
                 runCatchingCancellable {
                     ArchivedMessageDto(
                         info = json.decodeFromString<Message>(entity.payload),
-                        parts = (partsByMsg[entity.id] ?: emptyList()).mapNotNull { pe ->
-                            pe.payload?.let { runCatchingCancellable { json.decodeFromString<Part>(it) }.getOrNull() }
-                        },
+                        // #300②：解码经行 type 列注入（decodePartPayload）——裸解码
+                        // 会把 Reasoning 误判为 Text 并**固化**进归档 DTO（冷存无列可依）。
+                        parts = (partsByMsg[entity.id] ?: emptyList()).mapNotNull(::decodePartPayload),
                     )
                 }.onFailure { e ->
                     AppLogger.e(TAG, "[archive] session=$sessionId: skip undecodable msg ${entity.id}", e)
@@ -609,13 +609,34 @@ class MessageStore @Inject constructor(
         partEntities: List<CachedPartEntity>,
     ): MessageWithParts {
         val info = json.decodeFromString<Message>(entity.payload)
-        val parts = partEntities.mapNotNull { partEntity ->
-            partEntity.payload?.let {
-                runCatchingCancellable { json.decodeFromString<Part>(it) }
-                    .getOrNull()
-            }
-        }
+        val parts = partEntities.mapNotNull { partEntity -> decodePartPayload(partEntity) }
         return MessageWithParts(info = info, parts = parts)
+    }
+
+    /**
+     * #300②（`_rea` 之谜定音）：缓存 payload 回读以行 type 列为权威判别键。
+     *
+     * PartSerializer 是 JsonContentPolymorphicSerializer——只定制反序列化分发，
+     * 序列化按具体类进行而 Part 子类无 type 属性 → **落库 payload 恒无 type
+     * 判别键**（真机 DB 实证：3,876 行 reasoning payload 全无 type）。裸解码走
+     * 字段推断兜底，Reasoning（内容字段名即 text）被误判为 Part.Text——缓存
+     * 重进场后思考内容以正文渲染（挫败 #271「重进思考卡内容完整」裁决）、
+     * copyText 混入思考文本。行 type 列由写路径 [typeName] 与实例同源写入，
+     * 在此字符串级注入 `"type":"<列值>"` 后解码（一次拷贝，无重解析开销；
+     * typeName 值域为固定字面量，无需转义）。列缺失/空时退回裸解码（兜底
+     * 推断自 #300② 起带派生 id 契约检查）。
+     */
+    private fun decodePartPayload(entity: CachedPartEntity): Part? {
+        val payload = entity.payload ?: return null
+        return runCatchingCancellable {
+            val effective =
+                if (entity.type.isNotBlank() && payload.startsWith("{")) {
+                    "{\"type\":\"${entity.type}\"," + payload.substring(1)
+                } else {
+                    payload
+                }
+            json.decodeFromString<Part>(effective)
+        }.getOrNull()
     }
 
     /**
