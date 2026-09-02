@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#303**。
+**编号**：全局递增，不回收。下一编号：**#305**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -62,6 +62,14 @@
   - 2026-09-03 154b 真机 E2E 授权步现场实证（用户原话：链接要「点击可跳转」、授权码要「一键复制」，不然「复制不了很难操作」）：device flow 对话框仅纯文本 + 取消钮——URL 不可点、8 位码不可复制，需跨设备手抄
   - 同日实现：授权码点按复制 chip（ClipboardManager + Toast，对齐 ServerProvidersScreen OAuth 模式）+「在浏览器打开」按钮（verification_uri_complete 带码直达，GitHubDeviceFlowAuth 增解析）；key 全复用 server_settings_oauth_*（删 1 孤儿 key ×15）；i18n/compile/全量单测绿；真机实证复制 chip 可点+浏览器拉起成功（4e3449c2）
   - → `docs/journal/2026-09-03-154b-gist-299-245.md`
+
+- [ ] **#303 V2 REST 创建会话后列表不实时刷新——session.created SSE 未实时进列** `sse` `sessions`
+  - 2026-09-03 issue #6 验证顺带实证（V2 4199）：curl POST /api/session 建会话后 app 列表无实时新增（dump 0 命中），下拉刷新（REST 重拉）后出现；与 #6 报告方向相反（SSE 实时性差而非 REST 差），非 #6 症状
+  - 待取证：session.created 事件是否到达（V2 事件格式/handler 路由），或列表 Flow 过滤未覆盖新 directory
+
+- [ ] **#304 SSE 重连风暴可掐死 session.list 基线预载——preLoadSessions 未纳入 NonCancellable** `sse` `sessions`
+  - #278（b10513c9）只保护了 syncFromRest 状态播种；preLoadSessions 的 session.list 拉取仍在 preloadJob 可取消范围（SseConnectionManager.kt:426-433 finally cancelAndJoin）——服务器暂不可达→重连风暴场景下连接后列表可短暂为空，SSE 稳定后下轮重跑自愈；issue #6（pplante）环境疑与此路径相关，HEAD 实测 V1/V2 正常路径不复现
+  - → `docs/journal/2026-09-01-291281-stash-v6.md`（#278 上下文）
 
 - [ ] **#299 DSH 会话进场分页加载 ~1 页/s——进场链路串行页管线提速** `dsh` `perf`
   - 现象（2026-09-02 Stage B 顺带观察）：58 msgs 会话进场 session.history 逐页拉取 ~1 页/s × ~10 页，三点加载约 10s
