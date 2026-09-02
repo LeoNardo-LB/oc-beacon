@@ -48,12 +48,6 @@
 
 ## P1 — 核心功能需求
 
-- [ ] **#301 底部上滑被高频拉回最底——下跳守卫在手势交接闪断帧开火 + 拉底后再武装自持循环** `ui` `sse`
-  - 用户报告（2026-09-02）：贴底向上滑阅读历史，视口被高频拽回最底部
-  - 机制（真机 LEAP 日志 0↔~2000px 弹跳签名 + ChatScrollController 代码定位）：新消息/进场 messageCount 变化武装「下跳守卫」（非滚动中 && autoOn && 离底 → requestScrollToItem(0)）；`isScrollInProgress` 在拖动→fling 交接瞬间会闪断一帧——守卫在闪断帧同步开火拉底 → offset 归 0 → 贴底复真 → autoScroll 再武装 → 循环
-  - **2026-09-02 当批定罪+修复（journal §五，a3be53b0）**：AutoScrollArbiter 稳定去抖（再武装/守卫 ≥250ms+条件复查，collectLatest 取消）；真机同款手势对照——修复前 off 0↔2000 弹跳高频归零，修复后 offset 单调累计、归零 ×0、守卫开火 ×0；单测 ×6、全量 2560 绿。待用户真机体感复验
-  - → `docs/journal/2026-09-02-258-e2e-299-pagination-158-scale-residue.md` §五
-
 - [ ] **#154 上报增强：崩溃后自动提示 + secret gist 全量日志附件** `ui` `data`
   - 2026-08-23 评估（#151 两轮 E2E 全绿触发）：用户定规**两半均继续缓**——崩溃提示基建已齐（recordCrash→FATAL 持久化）只差启动提示 UI；gist 需 App 加 Gists 权限+重新授权，正文 20+3 上下文实证够分诊
   - 复评时机：beta 线上跑出真实报告后再看（崩溃提示优先级高于 gist）
@@ -68,13 +62,6 @@
   - → `docs/journal/2026-08-15-chat-flow-bugs.md`
 
 ## P2 — 优化与锦上添花
-
-- [ ] **#300 #258 战役残余：中间带 turn 段化收编 + #146 之外两项取证/二阶** `perf` `ui`
-  - ①中间带 turn **2026-09-02 已落地（journal 258-e2e §四）**：巨型豁免权重门槛（computeTurnSegments）+ 单测 middleBand 用例；真机进场新提交 4 段/5 chunks 形态 turn，2554 单测绿
-  - ②`_rea` 之谜 **2026-09-03 破案+修复（journal 300-rea §一）**：缓存 payload 恒无 type 判别键 + PartSerializer 兜底 `containsKey("text")` 先命中（Reasoning 内容字段名即 text）⇒ 回读恒误判 Text（真机 DB 3,876 行实证）；修复=type 列权威注入 + 兜底派生 id 检查 + 归档装配同治，**重进思考卡回归**（真机缓存区证据）；待用户验收
-  - ③SelectionContainer **2026-09-03 计量裁决：不做**（journal §三）——两趟 atrace text min 1.19-1.91ms 低于不带包装的 tool 3.45ms，包装项淹没在内容项中
-  - ④pendingSegmentSkeletons **2026-09-03 上限 48 落地**（journal §二）：GiantHole 持巨型全文引用防无界驻留，FIFO 逐最旧 + S5 单测
-  - → `docs/journal/2026-09-02-258-stage-b-history-chunking.md` §五 · `docs/journal/2026-09-02-300-rea-skeletons-selectioncontainer.md`
 
 - [ ] **#299 DSH 会话进场分页加载 ~1 页/s——进场链路串行页管线提速** `dsh` `perf`
   - 现象（2026-09-02 Stage B 顺带观察）：58 msgs 会话进场 session.history 逐页拉取 ~1 页/s × ~10 页，三点加载约 10s
