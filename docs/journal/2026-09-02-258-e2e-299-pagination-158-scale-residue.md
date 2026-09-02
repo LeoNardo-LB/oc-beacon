@@ -23,5 +23,34 @@ E2E 过程备注：①深跳后窗口为小旧窗、向新滚需重进（预存�
 ②本批一次重进途中 adb 拖动被 autoScroll 回底意图拉扯（offset 0↔1998 弹跳）——
 adb 注入拖动不清「在底意图」所致，真人手势无此问题（上批同会话正常遍历）。
 
-**结论：#258 验收通过，卡片迁移本 journal 归档。** 战役残项（中间带 turn / _rea 之谜 /
+**结论：#258 验收通过，卡片迁移本 journal 归档。**
+
+## §二 #299 DSH 进场分页提速（第一刀：往返与双走者）
+
+**取证（真机 NetTrace 时间线，未缓存会话冷进场）**：
+
+- 进场瞬间**三条链并发拉同一会话**：UI 初始页（limit=30）+ 全量游走器 ×2
+  （`MessageDataDelegate.fetchAllMessages` limit=50——进场预取 prefetchJumpTargets
+  与轮终对账 reconcileFromRest 在 ~800ms 内各起一条，同页重复拉取 NetTrace 双证，
+  其一跑在主线程）+ HistorySyncManager drain（limit=50）。
+- RPC 非瓶颈：UI 页 REQUEST→RESPONSE 253-500ms；**loadOlder 总时长 9.9s 中
+  RPC 仅 0.25s**——余量是游走器互踩 + 后处理。
+- 服务器侧（#299 立卡取证）：50/200/500 msg 页 = 79/220/672ms，线性。
+
+**第一刀修复（三件）**：
+
+1. `fetchAllMessages` 页 50→200 + 上限 400→100 页（200×100=2 万条语义不变）；
+2. 全程 `Dispatchers.IO`（原随调用方跑主线程——进场即主线程，翻页+合并直接吃帧预算）；
+3. 同会话在途去重（prefetchJumpTargets/reconcileFromRest 共享一次游走）；
+4. `HistorySyncManager.PAGE_SIZE` 50→200 + `MAX_PAGES` 400→100。
+
+**AFTER（未缓存会话「诊断程序连接失败原因」118 msgs 冷进场）**：
+
+- drain `synced 118 msgs in 1 pages`（旧 3-6 页）；prefetch 单走完成；
+  总请求 12-19 → **8**；双走者消失；2553 单测绿。
+
+**暴露的下一层瓶颈（卡片续项）**：页 RPC 1.9s 后**落库+FTS 后处理 ~20s**
+（drain 页 RESPONSE 21:27:54 → synced 日志 21:28:15；loadOlder RPC 1s →
+完成 13.5s）——118 msgs ≈ 170ms/条，疑 FTS 分词大 part 文本 + 逐条事务；
+方向：批事务化 / FTS 挂后台队列 / 大 part 截断索引。 战役残项（中间带 turn / _rea 之谜 /
 SelectionContainer 二阶 / pendingSegmentSkeletons 上限）另立卡承接（见 §四）。

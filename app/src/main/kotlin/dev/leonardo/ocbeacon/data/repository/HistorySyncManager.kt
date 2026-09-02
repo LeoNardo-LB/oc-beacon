@@ -152,9 +152,12 @@ class HistorySyncManager @Inject constructor(
 
     companion object {
         private const val TAG = "HistorySync"
-        private const val PAGE_SIZE = 50
+        // #299：50 → 200——服务器侧实测 200 msg 页 ~220ms（RPC 随事件量线性，非瓶颈），
+        // 页数 4× 缩减同时压缩「drain 与 UI 翻页在同内存结构上的互踩窗口」（进场
+        // loadOlder 实测 RPC 仅 ~250ms 但被 drain 逐页合并拖到 ~10s，journal §二）。
+        private const val PAGE_SIZE = 200
         private const val PAGE_INTERVAL_MS = 150L
-        private const val MAX_PAGES = 400 // 2 万条保护上限（幂等重跑不放大体积）
+        private const val MAX_PAGES = 100 // 2 万条保护上限（200×100，语义与 50×400 等价）
         private const val YIELD_CHECK_MS = 2_000L
         private const val MAX_YIELD_MS = 10 * 60_000L
     }

@@ -534,9 +534,18 @@ internal class MessageDataDelegate(
     /** 快速定位数据源翻页防呆上限（2 万条——DSH 长会话历史实测万级事件）。 */
     private companion object {
         const val MAX_JUMP_TARGET_FETCH = 20_000
+
+        /** #299：全量翻页页大小/页数上限（200×100 = 2 万条，语义与 50×400 等价）。 */
+        const val FETCH_ALL_PAGE_SIZE = 200
+        const val FETCH_ALL_MAX_PAGES = 100
     }
 
-    /** 服务器翻页全量消息（cursor.next 直到读尽；防呆 400 页 / 2 万条上限）。
+    /** 同会话 fetchAllMessages 在途去重（#299）：进场预取与自然轮终对账曾在
+     *  ~800ms 内并发起两条全量翻页游走（真机 NetTrace 双证）——共享同一结果。 */
+    private val inFlightFetchAll =
+        java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.CompletableDeferred<List<MessageWithParts>>>()
+
+    /** 服务器翻页全量消息（cursor.next 直到读尽；防呆 100 页 / 2 万条上限）。
      *  2026-08-13 修复：20 页（1000 条）对长会话（测试会话实测含大量初始化
      *  + 多轮测试消息）会截断——截断导致部分 assistant 缺失 → mergeUnrepliedUsers
      *  误判"无回复"合并 → 快速导航漏 Q（用户反馈"漏很多之前的消息"）。
@@ -544,19 +553,39 @@ internal class MessageDataDelegate(
      *  14546 行），100 页上限截断会把会话开头 user 消息（如 [test-lab] init /
      *  <system-reminder> 注入）永久挡在 Room 之外 → 快速定位列表缺失 + 跳转
      *  目标解析失败。上限提到 400 页 / 2 万条（Room 热表 1000 条分页存储安全；
-     *  mergeUnrepliedUsers/跳转数据源覆盖 DSH 长会话实际体量）。 */
-    private suspend fun fetchAllMessages(sid: String): List<MessageWithParts> {
-        val all = mutableListOf<MessageWithParts>()
-        var cursor: String? = null
-        var guard = 0
-        while (guard++ < 400 && all.size < MAX_JUMP_TARGET_FETCH) {
-            val page = sessionRepository.listMessages(serverId, sid, 50, cursor).getOrThrow()
-            all += page.messages
-            cursor = page.nextCursor ?: break
-            if (page.messages.isEmpty()) break
+     *  mergeUnrepliedUsers/跳转数据源覆盖 DSH 长会话实际体量）。
+     *  2026-09-02（#299 进场提速）：页 50 → 200（服务器侧实测 200 msg 页 ~220ms，
+     *  RPC 随事件量线性非瓶颈；页数与合并轮次 4× 缩减）+ 上限 400 页 → 100 页
+     *  （200×100 = 2 万条语义不变）+ 全程 Dispatchers.IO（原在调用方调度器——
+     *  进场路径即主线程，翻页与合并直接吃主线程帧预算，真机实测主线程 REQUEST）。
+     */
+    private suspend fun fetchAllMessages(sid: String): List<MessageWithParts> =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val existing = inFlightFetchAll[sid]
+            if (existing != null) return@withContext existing.await()
+            val deferred = kotlinx.coroutines.CompletableDeferred<List<MessageWithParts>>()
+            val winner = inFlightFetchAll.putIfAbsent(sid, deferred)
+            if (winner != null) return@withContext winner.await()
+            try {
+                val all = mutableListOf<MessageWithParts>()
+                var cursor: String? = null
+                var guard = 0
+                while (guard++ < FETCH_ALL_MAX_PAGES && all.size < MAX_JUMP_TARGET_FETCH) {
+                    val page = sessionRepository.listMessages(serverId, sid, FETCH_ALL_PAGE_SIZE, cursor).getOrThrow()
+                    all += page.messages
+                    cursor = page.nextCursor ?: break
+                    if (page.messages.isEmpty()) break
+                }
+                val result = all.distinctBy { it.info.id }
+                deferred.complete(result)
+                result
+            } catch (t: Throwable) {
+                deferred.completeExceptionally(t)
+                throw t
+            } finally {
+                inFlightFetchAll.remove(sid, deferred)
+            }
         }
-        return all.distinctBy { it.info.id }
-    }
 
     /**
      * #263 round3：REST_AUTHORITY 对账——以服务器 content 的 {created, completed}
