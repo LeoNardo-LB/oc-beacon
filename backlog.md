@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#299**。
+**编号**：全局递增，不回收。下一编号：**#300**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -60,6 +60,12 @@
   - → `docs/journal/2026-08-15-chat-flow-bugs.md`
 
 ## P2 — 优化与锦上添花
+
+- [ ] **#299 DSH 会话进场分页加载 ~1 页/s——进场链路串行页管线提速** `dsh` `perf`
+  - 现象（2026-09-02 Stage B 顺带观察）：58 msgs 会话进场 session.history 逐页拉取 ~1 页/s × ~10 页，三点加载约 10s
+  - 取证（同日主机直测）：服务器页延迟非瓶颈（maxMessages=50→79ms / 200→220ms / 500→672ms，随事件量线性 ~14μs/event；50 msg 页 ≈ 7K events）；成本在 app 侧逐页串行管线（fold+装配+dispatch+Room 双写）
+  - 方向：进场 InitialFetch/backfill 页大小调大（减少往返与折叠边界）+ app 侧逐页成本剖析（fold/持久化占比）；beforeSeq 游标链决定页间天然串行，并发窗口需 seq 域预估，风险高二阶
+  - → `docs/journal/2026-09-02-258-stage-b-history-chunking.md` §四观察备注
 
 - [ ] **#288 workflow 阶段卡（tool-workflow agent-start/end 聚合渲染）** `dsh` `ui`
   - Task 3b 落地 workflow run-start/run-end 降级单卡（同 runId 原位更新 running→终态）；agent-start/end 维持 Ignored（防逐成员刷卡）
