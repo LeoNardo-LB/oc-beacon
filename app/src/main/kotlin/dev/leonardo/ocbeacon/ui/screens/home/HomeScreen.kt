@@ -50,10 +50,13 @@ fun HomeScreen(
     onNavigateToServerSettings: (serverId: String) -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToAbout: () -> Unit = {},
+    onNavigateToDiagnostics: () -> Unit = {},
     viewModel: HomeViewModel
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    // #154a：崩溃启动提示（未确认 FATAL → Home 顶部横幅）
+    val crashNotice by viewModel.crashNotice.collectAsStateWithLifecycle()
 
     // 跟踪电池优化状态，应用恢复时重新检查
     var isBatteryOptimized by remember { mutableStateOf(false) }
@@ -137,6 +140,16 @@ fun HomeScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
+                            // #154a：崩溃启动提示横幅（优先于电池横幅）
+                            if (crashNotice != null) {
+                                item(span = { GridItemSpan(maxLineSpan) }, key = "__crash_banner") {
+                                    CrashNoticeBanner(
+                                        crashTime = crashNotice?.timestamp,
+                                        onView = onNavigateToDiagnostics,
+                                        onDismiss = viewModel::dismissCrashNotice,
+                                    )
+                                }
+                            }
                             // 电池优化警告横幅
                             if (isBatteryOptimized) {
                                 item(span = { GridItemSpan(maxLineSpan) }, key = "__battery_banner") {
@@ -227,6 +240,17 @@ fun HomeScreen(
                                     EmptyServersView(
                                         onAddServer = { viewModel.showAddServerDialog() },
                                         modifier = Modifier.fillParentMaxHeight(0.8f)
+                                    )
+                                }
+                            }
+
+                            // #154a：崩溃启动提示横幅（窄幅列表布局，优先于电池横幅）
+                            if (crashNotice != null) {
+                                item(key = "__crash_banner") {
+                                    CrashNoticeBanner(
+                                        crashTime = crashNotice?.timestamp,
+                                        onView = onNavigateToDiagnostics,
+                                        onDismiss = viewModel::dismissCrashNotice,
                                     )
                                 }
                             }

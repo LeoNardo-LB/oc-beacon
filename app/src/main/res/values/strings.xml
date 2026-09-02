@@ -879,4 +879,11 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">Server disconnected, reconnecting…</string>
     <string name="server_link_disconnected_message">Server disconnected, operation not sent</string>
+
+    <!-- #154a 崩溃启动提示 -->
+    <string name="crash_notice_title">App crashed last time</string>
+    <string name="crash_notice_body">An unexpected crash occurred at %1$s. Details are available in diagnostics.</string>
+    <string name="crash_notice_body_no_time">An unexpected crash occurred during the last session. Details are available in diagnostics.</string>
+    <string name="crash_notice_view">View</string>
+    <string name="crash_notice_dismiss">Dismiss</string>
 </resources>

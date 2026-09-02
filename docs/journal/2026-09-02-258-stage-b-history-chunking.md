@@ -107,6 +107,27 @@ N 次 skip」假设不成立，产品行为本正确）。
   preset 卡高亮为状态置位），无副作用。
 - 结论：**良性，维持现状**；若未来出现同流同 seq 重复帧才是真双投递（本 tap 未见）。
 
+## §九 顺带项：#154a 崩溃后启动提示 UI（用户解冻 2026-09-02 指令）
+
+#154 两半中的崩溃提示半（gist 半维持缓）：上次运行存在**未确认 FATAL** 时
+Home 顶部横幅提示，「查看」→ 诊断页、「忽略」→ 确认水位推进（后续新崩溃仍提示）。
+
+- 数据层：`LogDao.latestFatal()`（FATAL 最新 1 条）+ `DiagnosticLogRepository
+  .latestUnacknowledgedCrash()`（晚于 DataStore 确认水位 `crash_notice_ack_at`
+  才返回）+ `acknowledgeCrashNotice(atMillis)`（水位只升不降）。
+- UI：`CrashNoticeBanner`（home/components，errorContainer 卡片 + BugReport 图标，
+  双布局接入 grid/list，优先于电池横幅）+ `HomeViewModel.crashNotice`/
+  `dismissCrashNotice`（崩溃必经进程死亡 → init 一次加载足够）+ HomeRoute/
+  NavGraph `onNavigateToDiagnostics` 接线。
+- i18n：5 键 ×15 语言（crash_notice_title/body/body_no_time/view/dismiss），
+  i18n-check 766 keys × 14 语言一致通过；fr/it 撇号 `'` 转义（`&#x27;` 数字实体
+  flatten 后仍判非法——同 #298 坑的变体）。
+- 测试：HomeViewModelCancelConnectionTest 构造参数补 mock；全量 2553/0/0。
+- **真机五步验证全过**（houji devDebug）：①无崩溃冷启无横幅 ②`am crash` →
+  重启 Home 横幅出现（「上次运行发生崩溃」+查看/忽略）③查看 → 诊断页（不确认）
+  ④忽略 → 重启不再现（水位生效）⑤再崩溃 → 重启横幅回归（新 FATAL > 水位）。
+  尾态已忽略复位。
+
 ## §七 提交
 
 - 5020e977 feat: 骨架实现（TurnSegmentPlan + 到达扫描 + 分段渲染 + 桥接）

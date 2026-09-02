@@ -32,6 +32,10 @@ class LogStore @Inject constructor(
     suspend fun isEmpty(): Boolean =
         databaseRecovery.withCorruptionRecovery { dao.isEmpty() } ?: true
 
+    /** 最近一条 FATAL 崩溃（#154a 启动提示检测；无 → null）。 */
+    suspend fun latestFatal(): LogEntity? =
+        databaseRecovery.withCorruptionRecovery { dao.latestFatal() }
+
     suspend fun clear() {
         databaseRecovery.withCorruptionRecovery { dao.clear() }
     }

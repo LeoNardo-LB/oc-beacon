@@ -14,6 +14,10 @@ interface LogDao {
     @Query("SELECT * FROM logs ORDER BY timestamp DESC, id DESC LIMIT :limit")
     suspend fun latest(limit: Int): List<LogEntity>
 
+    /** 最近一条 FATAL（#154a 崩溃启动提示：Home 横幅检测）。 */
+    @Query("SELECT * FROM logs WHERE level = 'FATAL' ORDER BY timestamp DESC, id DESC LIMIT 1")
+    suspend fun latestFatal(): LogEntity?
+
     @Query("SELECT NOT EXISTS(SELECT 1 FROM logs LIMIT 1)")
     suspend fun isEmpty(): Boolean
 

@@ -796,4 +796,11 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">Server getrennt, Verbindung wird wiederhergestellt…</string>
     <string name="server_link_disconnected_message">Server nicht verbunden, Vorgang nicht gesendet</string>
+
+    <!-- #154a 崩溃启动提示 -->
+    <string name="crash_notice_title">Absturz bei letzter Nutzung</string>
+    <string name="crash_notice_body">Um %1$s ist die App unerwartet abgestürzt. Details findest du in der Diagnose.</string>
+    <string name="crash_notice_body_no_time">Die App ist bei der letzten Sitzung unerwartet abgestürzt. Details findest du in der Diagnose.</string>
+    <string name="crash_notice_view">Ansehen</string>
+    <string name="crash_notice_dismiss">Verwerfen</string>
 </resources>

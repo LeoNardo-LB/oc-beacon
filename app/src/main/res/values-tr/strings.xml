@@ -796,4 +796,11 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">Sunucu bağlantısı kesildi, yeniden bağlanıyor…</string>
     <string name="server_link_disconnected_message">Sunucu bağlı değil, işlem gönderilmedi</string>
+
+    <!-- #154a 崩溃启动提示 -->
+    <string name="crash_notice_title">Uygulama en son çöktü</string>
+    <string name="crash_notice_body">%1$s tarihinde beklenmeyen bir çökme yaşandı. Ayrıntılar tanılama bölümünde.</string>
+    <string name="crash_notice_body_no_time">Son oturumda beklenmeyen bir çökme yaşandı. Ayrıntılar tanılama bölümünde.</string>
+    <string name="crash_notice_view">Görüntüle</string>
+    <string name="crash_notice_dismiss">Kapat</string>
 </resources>

@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.data.repository
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import dev.leonardo.ocbeacon.data.local.LogEntity
 import dev.leonardo.ocbeacon.data.local.LogStore
@@ -10,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -52,12 +54,31 @@ class DiagnosticLogRepository @Inject constructor(
     private val logStore: LogStore,
 ) {
     private val logLevelKey = stringPreferencesKey("diagnostic_log_level")
+
+    /** #154a：崩溃提示已确认时刻（此前 的 FATAL 不再提示）。 */
+    private val crashNoticeAckKey = longPreferencesKey("crash_notice_ack_at")
     private val _entries = MutableStateFlow<List<DiagnosticLogEntry>>(emptyList())
     /** #102（M-3）：刷新节流——recordBatch 每批全量查 latest()（AppLogger 消费 ~6 批/s），
      *  节流为至少 1s 一次；跳过的批由后续批覆盖（诊断页非实时，可接受）。 */
     private val refreshThrottle = java.util.concurrent.atomic.AtomicLong(0L)
 
     val logLevel: Flow<String> = dataStore.data.map { it[logLevelKey] ?: "INFO" }
+
+    /** #154a：最近一条未确认的崩溃（晚于确认水位才显示；无 → null）。 */
+    suspend fun latestUnacknowledgedCrash(): DiagnosticLogEntry? = withContext(Dispatchers.IO) {
+        val ack = runCatchingCancellable {
+            dataStore.data.first()[crashNoticeAckKey] ?: 0L
+        }.getOrDefault(0L)
+        logStore.latestFatal()?.let { fromEntity(it) }?.takeIf { it.timestamp > ack }
+    }
+
+    /** #154a：确认崩溃提示（水位 = 该崩溃时刻；后续新崩溃仍会提示）。 */
+    suspend fun acknowledgeCrashNotice(atMillis: Long) {
+        dataStore.edit { prefs ->
+            val prev = prefs[crashNoticeAckKey] ?: 0L
+            if (atMillis > prev) prefs[crashNoticeAckKey] = atMillis
+        }
+    }
 
     val entries: Flow<List<DiagnosticLogEntry>> = _entries.asStateFlow()
 

@@ -794,4 +794,11 @@
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">Serveur déconnecté, reconnexion…</string>
     <string name="server_link_disconnected_message">Serveur déconnecté, opération non envoyée</string>
+
+    <!-- #154a 崩溃启动提示 -->
+    <string name="crash_notice_title">Plantage lors de la dernière utilisation</string>
+    <string name="crash_notice_body">Un plantage inattendu s\'est produit à %1$s. Détails dans les diagnostics.</string>
+    <string name="crash_notice_body_no_time">Un plantage inattendu s\'est produit lors de la dernière session. Détails dans les diagnostics.</string>
+    <string name="crash_notice_view">Voir</string>
+    <string name="crash_notice_dismiss">Ignorer</string>
 </resources>

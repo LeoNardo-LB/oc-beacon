@@ -802,4 +802,11 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">Server terputus, menyambung ulang…</string>
     <string name="server_link_disconnected_message">Server terputus, operasi tidak terkirim</string>
+
+    <!-- #154a 崩溃启动提示 -->
+    <string name="crash_notice_title">Aplikasi mengalami crash terakhir</string>
+    <string name="crash_notice_body">Terjadi crash tak terduga pada %1$s. Detailnya tersedia di diagnostik.</string>
+    <string name="crash_notice_body_no_time">Terjadi crash tak terduga pada sesi terakhir. Detailnya tersedia di diagnostik.</string>
+    <string name="crash_notice_view">Lihat</string>
+    <string name="crash_notice_dismiss">Tutup</string>
 </resources>

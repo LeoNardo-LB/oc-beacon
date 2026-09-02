@@ -263,6 +263,10 @@ fun NavGraph(
                 onNavigateToSettings = {
                     navController.navigate(SettingsNav.route)
                 },
+                onNavigateToDiagnostics = {
+                    // #154a：崩溃横幅「查看」→ 诊断页
+                    navController.navigate(DiagnosticsNav.route)
+                },
                 onNavigateToAbout = {
                     navController.navigate(AboutNav.route)
                 }

@@ -804,4 +804,11 @@
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">Сервер від\'їднано, повторне підключення…</string>
     <string name="server_link_disconnected_message">Сервер від\'їднано, операцію не надіслано</string>
+
+    <!-- #154a 崩溃启动提示 -->
+    <string name="crash_notice_title">Застосунок аварійно завершився</string>
+    <string name="crash_notice_body">О %1$s стався неочікуваний збій. Подробиці — у розділі діагностики.</string>
+    <string name="crash_notice_body_no_time">У попередньому сеансі стався неочікуваний збій. Подробиці — у розділі діагностики.</string>
+    <string name="crash_notice_view">Переглянути</string>
+    <string name="crash_notice_dismiss">Закрити</string>
 </resources>

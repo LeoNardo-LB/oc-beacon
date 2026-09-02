@@ -796,4 +796,11 @@
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">서버 연결 끊김, 재연결 중…</string>
     <string name="server_link_disconnected_message">서버가 연결되지 않아 작업이 전송되지 않았습니다</string>
+
+    <!-- #154a 崩溃启动提示 -->
+    <string name="crash_notice_title">上次 실행 중 비정상 종료됨</string>
+    <string name="crash_notice_body">%1$s에 예기치 않은 충돌이 발생했습니다. 진단에서 자세히 볼 수 있습니다.</string>
+    <string name="crash_notice_body_no_time">지난 세션에서 예기치 않은 충돌이 발생했습니다. 진단에서 자세히 볼 수 있습니다.</string>
+    <string name="crash_notice_view">보기</string>
+    <string name="crash_notice_dismiss">무시</string>
 </resources>

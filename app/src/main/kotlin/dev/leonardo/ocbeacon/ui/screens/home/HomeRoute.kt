@@ -15,7 +15,8 @@ fun HomeRoute(
     onNavigateToSessions: (serverId: String) -> Unit,
     onNavigateToServerSettings: (serverId: String) -> Unit,
     onNavigateToSettings: () -> Unit,
-    onNavigateToAbout: () -> Unit
+    onNavigateToAbout: () -> Unit,
+    onNavigateToDiagnostics: () -> Unit = {},
 ) {
     val viewModel: HomeViewModel = hiltViewModel()
     HomeScreen(
@@ -24,6 +25,7 @@ fun HomeRoute(
         onNavigateToSessions = onNavigateToSessions,
         onNavigateToServerSettings = onNavigateToServerSettings,
         onNavigateToSettings = onNavigateToSettings,
-        onNavigateToAbout = onNavigateToAbout
+        onNavigateToAbout = onNavigateToAbout,
+        onNavigateToDiagnostics = onNavigateToDiagnostics,
     )
 }

@@ -56,10 +56,16 @@ class HomeViewModel @Inject constructor(
     private val getSettingsFlowUseCase: GetSettingsFlowUseCase,
     private val updateSettingsUseCase: UpdateSettingsUseCase,
     private val manageServerProvidersUseCase: ManageServerProvidersUseCase,
+    // #154a：崩溃启动提示（诊断库最近未确认 FATAL → Home 横幅）
+    private val diagnosticLogRepository: dev.leonardo.ocbeacon.data.repository.DiagnosticLogRepository,
 ) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    /** #154a：待提示的最近崩溃（null = 无未确认崩溃）。 */
+    private val _crashNotice = MutableStateFlow<dev.leonardo.ocbeacon.data.repository.DiagnosticLogEntry?>(null)
+    val crashNotice: StateFlow<dev.leonardo.ocbeacon.data.repository.DiagnosticLogEntry?> = _crashNotice.asStateFlow()
 
     /** 当前设置的快照，从 [GetSettingsFlowUseCase] flow 更新。 */
     private var currentSettings: AppSettings = AppSettings()
@@ -107,6 +113,26 @@ class HomeViewModel @Inject constructor(
         loadServers()
         bindToService()
         observeSettings()
+        loadCrashNotice()
+    }
+
+    /** #154a：启动时查最近未确认崩溃（崩溃必经进程死亡 → init 一次足够）。 */
+    private fun loadCrashNotice() {
+        viewModelScope.launch {
+            runCatching { diagnosticLogRepository.latestUnacknowledgedCrash() }
+                .onSuccess { _crashNotice.value = it }
+                .onFailure { AppLogger.w(TAG, "crash notice check failed: " + it.message) }
+        }
+    }
+
+    /** #154a：忽略横幅——确认水位 = 该崩溃时刻（后续新崩溃仍提示）。 */
+    fun dismissCrashNotice() {
+        val crash = _crashNotice.value ?: return
+        _crashNotice.value = null
+        viewModelScope.launch {
+            runCatching { diagnosticLogRepository.acknowledgeCrashNotice(crash.timestamp) }
+                .onFailure { AppLogger.w(TAG, "crash notice ack failed: " + it.message) }
+        }
     }
 
     private fun observeSettings() {

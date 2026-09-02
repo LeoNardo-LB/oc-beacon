@@ -799,4 +799,11 @@
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">服务器已断开，正在重连…</string>
     <string name="server_link_disconnected_message">服务器已断开，操作未发送</string>
+
+    <!-- #154a 崩溃启动提示 -->
+    <string name="crash_notice_title">上次运行发生崩溃</string>
+    <string name="crash_notice_body">%1$s 出现意外崩溃，可在诊断中查看详情。</string>
+    <string name="crash_notice_body_no_time">上次运行出现意外崩溃，可在诊断中查看详情。</string>
+    <string name="crash_notice_view">查看</string>
+    <string name="crash_notice_dismiss">忽略</string>
 </resources>

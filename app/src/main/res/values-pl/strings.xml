@@ -804,4 +804,11 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">Serwer rozłączony, ponowne łączenie…</string>
     <string name="server_link_disconnected_message">Serwer rozłączony, operacja nie została wysłana</string>
+
+    <!-- #154a 崩溃启动提示 -->
+    <string name="crash_notice_title">Aplikacja uległa awarii</string>
+    <string name="crash_notice_body">O %1$s wystąpił nieoczekiwany błąd. Szczegóły znajdziesz w diagnostyce.</string>
+    <string name="crash_notice_body_no_time">W poprzedniej sesji wystąpił nieoczekiwany błąd. Szczegóły znajdziesz w diagnostyce.</string>
+    <string name="crash_notice_view">Zobacz</string>
+    <string name="crash_notice_dismiss">Odrzuć</string>
 </resources>

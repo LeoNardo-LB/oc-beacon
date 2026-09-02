@@ -796,4 +796,11 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">Servidor desconectado, reconectando…</string>
     <string name="server_link_disconnected_message">Servidor desconectado, operación no enviada</string>
+
+    <!-- #154a 崩溃启动提示 -->
+    <string name="crash_notice_title">La app se cerró de forma inesperada</string>
+    <string name="crash_notice_body">Ocurrió un cierre inesperado a las %1$s. Consulta los detalles en diagnósticos.</string>
+    <string name="crash_notice_body_no_time">Ocurrió un cierre inesperado en la última sesión. Consulta los detalles en diagnósticos.</string>
+    <string name="crash_notice_view">Ver</string>
+    <string name="crash_notice_dismiss">Descartar</string>
 </resources>

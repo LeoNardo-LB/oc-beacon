@@ -812,4 +812,11 @@
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">تم قطع اتصال الخادم، جارٍ إعادة الاتصال…</string>
     <string name="server_link_disconnected_message">الخادم غير متصل، لم يتم إرسال العملية</string>
+
+    <!-- #154a 崩溃启动提示 -->
+    <string name="crash_notice_title">تعطل التطبيق في المرة السابقة</string>
+    <string name="crash_notice_body">حدث تعطل غير متوقع في %1$s. التفاصيل متاحة في قسم التشخيص.</string>
+    <string name="crash_notice_body_no_time">حدث تعطل غير متوقع في الجلسة السابقة. التفاصيل متاحة في قسم التشخيص.</string>
+    <string name="crash_notice_view">عرض</string>
+    <string name="crash_notice_dismiss">تجاهل</string>
 </resources>

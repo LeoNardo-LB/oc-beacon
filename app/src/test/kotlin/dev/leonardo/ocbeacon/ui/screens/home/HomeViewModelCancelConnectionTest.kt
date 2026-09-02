@@ -44,6 +44,7 @@ class HomeViewModelCancelConnectionTest {
     private val getSettingsFlowUseCase: GetSettingsFlowUseCase = mockk()
     private val updateSettingsUseCase: UpdateSettingsUseCase = mockk(relaxed = true)
     private val manageServerProvidersUseCase: ManageServerProvidersUseCase = mockk(relaxed = true)
+    private val diagnosticLogRepository: dev.leonardo.ocbeacon.data.repository.DiagnosticLogRepository = mockk(relaxed = true)
 
     private val testDispatcher = UnconfinedTestDispatcher()
 
@@ -62,6 +63,7 @@ class HomeViewModelCancelConnectionTest {
             getSettingsFlowUseCase,
             updateSettingsUseCase,
             manageServerProvidersUseCase,
+            diagnosticLogRepository,
         )
     }
 

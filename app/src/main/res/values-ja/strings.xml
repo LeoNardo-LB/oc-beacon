@@ -796,4 +796,11 @@
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">サーバーが切断されました。再接続中…</string>
     <string name="server_link_disconnected_message">サーバーが切断されているため、操作は送信されませんでした</string>
+
+    <!-- #154a 崩溃启动提示 -->
+    <string name="crash_notice_title">前回異常終了しました</string>
+    <string name="crash_notice_body">%1$s に予期しないクラッシュが発生しました。詳細は診断で確認できます。</string>
+    <string name="crash_notice_body_no_time">前回のセッションで予期しないクラッシュが発生しました。詳細は診断で確認できます。</string>
+    <string name="crash_notice_view">表示</string>
+    <string name="crash_notice_dismiss">閉じる</string>
 </resources>

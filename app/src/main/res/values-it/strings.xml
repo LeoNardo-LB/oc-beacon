@@ -796,4 +796,11 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">Server disconnesso, riconnessione…</string>
     <string name="server_link_disconnected_message">Server disconnesso, operazione non inviata</string>
+
+    <!-- #154a 崩溃启动提示 -->
+    <string name="crash_notice_title">Arresto anomalo alla scorsa esecuzione</string>
+    <string name="crash_notice_body">Alle %1$s si è verificato un arresto anomalo imprevisto. Dettagli nella sezione diagnostica.</string>
+    <string name="crash_notice_body_no_time">Si è verificato un arresto anomalo imprevisto nell\'ultima sessione. Dettagli nella sezione diagnostica.</string>
+    <string name="crash_notice_view">Visualizza</string>
+    <string name="crash_notice_dismiss">Ignora</string>
 </resources>
