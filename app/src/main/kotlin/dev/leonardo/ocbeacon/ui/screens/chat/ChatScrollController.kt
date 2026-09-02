@@ -16,6 +16,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.ui.screens.chat.util.snapToBottom
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.State
 import kotlinx.coroutines.withTimeoutOrNull
@@ -116,7 +118,9 @@ internal fun rememberChatScrollController(
     // 重组（PerfMon 实测 anim 相位周期爆发主源）。
     LaunchedEffect(listState, isAtBottomState) {
         snapshotFlow { listState.isScrollInProgress to isAtBottomState.value }
-            .collect { (scrolling, atBottom) ->
+            // #301：collectLatest——新快照取消未决去抖（手势交接闪断帧不触发
+            // 再武装；滚动恢复立即撤武装分支不受挂起影响）。
+            .collectLatest { (scrolling, atBottom) ->
                 if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                     AppLogger.d(
                         "ChatScrollController",
@@ -129,7 +133,14 @@ internal fun rememberChatScrollController(
                 if (scrolling) {
                     autoScrollEnabled.value = false
                 } else if (atBottom) {
-                    autoScrollEnabled.value = true
+                    // #301：稳定贴底去抖再武装（原瞬时再武装与下跳守卫组成自持
+                    // 拉底循环——拉底→贴底→再武装→闪断帧守卫再拉底；真机 LEAP
+                    // 0↔2000px 弹跳签名，用户体感「上滑被高频拽回最底」）。
+                    AutoScrollArbiter.rearmWhenSettledAtBottom(
+                        isScrolling = { listState.isScrollInProgress },
+                        isAtBottom = { isAtBottomState.value },
+                        rearm = { autoScrollEnabled.value = true },
+                    )
                 }
             }
     }
@@ -189,16 +200,29 @@ internal fun rememberChatScrollController(
                         listState.firstVisibleItemIndex == 0 &&
                             listState.firstVisibleItemScrollOffset < 100,
                     )
-                }.collect { (scrolling, autoOn, atBottom) ->
+                }.collectLatest { (scrolling, autoOn, atBottom) ->
                     if (!scrolling && autoOn && !atBottom && !jumpLockActive.value) {
-                        if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
-                            AppLogger.w(
-                                TAG,
-                                "[DEBUG-drift] GUARD reanchor idx=" + listState.firstVisibleItemIndex +
-                                    " off=" + listState.firstVisibleItemScrollOffset
-                            )
-                        }
-                        listState.requestScrollToItem(0)
+                        // #301：守卫去抖——拖动→fling 交接瞬间 isScrollInProgress
+                        // 闪断一帧，原同步开火把上滑用户拉回底部（循环的点火器）。
+                        AutoScrollArbiter.reanchorWhenSettledOffBottom(
+                            isScrolling = { listState.isScrollInProgress },
+                            autoScrollOn = { autoScrollEnabled.value },
+                            isAtBottom = {
+                                listState.firstVisibleItemIndex == 0 &&
+                                    listState.firstVisibleItemScrollOffset < 100
+                            },
+                            jumpLockActive = { jumpLockActive.value },
+                            reanchor = {
+                                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                    AppLogger.w(
+                                        TAG,
+                                        "[DEBUG-drift] GUARD reanchor(settled) idx=" + listState.firstVisibleItemIndex +
+                                            " off=" + listState.firstVisibleItemScrollOffset
+                                    )
+                                }
+                                listState.requestScrollToItem(0)
+                            },
+                        )
                     }
                 }
             }
@@ -346,5 +370,50 @@ internal class ForceScrollExecutor(
         const val FLING_TIMEOUT_MS = 2_000L
         const val VERIFY_TIMEOUT_MS = 1_000L
         const val AT_BOTTOM_OFFSET_MAX = 100
+    }
+}
+
+/**
+ * #301：autoScroll 锚定去抖参数（贴底再武装/下跳守卫触发共用语义源）。
+ * 去抖 = 「稳定非滚动 ≥Nms 且条件复查仍成立」——拖动→fling 交接的
+ * isScrollInProgress 闪断帧（1-2 帧）不触火；fling 落底与异步内容长高
+ * 推离贴底（600ms-数秒）等真实场景不受影响。调用侧用 collectLatest
+ * 保证新快照取消未决去抖。
+ */
+internal object AutoScrollArbiter {
+    /** 贴底稳定后再武装 autoScroll。 */
+    const val ANCHOR_DEBOUNCE_MS = 250L
+
+    /** 守卫重锚去抖（离底漂移本身 600ms+ 量级，250ms 窗口不吞本职）。 */
+    const val GUARD_DEBOUNCE_MS = 250L
+
+    /**
+     * #301：贴底再武装——稳定非滚动 [ANCHOR_DEBOUNCE_MS] 且复查仍贴底才执行
+     * [rearm]。由 collectLatest 体内调用：新快照（滚动恢复）自动取消未决去抖
+     * ——手势交接闪断帧不再触发再武装（拉底循环的上半环）。
+     */
+    suspend fun rearmWhenSettledAtBottom(
+        isScrolling: () -> Boolean,
+        isAtBottom: () -> Boolean,
+        rearm: () -> Unit,
+    ) {
+        delay(ANCHOR_DEBOUNCE_MS)
+        if (!isScrolling() && isAtBottom()) rearm()
+    }
+
+    /**
+     * #301：守卫重锚——稳定非滚动 [GUARD_DEBOUNCE_MS] 且四条件复查仍成立才
+     * 执行 [reanchor]。同由 collectLatest 驱动——闪断帧不点火（循环的下半环）；
+     * 真实离底漂移（异步内容长高，600ms-数秒）稳定超窗，本职保留。
+     */
+    suspend fun reanchorWhenSettledOffBottom(
+        isScrolling: () -> Boolean,
+        autoScrollOn: () -> Boolean,
+        isAtBottom: () -> Boolean,
+        jumpLockActive: () -> Boolean,
+        reanchor: () -> Unit,
+    ) {
+        delay(GUARD_DEBOUNCE_MS)
+        if (!isScrolling() && autoScrollOn() && !isAtBottom() && !jumpLockActive()) reanchor()
     }
 }
