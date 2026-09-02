@@ -10,9 +10,13 @@ import dev.leonardo.ocbeacon.domain.model.ApiVersion
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import dev.leonardo.ocbeacon.data.local.SessionCacheStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -30,6 +34,8 @@ class SessionRepositoryImplDedupTest {
         messageApi = messageApi,
         eventDispatcher = mockk(relaxed = true),
         serverRepo = serverStore,
+        sessionCache = mockk<SessionCacheStore>(relaxed = true),
+        applicationScope = CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob()),
     )
 
     private fun stubConfig() {

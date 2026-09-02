@@ -29,7 +29,8 @@ import javax.inject.Singleton
 @Singleton
 class ServerRepositoryImpl @Inject constructor(
     private val dataRepo: dev.leonardo.ocbeacon.data.repository.ServerDataStore,
-    private val api: ProviderApi
+    private val api: ProviderApi,
+    private val sessionCache: dev.leonardo.ocbeacon.data.local.SessionCacheStore,
 ) : ServerRepository {
 
     // ── 服务器 CRUD ──
@@ -52,6 +53,14 @@ class ServerRepositoryImpl @Inject constructor(
 
     override suspend fun removeServer(id: String): Result<Unit> = runCatchingCancellable {
         dataRepo.deleteServer(id)
+        // #306：清会话缓存孤儿——serverId 不复用，残留行永不可达（白占库）。
+        // 失败不阻断删除语义：DataStore 已删成功，若因此报失败，重试 removeServer
+        // 对已不存在 id 可能再抛错 →「已删却报失败」循环；孤儿缓存本身无害。
+        try {
+            sessionCache.deleteForServer(id)
+        } catch (e: Exception) {
+            dev.leonardo.ocbeacon.logging.AppLogger.w("ServerRepository", "Session cache cleanup failed for $id: ${e.message}")
+        }
     }
 
     override suspend fun updateServer(server: ServerConfig): Result<Unit> = runCatchingCancellable {

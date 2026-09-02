@@ -8,6 +8,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dev.leonardo.ocbeacon.data.local.ArchiveBucketDao
+import dev.leonardo.ocbeacon.data.local.CachedSessionDao
 import dev.leonardo.ocbeacon.data.local.LogDao
 import dev.leonardo.ocbeacon.data.local.MessageDao
 import dev.leonardo.ocbeacon.data.local.Migrations
@@ -27,7 +28,7 @@ object DatabaseModule {
         // 小米等 ROM 系统 SQLite 无 fts5，BM25 检索需全设备可用的 FTS5。
         Room.databaseBuilder(context, OcBeaconDatabase::class.java, "ocbeacon.db")
             .openHelperFactory(io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory())
-            .addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3, Migrations.MIGRATION_3_4, Migrations.MIGRATION_4_5, OcBeaconDatabase.MIGRATION_5_6)
+            .addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3, Migrations.MIGRATION_3_4, Migrations.MIGRATION_4_5, OcBeaconDatabase.MIGRATION_5_6, Migrations.MIGRATION_6_7)
             .build()
 
     @Provides
@@ -41,6 +42,9 @@ object DatabaseModule {
 
     @Provides
     fun provideSessionSyncDao(database: OcBeaconDatabase): SessionSyncDao = database.sessionSyncDao()
+
+    @Provides
+    fun provideCachedSessionDao(database: OcBeaconDatabase): CachedSessionDao = database.cachedSessionDao()
 
     /** 时钟源（冷存桶时间戳用）。生产用系统时钟；测试经 MessageStore 构造参数注入固定值。 */
     @Provides

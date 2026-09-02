@@ -6,14 +6,21 @@ import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.data.repository.handler.*
 import dev.leonardo.ocbeacon.domain.model.*
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
+import dev.leonardo.ocbeacon.data.local.CachedSessionDao
+import dev.leonardo.ocbeacon.data.local.CachedSessionEntity
+import dev.leonardo.ocbeacon.data.local.SessionCacheStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -26,6 +33,9 @@ class SessionRepositoryImplTest {
     private lateinit var eventDispatcher: EventDispatcher
     private lateinit var serverRepo: ServerDataStore
     private lateinit var sessionHandler: SessionEventHandler
+    private lateinit var cachedDao: CachedSessionDao
+    private lateinit var cachedJson: Json
+    private lateinit var testScope: CoroutineScope
 
     @Before
     fun setup() {
@@ -59,7 +69,15 @@ class SessionRepositoryImplTest {
 
         )
         every { sessionStateRepository.statusFlow } returns MutableStateFlow(emptyMap())
-        repo = SessionRepositoryImpl(sessionApi, messageApi, eventDispatcher, serverRepo)
+        // #306：真 SessionCacheStore + mock DAO（顺带覆盖 encode/decode 链）
+        cachedDao = mockk(relaxed = true)
+        every { cachedDao.observeByServer(any()) } returns MutableStateFlow(emptyList<CachedSessionEntity>())
+        cachedJson = Json { ignoreUnknownKeys = true; isLenient = true }
+        testScope = CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())
+        repo = SessionRepositoryImpl(
+            sessionApi, messageApi, eventDispatcher, serverRepo,
+            SessionCacheStore(cachedDao, cachedJson), testScope,
+        )
     }
 
     private fun testSession(id: String) = Session(
@@ -68,6 +86,67 @@ class SessionRepositoryImplTest {
     )
 
     // ============ getSessionsFlow ============
+
+    private fun cachedEntity(id: String, serverId: String = "server1"): CachedSessionEntity =
+        CachedSessionEntity(
+            id = id, serverId = serverId, updatedAt = 100L,
+            payload = cachedJson.encodeToString(Session.serializer(), testSession(id)),
+        )
+
+    // ---- #306：Room 缓存兜底（白屏根治）----
+
+    @Test
+    fun `getSessionsFlow falls back to room cache when server mapping cleared`() = runTest {
+        // REST 基线曾落过内存（Unconfined scope 下缓存写也即时完成）
+        repo.setSessions("server1", listOf(testSession("s1"), testSession("s2")))
+        // 断连/服务销毁：clearForServer 移除映射 key → 内存态为空（旧实现白屏点）
+        sessionHandler.clearForServer("server1")
+
+        every { cachedDao.observeByServer("server1") } returns flowOf(
+            listOf(cachedEntity("s1"), cachedEntity("s2"), cachedEntity("s3")),
+        )
+        val sessions = repo.getSessionsFlow("server1").first()
+        // 兜底全量展示；陈旧条目（s3 已不在最新基线）待重连后 REST 基线校正
+        assertEquals(listOf("s1", "s2", "s3"), sessions.map { it.id })
+    }
+
+    @Test
+    fun `getSessionsFlow prefers memory over cache when mapping present`() = runTest {
+        sessionHandler.setSessions("server1", listOf(testSession("s1")))
+        every { cachedDao.observeByServer("server1") } returns flowOf(
+            listOf(cachedEntity("s1"), cachedEntity("s2")),
+        )
+        val sessions = repo.getSessionsFlow("server1").first()
+        // 内存权威：缓存不掺和内存态结果
+        assertEquals(listOf("s1"), sessions.map { it.id })
+    }
+
+    @Test
+    fun `setSessions writes cache with roundtrippable payload`() = runTest {
+        repo.setSessions("server1", listOf(testSession("s1")))
+        val slot = slot<List<CachedSessionEntity>>()
+        coVerify { cachedDao.replaceForServer("server1", capture(slot)) }
+        val entity = slot.captured.single()
+        assertEquals("s1", entity.id)
+        assertEquals("server1", entity.serverId)
+        assertEquals(2000L, entity.updatedAt)
+        // payload 无损还原（兜底显示的完整性前提）
+        val decoded = cachedJson.decodeFromString<Session>(entity.payload)
+        assertEquals(testSession("s1"), decoded)
+    }
+
+    @Test
+    fun `getSessionsFlow skips malformed cached payload entries`() = runTest {
+        every { cachedDao.observeByServer("server1") } returns flowOf(
+            listOf(
+                CachedSessionEntity(id = "bad", serverId = "server1", updatedAt = 1L, payload = "{not json"),
+                cachedEntity("good"),
+            ),
+        )
+        val sessions = repo.getSessionsFlow("server1").first()
+        // 坏条目跳过，好条目照常——绝不整流失败
+        assertEquals(listOf("good"), sessions.map { it.id })
+    }
 
     @Test
     fun `getSessionsFlow returns sessions for given server`() = runTest {

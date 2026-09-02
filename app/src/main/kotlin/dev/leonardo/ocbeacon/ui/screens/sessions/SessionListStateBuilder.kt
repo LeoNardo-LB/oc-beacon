@@ -35,10 +35,13 @@ internal suspend fun buildContentState(
     // #171：readTimes 已是模块合并读（持久 ∥ 内存）单源产物，无需再合并
     val readTimes = data.readTimes
 
-    val serverSessionIds = data.serverSessionMap[serverId].orEmpty()
+    // #306：serverSessionMap 无该服务器映射（null）时放行——断连 clearForServer /
+    // 冷启动下 sessions 来自 getSessionsFlow 的缓存兜底流（已按 serverId 限定），
+    // 原硬交集会把兜底数据全部过滤掉（白屏根因②）。映射存在（含空集）语义不变。
+    val serverSessionIds = data.serverSessionMap[serverId]
 
     val filteredSessions = data.sessions
-        .filter { it.id in serverSessionIds && it.parentId == null }
+        .filter { (serverSessionIds == null || it.id in serverSessionIds) && it.parentId == null }
         .sortedByDescending { session ->
             data.lastUserMessageTime[session.id] ?: session.time.updated
         }

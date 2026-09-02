@@ -20,7 +20,10 @@ import java.io.OutputStream
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
+import dev.leonardo.ocbeacon.di.ApplicationScope
 import dev.leonardo.ocbeacon.util.runCatchingCancellable
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * [SessionRepository] 的实现。
@@ -35,6 +38,8 @@ class SessionRepositoryImpl @Inject constructor(
     private val messageApi: MessageApi,
     private val eventDispatcher: EventDispatcher,
     private val serverRepo: ServerDataStore,
+    private val sessionCache: dev.leonardo.ocbeacon.data.local.SessionCacheStore,
+    @ApplicationScope private val applicationScope: CoroutineScope,
 ) : SessionRepository {
 
     // ============ listMessages 在途去重（#91，2026-08-18） ============
@@ -111,15 +116,21 @@ class SessionRepositoryImpl @Inject constructor(
     }
 
     override fun getSessionsFlow(serverId: String): Flow<List<Session>> {
-        // 将 服务器→会话 映射与全局会话列表合并，使任一变更
-        // 都触发重新发射。
+        // #306：三路合并——内存态（服务器→会话 映射 ∩ 全局会话表）为权威源；
+        // 映射缺失（null——断连 clearForServer 移除 key / 冷启动未拉取）时回退
+        // Room 缓存兜底展示（字段可陈旧到上次 REST 基线，总比白屏好）。
+        // 映射存在（含空集）永不回退——防缓存盖住「服务器真的零会话」的内存语义。
         return combine(
             eventDispatcher.serverSessions,
-            eventDispatcher.sessions
-        ) { mapping, allSessions ->
-            val sessionIds = mapping[serverId] ?: emptySet()
-            if (sessionIds.isEmpty()) emptyList()
-            else allSessions.filter { it.id in sessionIds }
+            eventDispatcher.sessions,
+            sessionCache.observe(serverId),
+        ) { mapping, allSessions, cached ->
+            val sessionIds = mapping[serverId]
+            when {
+                sessionIds == null -> cached
+                sessionIds.isEmpty() -> emptyList()
+                else -> allSessions.filter { it.id in sessionIds }
+            }
         }
             .catch { e ->
                 AppLogger.e("SessionRepository", "Error in getSessionsFlow", e)
@@ -365,6 +376,15 @@ class SessionRepositoryImpl @Inject constructor(
 
     override fun setSessions(serverId: String, sessions: List<Session>) {
         eventDispatcher.setSessions(serverId, sessions)
+        // #306：REST 基线异步落缓存——失败仅记日志（缓存缺失只影响下次兜底
+        // 显示的新鲜度，不影响本次内存态；绝不让落库拖慢/打断基线拉取链路）。
+        applicationScope.launch {
+            try {
+                sessionCache.cacheSessions(serverId, sessions)
+            } catch (e: Exception) {
+                AppLogger.w("SessionRepository", "Session cache write failed for $serverId: ${e.message}")
+            }
+        }
     }
 
     // ============ 会话状态同步 ============
