@@ -51,7 +51,7 @@
 - [ ] **#301 底部上滑被高频拉回最底——下跳守卫在手势交接闪断帧开火 + 拉底后再武装自持循环** `ui` `sse`
   - 用户报告（2026-09-02）：贴底向上滑阅读历史，视口被高频拽回最底部
   - 机制（真机 LEAP 日志 0↔~2000px 弹跳签名 + ChatScrollController 代码定位）：新消息/进场 messageCount 变化武装「下跳守卫」（非滚动中 && autoOn && 离底 → requestScrollToItem(0)）；`isScrollInProgress` 在拖动→fling 交接瞬间会闪断一帧——守卫在闪断帧同步开火拉底 → offset 归 0 → 贴底复真 → autoScroll 再武装 → 循环
-  - 修法：autoScroll 再武装与守卫触发均加「稳定非滚动 ≥250ms 去抖」（collectLatest 取消语义）——用户手势闪断不再触火；真实离底漂移（守卫的本职，600ms+ 量级）不受影响
+  - **2026-09-02 当批定罪+修复（journal §五，a3be53b0）**：AutoScrollArbiter 稳定去抖（再武装/守卫 ≥250ms+条件复查，collectLatest 取消）；真机同款手势对照——修复前 off 0↔2000 弹跳高频归零，修复后 offset 单调累计、归零 ×0、守卫开火 ×0；单测 ×6、全量 2560 绿。待用户真机体感复验
   - → `docs/journal/2026-09-02-258-e2e-299-pagination-158-scale-residue.md` §五
 
 - [ ] **#154 上报增强：崩溃后自动提示 + secret gist 全量日志附件** `ui` `data`
