@@ -49,10 +49,10 @@
 
 ## P0 — 主流程阻塞
 
-- [ ] **#305 6h dataSync FGS 时限断链——挂机 6h 后服务销毁清列表、需手动重连** `service` `sessions`
-  - 链路（2026-09-03 issue #6 深挖实证，详见 P2 #306 卡内证据索引）：onTimeout(6h)→stopSelf→onDestroy→disconnectAll→clearForServer（列表内存清空）→ 2s 后 startForegroundService 重启**在 app 后台时疑被 FGS 后台启动限制拦截** → 服务死透 → autoConnect 不跑 → 须手动连接；设备 Android 16 + targetSdk 36 适用；34h 日志窗口内未观察到 onTimeout 触发（疑无连续 6h 挂机样本）
-  - **2026-09-03 用户裁决：根因修复优先（本卡 = 断开根因层，先于 #306 展示层）**；修复方向候选待验证：FGS 类型迁移（specialUse/connectedDevice）/ onTimeout 后台重启失败后的回前台自动重试 / 6h 内主动滚动重启（提前 stopSelf+重启避开系统强制）
-  - 验证缺口：需真实 6h 挂机或 onTimeout 注入复现一次（当前为代码链路推演 + dumpsys 佐证）
+- [~] **#305 6h dataSync FGS 断链根治——specialUse 迁移 + onTimeout stopSelf 缺失修复** `service` `sessions`
+  - **注入实证改写根因形态**（debug 注入广播模拟系统 onTimeout）：原实现 stopSelf 缺失（误读「super 默认 stopSelf」——AOSP 为空实现）+ HomeViewModel binding 长持导致裸 stopSelf 也不退前台——真实 6h 场景 = 系统抛 ForegroundServiceDidNotStopInTimeException **强杀进程**（断链+列表空+须手动的真实形态）；原「后台重启被拦」疑点实证澄清（binding 存活下不拦）
+  - 修复两层：① specialUse 迁移（根因层——API≥34 无 6h 时限，manifest 双类型声明+运行时选择，官方文档双源确认时限仅 dataSync/mediaProcessing）；② onTimeout 显式 stopForeground+复位 foregroundStarted+stopSelf（防御层——迁移后系统路径永不触发，兜 OEM/未来政策）。验证：dumpsys types=0x40000000、前台/后台双场景注入链路完整（pid 连续/SSE 保持/FGS 恢复）、全量单测绿；剩 V6 用户验收
+  - → `docs/journal/2026-09-03-305-fgs-special-use.md`
 
 ## P1 — 核心功能需求
 

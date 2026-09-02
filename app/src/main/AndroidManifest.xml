@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- #155：会话内提示音自调 Vibrator（渠道震动由系统代劳不需要；本设计直调需声明） -->
@@ -53,11 +54,19 @@
             </intent-filter>
         </activity>
 
+        <!-- #305：dataSync|specialUse 双声明——Android 14+（API 34）运行时用
+             specialUse（无 6h 时限；dataSync 自 Android 15 起有 24h 窗口内累计
+             6h 时限，超时强杀进程=挂机断链根因）；<34 走 dataSync（无时限约束）。
+             subtype 说明用途（Play 审核字段；本应用经 GitHub Release 分发）。 -->
         <service
             android:name=".service.OpenCodeConnectionService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
+            android:foregroundServiceType="dataSync|specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="persistent SSE connections to self-hosted opencode/DSH servers for remote agent session notifications" />
+        </service>
 
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -360,6 +360,31 @@ class MainActivity : ComponentActivity() {
         // 此前仅 debug 构建可入，全新 release 安装无法配置服务器）；
         // beta/stable 仍禁用调试通道。
         if (!BuildConfig.DEBUG && BuildConfig.FLAVOR != "dev") return
+        // #305 注入实验（仅 debug 构建）：--ez debug_simulate_timeout true [--ez debug_background true]
+        // 前台模式直接转发；后台模式先 moveTaskToBack 再延迟触发——模拟挂机时
+        // onTimeout 到达（app 在后台），实证 2s 后台重启是否被 FGS 启动限制拦截。
+        if (intent?.getBooleanExtra("debug_simulate_timeout", false) == true) {
+            if (!BuildConfig.DEBUG) return
+            val toBackground = intent.getBooleanExtra("debug_background", false)
+            AppLogger.w(TAG, "[DEBUG-inject] simulate_timeout requested (background=$toBackground)")
+            val fire: () -> Unit = {
+                try {
+                    startForegroundService(
+                        android.content.Intent(this, dev.leonardo.ocbeacon.service.OpenCodeConnectionService::class.java)
+                            .setAction(dev.leonardo.ocbeacon.service.OpenCodeConnectionService.ACTION_SIMULATE_FGS_TIMEOUT)
+                    )
+                } catch (e: Exception) {
+                    AppLogger.e(TAG, "[DEBUG-inject] startForegroundService failed", e)
+                }
+            }
+            if (toBackground) {
+                moveTaskToBack(true)
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(fire, 1500L)
+            } else {
+                fire()
+            }
+            return
+        }
         val url = intent?.getStringExtra("debug_url") ?: return
         val profile = DebugProfile(
             id = "ext-" + url.hashCode().toString(16),

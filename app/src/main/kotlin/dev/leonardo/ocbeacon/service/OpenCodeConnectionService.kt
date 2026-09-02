@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.service
 import dev.leonardo.ocbeacon.logging.AppLogger
 
 import android.app.Service
+import android.os.Build
 import android.content.Context
 import android.content.Intent
 import android.os.Binder
@@ -230,6 +231,16 @@ class OpenCodeConnectionService : Service() {
                 }
                 return START_NOT_STICKY
             }
+            // #305 注入实验（仅 debug 构建）：模拟系统 dataSync 6h 时限回调——
+            // 实证 onTimeout 处理链（stopSelf 缺失 ANR / 2s 后台重启是否被 FGS
+            // 启动限制拦截）。真机 E2E 用，迁移 specialUse 后保留作回归工具。
+            ACTION_SIMULATE_FGS_TIMEOUT -> {
+                if (BuildConfig.DEBUG) {
+                    AppLogger.w(TAG, "[DEBUG-inject] Simulating FGS dataSync timeout (injected)")
+                    onTimeout(startId, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+                }
+                return START_NOT_STICKY
+            }
         }
 
         ensureForegroundStarted()
@@ -257,33 +268,56 @@ class OpenCodeConnectionService : Service() {
     /**
      * Android 15+（API 35）dataSync 前台服务 6 小时时限回调（#111）。
      *
-     * 系统到达时限调用本方法；若不处理，服务将被系统强制停止 →
-     * 手动连接静默丢失（用户无感知断连）。策略：
+     * 系统到达时限调用本方法，给 app 几秒钟调 [stopSelf]；不调则系统抛
+     * ForegroundServiceDidNotStopInTimeException 强制停止（进程级）。
+     *
+     * #305（2026-09-03 注入实证修复）：原实现有两处缺陷——
+     * ① 依赖误读的「super 默认 stopSelf」：AOSP Service.onTimeout 是空实现，
+     *   注入实验实证服务从未销毁（真实 6h 场景 = 系统强杀进程 → 断连 +
+     *   列表空 + 须手动重连）。现在**显式 stopSelf**。
+     * ② 重启在 app 后台时会被 FGS 后台启动限制拦（ForegroundServiceStart
+     *   NotAllowedException）——catch 后记录，靠用户下次拉起 app 时的
+     *   autoConnect 恢复；根治层由 #305 specialUse 类型迁移承担（迁移后
+     *   Android 15+ 系统不再对 specialUse 计 6h 时限，本回调仅作 <34 的
+     *   dataSync 兼容路径与防御层保留）。
+     *
+     * 策略：
      * 1. 记录可观测日志（时限触发 + 当前活跃服务器）
-     * 2. super 默认 stopSelf(startId)——满足系统"超时后必须停止"约束
-     * 3. 有活跃连接时延迟 2s 重启服务（新 6h 周期）——已配置自动连接的
-     *    服务器由 onCreate → autoConnectConfiguredServers 自动恢复
+     * 2. 有活跃连接时安排 2s 后重启（等待本实例销毁完成，新实例经
+     *    onCreate → autoConnectConfiguredServers 恢复连接）
+     * 3. 显式 stopSelf(startId)——满足系统"超时后必须停止"约束
      */
     override fun onTimeout(startId: Int, fgsType: Int) {
         super.onTimeout(startId, fgsType)
         val activeServers = lifecycleCoordinator.activeServerIds.value.toList()
         AppLogger.w(TAG, "FGS dataSync timeout (6h) startId=$startId fgsType=$fgsType, activeServers=$activeServers")
-        if (activeServers.isEmpty()) {
+        if (activeServers.isNotEmpty()) {
+            // 延迟重启：等待当前实例 stopSelf 销毁完成后启动新实例，获得新的 6h 时限
+            Handler(Looper.getMainLooper()).postDelayed({
+                try {
+                    AppLogger.i(TAG, "Restarting service after FGS timeout (new 6h window)")
+                    ContextCompat.startForegroundService(
+                        applicationContext,
+                        Intent(this, OpenCodeConnectionService::class.java)
+                    )
+                } catch (e: Exception) {
+                    // 后台被 FGS 启动限制拦截等场景：服务已死，连接中断——
+                    // 恢复兜底 = 用户下次拉起 app（onStartCommand 经 debug
+                    // 通道/服务器页连接/autoConnect）。
+                    AppLogger.e(TAG, "FGS timeout restart failed (service stays down until next app foreground)", e)
+                }
+            }, FGS_TIMEOUT_RESTART_DELAY_MS)
+        } else {
             AppLogger.i(TAG, "No active connections, skipping service restart after FGS timeout")
-            return
         }
-        // 延迟重启：等待当前实例 stopSelf 销毁完成后启动新实例，获得新的 6h 时限
-        Handler(Looper.getMainLooper()).postDelayed({
-            try {
-                AppLogger.i(TAG, "Restarting service after FGS timeout (new 6h window)")
-                ContextCompat.startForegroundService(
-                    applicationContext,
-                    Intent(this, OpenCodeConnectionService::class.java)
-                )
-            } catch (e: Exception) {
-                AppLogger.e(TAG, "FGS timeout restart failed", e)
-            }
-        }, FGS_TIMEOUT_RESTART_DELAY_MS)
+        // 注入实证（2026-09-03）：UI 层 HomeViewModel bindService 长持绑定，
+        // 裸 stopSelf 不销毁服务也不退前台（isForeground=true 实测）——真实
+        // 6h 场景系统仍会 ForegroundServiceDidNotStopInTime 强杀。必须显式
+        // 退前台 + 复位幂等标志（否则 2s 后重启的 onStartCommand 因
+        // foregroundStarted=true 跳过 startForeground，服务永久失去 FGS）。
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        foregroundStarted = false
+        stopSelf(startId)
     }
 
     override fun onDestroy() {
@@ -392,7 +426,18 @@ class OpenCodeConnectionService : Service() {
         val notification = appNotificationManager.createPersistentNotification(
             connectionManager.connections
         )
-        startForeground(AppNotificationManager.PERSISTENT_NOTIFICATION_ID, notification)
+        // #305：API ≥ 34 用 specialUse——dataSync 自 Android 15 起 24h 窗口内
+        // 累计 6h 时限，到期系统调 onTimeout、不 stopSelf 即强杀进程（挂机断链
+        // 根因）；specialUse 无时限。manifest 双声明 dataSync|specialUse；
+        // <34（含 <29 由 manifest 兜底）走 dataSync，无时限约束。
+        val fgsType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+        } else {
+            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+        }
+        androidx.core.app.ServiceCompat.startForeground(
+            this, AppNotificationManager.PERSISTENT_NOTIFICATION_ID, notification, fgsType,
+        )
         foregroundStarted = true
     }
 
@@ -601,6 +646,8 @@ class OpenCodeConnectionService : Service() {
     companion object {
         const val ACTION_OPEN_SESSION = "dev.leonardo.ocbeacon.OPEN_SESSION"
         const val ACTION_DISCONNECT = "dev.leonardo.ocbeacon.DISCONNECT"
+    /** #305：debug 注入——模拟系统 FGS dataSync 超时回调（E2E 实证用）。 */
+    const val ACTION_SIMULATE_FGS_TIMEOUT = "dev.leonardo.ocbeacon.DEBUG_SIMULATE_FGS_TIMEOUT"
         const val ACTION_DISCONNECT_ALL = "dev.leonardo.ocbeacon.DISCONNECT_ALL"
         const val EXTRA_SERVER_ID = "server_id"
         const val EXTRA_SESSION_PATH = "session_path"
