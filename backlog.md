@@ -18,6 +18,8 @@
 | **P3** | 观察项 / 依赖外部条件的低价值改进 | 偶发自愈的异常观察、环境因素类缓解 |
 | **P4** | **外部前提阻塞**：功能/工作方向明确，但实现前提在 app 之外（服务器能力缺失 / 上游未合 / 用户流程门槛），前提满足前不可动工——**卡内必含「前提」行**（前提是什么、现在为何做不了）；前提变化时重验归位 | 服务器未暴露的事件聚合、上游 PR 候选清单 |
 
+**修复方针**（2026-09-03 用户定规）：bug 类条目**根因修复优先**——交付的修复必须消除触发链的根因层（架构 / 生命周期 / 状态机 / 协议缺陷），不以表象层兜底单独交差（「缓存兜底显示」「重试遮罩」「吞异常」等手段不得作为修复本体）。兜底类缓解仅在同时满足以下条件时接受：①对应根因修复卡已登记并被引用；②兜底卡摘要显式标注「过渡措施」并关联根因卡编号。分层不明确或拿不准时，先向用户呈现根因分析与分层方案，裁决后再落卡/动工。
+
 **状态流转**：代码写好但未验证不等于完成！要求完成需求、自行验证、用户验收通过之后才算完结；完结即迁移（见首段）。
 
 | 状态 | checkbox | 含义与流转规则 |
@@ -47,6 +49,11 @@
 
 ## P0 — 主流程阻塞
 
+- [ ] **#305 6h dataSync FGS 时限断链——挂机 6h 后服务销毁清列表、需手动重连** `service` `sessions`
+  - 链路（2026-09-03 issue #6 深挖实证，详见 P2 #306 卡内证据索引）：onTimeout(6h)→stopSelf→onDestroy→disconnectAll→clearForServer（列表内存清空）→ 2s 后 startForegroundService 重启**在 app 后台时疑被 FGS 后台启动限制拦截** → 服务死透 → autoConnect 不跑 → 须手动连接；设备 Android 16 + targetSdk 36 适用；34h 日志窗口内未观察到 onTimeout 触发（疑无连续 6h 挂机样本）
+  - **2026-09-03 用户裁决：根因修复优先（本卡 = 断开根因层，先于 #306 展示层）**；修复方向候选待验证：FGS 类型迁移（specialUse/connectedDevice）/ onTimeout 后台重启失败后的回前台自动重试 / 6h 内主动滚动重启（提前 stopSelf+重启避开系统强制）
+  - 验证缺口：需真实 6h 挂机或 onTimeout 注入复现一次（当前为代码链路推演 + dumpsys 佐证）
+
 ## P1 — 核心功能需求
 
 - [~] **#154 上报增强：崩溃后自动提示 + secret gist 全量日志附件** `ui` `data`
@@ -71,15 +78,11 @@
   - #278（b10513c9）只保护了 syncFromRest 状态播种；preLoadSessions 的 session.list 拉取仍在 preloadJob 可取消范围（SseConnectionManager.kt:426-433 finally cancelAndJoin）——服务器暂不可达→重连风暴场景下连接后列表可短暂为空，SSE 稳定后下轮重跑自愈；issue #6（pplante）环境疑与此路径相关，HEAD 实测 V1/V2 正常路径不复现
   - → `docs/journal/2026-09-01-291281-stash-v6.md`（#278 上下文）
 
-- [ ] **#305 6h dataSync FGS 时限断链——onTimeout 后台重启疑被 FGS 启动限制拦截 + clearForServer 清列表** `service` `sessions`
-  - 2026-09-03 issue #6 深挖实证（用户自报「对话呆久了→列表空+服务器断开+手动连恢复」）：链路完整成立——onTimeout(6h)→stopSelf→onDestroy→disconnectAll→stopConnection→clearForServer（列表内存清空）→2s 后 startForegroundService 重启**在 app 后台时疑被 Android 12+ FGS 后台启动限制拦截**（onTimeout 的 2s 延迟 vs stopSelf 异步销毁存在竞态）→服务死透→autoConnect 不跑→须手动连接；设备 Android 16 + targetSdk 36 适用；34h 日志保留期内未观察到 onTimeout 触发（可能无连续 6h 挂机）
-  - 鉴别证据：SSE 纯断连不清列表（真机实验 A + 单测对照）；进程被杀会自愈（实验 B kill -9 恢复后 VM init 自动拉回）；「服务停止→列表清空」单测红绿证实（clearForServer 链）；修复方向：回前台时重试连接 或 FGS 类型迁移
-  - 关联：**#306**（根治层——列表持久化回填）
-
 - [ ] **#306 会话列表纯内存态无持久化回填——断开/清空后白屏** `sessions` `architecture`
   - getSessionsFlow 唯一数据源是 eventDispatcher 内存态（serverSessions∩sessions），无 Room 兜底——对比消息流已有冷启动 Room 种子化（fc0ebfc9）；任何 clearForServer（断开/服务销毁/6h 时限）或拉取失败都直接白屏，恢复全靠重连+重进
-  - 根治：会话列表 Room 种子化（对齐 fc0ebfc9 模式——冷启动/清空后从缓存填充，断连时显示缓存数据+断连条幅而非空白）；顺带缓解 #304/#305 及 issue #6 家族的「列表空」表象
+  - 根治：会话列表 Room 种子化（对齐 fc0ebfc9 模式——冷启动/清空后从缓存填充，断连时显示缓存数据+断连条幅而非空白）；顺带缓解 #304 及 issue #6 家族的「列表空」表象
   - 2026-09-03 诊断：真机实验 A（断连列表保留）+ 单测（clearForServer 清空）+ 诊断库 FATAL 取证（ChatViewModel 附件 NPE 已于 4d025786 修复）三维修证
+  - **2026-09-03 用户裁决（根因优先方针）**：本卡 = 「白屏」症状的架构层根治（内存单源缺陷，非 #305 的补丁），但**实施顺序在 #305（断开根因）之后**——先消除非自愿断开，再谈断开后的展示兜底；半成品（Entity/DAO/Migration v7 草稿）已入工作区待续
 
 - [ ] **#299 DSH 会话进场分页加载 ~1 页/s——进场链路串行页管线提速** `dsh` `perf`
   - 现象（2026-09-02 Stage B 顺带观察）：58 msgs 会话进场 session.history 逐页拉取 ~1 页/s × ~10 页，三点加载约 10s
