@@ -49,18 +49,18 @@
 
 ## P1 — 核心功能需求
 
-- [ ] **#154 上报增强：崩溃后自动提示 + secret gist 全量日志附件** `ui` `data`
+- [~] **#154 上报增强：崩溃后自动提示 + secret gist 全量日志附件** `ui` `data`
   - 2026-08-23 评估（#151 两轮 E2E 全绿触发）：用户定规**两半均继续缓**——崩溃提示基建已齐（recordCrash→FATAL 持久化）只差启动提示 UI；gist 需 App 加 Gists 权限+重新授权，正文 20+3 上下文实证够分诊
   - 复评时机：beta 线上跑出真实报告后再看（崩溃提示优先级高于 gist）
   - **2026-09-02 用户解冻 154a 当批完结（journal 258-stage-b §九）**：未确认 FATAL → Home 横幅（查看→诊断/忽略→水位确认）落地，真机五步验证全过（am crash→横幅→诊断页→忽略重启消失→新崩溃回归）；gist 半（154b）维持缓
-  - **2026-09-03 154b 开工（journal 154b-gist §一）**：可行性裁定过（官方文档：GitHub App user token 支持 Create a gist）；代码+单测+i18n 全绿（附件失败降级不阻塞正文 / 防抖后建 gist 防孤儿 / 300K 字符保尾截断）；剩真机 E2E（App token gist 权限定界）+ V6 用户验收
+  - **2026-09-03 154b 真机 E2E 双路径闭环（journal §一 E2E 节）**：无 Gists 权限→POST /gists 403→降级路径三重验证（正文照建/零孤儿/防抖）；App 补 Gists:RW+重授权（新菜单入口）→ happy path 全绿（secret gist 附评论、脱敏 0 泄漏、40KB<截断线）；测试产物已清理；**剩 V6 用户验收**
   - → `docs/journal/2026-08-21-error-report-github.md` · `docs/journal/2026-09-03-154b-gist-299-245.md`
 
 ## P2 — 优化与锦上添花
 
 - [~] **#302 上报授权对话框 UX：链接可跳转 + 授权码一键复制** `ui`
   - 2026-09-03 154b 真机 E2E 授权步现场实证（用户原话：链接要「点击可跳转」、授权码要「一键复制」，不然「复制不了很难操作」）：device flow 对话框仅纯文本 + 取消钮——URL 不可点、8 位码不可复制，需跨设备手抄
-  - 同日实现：授权码点按复制 chip（ClipboardManager + Toast，对齐 ServerProvidersScreen OAuth 模式）+「在浏览器打开」按钮（verification_uri_complete 带码直达，GitHubDeviceFlowAuth 增解析）；key 全复用 server_settings_oauth_*（删 1 孤儿 key ×15）；i18n/compile/全量单测绿
+  - 同日实现：授权码点按复制 chip（ClipboardManager + Toast，对齐 ServerProvidersScreen OAuth 模式）+「在浏览器打开」按钮（verification_uri_complete 带码直达，GitHubDeviceFlowAuth 增解析）；key 全复用 server_settings_oauth_*（删 1 孤儿 key ×15）；i18n/compile/全量单测绿；真机实证复制 chip 可点+浏览器拉起成功（4e3449c2）
   - → `docs/journal/2026-09-03-154b-gist-299-245.md`
 
 - [ ] **#299 DSH 会话进场分页加载 ~1 页/s——进场链路串行页管线提速** `dsh` `perf`
