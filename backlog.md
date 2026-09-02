@@ -75,14 +75,6 @@
   - **2026-09-01 活体四面包夹（走查 #9 定性）**：当前服务器对客户端**不暴露** tool-workflow 进度事件——events.mux 实况帧（两次 WS tap + 现跑 workflow 对照，仅 tool/code-dispatch* 渲染伴生）、session.history journal（39 页全翻 0 行，fresh run 亦不入）、session/projection（仅 permissions）、session/jobs（仅 bash 后台任务）四面皆无 → app 侧映射链（DshEventMapper:469 + DshMessageAssembler）为休眠代码路径，非缺陷；走查期「18 事件在 a6c4」不复现（疑当时另有来源/版本窗口）。重开丢卡=结构性（无服务器数据源），DSH synthetic 消息零持久化同因。**升级前置**：待服务器在任何客户端面暴露 tool-workflow 事件后重验，再启聚合器
   - **2026-09-02 复验（差距调研独立交叉确认）**：`docs/research/dsh-gap-2026-09-01/` 四路证据（fe 源码/Android 清点/Web 实测/服务端 api-gap）再次确认服务器事件面无 tool-workflow 运行事件（Web 端 workflow 树为 client-ui 本地组件，依赖同一事件源）——门维持关闭；聚合器设计参照 fe-inventory §2.17 client-ui-workflow-run
 
-- [ ] **#258 fling 高速段重 item 组合帧 50-130ms——预组合与渲染同线程争抢的结构性上限** `perf` `ui`
-  - 现象（2026-08-29 测量矩阵，journal 二十八轮）：高速 fling（60ms 甩）下新 item 首组合帧 p95 65ms/p99 129ms；prefetch ON 亦 p90 53ms（预组合与渲染抢主线程）；中速滚动全绿（jank 0.00-0.23%）。崩溃根因（331365999 家族）已经 ComposeFoundationFlags flag=false 机制级修复，本项纯性能
-  - 测量：gfxinfo 三配置矩阵 + SafeFling 出口内速日志（全部自然衰减尾，无异常终止）；atrace 需先 Tracing.enable 才有 compose 段
-  - 方向：Tracing.enable + perfetto 定位组合热点 → chunk 组合瘦身（block 级惰性/SelectionContainer 开销/ clickable wrapper 精简）；新线索（2026-08-30 调研）：androidx 1.13.0-alpha02 `ComposeUiFlags.isVectorDrawCacheSharingEnabled`（VectorPainter 列表缓存共享）待试 → `docs/journal/2026-08-27-event-card-unification.md` §二十八轮
-  - **2026-09-02 质量门复测（journal 2026-09-02 §六/§九）**：修复版 p99 32/40/53ms、janky 0.00%、FATAL 0——无回归且优于基线；脚本趟间回底复位已修（1a03ed7e）；vector-cache flag 需 Compose 1.13.0-alpha02（现 1.12.0 stable）——为 perf flag 全栈升 alpha 与 SSE 滚动稳定铁律冲突，裁决不做、待 stable 跟进；tracing 基建已就位（debug 自动初始化），剩 perfetto 取证→组合瘦身战役
-  - **2026-09-02 Stage A 取证完结（journal 258-perfetto-stage-a）**：SDK 细粒度 CC: 段在本设备不可达（traced 不发 ENABLE_TRACING 广播，勘误入档）→ 自插桩 atrace 段（e3f0de61，flng:it:*/flng:pt:*，DEBUG 门控）+ 采集/分析工具入库；归因定音：**历史长 turn 恒走整 turn 单 item**（chunkPlans 仅流式期产物，MarkdownChunking.kt:289）——首组合 165-334ms/turn = p99 冻帧本体；parts 自身：小 part 固定 ~1.5ms ×55 + 长文本 11-33ms×6；方向更新=Stage B 做历史长 turn 分片（结构修复），SelectionContainer 降为二阶
-  - **2026-09-02 Stage B 实现完结（spec 2026-09-02 + journal 258-stage-b）**：TurnSegmentPlan 到达扫描（数据到达即分段，修计划时机错位）+ renderItem 边界分段（修 part 数量主导形态）落地；真机：进场即分段、深页单轮 24 turn 提交（93/46/45/41/37 段）、fast fling 分段组合全部 ≤19.4ms（基线 165-334ms）、标准回归门无回归（p99 40/34/25 vs 32/40/53）、2552 单测绿；残项=中间带 turn（旧路径粗片）与 `_rea` Part.Text 来源之谜（journal §五，未立卡）
-
 ## P3 — 观察与低价值改进
 
 
