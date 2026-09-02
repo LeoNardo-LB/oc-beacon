@@ -1,6 +1,7 @@
 # 300 残项：_rea 取证 + skeletons 上限 + SelectionContainer 二阶（2026-09-02）
 
-> 状态：②④ 已落地（代码+单测+真机）、③ 已裁决（不做包装精简，双趟计量数据）
+> 状态：②④ 已落地（代码+单测+真机，含 09-03 DSH 案发现场+旧归档活体验证）、
+> ③ 已裁决（不做包装精简，双趟计量数据）
 > 关联：backlog #300 · spec `docs/specs/2026-09-02-258-stage-b-history-turn-chunking-design.md` §五
 > 来源：#258 Stage B §五已知局限 2/3 + Stage A 靶点 2（分片落地后收益稀释）
 
@@ -107,15 +108,37 @@ min 3.45ms；分段后 text avg 还降至 2.9ms）。包装项被内容组合项
 理由补充：per-part 包装语义变更（如气泡级单 SelectionContainer）会改变跨
 part 选择交互，风险>不可测收益。
 
-## §四 环境备注（不阻塞本批）
+## §四 环境备注（2026-09-03 勘误：非故障）
 
-- 冷启后 DSH host（127.0.0.1:3080，服务器存活、adb reverse 在）**无任何
-  连接流量**，Host-4199 DSH 区段空——DSH 会话（含 5,373 msgs 重型
-  session-a6c42dd8 / 995 msgs 5fe4653f）不可达，本批改走 V2 侧会话完成
-  验证。attach 未起的机制未查（可能与 install -r 后的连接状态有关）——
-  下次 DSH 相关批次先复活连接再深滚验证。
-- 真机回归：FATAL 0；本会话 turn 均轻量（诗歌短文），SEG commit 0 属预期
-  （无 ≥12000 权重 turn），分段路径行为由上批证据背书。
+- ~~冷启后 DSH host 无连接流量~~ **勘误**：datastore 直查定音——DSH 条目
+  `127.0.0.1:3080` 是 debug 通道注入的**手动连接**服务器（`autoConnect:false`，
+  fromDebugChannel=true，lastConnected=09-02 22:32）——冷启不自动连是配置
+  语义，非 app 故障。Home 屏 DSH 卡「连接」按钮手动复活后 3080 流量/事件
+  折叠/会话列表全恢复。
+- 自动化观察（不立卡）：会话列表**低区滑死**（起滑 y≥2000 连 800ms 慢拖
+  亦零位移；y≤1600 正常，点按正常）——疑 MIUI 底部手势区吞注入拖动，
+  真人手指不受影响；与 #245（会话内容区死帧）不同区不同形，仅记备考。
+
+## §六 ② 补充：DSH 原始案发现场验证（2026-09-03）
+
+Stage B ×14 观察的源会话 session-a6c4（「StreamingMarkdownState优化与自动
+验证」，5,373 msgs / 1,198 reasoning / 32h37m 跨度）：
+
+- **手动复活 DSH 连接**（见 §四勘误）→ 进会话 → 上滚历史。该会话超热表
+  限额，历史区由 `[dearchive] bucket=4027: 94/200 msgs` **归档解档**供给。
+- **旧归档活体验证（兜底修复）**：修复前烘焙的归档 parts 是误判后的
+  Part.Text（带 reasoning 派生 id、无 type 判别键、归档无列可依）——现场
+  深滚区 dump 出「思考完毕 · 0ms」思考卡 ×N（Run code ×14 工具卡邻域），
+  即 `PartSerializer` 兜底派生 id 契约检查在**真实存量归档数据**上正确
+  复原 Reasoning 类型（与单测 `legacyPayload_noType_...` 形态一致）。
+- 时长 0ms 备注：DSH 整装路径 `Part.Reasoning.Time(start=end=事件时间)`
+  → reasoningDurationMs 恒 0——mapper 既有语义（DSH 事件无思考时长信息），
+  非本修复引入；V2 会话思考卡时长正常（Dedup 会话 1.4s/2.4s 实证）。
+- `CHUNK plan` 零 `_reason` 签名断言**未达**：巨型 turn（2.2 万字）在 5,373
+  条深处（~179 页 loadOlder），UI 自动化不可及；该断言由单测+DB 取证
+  （§一）替代背书。当前窗口 ScrollDiag 仅有 gesture/LEAP 行（本区无
+  ≥3000 巨型 part，属预期）。
+- FATAL 0；归档解档链（#271 桶）顺带实测正常。
 
 ## §五 验证矩阵（V1-V6）
 
