@@ -723,6 +723,159 @@ private fun ChunkAssistantItems(
     }
 }
 
+/**
+ * #258 Stage B：历史长 turn 的分段渲染（TurnSegmentPlan）——ChunkedAssistantMessage
+ * 的推广形态：turn 的 renderItems 切成 N 个 LazyItem（Items 段直接渲染子序列；
+ * Giant 段按 AST 区间渲染，复用 #246 锚点重定位）。首段带标签栏、末段带统计栏
+ * 与 errorText；段间 shape 顶/底圆角。流式/最近流式 turn 不进入本路径（分段
+ * 计划的资格审查在协调器与 buildChatEntries 双重排除）。
+ */
+@Composable
+internal fun SegmentedAssistantMessage(
+    renderableTurn: RenderableTurn,
+    currentMessage: ChatMessage,
+    chunk: ChatEntry.TurnChunk,
+    isAmoled: Boolean,
+    isTurnLast: Boolean,
+    agents: List<AgentInfo>,
+    onAgentClick: ((String) -> Unit)?,
+    onCopy: (() -> Unit)?,
+    onViewSubSession: ((String) -> Unit)?,
+    onOpenFile: ((String) -> Unit)?,
+    onLocateTask: ((String) -> Unit)?,
+    /** #234：事件卡统一展开表。 */
+    eventExpandedStates: MutableMap<String, Boolean>,
+) {
+    if (renderableTurn.isEmpty) return
+    val compact = LocalChatDensity.current == ChatDensity.Compact
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val containerColor = MaterialTheme.colorScheme.surfaceVariant
+    val readinessRegistry = LocalRenderReadiness.current
+    val assistantMsg = currentMessage.message as? Message.Assistant
+
+    // chunkIndex（跨段扁平序号）→ (segment, 段内区间序号)
+    var segment: TurnSegmentPlan.Segment? = null
+    var rangeInSegment = 0
+    var acc = 0
+    for (seg in chunk.plan.segments) {
+        if (chunk.chunkIndex < acc + seg.chunkCount) {
+            segment = seg
+            rangeInSegment = chunk.chunkIndex - acc
+            break
+        }
+        acc += seg.chunkCount
+    }
+    val horizPad = if (compact) 10.dp else SpacingTokens.LG.dp
+    val vertPad = if (compact) SpacingTokens.SM.dp else 14.dp
+    val shape = when {
+        chunk.isFirst -> RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
+        chunk.isLast -> RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)
+        else -> RoundedCornerShape(0.dp)
+    }
+
+    Surface(color = containerColor, shape = shape, modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(
+                start = horizPad, end = horizPad,
+                top = if (chunk.isFirst) vertPad else 0.dp,
+                bottom = if (chunk.isLast) vertPad else 0.dp,
+            ),
+        ) {
+            // ① 标签栏（仅首段）——与 ChunkedAssistantMessage 视觉一致
+            if (chunk.isFirst) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(bottom = if (compact) SpacingTokens.XS.dp else 10.dp),
+                ) {
+                    Text(
+                        text = remember(currentMessage.message.time.created) {
+                            dev.leonardo.ocbeacon.util.DateFormatters.messageTimestamp(currentMessage.message.time.created)
+                        },
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                    )
+                    androidx.compose.material3.Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Filled.SmartToy,
+                        contentDescription = null,
+                        modifier = Modifier.size(13.dp),
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                    )
+                    Text(
+                        text = stringResource(R.string.chat_label_agent),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                }
+            }
+            // ② 段主体
+            when (val seg = segment) {
+                is TurnSegmentPlan.Segment.Items -> {
+                    val from = seg.from.coerceIn(0, renderableTurn.renderItems.size)
+                    val to = seg.to.coerceIn(from, renderableTurn.renderItems.size)
+                    if (to > from) {
+                        ChunkAssistantItems(
+                            items = renderableTurn.renderItems.subList(from, to),
+                            textColor = textColor,
+                            isAmoled = isAmoled,
+                            onViewSubSession = onViewSubSession,
+                            onOpenFile = onOpenFile,
+                            onLocateTask = onLocateTask,
+                            eventExpandedStates = eventExpandedStates,
+                            renderableTurn = renderableTurn,
+                            compact = compact,
+                            readinessRegistry = readinessRegistry,
+                        )
+                    }
+                }
+                is TurnSegmentPlan.Segment.Giant -> {
+                    val range = seg.ranges.getOrNull(rangeInSegment) ?: seg.ranges.last()
+                    SelectionContainer {
+                        dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent(
+                            markdown = "",
+                            textColor = textColor,
+                            isUser = false,
+                            preParsedState = seg.state,
+                            blockRange = range,
+                            // #246 锚点重定位（与旧 chunk 路径同语义）
+                            blockAnchor = seg.anchors.getOrNull(rangeInSegment),
+                        )
+                    }
+                }
+                null -> Unit
+            }
+            // ③ 末段：errorText + 统计栏
+            if (chunk.isLast) {
+                if (renderableTurn.errorText != null) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = AlphaTokens.FAINT),
+                        shape = ShapeTokens.mediumSmall,
+                        modifier = Modifier.padding(top = 6.dp),
+                    ) {
+                        Text(
+                            text = renderableTurn.errorText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = textColor,
+                            modifier = Modifier.padding(horizontal = SpacingTokens.MD.dp, vertical = 10.dp),
+                        )
+                    }
+                }
+                ChunkStatsBar(
+                    renderableTurn = renderableTurn,
+                    assistantMsg = assistantMsg,
+                    isTurnLast = isTurnLast,
+                    agents = agents,
+                    onAgentClick = onAgentClick,
+                    onCopy = onCopy,
+                )
+            }
+        }
+    }
+}
+
 /** 分片场景统计栏（历史消息：isStreaming=false 恒成立）。 */
 @Composable
 private fun ChunkStatsBar(

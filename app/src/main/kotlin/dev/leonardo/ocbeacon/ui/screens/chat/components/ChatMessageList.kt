@@ -544,19 +544,22 @@ fun ChatMessageList(
     }
     val chunkPlans by renderSupply.chunkPlans.collectAsState()
     val recentStreamedTurnKeys by renderSupply.recentStreamedTurnKeys.collectAsState()
+    // #258 Stage B：历史长 turn 分段计划（到达扫描产物）。
+    val segmentPlans by renderSupply.segmentPlans.collectAsState()
 
     val lastStreamingMsgId = remember { mutableStateOf<String?>(null) }
     // ===== 2026-08-20 fling 巨帧根治：分片发射表（消息区 entries）=====
     // entries = displayItems 经 chunkPlans 展开（巨型 turn → N 个 chunk item）。
     // 双向索引是 LazyColumn index ↔ displayItems index 的单一真相源。
-    val chatEntries = remember(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys) {
+    val chatEntries = remember(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans) {
         dev.leonardo.ocbeacon.debug.RaceProbe.probe {
             "ENTRIES rebuild n=" + displayItems.size +
                 " chunkPlans=" + chunkPlans.size +
+                " segPlans=" + segmentPlans.size +
                 " streaming=" + (streamingMsgId != null) +
                 " recentN=" + recentStreamedTurnKeys.size
         }
-        buildChatEntries(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys)
+        buildChatEntries(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans)
     }
     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
         androidx.compose.runtime.LaunchedEffect(displayItems) {
@@ -708,6 +711,24 @@ fun ChatMessageList(
     val displayItemsForPreparse = androidx.compose.runtime.rememberUpdatedState(displayItems)
     val turnGroupsForPreparse = androidx.compose.runtime.rememberUpdatedState(turnGroups)
     val streamingMsgIdForPreparse = androidx.compose.runtime.rememberUpdatedState(streamingMsgId)
+    val renderableTurnsForPreparse = androidx.compose.runtime.rememberUpdatedState(renderableTurns)
+    // #258 Stage B：世界到达驱动——进场页/前置页 prepend/loadAround 到达即扫，
+    // 裂变带外的长 turn 在可组合性建立前完成分段（视口快照取当下值）。
+    LaunchedEffect(displayItems, turnGroups, renderableTurns, bannerCount) {
+        val info = listState.layoutInfo
+        renderSupply.onWorldArrived(
+            firstIdx = info.visibleItemsInfo.firstOrNull()?.index ?: 0,
+            lastIdx = info.visibleItemsInfo.lastOrNull()?.index ?: 0,
+            world = RenderSupplyWorld(
+                displayItems = displayItemsForPreparse.value,
+                turnGroups = turnGroupsForPreparse.value,
+                entries = chatEntriesForPreparse.value,
+                bannerCount = bannerCount,
+                streamingMsgId = streamingMsgIdForPreparse.value,
+                renderableTurns = renderableTurnsForPreparse.value,
+            ),
+        )
+    }
     LaunchedEffect(listState, bannerCount) {
         snapshotFlow {
             val info = listState.layoutInfo
@@ -1189,6 +1210,7 @@ fun ChatMessageList(
                         contentType = { _, entry ->
                             when (entry) {
                                 is ChatEntry.Chunk -> "assistant_chunk"
+                                is ChatEntry.TurnChunk -> "assistant_segment"
                                 is ChatEntry.UserChunk -> "user_chunk"
                                 is ChatEntry.Turn ->
                                     if (displayItems[entry.displayIndex].second.isUser) "user" else "assistant"
@@ -1254,6 +1276,53 @@ fun ChatMessageList(
                                             "perf-flng",
                                             "chunk compose " + (android.os.SystemClock.elapsedRealtimeNanos() - chunkT0) / 1e6 +
                                                 "ms key=" + entry.key.takeLast(12)
+                                        )
+                                    }
+                                }
+                            }
+                            is ChatEntry.TurnChunk -> {
+                                val (rawIndex, msg) = displayItems[entry.displayIndex]
+                                val nextRealIsAssistant = nextRealIsAssistantByMsgId[msg.message.id]
+                                val isTurnLast = nextRealIsAssistant != true
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clipToBounds()
+                                        .let { m ->
+                                            if (entry.isLast) m.padding(bottom = messageSpacing) else m
+                                        }
+                                ) {
+                                    // [perf-flng] #258 Stage B 分段组合成本取证（DEBUG-only）。
+                                    // return@Box 先行提出——保证 begin/end 段闭合。
+                                    val segT0 = android.os.SystemClock.elapsedRealtimeNanos()
+                                    val segTurn = renderableTurns[entry.displayIndex] ?: return@Box
+                                    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                        android.os.Trace.beginSection("flng:it:seg")
+                                    }
+                                    SegmentedAssistantMessage(
+                                        renderableTurn = segTurn,
+                                        currentMessage = msg,
+                                        chunk = entry,
+                                        isAmoled = isAmoled,
+                                        isTurnLast = isTurnLast,
+                                        agents = agents,
+                                        onAgentClick = onAgentClick,
+                                        onCopy = {
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar(context.getString(R.string.chat_copied_clipboard))
+                                            }
+                                        },
+                                        onViewSubSession = navigateToChildSession,
+                                        onOpenFile = onOpenFile,
+                                        onLocateTask = onLocateTask,
+                                        eventExpandedStates = eventCardExpandedStates,
+                                    )
+                                    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                        android.os.Trace.endSection()
+                                        dev.leonardo.ocbeacon.logging.AppLogger.d(
+                                            "perf-flng",
+                                            "seg compose " + (android.os.SystemClock.elapsedRealtimeNanos() - segT0) / 1e6 +
+                                                "ms key=" + entry.key.takeLast(12),
                                         )
                                     }
                                 }

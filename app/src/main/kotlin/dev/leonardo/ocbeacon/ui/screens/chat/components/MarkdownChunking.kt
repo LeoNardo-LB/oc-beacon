@@ -204,6 +204,22 @@ internal sealed interface ChatEntry {
         val isFirst: Boolean get() = chunkIndex == 0
         val isLast: Boolean get() = chunkIndex == chunkCount - 1
     }
+
+    /**
+     * 历史长 turn 的分段 chunk（#258 Stage B；key "t_<turnId>#s<i>"，前缀保持
+     * t_ 起始与旧 Chunk 的 #c 后缀互斥不碰撞）。chunkIndex 为跨段扁平序号
+     * （Giant 段按 AST 区间展开）。
+     */
+    data class TurnChunk(
+        override val displayIndex: Int,
+        override val key: String,
+        val plan: TurnSegmentPlan,
+        val chunkIndex: Int,
+        val chunkCount: Int,
+    ) : ChatEntry {
+        val isFirst: Boolean get() = chunkIndex == 0
+        val isLast: Boolean get() = chunkIndex == chunkCount - 1
+    }
 }
 
 /**
@@ -226,6 +242,10 @@ internal data class ChatEntries(
  *   key 从 1 个裂成 N 个的闪变/锚点跳动，滚出预解析窗口后自然进入分片）；
  * - turn 内存在 part.id 命中 chunkPlans 的巨型 text part。
  *
+ * #258 Stage B：历史长 turn 追加 [segmentPlans] 路径（TurnSegmentPlan，
+ * renderItem 边界分段）——与 chunkPlans 互斥（旧 MdChunkPlan 优先：turn 内
+ * 存在旧计划 part 即走旧路径）；计划指纹失配（turn 内容已变）即弃。
+ *
  * key 生成逻辑与 ChatMessageList itemsIndexed 原 key 完全一致
  * （#103 M-8：turn 组首条消息 id 锚定），chunk 追加 "#c<i>" 后缀。
  */
@@ -235,6 +255,7 @@ internal fun buildChatEntries(
     streamingMsgId: String?,
     chunkPlans: Map<String, MdChunkPlan>,
     recentStreamedTurnKeys: Set<String>,
+    segmentPlans: Map<String, TurnSegmentPlan> = emptyMap(),
 ): ChatEntries {
     val entries = mutableListOf<ChatEntry>()
     val displayEntryStart = IntArray(displayItems.size)
@@ -301,6 +322,15 @@ internal fun buildChatEntries(
         val userPlan = if (plan == null && msg.isUser &&
             (msg.message as? dev.leonardo.ocbeacon.domain.model.Message.User)?.role != "system"
         ) userChunkPlanFor(msg) else null
+        // #258 Stage B：历史长 turn 分段计划（旧 MdChunkPlan 未命中时兜底；
+        // 指纹失配 = turn 内容已变（REST 刷新/分页替换）→ 弃置等待重算）。
+        val segPlan = if (plan == null && !msg.isUser && !isStreamingTurn && turnKey !in recentStreamedTurnKeys) {
+            val turnMsgs = turnGroups[rawIndex] ?: listOf(msg)
+            segmentPlans[turnKey]?.takeIf { sp ->
+                sp.representativeMsgId == msg.message.id &&
+                    sp.fingerprint == turnPlanFingerprint(msg, turnMsgs)
+            }
+        } else null
         if (plan != null) {
             val count = plan.ranges.size
             // #246 定音（2026-08-27 真机截图+ScrollDiag 算术链）：displayItems
@@ -327,6 +357,21 @@ internal fun buildChatEntries(
                     displayIndex = displayIdx,
                     key = turnKey + "#c" + c,
                     plan = userPlan,
+                    chunkIndex = c,
+                    chunkCount = count,
+                )
+            }
+            displayEntryStart[displayIdx] = entries.size - 1
+        } else if (segPlan != null) {
+            // #258 Stage B：历史长 turn 分段（TurnSegmentPlan）——同 #246 逆文档序
+            // 发射（尾片先入列），displayEntryStart 钉回首片（含标签栏，跳转落点
+            // 语义与旧路径一致）。
+            val count = segPlan.chunkCount
+            for (c in count - 1 downTo 0) {
+                entries += ChatEntry.TurnChunk(
+                    displayIndex = displayIdx,
+                    key = turnKey + "#s" + c,
+                    plan = segPlan,
                     chunkIndex = c,
                     chunkCount = count,
                 )

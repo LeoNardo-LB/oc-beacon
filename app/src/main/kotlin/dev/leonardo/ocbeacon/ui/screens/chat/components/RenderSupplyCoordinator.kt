@@ -1,9 +1,11 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
+import com.mikepenz.markdown.model.State
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
+import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderableTurn
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,6 +42,18 @@ internal class RenderSupplyCoordinator(
     /** 已提交分片计划（partId → plan）——buildChatEntries 消费。 */
     private val _chunkPlans = MutableStateFlow<Map<String, MdChunkPlan>>(emptyMap())
     val chunkPlans: StateFlow<Map<String, MdChunkPlan>> = _chunkPlans
+
+    // ===== #258 Stage B：历史长 turn 分段（TurnSegmentPlan，spec 2026-09-02）=====
+
+    /** 已提交分段计划（turnKey → plan）——buildChatEntries 消费；与 chunkPlans 互斥（旧路径优先）。 */
+    private val _segmentPlans = MutableStateFlow<Map<String, TurnSegmentPlan>>(emptyMap())
+    val segmentPlans: StateFlow<Map<String, TurnSegmentPlan>> = _segmentPlans
+
+    /**
+     * 待装配分段骨架（turnKey → 骨架）——巨型 part 解析未齐的 turn 停留于此，
+     * 每次世界到达/视口巡检重查；turn 离开当前列表（被过滤/会话切换）即丢弃。
+     */
+    private val pendingSegmentSkeletons = LinkedHashMap<String, TurnSegmentSkeleton>()
 
     /** 待提交分片计划（partId → plan + 入队时 display index[仅取证]）——私有。 */
     private val pendingChunkPlans = LinkedHashMap<String, Pair<MdChunkPlan, Int>>()
@@ -100,6 +114,155 @@ internal class RenderSupplyCoordinator(
         _recentStreamedTurnKeys.value = _recentStreamedTurnKeys.value + turnKey
     }
 
+    // ===== #258 Stage B：到达扫描（数据到达即抢先分段——修计划时机错位）=====
+
+    /**
+     * 世界到达驱动（进场页 / loadOlder 前置页 prepend / loadAround 深跳）：
+     * 对裂变带外、未分段的 assistant 长 turn 计算分段骨架；无巨型 part 立即提交，
+     * 有则预解析后装配。与视口驱动（[onViewportChanged]）互补：
+     * - 视口循环只预热 ±20 display 窗口且提交依赖下一轮巡检——高速 fling 下
+     *   计划结构性迟到（Stage B 现场取证：CHUNK plan ×14 / commit ×0）；
+     * - 到达扫描在数据可见性建立**之前**完成分段（进场页/前置页到达即扫），
+     *   LazyColumn 预取拿到的已是分段版，单体永远不会被组合。
+     */
+    fun onWorldArrived(firstIdx: Int, lastIdx: Int, world: RenderSupplyWorld) {
+        val items = world.displayItems
+        val groups = world.turnGroups
+        val bannerCount = world.bannerCount
+        val streamingNow = world.streamingMsgId
+        val firstDisplay = world.entries.entryDisplayIndex
+            .getOrNull((firstIdx - bannerCount).coerceAtLeast(0)) ?: 0
+        val lastDisplay = world.entries.entryDisplayIndex
+            .getOrNull(lastIdx - bannerCount) ?: (items.size - 1)
+        val fissionHead = (firstDisplay - FISSION_SAFE_MARGIN).coerceAtLeast(0)
+        val fissionTail = (lastDisplay + FISSION_SAFE_MARGIN).coerceAtMost(items.size - 1)
+
+        // 先重查既有 pending（上轮巨型解析可能已齐）。
+        materializePendingSegments(items, groups, fissionHead, fissionTail)
+
+        val chunkPlanPartIds = _chunkPlans.value.keys
+        var budget = ARRIVAL_PLAN_MAX_TURNS
+        // 距视口升序：fling 最先撞上的是最近 turn——优先给它分段。
+        val order = items.indices.sortedBy { di ->
+            if (di < firstDisplay) firstDisplay - di else if (di > lastDisplay) di - lastDisplay else 0
+        }
+        for (di in order) {
+            if (budget <= 0) break
+            // 裂变带内一律不碰（可见/缓存池内 turn 绝不裂变——F2 语义）。
+            if (di in fissionHead..fissionTail) continue
+            val (rawIdx, msg) = items[di]
+            if (!msg.isAssistant) continue
+            val turnMsgs = groups[rawIdx] ?: listOf(msg)
+            if (streamingNow != null && turnMsgs.any { it.message.id == streamingNow }) continue
+            val turnKey = "t_" + (turnMsgs.firstOrNull()?.message?.id ?: msg.message.id)
+            if (turnKey in _segmentPlans.value || turnKey in pendingSegmentSkeletons) continue
+            if (turnKey in _recentStreamedTurnKeys.value) continue
+            // 旧路径优先：已有 MdChunkPlan 提交 part 的 turn 不再分段。
+            if (turnMsgs.any { cm -> cm.parts.any { it.id in chunkPlanPartIds } }) continue
+            val turn = world.renderableTurns.getOrNull(di) ?: continue
+            val skeleton = computeTurnSegments(
+                turnKey = turnKey,
+                representativeMsgId = msg.message.id,
+                fingerprint = turnPlanFingerprint(msg, turnMsgs),
+                turn = turn,
+            ) ?: continue
+            val giants = skeleton.cuts.filterIsInstance<TurnSegmentSkeleton.GiantHole>()
+            if (giants.isEmpty()) {
+                if (commitSegmentPlan(skeleton.buildPlan(emptyList()), items, groups, fissionHead, fissionTail)) {
+                    budget--
+                }
+            } else {
+                // 巨型 part 需解析：Pending 才启动（Parsing = 在途解析勿双发；
+                // Parsed/Failed 由装配入口消费），骨架入 pending 等齐。
+                pendingSegmentSkeletons[turnKey] = skeleton
+                for (g in giants) {
+                    if (registry.current(g.partId) is RenderReadiness.Pending &&
+                        g.text.length >= PREPARSE_MIN_CHARS
+                    ) {
+                        val textForParse = g.text
+                        registry.preParse(g.partId, textForParse, parseScope) {
+                            // 主线程回调：立即重查装配（幂等）。
+                            materializePendingSegments(items, groups, fissionHead, fissionTail)
+                        }
+                    }
+                }
+                materializePendingSegments(items, groups, fissionHead, fissionTail)
+            }
+        }
+    }
+
+    /**
+     * 装配 pending 骨架：全部巨型 part 到达终态（Parsed/Failed）即拼
+     * [TurnSegmentPlan] 并按带外条件提交；turn 不在列表 → 丢弃。
+     */
+    private fun materializePendingSegments(
+        items: List<Pair<Int, ChatMessage>>,
+        groups: Map<Int, List<ChatMessage>>,
+        fissionHead: Int,
+        fissionTail: Int,
+    ) {
+        if (pendingSegmentSkeletons.isEmpty()) return
+        val done = mutableListOf<String>()
+        for ((turnKey, skeleton) in pendingSegmentSkeletons.toList()) {
+            val di = resolveTurnKeyDisplayIndex(turnKey, items, groups)
+            if (di < 0) {
+                done += turnKey // 所属 turn 已不在列表——真正丢弃
+                continue
+            }
+            if (di in fissionHead..fissionTail) continue // 可见/缓存池内——滚出带再说
+            val giants = skeleton.cuts.filterIsInstance<TurnSegmentSkeleton.GiantHole>()
+            val allTerminal = giants.all { g ->
+                val st = registry.current(g.partId)
+                st !is RenderReadiness.Pending && st !is RenderReadiness.Parsing
+            }
+            if (!allTerminal) continue
+            val giantPlans = giants.mapNotNull { g ->
+                val succ = (registry.current(g.partId) as? RenderReadiness.Parsed)?.state
+                    as? State.Success
+                succ?.let { computeChunkPlan(g.partId, succ, CHUNK_MIN_CHARS, CHUNK_TARGET_CHARS) }
+            }
+            if (commitSegmentPlan(skeleton.buildPlan(giantPlans), items, groups, fissionHead, fissionTail)) {
+                done += turnKey
+            }
+        }
+        done.forEach { pendingSegmentSkeletons.remove(it) }
+    }
+
+    /**
+     * 提交分段计划。返回 true = 已提交或 turn 已不在列表（调用方清 pending）；
+     * false = 落在裂变带内（保留 pending，滚出带后由下一轮巡检提交）。
+     */
+    private fun commitSegmentPlan(
+        plan: TurnSegmentPlan,
+        items: List<Pair<Int, ChatMessage>>,
+        groups: Map<Int, List<ChatMessage>>,
+        fissionHead: Int,
+        fissionTail: Int,
+    ): Boolean {
+        val di = resolveTurnKeyDisplayIndex(plan.turnKey, items, groups)
+        if (di < 0) return true
+        if (di in fissionHead..fissionTail) return false
+        _segmentPlans.value = _segmentPlans.value + (plan.turnKey to plan)
+        if (BuildConfig.DEBUG) {
+            AppLogger.d(
+                "ScrollDiag",
+                "SEG commit turn=" + plan.turnKey.takeLast(10) +
+                    " segs=" + plan.segments.size + " chunks=" + plan.chunkCount,
+            )
+        }
+        return true
+    }
+
+    /** turnKey → 当前 display index（turn 首消息 id 锚定；不在列表 → -1）。 */
+    private fun resolveTurnKeyDisplayIndex(
+        turnKey: String,
+        items: List<Pair<Int, ChatMessage>>,
+        groups: Map<Int, List<ChatMessage>>,
+    ): Int = items.indexOfFirst { (ri, m) ->
+        val firstId = groups[ri]?.firstOrNull()?.message?.id ?: m.message.id
+        "t_" + firstId == turnKey
+    }
+
     /**
      * 视口变化驱动：窗口计算 + 预解析供给 + LRU 淘汰 + 延迟分片释放 +
      * pending 分片计划提交（双门控 + partId 反查）。
@@ -129,6 +292,9 @@ internal class RenderSupplyCoordinator(
             val streamingNow = world.streamingMsgId
             if (streamingNow != null && turnMsgs.any { it.message.id == streamingNow }) continue
             for (cm in turnMsgs) {
+                // #258 Stage B：本 turn 的段分片状态（旧 MdChunkPlan 装配抑制——双计划互斥）。
+                val turnKeyNow = "t_" + (turnMsgs.firstOrNull()?.message?.id ?: cm.message.id)
+                val segmentPlanned = turnKeyNow in _segmentPlans.value || turnKeyNow in pendingSegmentSkeletons
                 for (part in cm.parts) {
                     if (part is Part.Text &&
                         part.text.length >= PREPARSE_MIN_CHARS &&
@@ -190,7 +356,11 @@ internal class RenderSupplyCoordinator(
                                                 return@let
                                             }
                                             // 入 pending 队列，视口外才提交
-                                            pendingChunkPlans[key] = plan to di
+                                            //（#258 Stage B：已分段/分段中的 turn
+                                            // 不再入旧计划队列——双计划互斥，旧路径让位）
+                                            if (!segmentPlanned) {
+                                                pendingChunkPlans[key] = plan to di
+                                            }
                                         }
                                 }
                             }
@@ -254,6 +424,13 @@ internal class RenderSupplyCoordinator(
         val jumpActiveOrSettling = phaseNow !is JumpPhase.Idle &&
             phaseNow !is JumpPhase.Displayed && phaseNow !is JumpPhase.Failed ||
             (lastJumpEndAtMillis > 0L && clock() - lastJumpEndAtMillis < 2000)
+        // #258 Stage B：段分片 pending 同巡检窗口装配（独立于旧 pendingChunkPlans
+        // 队列；跳转门控 F3 语义同适用——跳转测量期不提交任何裂变）。
+        if (pendingSegmentSkeletons.isNotEmpty() && !jumpActiveOrSettling) {
+            val fissionHeadB = (firstDisplay - FISSION_SAFE_MARGIN).coerceAtLeast(0)
+            val fissionTailB = (lastDisplay + FISSION_SAFE_MARGIN).coerceAtMost(items.size - 1)
+            materializePendingSegments(items, groups, fissionHeadB, fissionTailB)
+        }
         if (pendingChunkPlans.isNotEmpty() && !jumpActiveOrSettling) {
             // F1：partId → 所属消息 → turn 首 key → 当前 display index
             fun resolveTurnDisplayIndex(partId: String): Int {
@@ -359,6 +536,12 @@ internal class RenderSupplyCoordinator(
 
         /** 目标每片字符数（130K 消息 ≈ 26 片，单片组合 ~2ms）。 */
         const val CHUNK_TARGET_CHARS = 2500
+
+        /**
+         * #258 Stage B：到达扫描每轮最多提交的 turn 数（loadAround 深跳批量
+         * 到达时节流；剩余由下一次世界变化/视口巡检捡起）。
+         */
+        const val ARRIVAL_PLAN_MAX_TURNS = 24
     }
 }
 
@@ -372,4 +555,6 @@ internal class RenderSupplyWorld(
     val entries: ChatEntries,
     val bannerCount: Int,
     val streamingMsgId: String?,
+    /** #258 Stage B：displayIndex 对齐的预计算渲染序列（到达扫描分段用）。 */
+    val renderableTurns: List<RenderableTurn?> = emptyList(),
 )
