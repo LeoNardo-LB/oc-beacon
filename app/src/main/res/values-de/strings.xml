@@ -643,6 +643,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="diagnostics_share">Teilen</string>
     <string name="report_to_github">An GitHub melden</string>
     <string name="report_authorizing">Zum Melden autorisieren</string>
+    <string name="report_reset_auth">GitHub-Autorisierung zurücksetzen</string>
+    <string name="report_reset_auth_confirm_title">Autorisierung zurücksetzen?</string>
+    <string name="report_reset_auth_confirm_message">Löscht das gespeicherte GitHub-Token und startet die Geräteautorisierung neu. Nach einer Änderung der App-Berechtigungen auf GitHub verwenden.</string>
     <string name="report_preview_title">Berichtvorschau (bearbeitbar)</string>
     <string name="report_issue_title_label">Issue-Titel</string>
     <string name="report_submit">Bericht senden</string>

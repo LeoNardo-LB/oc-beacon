@@ -651,6 +651,9 @@
     <string name="diagnostics_share">Поділитися</string>
     <string name="report_to_github">Повідомити на GitHub</string>
     <string name="report_authorizing">Авторизуйтеся, щоб повідомити</string>
+    <string name="report_reset_auth">Скинути авторизацію GitHub</string>
+    <string name="report_reset_auth_confirm_title">Скинути авторизацію?</string>
+    <string name="report_reset_auth_confirm_message">Видаляє збережений токен GitHub і перезапускає авторизацію пристрою. Використовуйте після зміни дозволів застосунку на GitHub.</string>
     <string name="report_preview_title">Попередній перегляд звіту (можна редагувати)</string>
     <string name="report_issue_title_label">Заголовок проблеми</string>
     <string name="report_submit">Надіслати звіт</string>

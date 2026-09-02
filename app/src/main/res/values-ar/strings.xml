@@ -659,6 +659,9 @@
     <string name="diagnostics_share">مشاركة</string>
     <string name="report_to_github">الإبلاغ على GitHub</string>
     <string name="report_authorizing">تفويض للإبلاغ</string>
+    <string name="report_reset_auth">إعادة تعيين تفويض GitHub</string>
+    <string name="report_reset_auth_confirm_title">إعادة تعيين التفويض؟</string>
+    <string name="report_reset_auth_confirm_message">يحذف رمز GitHub المحفوظ ويعيد تشغيل تفويض الجهاز. استخدمه بعد تغيير أذونات التطبيق على GitHub.</string>
     <string name="report_preview_title">معاينة التقرير (قابلة للتحرير)</string>
     <string name="report_issue_title_label">عنوان المشكلة</string>
     <string name="report_submit">إرسال التقرير</string>

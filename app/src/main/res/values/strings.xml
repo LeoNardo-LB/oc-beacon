@@ -434,6 +434,9 @@
     <string name="diagnostics_share">Share</string>
     <string name="report_to_github">Report to GitHub</string>
     <string name="report_authorizing">Authorize to report</string>
+    <string name="report_reset_auth">Reset GitHub authorization</string>
+    <string name="report_reset_auth_confirm_title">Reset authorization?</string>
+    <string name="report_reset_auth_confirm_message">Clears the stored GitHub token and restarts device authorization. Use this after changing the app\'s permissions on GitHub.</string>
     <string name="report_preview_title">Report preview (editable)</string>
     <string name="report_issue_title_label">Issue title</string>
     <string name="report_submit">Submit report</string>

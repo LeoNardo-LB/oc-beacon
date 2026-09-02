@@ -137,6 +137,18 @@ class DiagnosticsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * #154b E2E 衍生（2026-09-03）：清除已存 token 并重新进入 device flow——
+     * GitHub App 权限变更（如补 Gists）后旧 token 权限快照不更新，必须重授权；
+     * 此前无任何 UI 入口，用户只能清应用数据。
+     */
+    fun resetAuthorization() {
+        viewModelScope.launch {
+            tokenStore.clearToken()
+            startReport()
+        }
+    }
+
     fun cancelAuthorization() {
         pollJob?.cancel()
         _reportState.value = ReportUiState.Idle

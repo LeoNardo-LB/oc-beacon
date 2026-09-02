@@ -643,6 +643,9 @@
     <string name="diagnostics_share">공유</string>
     <string name="report_to_github">GitHub에 제보</string>
     <string name="report_authorizing">제보를 위해 인증</string>
+    <string name="report_reset_auth">GitHub 인증 재설정</string>
+    <string name="report_reset_auth_confirm_title">인증을 재설정하시겠습니까?</string>
+    <string name="report_reset_auth_confirm_message">저장된 GitHub 토큰을 지우고 기기 인증을 다시 시작합니다. GitHub에서 앱 권한을 변경한 후 사용하세요.</string>
     <string name="report_preview_title">제보 미리보기(편집 가능)</string>
     <string name="report_issue_title_label">이슈 제목</string>
     <string name="report_submit">제보 제출</string>

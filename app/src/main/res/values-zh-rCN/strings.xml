@@ -647,6 +647,9 @@
     <string name="diagnostics_share">分享</string>
     <string name="report_to_github">上报到 GitHub</string>
     <string name="report_authorizing">授权以上报</string>
+    <string name="report_reset_auth">重置 GitHub 授权</string>
+    <string name="report_reset_auth_confirm_title">重置授权？</string>
+    <string name="report_reset_auth_confirm_message">清除已保存的 GitHub token 并重新进入设备授权。在 GitHub 上变更应用权限后使用。</string>
     <string name="report_preview_title">上报预览（可编辑）</string>
     <string name="report_issue_title_label">Issue 标题</string>
     <string name="report_submit">提交上报</string>

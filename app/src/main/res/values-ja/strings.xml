@@ -643,6 +643,9 @@
     <string name="diagnostics_share">共有</string>
     <string name="report_to_github">GitHubに報告</string>
     <string name="report_authorizing">報告するために認証</string>
+    <string name="report_reset_auth">GitHub認証をリセット</string>
+    <string name="report_reset_auth_confirm_title">認証をリセットしますか？</string>
+    <string name="report_reset_auth_confirm_message">保存されたGitHubトークンを消去し、デバイス認証をやり直します。GitHubでアプリの権限を変更した後に使用します。</string>
     <string name="report_preview_title">報告プレビュー（編集可）</string>
     <string name="report_issue_title_label">Issue タイトル</string>
     <string name="report_submit">報告を送信</string>

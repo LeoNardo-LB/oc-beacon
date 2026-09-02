@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.KeyOff
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
@@ -125,8 +126,10 @@ fun DiagnosticsScreen(
     var searchQuery by remember { mutableStateOf("") }
     var showActionsMenu by remember { mutableStateOf(false) }
     var showClearConfirmation by remember { mutableStateOf(false) }
+    var showResetAuthConfirm by remember { mutableStateOf(false) }
     var showLevelDialog by remember { mutableStateOf(false) }
     val reportState by viewModel.reportState.collectAsStateWithLifecycle()
+    val hasToken by viewModel.hasToken.collectAsStateWithLifecycle()
     var expandedEntryKey by remember { mutableStateOf<String?>(null) }
 
     val filteredEntries = remember(entries, selectedLevels, searchQuery) {
@@ -239,6 +242,22 @@ fun DiagnosticsScreen(
                                     viewModel.startReport()
                                 },
                             )
+                            // #154b：重置 GitHub 授权（App 权限变更后重授权唯一入口）
+                            if (hasToken) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            stringResource(R.string.report_reset_auth),
+                                            color = MaterialTheme.colorScheme.error,
+                                        )
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.KeyOff, contentDescription = null) },
+                                    onClick = {
+                                        showActionsMenu = false
+                                        showResetAuthConfirm = true
+                                    },
+                                )
+                            }
                         }
                     }
                 },
@@ -357,6 +376,20 @@ fun DiagnosticsScreen(
     }
 
     // ---- 清空确认 ----
+    // #154b：重置 GitHub 授权确认（清 token + 重进 device flow）
+    if (showResetAuthConfirm) {
+        ConfirmDialog(
+            title = stringResource(R.string.report_reset_auth_confirm_title),
+            message = stringResource(R.string.report_reset_auth_confirm_message),
+            confirmLabel = stringResource(R.string.report_reset_auth),
+            onDismiss = { showResetAuthConfirm = false },
+            onConfirm = {
+                showResetAuthConfirm = false
+                viewModel.resetAuthorization()
+            },
+        )
+    }
+
     if (showClearConfirmation) {
         ConfirmDialog(
             title = stringResource(R.string.diagnostics_clear_confirm_title),

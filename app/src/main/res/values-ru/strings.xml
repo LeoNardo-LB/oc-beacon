@@ -652,6 +652,9 @@
     <string name="diagnostics_share">Поделиться</string>
     <string name="report_to_github">Сообщить в GitHub</string>
     <string name="report_authorizing">Авторизоваться для отчёта</string>
+    <string name="report_reset_auth">Сбросить авторизацию GitHub</string>
+    <string name="report_reset_auth_confirm_title">Сбросить авторизацию?</string>
+    <string name="report_reset_auth_confirm_message">Удаляет сохранённый токен GitHub и заново запускает авторизацию устройства. Используйте после изменения разрешений приложения на GitHub.</string>
     <string name="report_preview_title">Предпросмотр отчёта (можно редактировать)</string>
     <string name="report_issue_title_label">Заголовок задачи</string>
     <string name="report_submit">Отправить отчёт</string>

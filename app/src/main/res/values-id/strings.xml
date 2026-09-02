@@ -649,6 +649,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="diagnostics_share">Bagikan</string>
     <string name="report_to_github">Laporkan ke GitHub</string>
     <string name="report_authorizing">Otorisasi untuk melaporkan</string>
+    <string name="report_reset_auth">Reset otorisasi GitHub</string>
+    <string name="report_reset_auth_confirm_title">Reset otorisasi?</string>
+    <string name="report_reset_auth_confirm_message">Menghapus token GitHub yang tersimpan dan memulai ulang otorisasi perangkat. Gunakan setelah mengubah izin aplikasi di GitHub.</string>
     <string name="report_preview_title">Pratinjau laporan (dapat diedit)</string>
     <string name="report_issue_title_label">Judul issue</string>
     <string name="report_submit">Kirim laporan</string>
