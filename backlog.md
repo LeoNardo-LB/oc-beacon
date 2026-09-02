@@ -71,10 +71,10 @@
 
 - [ ] **#300 #258 战役残余：中间带 turn 段化收编 + #146 之外两项取证/二阶** `perf` `ui`
   - ①中间带 turn **2026-09-02 已落地（journal 258-e2e §四）**：巨型豁免权重门槛（computeTurnSegments）+ 单测 middleBand 用例；真机进场新提交 4 段/5 chunks 形态 turn，2554 单测绿
-  - ②`_rea` 之谜（取证项）：`seq-*_reasoning_ord_*` id 的 Part.Text 来源未定位（Room 行/mapper/inferDeltaKind 三处类型均正确，行为无异常）
-  - ③SelectionContainer per-part 计量与包装精简（Stage A 靶点 2，分片落地后收益稀释，二阶）
-  - ④pendingSegmentSkeletons 无上限（深滚最坏几十个骨架，观察期后定淘汰）
-  - → `docs/journal/2026-09-02-258-stage-b-history-chunking.md` §五
+  - ②`_rea` 之谜 **2026-09-03 破案+修复（journal 300-rea §一）**：缓存 payload 恒无 type 判别键 + PartSerializer 兜底 `containsKey("text")` 先命中（Reasoning 内容字段名即 text）⇒ 回读恒误判 Text（真机 DB 3,876 行实证）；修复=type 列权威注入 + 兜底派生 id 检查 + 归档装配同治，**重进思考卡回归**（真机缓存区证据）；待用户验收
+  - ③SelectionContainer **2026-09-03 计量裁决：不做**（journal §三）——两趟 atrace text min 1.19-1.91ms 低于不带包装的 tool 3.45ms，包装项淹没在内容项中
+  - ④pendingSegmentSkeletons **2026-09-03 上限 48 落地**（journal §二）：GiantHole 持巨型全文引用防无界驻留，FIFO 逐最旧 + S5 单测
+  - → `docs/journal/2026-09-02-258-stage-b-history-chunking.md` §五 · `docs/journal/2026-09-02-300-rea-skeletons-selectioncontainer.md`
 
 - [ ] **#299 DSH 会话进场分页加载 ~1 页/s——进场链路串行页管线提速** `dsh` `perf`
   - 现象（2026-09-02 Stage B 顺带观察）：58 msgs 会话进场 session.history 逐页拉取 ~1 页/s × ~10 页，三点加载约 10s
