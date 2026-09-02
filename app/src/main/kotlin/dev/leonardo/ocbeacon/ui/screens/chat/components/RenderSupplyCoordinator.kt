@@ -64,6 +64,14 @@ internal class RenderSupplyCoordinator(
      * 观察到 Parsed），测试以本计数替代 delay(100) 保险等待入队真实落地。
      */
     internal val pendingChunkPlanCount: Int get() = pendingChunkPlans.size
+
+    /**
+     * #258 Stage B 测试探针：partId 的连续 skip 计数（T12 确定性化——解析在
+     * 种子视口调用尾段前完成时，该调用的提交段会消耗一次 skip，「N 次调用 =
+     * N 次 skip」的时序假设不成立；探针驱动替代计数假设）。
+     */
+    internal fun pendingSkipCountFor(partId: String): Int = pendingSkipCounts[partId] ?: 0
+
     /** 已提交计划的解析基准长度（partId → 解析时文本长度）——陈旧检测基准。
      *  #246 五轮反馈根治：部分文本快照一旦被解析，旧逻辑永不重析/永换 plan，
      *  分片即永久丢头（冷启动首屏只剩尾部段——现场截图+dump 实证）。 */
@@ -139,6 +147,7 @@ internal class RenderSupplyCoordinator(
 
         // 先重查既有 pending（上轮巨型解析可能已齐）。
         materializePendingSegments(items, groups, fissionHead, fissionTail)
+
 
         val chunkPlanPartIds = _chunkPlans.value.keys
         var budget = ARRIVAL_PLAN_MAX_TURNS

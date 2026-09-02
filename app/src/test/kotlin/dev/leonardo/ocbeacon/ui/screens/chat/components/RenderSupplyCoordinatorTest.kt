@@ -332,12 +332,20 @@ class RenderSupplyCoordinatorTest {
         awaitPendingEnqueued(env)   // #254：入队确定性等待（替代 delay(100) 保险）
         assertTrue(env.coordinator.chunkPlans.value.isEmpty())
 
-        // 连续停在带内（m=6 → 11+6=17）两轮：仍拦截
+        // 连续停在带内（m=6 → 11+6=17）：探针驱动到已消耗 1 次 skip
+        //（#258 Stage B 确定性化：种子调用尾段与解析完成竞态时，首次 17 调用
+        // 可能已是第 2 次 skip——「固定两次调用仍拦截」的时序假设不再成立）
+        var guard = 0
+        while (env.coordinator.pendingSkipCountFor(partId) < 1 && guard++ < 10) {
+            assertTrue("skip 未达阈值前不应提交", env.coordinator.chunkPlans.value.isEmpty())
+            env.coordinator.onViewportChanged(17, 17, env.world(20, partFor = part))
+        }
+        // 已消耗 1 次：再 1 次仍拦截（2 < 3）
         env.coordinator.onViewportChanged(17, 17, env.world(20, partFor = part))
-        env.coordinator.onViewportChanged(17, 17, env.world(20, partFor = part))
-        assertTrue("前两次 skip 不应提交", env.coordinator.chunkPlans.value.isEmpty())
+        assertEquals("第 2 次 skip 不应提交", 2, env.coordinator.pendingSkipCountFor(partId))
+        assertTrue(env.coordinator.chunkPlans.value.isEmpty())
 
-        // 第三轮同位置：突破防锁死阈值，强制提交
+        // 第 3 次：突破防锁死阈值，强制提交
         env.coordinator.onViewportChanged(17, 17, env.world(20, partFor = part))
         assertTrue(
             "连续 skip 3 次后应强制提交（消灭永久滞留）",
