@@ -434,7 +434,6 @@
     <string name="diagnostics_share">Share</string>
     <string name="report_to_github">Report to GitHub</string>
     <string name="report_authorizing">Authorize to report</string>
-    <string name="report_authorizing_hint">Open %1$s and enter code: %2$s</string>
     <string name="report_preview_title">Report preview (editable)</string>
     <string name="report_issue_title_label">Issue title</string>
     <string name="report_submit">Submit report</string>

@@ -659,7 +659,6 @@
     <string name="diagnostics_share">مشاركة</string>
     <string name="report_to_github">الإبلاغ على GitHub</string>
     <string name="report_authorizing">تفويض للإبلاغ</string>
-    <string name="report_authorizing_hint">افتح %1$s وأدخل الرمز: %2$s</string>
     <string name="report_preview_title">معاينة التقرير (قابلة للتحرير)</string>
     <string name="report_issue_title_label">عنوان المشكلة</string>
     <string name="report_submit">إرسال التقرير</string>

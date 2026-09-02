@@ -29,6 +29,8 @@ internal object GitHubDeviceEndpoints {
 data class DeviceCodeRequest(
     val userCode: String,
     val verificationUri: String,
+    /** #302：带码直达链接（响应的 verification_uri_complete，打开即预填授权码）；缺省 null。 */
+    val verificationUriComplete: String? = null,
     val deviceCode: String,
     val intervalSeconds: Int,
     val expiresInSeconds: Int,
@@ -90,6 +92,7 @@ class GitHubDeviceFlowAuth @Inject constructor(
             userCode = obj["user_code"]?.jsonPrimitive?.content ?: error("missing user_code"),
             verificationUri = obj["verification_uri"]?.jsonPrimitive?.content
                 ?: "https://github.com/login/device",
+            verificationUriComplete = obj["verification_uri_complete"]?.jsonPrimitive?.content,
             deviceCode = obj["device_code"]?.jsonPrimitive?.content ?: error("missing device_code"),
             intervalSeconds = obj["interval"]?.jsonPrimitive?.content?.toIntOrNull() ?: 5,
             expiresInSeconds = obj["expires_in"]?.jsonPrimitive?.content?.toIntOrNull() ?: 900,

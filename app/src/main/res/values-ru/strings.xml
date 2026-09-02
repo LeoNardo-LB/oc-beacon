@@ -652,7 +652,6 @@
     <string name="diagnostics_share">Поделиться</string>
     <string name="report_to_github">Сообщить в GitHub</string>
     <string name="report_authorizing">Авторизоваться для отчёта</string>
-    <string name="report_authorizing_hint">Откройте %1$s и введите код: %2$s</string>
     <string name="report_preview_title">Предпросмотр отчёта (можно редактировать)</string>
     <string name="report_issue_title_label">Заголовок задачи</string>
     <string name="report_submit">Отправить отчёт</string>

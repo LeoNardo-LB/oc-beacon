@@ -643,7 +643,6 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="diagnostics_share">Teilen</string>
     <string name="report_to_github">An GitHub melden</string>
     <string name="report_authorizing">Zum Melden autorisieren</string>
-    <string name="report_authorizing_hint">Öffne %1$s und gib den Code ein: %2$s</string>
     <string name="report_preview_title">Berichtvorschau (bearbeitbar)</string>
     <string name="report_issue_title_label">Issue-Titel</string>
     <string name="report_submit">Bericht senden</string>

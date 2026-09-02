@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -49,6 +50,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -62,11 +64,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -76,12 +81,16 @@ import dev.leonardo.ocbeacon.util.copyToClipboard
 import dev.leonardo.ocbeacon.data.repository.DiagnosticLogEntry
 import dev.leonardo.ocbeacon.data.repository.DiagnosticLogRepository
 import dev.leonardo.ocbeacon.ui.components.ConfirmDialog
+import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.ButtonTokens
+import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import dev.leonardo.ocbeacon.util.DateFormatters
 import java.util.Date
+import android.widget.Toast
 
 private val LEVELS = listOf("FATAL", "ERROR", "WARN", "INFO", "DEBUG")
 
@@ -399,16 +408,75 @@ fun DiagnosticsScreen(
                 TextButton(onClick = viewModel::dismissReport) { Text(stringResource(R.string.report_close)) }
             },
         )
-        is ReportUiState.Authorizing -> AlertDialog(
-            onDismissRequest = viewModel::cancelAuthorization,
-            title = { Text(stringResource(R.string.report_authorizing)) },
-            text = {
-                Text(stringResource(R.string.report_authorizing_hint, rs.code.verificationUri, rs.code.userCode))
-            },
-            confirmButton = {
-                TextButton(onClick = viewModel::cancelAuthorization) { Text(stringResource(R.string.report_cancel)) }
-            },
-        )
+        is ReportUiState.Authorizing -> {
+            // #302：Toast 文案与 UriHandler hoist（clickable/onClick lambda 内不可调用）
+            val copiedToast = stringResource(R.string.server_settings_oauth_code_copied)
+            val uriHandler = LocalUriHandler.current
+            AlertDialog(
+                onDismissRequest = viewModel::cancelAuthorization,
+                title = { Text(stringResource(R.string.report_authorizing)) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            stringResource(R.string.server_settings_oauth_device_code_hint),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MEDIUM),
+                        )
+                        // #302：授权码一键复制 chip（对齐 ServerProvidersScreen OAuth 对话框模式）
+                        Surface(
+                            shape = ShapeTokens.medium,
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+                                    clipboard?.copyToClipboard("github_device_code", rs.code.userCode)
+                                    Toast.makeText(context, copiedToast, Toast.LENGTH_SHORT).show()
+                                },
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    rs.code.userCode,
+                                    style = MaterialTheme.typography.headlineSmall.copy(
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.SemiBold,
+                                        letterSpacing = 2.sp,
+                                    ),
+                                    modifier = Modifier.weight(1f),
+                                    textAlign = TextAlign.Center,
+                                )
+                                Icon(
+                                    Icons.Filled.ContentCopy,
+                                    contentDescription = stringResource(R.string.server_settings_oauth_copy_code),
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+                                )
+                            }
+                        }
+                        // #302：浏览器跳转按钮（verification_uri_complete 带码直达，缺省回退 verification_uri）
+                        Button(
+                            onClick = {
+                                uriHandler.openUri(rs.code.verificationUriComplete ?: rs.code.verificationUri)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonTokens.filledColors(),
+                            border = ButtonTokens.amoledBorder(),
+                        ) {
+                            Text(stringResource(R.string.server_settings_oauth_open_browser))
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = viewModel::cancelAuthorization) { Text(stringResource(R.string.report_cancel)) }
+                },
+            )
+        }
         is ReportUiState.Preview -> AlertDialog(
             onDismissRequest = viewModel::dismissReport,
             title = { Text(stringResource(R.string.report_preview_title)) },

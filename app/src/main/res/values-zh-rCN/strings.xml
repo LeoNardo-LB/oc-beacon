@@ -647,7 +647,6 @@
     <string name="diagnostics_share">分享</string>
     <string name="report_to_github">上报到 GitHub</string>
     <string name="report_authorizing">授权以上报</string>
-    <string name="report_authorizing_hint">打开 %1$s 并输入代码：%2$s</string>
     <string name="report_preview_title">上报预览（可编辑）</string>
     <string name="report_issue_title_label">Issue 标题</string>
     <string name="report_submit">提交上报</string>

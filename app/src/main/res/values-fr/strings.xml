@@ -641,7 +641,6 @@
     <string name="diagnostics_share">Partager</string>
     <string name="report_to_github">Signaler sur GitHub</string>
     <string name="report_authorizing">Autoriser pour signaler</string>
-    <string name="report_authorizing_hint">Ouvrez %1$s et saisissez le code : %2$s</string>
     <string name="report_preview_title">Aperçu du rapport (modifiable)</string>
     <string name="report_issue_title_label">Titre du ticket</string>
     <string name="report_submit">Envoyer le rapport</string>

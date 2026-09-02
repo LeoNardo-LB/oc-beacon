@@ -651,7 +651,6 @@
     <string name="diagnostics_share">Поділитися</string>
     <string name="report_to_github">Повідомити на GitHub</string>
     <string name="report_authorizing">Авторизуйтеся, щоб повідомити</string>
-    <string name="report_authorizing_hint">Відкрийте %1$s і введіть код: %2$s</string>
     <string name="report_preview_title">Попередній перегляд звіту (можна редагувати)</string>
     <string name="report_issue_title_label">Заголовок проблеми</string>
     <string name="report_submit">Надіслати звіт</string>

@@ -643,7 +643,6 @@
     <string name="diagnostics_share">공유</string>
     <string name="report_to_github">GitHub에 제보</string>
     <string name="report_authorizing">제보를 위해 인증</string>
-    <string name="report_authorizing_hint">%1$s을(를) 열고 코드 입력: %2$s</string>
     <string name="report_preview_title">제보 미리보기(편집 가능)</string>
     <string name="report_issue_title_label">이슈 제목</string>
     <string name="report_submit">제보 제출</string>

@@ -649,7 +649,6 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="diagnostics_share">Bagikan</string>
     <string name="report_to_github">Laporkan ke GitHub</string>
     <string name="report_authorizing">Otorisasi untuk melaporkan</string>
-    <string name="report_authorizing_hint">Buka %1$s dan masukkan kode: %2$s</string>
     <string name="report_preview_title">Pratinjau laporan (dapat diedit)</string>
     <string name="report_issue_title_label">Judul issue</string>
     <string name="report_submit">Kirim laporan</string>

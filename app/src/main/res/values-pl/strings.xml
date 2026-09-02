@@ -651,7 +651,6 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="diagnostics_share">Udostępnij</string>
     <string name="report_to_github">Zgłoś na GitHub</string>
     <string name="report_authorizing">Autoryzuj, aby zgłosić</string>
-    <string name="report_authorizing_hint">Otwórz %1$s i wpisz kod: %2$s</string>
     <string name="report_preview_title">Podgląd zgłoszenia (edytowalny)</string>
     <string name="report_issue_title_label">Tytuł zgłoszenia</string>
     <string name="report_submit">Wyślij zgłoszenie</string>
