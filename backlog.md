@@ -58,9 +58,9 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#302 上报授权对话框 UX：链接可跳转 + 授权码一键复制** `ui`
+- [~] **#302 上报授权对话框 UX：链接可跳转 + 授权码一键复制** `ui`
   - 2026-09-03 154b 真机 E2E 授权步现场实证（用户原话：链接要「点击可跳转」、授权码要「一键复制」，不然「复制不了很难操作」）：device flow 对话框仅纯文本 + 取消钮——URL 不可点、8 位码不可复制，需跨设备手抄
-  - 改法方向：授权码独立大字号 + 点按复制（ClipboardManager + 复制成功反馈）+「在浏览器打开 github.com/login/device」按钮（View intent）；i18n ×15
+  - 同日实现：授权码点按复制 chip（ClipboardManager + Toast，对齐 ServerProvidersScreen OAuth 模式）+「在浏览器打开」按钮（verification_uri_complete 带码直达，GitHubDeviceFlowAuth 增解析）；key 全复用 server_settings_oauth_*（删 1 孤儿 key ×15）；i18n/compile/全量单测绿
   - → `docs/journal/2026-09-03-154b-gist-299-245.md`
 
 - [ ] **#299 DSH 会话进场分页加载 ~1 页/s——进场链路串行页管线提速** `dsh` `perf`
