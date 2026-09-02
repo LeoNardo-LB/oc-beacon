@@ -92,6 +92,21 @@ N 次 skip」假设不成立，产品行为本正确）。
 - V5 工具链：flng:it:seg atrace 入库（DEBUG 门控）
 - V6 人工视觉：分段连续性截图核验 ✅（用户复验待验收时补）
 
+## §八 顺带项：×2 双投递观察确认（完结，未立卡项清账）
+
+#296 验证期观察（preset 切换时 CommandsChanged/SessionAgentPresetChanged/Loaded 各 ×2）
+经主机侧双流 WS tap + `agentPreset.select` ×3（空会话 9075daf0，code→standard→code）
+对照计数**定音为双路设计使然，非服务器双投递**：
+
+- MUX tap（`/api/events.mux` 单订阅者）：内层 `session/event` 帧 `agent-preset/selected`
+  恰好 ×3（每次切换 1 条），**零同载荷重复帧**；
+- HOST tap（`/api/events.host`）：`host/remote-event` 转发 `agent-preset/selected` ×3 +
+  `commands/change` ×2——与 mux 各一路，互不重叠；
+- 机制 = DshEventMapper 两处同映射（内层 :489 + 转发 :395，注释明示「host 流双保险」）
+  ——app 双流各收一次 → 两条 SSE；消费端幂等（CommandsChanged 重取注册表、
+  preset 卡高亮为状态置位），无副作用。
+- 结论：**良性，维持现状**；若未来出现同流同 seq 重复帧才是真双投递（本 tap 未见）。
+
 ## §七 提交
 
 - 5020e977 feat: 骨架实现（TurnSegmentPlan + 到达扫描 + 分段渲染 + 桥接）
