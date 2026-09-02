@@ -146,8 +146,15 @@ fun computeTurnSegments(
     val items = turn.renderItems
     if (items.isEmpty()) return null
     var total = 0
-    for (item in items) total += turnItemWeight(item)
-    if (total < TURN_SEGMENT_MIN_WEIGHT) return null
+    var hasGiant = false
+    for (item in items) {
+        total += turnItemWeight(item)
+        if (giantTextPartOf(item) != null) hasGiant = true
+    }
+    // #300①：权重门槛仅约束「无巨型 part 的 part 数量主导 turn」；存在巨型 part
+    // 即豁免（巨型自身 ≥3200 当量足以切出 ≥2 段）——否则中间带 turn（有巨型但
+    // 总权重 <12000）落入旧 MdChunkPlan 粗片路径（单片可达数十 ms，真机实证）。
+    if (total < TURN_SEGMENT_MIN_WEIGHT && !hasGiant) return null
 
     val cuts = mutableListOf<TurnSegmentSkeleton.Cut>()
     var start = 0

@@ -66,6 +66,22 @@ class TurnSegmentTest {
     }
 
     @Test
+    fun middleBandTurnWithGiantBypassesWeightGate() {
+        // #300①：巨型 part（3.4K）+ 少量小 part（总权重 ~5K < 12000）——旧版落
+        // null（走旧 MdChunkPlan 粗片），现应豁免门槛产出 GiantHole 骨架
+        val giant = Part.Text(
+            id = "g0", sessionId = "s1", messageId = "m1",
+            text = (1..42).joinToString("\n\n") { "段 $it：" + "内容".repeat(40) },
+        )
+        val parts = listOf(text(0, 400), giant, text(1, 400))
+        val cm = assistantMsg("m1", parts)
+        val sk = computeTurnSegments("t_m1", "m1", 1, renderable(cm))
+        assertNotNull("中间带 turn（有巨型）应豁免权重门槛", sk)
+        val holes = sk!!.cuts.filterIsInstance<TurnSegmentSkeleton.GiantHole>()
+        assertEquals(1, holes.size)
+    }
+
+    @Test
     fun partCountHeavyTurnSegmentsWithItemCap() {
         // 30 个 tool part（550 当量/个 = 16500 ≥ 12000 门槛）——part 数量主导形态
         val parts = (0 until 30).map { tool(it) }

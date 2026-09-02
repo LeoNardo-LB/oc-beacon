@@ -64,7 +64,7 @@
 ## P2 — 优化与锦上添花
 
 - [ ] **#300 #258 战役残余：中间带 turn 段化收编 + #146 之外两项取证/二阶** `perf` `ui`
-  - ①中间带 turn（实现项）：有 ≥3000 巨型 part 但总权重 <12000 的 turn 仍走旧 MdChunkPlan 粗片路径（真机见过 10K+px 单 chunk item 253ms）——巨型 part 存在即豁免权重门槛，交给到达扫描分段
+  - ①中间带 turn **2026-09-02 已落地（journal 258-e2e §四）**：巨型豁免权重门槛（computeTurnSegments）+ 单测 middleBand 用例；真机进场新提交 4 段/5 chunks 形态 turn，2554 单测绿
   - ②`_rea` 之谜（取证项）：`seq-*_reasoning_ord_*` id 的 Part.Text 来源未定位（Room 行/mapper/inferDeltaKind 三处类型均正确，行为无异常）
   - ③SelectionContainer per-part 计量与包装精简（Stage A 靶点 2，分片落地后收益稀释，二阶）
   - ④pendingSegmentSkeletons 无上限（深滚最坏几十个骨架，观察期后定淘汰）

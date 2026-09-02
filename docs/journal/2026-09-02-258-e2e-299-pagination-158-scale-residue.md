@@ -25,6 +25,21 @@ adb 注入拖动不清「在底意图」所致，真人手势无此问题（上�
 
 **结论：#258 验收通过，卡片迁移本 journal 归档。**
 
+## §四 #300① 中间带 turn 段化收编（开工即落地）
+
+- 改动：`computeTurnSegments` 权重门槛加**巨型豁免**——turn 存在 ≥3000 巨型 part
+  即跳过 `TURN_SEGMENT_MIN_WEIGHT` 判定（巨型自身 ≥3200 当量足以切 ≥2 段）；
+  此前中间带 turn（有巨型但总权重 <12000）落入旧 MdChunkPlan 粗片路径
+  （真机见过 10K+px 单 chunk 253ms）。
+- 配套：到达扫描对带巨型 turn 入 pendingSegmentSkeletons → 旧路径 parse 回调的
+  装配抑制（pendingSegmentSkeletons 检查）天然接管——旧粗片计划不再提交。
+- 测试：`middleBandTurnWithGiantBypassesWeightGate`（巨型 3.6K + 小 part，总权重
+  ~5K → 产出 GiantHole 骨架）；全量 2554/0/0。
+- 真机：进场扫描新提交 `1a86d10b0a segs=4 chunks=5`（此前该形态 turn 无段），
+  FATAL 0；深滚组合证据承前批（§一/上批 §四）。
+- 残余（#300 卡续项）：②`_rea` 之谜取证、③SelectionContainer 二阶、
+  ④pendingSegmentSkeletons 上限——留待后续批。
+
 ## §三 #158 大规模 a11y 计数（用户点名）
 
 同会话「快速定位抽屉开→点项跳转→settle→dump」×30（判满 = dump>5K + 输入栏在场）：
