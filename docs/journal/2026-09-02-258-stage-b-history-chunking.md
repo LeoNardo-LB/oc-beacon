@@ -128,6 +128,27 @@ Home 顶部横幅提示，「查看」→ 诊断页、「忽略」→ 确认水�
   ④忽略 → 重启不再现（水位生效）⑤再崩溃 → 重启横幅回归（新 FATAL > 水位）。
   尾态已忽略复位。
 
+## §十 顺带项：#146 六项上游问题逐项复现取证（用户指令开工；不提交 PR——提交需用户前提流程）
+
+上游源码浅克隆 `~/Documents/code/opencode-upstream`（anomalyco/opencode @69c172e）；
+live 复验对 Host-4199（v0.0.0-beta-18743，只读交互 + 一次性会话即删）。
+
+| # | 问题 | HEAD(69c172e) 静态 | 运行版(beta-18743) live | 判词 |
+|---|---|---|---|---|
+| ① | V2 不发 compaction.started | `session-compaction-event.ts` 仅定义 `Compacted`——`Started` 变体**schema 层不存在**；compaction.ts 只 publish Compacted(:554) | — | **仍成立**（连事件类型都没定义，比「引擎没接线」更彻底） |
+| ② | SSE 重连无事件回溯 | `Last-Event-ID` 全库仅出现于无关 LLM 插件（snowflake/openai ws）——服务器 SSE 端点零回溯处理 | 带 Last-Event-ID 连 6s：仅 `server.connected` + heartbeat，无回溯无报错 | **仍成立**（重连=事件空洞） |
+| ③ | cursor V1 格式 400 | `message-v2.ts` `decodeCursor = decodeUnknownSync`（硬抛） | `/api/session?cursor=<V1 时间串>` → 400 `{"_tag":"InvalidCursorError"}`；非法 base64 同 | **仍成立**（错误已类型化 `_tag`，但 V1 格式仍硬拒无降级） |
+| ④ | fork handleRaw 任何 body 400 | forkRaw **已有空 body 分支**（:223 trim 空直通）+ ForkPayload 重设计为 `{messageID?}`（boundary 键已删） | 空 body → 400 `Expected object`；`{}` → 400 `Missing key ["boundary"]` | **上游已修/改版，运行版未跟上**——app 现发 `{messageID?}` 与 HEAD 匹配，服务器升级后即通 |
+| ⑤ | 工具输出保尾截头语义 | truncate.ts 语义不变（全文落盘+预览+提示）；`tool_output.max_lines/max_bytes` 配置仍在 | — | 不变（设计使然；progress 提前携带 truncated/outputPath 的 FR 仍开放） |
+| ⑥ | 后台 shell 状态恒 completed | prompt.ts(:540-) 流结束**无条件** `status:"completed"`；`handle.exitCode` 结果从不映射进 part；非零退出走 failCause 只落错误文本 | — | **仍成立**（失败信号仅在正文文本——与 2026-08-27 八轮实证一致） |
+
+**PR 候选排序（按可行性）**：③ cursor 宽容降级（无效 cursor 视为无 cursor 返回首页——
+一刀切改 decode + 单测，影响面最小）> ⑥ shell exitCode 映射 status（error 态 + exitCode
+metadata，需对齐 schema ToolState）> ① 补 `session.compaction.started` 事件（schema +
+compaction.ts 两处，但涉及 2.0 事件桥）> ② 回溯需事件日志存储（大工程，可先 FR）。
+④无需 PR（上游已改）；⑤维持 FR。所有 PR 走用户前提流程（本地源码已就位
+`opencode-upstream`），提交与否由用户裁决。
+
 ## §七 提交
 
 - 5020e977 feat: 骨架实现（TurnSegmentPlan + 到达扫描 + 分段渲染 + 桥接）
