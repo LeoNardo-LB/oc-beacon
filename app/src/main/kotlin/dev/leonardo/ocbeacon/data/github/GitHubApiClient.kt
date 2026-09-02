@@ -90,6 +90,34 @@ class GitHubApiClient @Inject constructor(
         json.parseToJsonElement(resp.bodyAsText()).jsonObject["number"]!!.jsonPrimitive.content.toInt()
     }.recoverCatching { e -> throw e.asGitHubError() }
 
+    /**
+     * 创建 secret gist（#154b 全量日志附件）：POST /gists，`public=false` 即 secret
+     * gist；响应 201 携带 html_url。issues API 无附件端点（spec 已核验），全量日志
+     * 以 secret gist 外链形式附于 issue/评论正文。失败语义由调用方决定——
+     * [ErrorReportService] 优雅降级：附件失败不阻塞上报正文。
+     */
+    suspend fun createSecretGist(
+        token: String,
+        description: String,
+        filename: String,
+        content: String,
+    ): Result<String> = runCatching {
+        val resp = client.post("${GitHubDeviceEndpoints.API_BASE}/gists") {
+            header(HttpHeaders.Authorization, "Bearer $token")
+            header(HttpHeaders.Accept, "application/vnd.github+json")
+            setBody(json.encodeToString(kotlinx.serialization.json.JsonObject.serializer(), buildJsonObject {
+                put("description", description)
+                put("public", false)
+                put("files", buildJsonObject {
+                    put(filename, buildJsonObject { put("content", content) })
+                })
+            }))
+        }
+        mapErrors(resp.status.value, resp.bodyAsText())
+        json.parseToJsonElement(resp.bodyAsText()).jsonObject["html_url"]?.jsonPrimitive?.content
+            ?: error("gist response missing html_url")
+    }.recoverCatching { e -> throw e.asGitHubError() }
+
     suspend fun addComment(token: String, issueNumber: Int, body: String): Result<Unit> = runCatching {
         val resp = client.post("${GitHubDeviceEndpoints.API_BASE}/repos/$GITHUB_TARGET_REPO/issues/$issueNumber/comments") {
             header(HttpHeaders.Authorization, "Bearer $token")

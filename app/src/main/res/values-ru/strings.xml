@@ -660,6 +660,7 @@
     <string name="report_public_warning">Этот контент будет публично отправлен на GitHub.</string>
     <string name="report_retry">Повторить</string>
     <string name="report_cancel">Отмена</string>
+    <string name="report_attach_full_log">Прикрепить полный журнал диагностики (секретный gist; доступен всем, у кого есть ссылка)</string>
     <string name="report_close">Закрыть</string>
     <string name="diagnostics_title">Диагностика</string>
     <string name="menu_quick_navigate">Быстрая навигация</string>

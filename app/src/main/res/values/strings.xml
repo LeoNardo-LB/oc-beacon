@@ -442,6 +442,7 @@
     <string name="report_public_warning">This content will be submitted publicly to GitHub.</string>
     <string name="report_retry">Retry</string>
     <string name="report_cancel">Cancel</string>
+    <string name="report_attach_full_log">Attach full diagnostic log (secret gist; readable by anyone with the link)</string>
     <string name="report_close">Close</string>
     <string name="diagnostics_copy">Copy</string>
     <string name="diagnostics_clear">Clear logs</string>

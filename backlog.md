@@ -53,7 +53,8 @@
   - 2026-08-23 评估（#151 两轮 E2E 全绿触发）：用户定规**两半均继续缓**——崩溃提示基建已齐（recordCrash→FATAL 持久化）只差启动提示 UI；gist 需 App 加 Gists 权限+重新授权，正文 20+3 上下文实证够分诊
   - 复评时机：beta 线上跑出真实报告后再看（崩溃提示优先级高于 gist）
   - **2026-09-02 用户解冻 154a 当批完结（journal 258-stage-b §九）**：未确认 FATAL → Home 横幅（查看→诊断/忽略→水位确认）落地，真机五步验证全过（am crash→横幅→诊断页→忽略重启消失→新崩溃回归）；gist 半（154b）维持缓
-  - → `docs/journal/2026-08-21-error-report-github.md` · `docs/journal/2026-08-23-beta-readiness-review.md`
+  - **2026-09-03 154b 开工（journal 154b-gist §一）**：可行性裁定过（官方文档：GitHub App user token 支持 Create a gist）；代码+单测+i18n 全绿（附件失败降级不阻塞正文 / 防抖后建 gist 防孤儿 / 300K 字符保尾截断）；剩真机 E2E（App token gist 权限定界）+ V6 用户验收
+  - → `docs/journal/2026-08-21-error-report-github.md` · `docs/journal/2026-09-03-154b-gist-299-245.md`
 
 ## P2 — 优化与锦上添花
 

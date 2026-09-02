@@ -651,6 +651,7 @@
     <string name="report_public_warning">このコンテンツは GitHub に公開送信されます。</string>
     <string name="report_retry">再試行</string>
     <string name="report_cancel">キャンセル</string>
+    <string name="report_attach_full_log">診断ログ全文を添付（シークレット gist、リンクを知る人は誰でも閲覧可能）</string>
     <string name="report_close">閉じる</string>
     <string name="diagnostics_title">診断</string>
     <string name="menu_quick_navigate">クイックナビゲーション</string>

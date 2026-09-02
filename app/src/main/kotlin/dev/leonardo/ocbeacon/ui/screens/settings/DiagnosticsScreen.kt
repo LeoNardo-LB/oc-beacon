@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -435,6 +436,21 @@ fun DiagnosticsScreen(
                             .heightIn(max = 360.dp),
                         textStyle = MaterialTheme.typography.bodySmall,
                     )
+                    // #154b：全量日志 secret gist 附件开关（默认开；上传失败自动降级为无附件）
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(
+                            checked = rs.attachFullLog,
+                            onCheckedChange = viewModel::setAttachFullLog,
+                        )
+                        Text(
+                            stringResource(R.string.report_attach_full_log),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             },
             confirmButton = {

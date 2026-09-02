@@ -649,6 +649,7 @@
     <string name="report_public_warning">Ce contenu sera envoyé publiquement sur GitHub.</string>
     <string name="report_retry">Réessayer</string>
     <string name="report_cancel">Annuler</string>
+    <string name="report_attach_full_log">Joindre le journal de diagnostic complet (gist secret ; lisible par quiconque a le lien)</string>
     <string name="report_close">Fermer</string>
     <string name="diagnostics_title">Diagnostic</string>
     <string name="menu_quick_navigate">Navigation rapide</string>

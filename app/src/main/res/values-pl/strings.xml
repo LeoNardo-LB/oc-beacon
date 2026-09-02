@@ -659,6 +659,7 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="report_public_warning">Ta zawartość zostanie publicznie przesłana na GitHub.</string>
     <string name="report_retry">Spróbuj ponownie</string>
     <string name="report_cancel">Anuluj</string>
+    <string name="report_attach_full_log">Załącz pełny dziennik diagnostyczny (tajny gist; czytelny dla każdego, kto ma link)</string>
     <string name="report_close">Zamknij</string>
     <string name="diagnostics_title">Diagnostyka</string>
     <string name="menu_quick_navigate">Szybka nawigacja</string>

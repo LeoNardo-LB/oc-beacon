@@ -651,6 +651,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="report_public_warning">Bu içerik GitHub\'a herkese açık olarak gönderilecek.</string>
     <string name="report_retry">Tekrar dene</string>
     <string name="report_cancel">İptal</string>
+    <string name="report_attach_full_log">Tam tanılama günlüğünü ekle (gizli gist; bağlantıya sahip herkes okuyabilir)</string>
     <string name="report_close">Kapat</string>
     <string name="diagnostics_title">Tanılama</string>
     <string name="menu_quick_navigate">Hızlı gezinme</string>

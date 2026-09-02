@@ -659,6 +659,7 @@
     <string name="report_public_warning">Цей вміст буде публічно надіслано на GitHub.</string>
     <string name="report_retry">Повторити</string>
     <string name="report_cancel">Скасувати</string>
+    <string name="report_attach_full_log">Додати повний діагностичний журнал (таємний gist; доступний кожному, хто має посилання)</string>
     <string name="report_close">Закрити</string>
     <string name="diagnostics_title">Діагностика</string>
     <string name="menu_quick_navigate">Швидка навігація</string>

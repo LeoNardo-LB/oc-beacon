@@ -667,6 +667,7 @@
     <string name="report_public_warning">سيتم إرسال هذا المحتوى علنًا إلى GitHub.</string>
     <string name="report_retry">إعادة المحاولة</string>
     <string name="report_cancel">إلغاء</string>
+    <string name="report_attach_full_log">إرفاق سجل التشخيص الكامل (gist سري؛ يمكن لأي شخص لديه الرابط قراءته)</string>
     <string name="report_close">إغلاق</string>
     <string name="diagnostics_title">التشخيص</string>
     <string name="menu_quick_navigate">تنقل سريع</string>

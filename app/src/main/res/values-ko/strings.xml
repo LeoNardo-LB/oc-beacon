@@ -651,6 +651,7 @@
     <string name="report_public_warning">이 콘텐츠는 GitHub에 공개 제출됩니다.</string>
     <string name="report_retry">재시도</string>
     <string name="report_cancel">취소</string>
+    <string name="report_attach_full_log">전체 진단 로그 첨부 (비밀 gist, 링크가 있는 사람은 누구나 읽을 수 있음)</string>
     <string name="report_close">닫기</string>
     <string name="diagnostics_title">진단</string>
     <string name="menu_quick_navigate">빠른 탐색</string>

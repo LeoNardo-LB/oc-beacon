@@ -657,6 +657,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="report_public_warning">Konten ini akan dikirim secara publik ke GitHub.</string>
     <string name="report_retry">Coba lagi</string>
     <string name="report_cancel">Batal</string>
+    <string name="report_attach_full_log">Lampirkan log diagnostik lengkap (gist rahasia; dapat dibaca siapa pun yang memiliki tautannya)</string>
     <string name="report_close">Tutup</string>
     <string name="diagnostics_title">Diagnostik</string>
     <string name="menu_quick_navigate">Navigasi cepat</string>

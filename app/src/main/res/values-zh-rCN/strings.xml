@@ -655,6 +655,7 @@
     <string name="report_public_warning">此内容将公开提交到 GitHub。</string>
     <string name="report_retry">重试</string>
     <string name="report_cancel">取消</string>
+    <string name="report_attach_full_log">附全量诊断日志（secret gist，持有链接者可读）</string>
     <string name="report_close">关闭</string>
     <string name="diagnostics_title">诊断</string>
     <string name="pdf_next_page">下一页</string>

@@ -77,9 +77,11 @@ class GitHubDeviceFlowAuth @Inject constructor(
         val resp = client.post(GitHubDeviceEndpoints.DEVICE_CODE_URL) {
             header(HttpHeaders.Accept, "application/json")
             // 真机实证修复（#151）：必须显式 form 编码——不设时 Ktor 发 text/plain，
-            // GitHub 回错误 JSON（无 user_code），原 `!!` 解析抛 NPE
+            // GitHub 回错误 JSON（无 user_code），原 `!!` 解析抛 NPE。
+            // #154b：scope 追加 gist——GitHub App 注册形态下此参数被忽略（权限来自
+            // App 配置），OAuth App 形态下 gist 为建附件所需；两种形态都不报错。
             header(HttpHeaders.ContentType, "application/x-www-form-urlencoded")
-            setBody("client_id=$clientId&client_secret=$clientSecret&scope=public_repo")
+            setBody("client_id=$clientId&client_secret=$clientSecret&scope=gist+public_repo")
         }
         val obj = json.parseToJsonElement(resp.bodyAsText()).jsonObject
         // 防御解析：错误响应（如 400/403）带 error 字段，给出可读失败而非 NPE

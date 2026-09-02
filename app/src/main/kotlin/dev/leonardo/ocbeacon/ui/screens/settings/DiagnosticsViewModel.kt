@@ -7,6 +7,7 @@ import dev.leonardo.ocbeacon.data.github.DeviceCodeRequest
 import dev.leonardo.ocbeacon.data.github.DeviceFlowResult
 import dev.leonardo.ocbeacon.data.github.ErrorReportService
 import dev.leonardo.ocbeacon.data.github.GitHubApiError
+import dev.leonardo.ocbeacon.data.github.GistAttachment
 import dev.leonardo.ocbeacon.data.github.GitHubDeviceFlowAuth
 import dev.leonardo.ocbeacon.data.github.GitHubTokenStore
 import dev.leonardo.ocbeacon.data.github.ReportEnvironment
@@ -29,7 +30,8 @@ sealed class ReportUiState {
     object Idle : ReportUiState()
     object NeedsGitHubAppConfig : ReportUiState()
     data class Authorizing(val code: DeviceCodeRequest) : ReportUiState()
-    data class Preview(val title: String, val body: String, val fingerprint: String) : ReportUiState()
+    /** #154b：attachFullLog——预览页可关的全量日志 secret gist 附件开关（默认开）。 */
+    data class Preview(val title: String, val body: String, val fingerprint: String, val attachFullLog: Boolean = true) : ReportUiState()
     object Submitting : ReportUiState()
     data class Done(val message: String) : ReportUiState()
     data class Failed(val message: String, val retryableBody: String?, val needsAuth: Boolean) : ReportUiState()
@@ -176,6 +178,34 @@ class DiagnosticsViewModel @Inject constructor(
         if (cur is ReportUiState.Preview) _reportState.value = cur.copy(body = body)
     }
 
+    /** #154b：全量日志附件开关回传（预览页 Checkbox）。 */
+    fun setAttachFullLog(enabled: Boolean) {
+        val cur = _reportState.value
+        if (cur is ReportUiState.Preview) _reportState.value = cur.copy(attachFullLog = enabled)
+    }
+
+    /**
+     * #154b：全量日志附件——提交时现导出（flush 后取 entries，与手动导出同一
+     * 脱敏管道同一数据面：诊断仓库存量全部条目）；内容与版本/时间戳绑定命名。
+     */
+    private fun buildFullLogAttachment(): GistAttachment {
+        val ts = System.currentTimeMillis()
+        return GistAttachment(
+            description = "OC Beacon " + dev.leonardo.ocbeacon.BuildConfig.FLAVOR +
+                " " + dev.leonardo.ocbeacon.BuildConfig.VERSION_NAME +
+                " diagnostics " + java.time.Instant.ofEpochMilli(ts),
+            filename = "ocbeacon-diagnostics-$ts.txt",
+            content = DiagnosticLogRepository.export(entries.value),
+        )
+    }
+
+    /** #154b：附件结果注记（与既有 Done 消息同款硬编码中文风格）。 */
+    private fun gistNote(requested: Boolean, gistUrl: String?): String = when {
+        gistUrl != null -> "\n全量日志附件：$gistUrl"
+        requested -> "\n⚠ 全量日志附件上传失败（已降级为无附件上报）"
+        else -> ""
+    }
+
     fun submitReport() {
         val cur = _reportState.value
         if (cur !is ReportUiState.Preview) return
@@ -186,10 +216,13 @@ class DiagnosticsViewModel @Inject constructor(
                 issueTitle = cur.title,
                 issueBody = cur.body,
                 commentBody = cur.body,
+                attachment = if (cur.attachFullLog) buildFullLogAttachment() else null,
             ).onSuccess { outcome ->
                 _reportState.value = ReportUiState.Done(when (outcome) {
-                    is ErrorReportService.Outcome.IssueCreated -> "已创建 issue #" + outcome.number + "\n" + outcome.url
-                    is ErrorReportService.Outcome.Commented -> "已追加到 issue #" + outcome.number
+                    is ErrorReportService.Outcome.IssueCreated ->
+                        "已创建 issue #" + outcome.number + "\n" + outcome.url + gistNote(cur.attachFullLog, outcome.gistUrl)
+                    is ErrorReportService.Outcome.Commented ->
+                        "已追加到 issue #" + outcome.number + gistNote(cur.attachFullLog, outcome.gistUrl)
                     ErrorReportService.Outcome.SuppressedDuplicate -> "24 小时内已上报过同一错误，本次静默跳过"
                 })
             }.onFailure { e ->

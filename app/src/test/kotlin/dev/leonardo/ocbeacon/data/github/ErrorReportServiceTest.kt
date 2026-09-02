@@ -124,6 +124,88 @@ class ErrorReportServiceTest {
         assertTrue(out is ErrorReportService.Outcome.IssueCreated)
     }
 
+    // ---- #154b 全量日志 gist 附件 ----
+
+    private fun attachment(content: String = "FULL-LOG") = GistAttachment(
+        description = "OC Beacon dev 1.0 diagnostics", filename = "ocbeacon-diagnostics-1.txt", content = content,
+    )
+
+    @Test
+    fun `attachment success appends gist link to issue body and outcome`() = runTest {
+        coEvery { apiClient.searchIssueByFingerprint(any(), any()) } returns Result.success(null)
+        coEvery { apiClient.createSecretGist(any(), any(), any(), any()) } returns
+            Result.success("https://gist.github.com/xyz")
+        coEvery { apiClient.createIssue(any(), any(), any(), any()) } returns Result.success(9)
+        val out = service.report("fp:err:X:n", "t", "body", "c", attachment()).getOrThrow() as ErrorReportService.Outcome.IssueCreated
+        assertEquals("https://gist.github.com/xyz", out.gistUrl)
+        io.mockk.coVerify {
+            apiClient.createIssue(any(), any(), match { it.contains("https://gist.github.com/xyz") }, any())
+        }
+    }
+
+    @Test
+    fun `attachment failure never blocks report - degrades to no attachment`() = runTest {
+        coEvery { apiClient.searchIssueByFingerprint(any(), any()) } returns Result.success(null)
+        coEvery { apiClient.createSecretGist(any(), any(), any(), any()) } returns
+            Result.failure(GitHubApiError.RateLimited(null))
+        coEvery { apiClient.createIssue(any(), any(), any(), any()) } returns Result.success(10)
+        val out = service.report("fp:err:X:n", "t", "body", "c", attachment()).getOrThrow() as ErrorReportService.Outcome.IssueCreated
+        assertEquals(10, out.number)
+        assertEquals(null, out.gistUrl)
+        io.mockk.coVerify { apiClient.createIssue(any(), any(), match { !it.contains("gist.github.com") }, any()) }
+    }
+
+    @Test
+    fun `suppressed duplicate within 24h creates no orphan gist`() = runTest {
+        coEvery { apiClient.searchIssueByFingerprint(any(), any()) } returns
+            Result.success(GitHubIssueHit(7, "t", "b"))
+        coEvery { apiClient.addComment(any(), any(), any()) } returns Result.success(Unit)
+        coEvery { apiClient.createSecretGist(any(), any(), any(), any()) } returns
+            Result.success("https://gist.github.com/never")
+        service.report("fp:err:X:same", "t", "b", "c", attachment()).getOrThrow()
+        val second = service.report("fp:err:X:same", "t", "b", "c", attachment()).getOrThrow()
+        assertTrue(second is ErrorReportService.Outcome.SuppressedDuplicate)
+        // 防抖掉的重复上报不得留下孤儿 gist（附件在防抖判定之后才创建）
+        io.mockk.coVerify(exactly = 1) { apiClient.createSecretGist(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `comment path also carries gist link`() = runTest {
+        coEvery { apiClient.searchIssueByFingerprint(any(), any()) } returns
+            Result.success(GitHubIssueHit(7, "t", "b"))
+        coEvery { apiClient.createSecretGist(any(), any(), any(), any()) } returns
+            Result.success("https://gist.github.com/cmt")
+        coEvery { apiClient.addComment(any(), any(), any()) } returns Result.success(Unit)
+        val out = service.report("fp:err:X:c", "t", "b", "c", attachment()).getOrThrow() as ErrorReportService.Outcome.Commented
+        assertEquals("https://gist.github.com/cmt", out.gistUrl)
+        io.mockk.coVerify { apiClient.addComment(any(), any(), match { it.contains("https://gist.github.com/cmt") }) }
+    }
+
+    @Test
+    fun `no attachment requested - no gist call`() = runTest {
+        coEvery { apiClient.searchIssueByFingerprint(any(), any()) } returns Result.success(null)
+        coEvery { apiClient.createIssue(any(), any(), any(), any()) } returns Result.success(11)
+        val out = service.report("fp:err:X:no", "t", "b", "c").getOrThrow() as ErrorReportService.Outcome.IssueCreated
+        assertEquals(null, out.gistUrl)
+        io.mockk.coVerify(exactly = 0) { apiClient.createSecretGist(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `oversized gist content is tail-truncated within budget`() {
+        val huge = (1..80_000).joinToString("\n") { "line-$it" } // 远超 300K 字符预算
+        val truncated = service.truncateGistContent(huge)
+        assertTrue(truncated.length <= ErrorReportService.MAX_GIST_CONTENT_CHARS + 200) // 标注行余量
+        assertTrue(truncated.contains("（前部已截断"))
+        // 保尾不保头：最新日志（尾部）必须在
+        assertTrue(truncated.contains("line-80000"))
+        assertTrue(!truncated.contains("line-1\n"))
+    }
+
+    @Test
+    fun `small gist content passes through unchanged`() {
+        assertEquals("LOG", service.truncateGistContent("LOG"))
+    }
+
     // ---- 正文构建 ----
 
     @Test

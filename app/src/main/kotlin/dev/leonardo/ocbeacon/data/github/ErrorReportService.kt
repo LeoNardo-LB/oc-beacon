@@ -31,6 +31,16 @@ data class ReportEnvironment(
 )
 
 /**
+ * #154b 全量日志附件：提交时上传为 secret gist，链接附于正文。
+ * 内容走既有脱敏导出管道（DiagnosticLogRepository.export），此处不重复脱敏。
+ */
+data class GistAttachment(
+    val description: String,
+    val filename: String,
+    val content: String,
+)
+
+/**
  * 错误上报服务（#151）：指纹计算（纯函数，双轨）+ 查重编排 + 正文构建 + 24h 防刷。
  */
 @Singleton
@@ -93,8 +103,9 @@ class ErrorReportService @Inject constructor(
     // ---- 查重编排（spec §查重） ----
 
     sealed class Outcome {
-        data class IssueCreated(val number: Int, val url: String) : Outcome()
-        data class Commented(val number: Int) : Outcome()
+        /** gistUrl：附件上传成功的外链；null = 未请求附件或附件失败已降级。 */
+        data class IssueCreated(val number: Int, val url: String, val gistUrl: String? = null) : Outcome()
+        data class Commented(val number: Int, val gistUrl: String? = null) : Outcome()
         /** 24h 窗口内重复出现——静默跳过（防刷屏）。 */
         object SuppressedDuplicate : Outcome()
     }
@@ -102,12 +113,16 @@ class ErrorReportService @Inject constructor(
     /**
      * 上报编排：查重命中→评论（24h 防刷）；未命中/search 失败降级→新建 issue。
      * token 401 由调用方引导重新授权（GitHubApiError.Unauthorized 上抛）。
+     * #154b：attachment 非空时上传 secret gist 并把链接附于正文——**在 24h 防刷
+     * 判定之后**才创建（被防抖掉的重复上报不得留下孤儿 gist）；任何附件失败一律
+     * 降级为无附件继续上报，附件永不阻塞正文（spec §失败处理精神延伸）。
      */
     suspend fun report(
         fingerprint: String,
         issueTitle: String,
         issueBody: String,
         commentBody: String,
+        attachment: GistAttachment? = null,
     ): Result<Outcome> = runCatching {
         val token = tokenStore.loadToken() ?: throw GitHubApiError.Unauthorized()
         val installId = tokenStore.installId()
@@ -121,14 +136,53 @@ class ErrorReportService @Inject constructor(
                 AppLogger.d(TAG, "suppressed duplicate within 24h: fp=" + fingerprint.take(48))
                 return@runCatching Outcome.SuppressedDuplicate
             }
-            apiClient.addComment(token, hit.number, commentBody).getOrThrow()
+            val gistUrl = uploadAttachment(token, attachment)
+            apiClient.addComment(token, hit.number, appendGistSection(commentBody, gistUrl)).getOrThrow()
             lastCommentAt[dedupeKey] = now
-            Outcome.Commented(hit.number)
+            Outcome.Commented(hit.number, gistUrl)
         } else {
-            val num = apiClient.createIssue(token, "[user-report] " + issueTitle, issueBody, listOf("needs-triage")).getOrThrow()
+            val gistUrl = uploadAttachment(token, attachment)
+            val num = apiClient.createIssue(
+                token,
+                "[user-report] " + issueTitle,
+                appendGistSection(issueBody, gistUrl),
+                listOf("needs-triage"),
+            ).getOrThrow()
             lastCommentAt[dedupeKey] = now
-            Outcome.IssueCreated(num, "https://github.com/" + GITHUB_TARGET_REPO + "/issues/" + num)
+            Outcome.IssueCreated(num, "https://github.com/" + GITHUB_TARGET_REPO + "/issues/" + num, gistUrl)
         }
+    }
+
+    /**
+     * 附件上传：失败（含 403 权限不足 / 限流 / 网络）一律返回 null 降级。
+     * 401 不在此特殊处理——若 token 真失效，后续 issue/comment 步骤会以
+     * Unauthorized 上抛并引导重新授权；仅 gist 401 的混合态按降级处理。
+     */
+    private suspend fun uploadAttachment(token: String, attachment: GistAttachment?): String? {
+        if (attachment == null) return null
+        return apiClient.createSecretGist(
+            token,
+            attachment.description,
+            attachment.filename,
+            truncateGistContent(attachment.content),
+        ).onFailure { e ->
+            AppLogger.w(TAG, "gist attachment failed — degrading to no attachment", e)
+        }.getOrNull()
+    }
+
+    /** 正文附件段：secret gist 外链；无附件（失败/未勾选）时原样返回正文。 */
+    fun appendGistSection(body: String, gistUrl: String?): String =
+        if (gistUrl == null) body
+        else body + "\n\n## 全量日志附件（secret gist）\n\n" + gistUrl + "\n"
+
+    /**
+     * gist 单文件上限 ~1MB（留余量 [MAX_GIST_CONTENT_CHARS]）——超出保尾截断：
+     * 最新日志诊断价值最高，截头部并在首行标注。
+     */
+    internal fun truncateGistContent(content: String): String {
+        if (content.length <= MAX_GIST_CONTENT_CHARS) return content
+        return "…（前部已截断，保留最近 " + MAX_GIST_CONTENT_CHARS + " 字符）…\n" +
+            content.takeLast(MAX_GIST_CONTENT_CHARS)
     }
 
     // ---- 正文构建（spec §报告内容格式） ----
@@ -176,5 +230,12 @@ class ErrorReportService @Inject constructor(
         private const val MAX_MSG_LEN = 84
         private const val MSG_HEAD_LEN = 56
         private const val MSG_TAIL_LEN = 24
+
+        /**
+         * #154b：gist 单文件字符预算——上限 ~1MB 是**字节**，CJK 按 UTF-8 最坏
+         * 3 字节/字符折算（300K × 3 = 900KB 留余量）；真实日志（脱敏后每字段
+         * ≤1000 字符）通常远小于此。
+         */
+        internal const val MAX_GIST_CONTENT_CHARS = 300_000
     }
 }
