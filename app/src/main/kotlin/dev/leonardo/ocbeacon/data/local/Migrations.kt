@@ -69,4 +69,22 @@ object Migrations {
             )
         }
     }
+
+    /** v6 → v7（#306，2026-09-03）：会话列表缓存表——断连/冷启动兜底展示。 */
+    val MIGRATION_6_7 = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `cached_sessions` (" +
+                    "`id` TEXT NOT NULL, " +
+                    "`serverId` TEXT NOT NULL, " +
+                    "`updatedAt` INTEGER NOT NULL, " +
+                    "`payload` TEXT NOT NULL, " +
+                    "PRIMARY KEY(`id`))",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_cached_sessions_serverId_updatedAt` " +
+                    "ON `cached_sessions` (`serverId`, `updatedAt`)",
+            )
+        }
+    }
 }
