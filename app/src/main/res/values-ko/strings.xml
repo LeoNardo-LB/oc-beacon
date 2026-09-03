@@ -756,6 +756,9 @@
     <string name="permission_custom">사용자 지정</string>
     <string name="permission_custom_hint">사용자 지정 권한 프리셋</string>
     <string name="permission_switch_failed">권한 모드를 전환하지 못했습니다</string>
+    <string name="permission_full_access_confirm_title">전체 액세스로 전환할까요?</string>
+    <string name="permission_full_access_confirm_message">전체 액세스를 사용하면 에이전트가 샌드박스 제한 없이 명령을 실행하고 파일을 수정할 수 있습니다. 신뢰할 수 있는 작업에만 활성화하세요.</string>
+    <string name="permission_full_access_confirm_button">전체 액세스로 전환</string>
     <string name="a11y_icon_permission_preset">권한 프리셋</string>
     <string name="server_settings_default_permission">새 세션 기본 권한</string>
     <string name="agent_preset_locked">이 세션의 에이전트 프리셋이 잠겨 있습니다</string>

@@ -756,6 +756,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="permission_custom">Özel</string>
     <string name="permission_custom_hint">Özel izin modu</string>
     <string name="permission_switch_failed">İzin modu değiştirilemedi</string>
+    <string name="permission_full_access_confirm_title">Tam erişime geçilsin mi?</string>
+    <string name="permission_full_access_confirm_message">Tam erişimde aracı, sandbox kısıtlaması olmadan komut çalıştırır ve dosyaları düzenler. Yalnızca güvenilen görevler için etkinleştirin.</string>
+    <string name="permission_full_access_confirm_button">Tam erişime geç</string>
     <string name="a11y_icon_permission_preset">İzin modu</string>
     <string name="server_settings_default_permission">Yeni oturumlar için varsayılan izin</string>
     <string name="agent_preset_locked">Ajan ön ayarı bu oturum için kilitli</string>

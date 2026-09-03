@@ -764,6 +764,9 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="permission_custom">Niestandardowy</string>
     <string name="permission_custom_hint">Niestandardowy tryb uprawnień</string>
     <string name="permission_switch_failed">Nie udało się zmienić trybu uprawnień</string>
+    <string name="permission_full_access_confirm_title">Przełączyć na pełny dostęp?</string>
+    <string name="permission_full_access_confirm_message">Przy pełnym dostępie agent uruchamia polecenia i edytuje pliki bez ograniczeń piaskownicy. Włączaj tylko dla zaufanych zadań.</string>
+    <string name="permission_full_access_confirm_button">Przełącz na pełny dostęp</string>
     <string name="a11y_icon_permission_preset">Tryb uprawnień</string>
     <string name="server_settings_default_permission">Domyślne uprawnienia nowych sesji</string>
     <string name="agent_preset_locked">Preset agenta jest zablokowany dla tej sesji</string>

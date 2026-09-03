@@ -756,6 +756,9 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="permission_custom">Personalizado</string>
     <string name="permission_custom_hint">Modo de permiso personalizado</string>
     <string name="permission_switch_failed">No se pudo cambiar el modo de permiso</string>
+    <string name="permission_full_access_confirm_title">¿Cambiar a acceso total?</string>
+    <string name="permission_full_access_confirm_message">Con acceso total, el agente ejecuta comandos y edita archivos sin restricciones de sandbox. Actívalo solo para tareas de confianza.</string>
+    <string name="permission_full_access_confirm_button">Cambiar a acceso total</string>
     <string name="a11y_icon_permission_preset">Modo de permiso</string>
     <string name="server_settings_default_permission">Permiso predeterminado de nuevas sesiones</string>
     <string name="agent_preset_locked">El preset de agente está bloqueado para esta sesión</string>

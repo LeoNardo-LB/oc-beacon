@@ -756,6 +756,9 @@
     <string name="permission_custom">カスタム</string>
     <string name="permission_custom_hint">カスタム権限プリセット</string>
     <string name="permission_switch_failed">権限モードの切り替えに失敗しました</string>
+    <string name="permission_full_access_confirm_title">フルアクセスに切り替えますか？</string>
+    <string name="permission_full_access_confirm_message">フルアクセスでは、エージェントがサンドボックス制限なしでコマンド実行やファイル編集を行えます。信頼できるタスクにのみ有効化してください。</string>
+    <string name="permission_full_access_confirm_button">フルアクセスに切り替える</string>
     <string name="a11y_icon_permission_preset">権限プリセット</string>
     <string name="server_settings_default_permission">新規セッションのデフォルト権限</string>
     <string name="agent_preset_locked">このセッションのエージェントプリセットはロックされています</string>

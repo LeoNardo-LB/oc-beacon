@@ -772,6 +772,9 @@
     <string name="permission_custom">مخصص</string>
     <string name="permission_custom_hint">إعداد إذن مخصص</string>
     <string name="permission_switch_failed">فشل تبديل إعداد الإذن</string>
+    <string name="permission_full_access_confirm_title">التبديل إلى الوصول الكامل؟</string>
+    <string name="permission_full_access_confirm_message">يتيح الوصول الكامل للوكيل تشغيل الأوامر وتعديل الملفات دون قيود رملية. فعّله فقط للمهام الموثوقة.</string>
+    <string name="permission_full_access_confirm_button">التبديل إلى الوصول الكامل</string>
     <string name="a11y_icon_permission_preset">إعداد الإذن</string>
     <string name="server_settings_default_permission">الصلاحية الافتراضية للجلسات الجديدة</string>
     <string name="agent_preset_locked">تم قفل إعداد الوكيل لهذه الجلسة</string>

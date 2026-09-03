@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import dev.leonardo.ocbeacon.ui.components.ConfirmDialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboard
@@ -117,6 +118,32 @@ internal fun ChatScreenBottomBar(
     val messageRedoFailedMsg = stringResource(R.string.chat_message_redo_failed)
     val permissionCustomMsg = stringResource(R.string.permission_custom_hint)
     val permissionSwitchFailedMsg = stringResource(R.string.permission_switch_failed)
+    // #309 批1③：Full access 二次确认（Web 对位——danger-full-access 档点选后弹确认）
+    val fullAccessTitle = stringResource(R.string.permission_full_access_confirm_title)
+    val fullAccessMsg = stringResource(R.string.permission_full_access_confirm_message)
+    val fullAccessConfirmLabel = stringResource(R.string.permission_full_access_confirm_button)
+    var confirmFullAccess by remember { mutableStateOf(false) }
+    val executePermissionSwitch: (String) -> Unit = { preset ->
+        viewModel.setPermissionPreset(preset) { ok ->
+            if (!ok) {
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(permissionSwitchFailedMsg)
+                }
+            }
+        }
+    }
+    if (confirmFullAccess) {
+        ConfirmDialog(
+            title = fullAccessTitle,
+            message = fullAccessMsg,
+            confirmLabel = fullAccessConfirmLabel,
+            onDismiss = { confirmFullAccess = false },
+            onConfirm = {
+                confirmFullAccess = false
+                executePermissionSwitch("danger-full-access")
+            },
+        )
+    }
 
     if (sessionMeta.sessionParentId == null && !isTerminalMode && interaction.error == null) {
         val modelLabel = if (modelConfig.selectedModelId != null && modelConfig.providers.isNotEmpty()) {
@@ -464,12 +491,11 @@ internal fun ChatScreenBottomBar(
                 permissionSwitchSupported = permissionSwitchSupported,
                 permissions = sessionMeta.sessionPermissions,
                 onPermissionSelect = { preset ->
-                    viewModel.setPermissionPreset(preset) { ok ->
-                        if (!ok) {
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar(permissionSwitchFailedMsg)
-                            }
-                        }
+                    // #309 批1③：danger-full-access 先确认再切换（其余档直切）
+                    if (preset == "danger-full-access") {
+                        confirmFullAccess = true
+                    } else {
+                        executePermissionSwitch(preset)
                     }
                 },
                 onPermissionCustomClick = {

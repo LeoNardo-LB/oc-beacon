@@ -759,6 +759,9 @@
     <string name="permission_custom">自定义</string>
     <string name="permission_custom_hint">自定义权限预设</string>
     <string name="permission_switch_failed">切换权限预设失败</string>
+    <string name="permission_full_access_confirm_title">切换到完全访问？</string>
+    <string name="permission_full_access_confirm_message">完全访问将允许智能体在不受沙箱限制的情况下运行命令和修改文件。仅对可信任务开启。</string>
+    <string name="permission_full_access_confirm_button">切换到完全访问</string>
     <string name="a11y_icon_permission_preset">权限预设</string>
     <string name="server_settings_default_permission">新会话默认权限</string>
     <string name="agent_preset_locked">预设已锁定，无法切换</string>

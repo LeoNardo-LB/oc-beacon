@@ -765,6 +765,9 @@
     <string name="permission_custom">Пользовательский</string>
     <string name="permission_custom_hint">Пользовательский режим разрешений</string>
     <string name="permission_switch_failed">Не удалось переключить режим разрешений</string>
+    <string name="permission_full_access_confirm_title">Перейти в полный доступ?</string>
+    <string name="permission_full_access_confirm_message">При полном доступе агент выполняет команды и изменяет файлы без ограничений песочницы. Включайте только для доверенных задач.</string>
+    <string name="permission_full_access_confirm_button">Перейти в полный доступ</string>
     <string name="a11y_icon_permission_preset">Режим разрешений</string>
     <string name="server_settings_default_permission">Разрешение по умолчанию для новых сессий</string>
     <string name="agent_preset_locked">Пресет агента заблокирован для этой сессии</string>

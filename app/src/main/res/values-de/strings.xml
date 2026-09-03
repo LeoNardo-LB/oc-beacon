@@ -756,6 +756,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="permission_custom">Benutzerdefiniert</string>
     <string name="permission_custom_hint">Benutzerdefinierte Berechtigungsvorgabe</string>
     <string name="permission_switch_failed">Wechsel des Berechtigungsmodus fehlgeschlagen</string>
+    <string name="permission_full_access_confirm_title">Zu Vollzugriff wechseln?</string>
+    <string name="permission_full_access_confirm_message">Mit Vollzugriff führt der Agent Befehle aus und bearbeitet Dateien ohne Sandbox-Einschränkungen. Nur für vertrauenswürdige Aufgaben aktivieren.</string>
+    <string name="permission_full_access_confirm_button">Zu Vollzugriff wechseln</string>
     <string name="a11y_icon_permission_preset">Berechtigungsmodus</string>
     <string name="server_settings_default_permission">Standardberechtigung für neue Sitzungen</string>
     <string name="agent_preset_locked">Agent-Preset ist für diese Sitzung gesperrt</string>

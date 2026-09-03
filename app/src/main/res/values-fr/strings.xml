@@ -754,6 +754,9 @@
     <string name="permission_custom">Personnalisé</string>
     <string name="permission_custom_hint">Mode d\'autorisation personnalisé</string>
     <string name="permission_switch_failed">Échec du changement de mode d\'autorisation</string>
+    <string name="permission_full_access_confirm_title">Passer en accès complet ?</string>
+    <string name="permission_full_access_confirm_message">En accès complet, l'agent exécute des commandes et modifie des fichiers sans restrictions de sandbox. À activer uniquement pour des tâches de confiance.</string>
+    <string name="permission_full_access_confirm_button">Passer en accès complet</string>
     <string name="a11y_icon_permission_preset">Mode d\'autorisation</string>
     <string name="server_settings_default_permission">Autorisation par défaut des nouvelles sessions</string>
     <string name="agent_preset_locked">Le preset agent est verrouillé pour cette session</string>
