@@ -539,7 +539,11 @@ class SseConnectionManager @Inject constructor(
             }
             if (projects.isEmpty()) {
                 // 降级：加载不带 directory 头的会话（仅服务器 CWD）
-                val sessions = sessionApi.listSessions(conn)
+                // #304：NonCancellable+超时（对齐 #278 播种保护）——重连风暴下
+                // finally cancelAndJoin 掐向在途 listSessions，基线丢失=列表短暂空白。
+                val sessions = withContext(NonCancellable) {
+                    withTimeout(PRELOAD_SEED_TIMEOUT_MS) { sessionApi.listSessions(conn) }
+                }
                 eventDispatcher.setSessions(server.id, sessions)
                 AppLogger.i(TAG, "[${server.displayName}] Pre-loaded ${sessions.size} sessions (no projects)")
             } else {
@@ -547,6 +551,10 @@ class SseConnectionManager @Inject constructor(
                 // ——多项目用户首连时 N 次串行 /session 往返改并发。setSessions 为 CAS 合并语义
                 // 并发调用安全；单项目失败不拖垮其余（保留原逐项目 catch）。
                 val totalSessions = java.util.concurrent.atomic.AtomicInteger(0)
+                // #304：正文并发拉取整体纳入 NonCancellable+超时（同上——风暴免疫，
+                // 30s 上限防失联悬挂；单项目失败不拖垮其余的既有语义不变）。
+                withContext(NonCancellable) {
+                withTimeout(PRELOAD_SEED_TIMEOUT_MS) {
                 kotlinx.coroutines.coroutineScope {
                     val permits = Semaphore(PRELOAD_PROJECT_CONCURRENCY)
                     for (project in projects) {
@@ -566,6 +574,8 @@ class SseConnectionManager @Inject constructor(
                             }
                         }
                     }
+                }
+                }
                 }
                 AppLogger.i(TAG, "[${server.displayName}] Pre-loaded ${totalSessions.get()} sessions across ${projects.size} projects")
             }

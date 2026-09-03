@@ -221,6 +221,72 @@ class SseConnectionManagerTest {
         manager.stopAllConnections()
     }
 
+    // ============ #304：重连风暴不得掐死 session.list 基线 ============
+
+    /**
+     * 场景：SSE attempt 立即失败（重连风暴形态）→ 主循环 finally
+     * cancelAndJoin(preloadJob) 掐向**正在拉取中**的 session.list——
+     * 正文预载（listSessions+setSessions）必须像 #278 播种一样 NonCancellable
+     * （否则连接成功后列表基线丢失=短暂空白，直到下一轮重跑自愈）。
+     */
+    @Test
+    fun `reconnect storm does not kill in-flight session list baseline`() {
+        val fileApi = mockk<FileApi>()
+        val sessionApi = mockk<SessionApi>()
+        val sseClientV2 = mockk<SseClientV2>(relaxUnitFun = true)
+        val dispatcher = mockk<EventDispatcher>(relaxed = true)
+        val settingsRepository = mockk<SettingsRepository>()
+
+        // 1 个 project → 多项目分支；listSessions 挂 250ms 模拟在途网络
+        coEvery { fileApi.listProjects(any()) } returns listOf(
+            dev.leonardo.ocbeacon.domain.model.Project(id = "p1", worktree = "/w")
+        )
+        coEvery { sessionApi.listSessions(any(), any(), any(), any(), any()) } coAnswers {
+            delay(250)
+            listOf(
+                dev.leonardo.ocbeacon.domain.model.Session(
+                    id = "ses_baseline",
+                    time = dev.leonardo.ocbeacon.domain.model.Session.Time(1L, 2L),
+                )
+            )
+        }
+        // V2 SSE 立即失败——风暴形态（触发 finally cancelAndJoin）
+        every { sseClientV2.connectToEvents(any(), any(), any()) } returns
+            kotlinx.coroutines.flow.flow<dev.leonardo.ocbeacon.domain.model.SseEvent> {
+                throw RuntimeException("storm")
+            }
+        every { settingsRepository.reconnectMode() } returns flowOf("normal")
+
+        val manager = SseConnectionManager(
+            sessionApi = sessionApi,
+            messageApi = mockk(relaxed = true),
+            fileApi = fileApi,
+            sseClient = mockk(relaxed = true),
+            sseClientV2 = sseClientV2,
+            eventDispatcher = dispatcher,
+            settingsRepository = settingsRepository,
+            networkMonitor = mockk(relaxed = true),
+            sessionStateRepository = mockk(relaxed = true),
+            dshConnectionOrchestrator = mockk(relaxed = true),
+            dshFrameSourceFactory = mockk(relaxed = true),
+            dshRpcClient = mockk(relaxed = true),
+            transportFailureTap = dev.leonardo.ocbeacon.data.api.TransportFailureTap(),
+        )
+
+        val server = ServerConfig(
+            id = "server-storm", url = "http://127.0.0.1:4199", name = "Storm",
+            apiVersion = dev.leonardo.ocbeacon.domain.model.ApiVersion.V2,
+        )
+        manager.startConnection(server) { _, _ -> }
+
+        // SSE 立即失败 → cancelAndJoin 掐向 delay 中的 listSessions——
+        // 修复前：被掐（红）；修复后：NonCancellable 跑完并 setSessions（绿）
+        io.mockk.verify(timeout = 5_000) {
+            dispatcher.setSessions(match { it == "server-storm" }, any())
+        }
+        manager.stopAllConnections()
+    }
+
     private fun testServer() = ServerConfig(
         id = "server-1",
         url = "http://127.0.0.1:4199",
