@@ -49,22 +49,25 @@
 
 ## P0 — 主流程阻塞
 
-- [~] **#305 6h dataSync FGS 断链根治——specialUse 迁移 + onTimeout stopSelf 缺失修复** `service` `sessions`
+- [~] **#305 FGS 断链根治（双路径）——specialUse 迁移 + onTimeout 修复 + SSE 响应头等待死区** `service` `sessions` `sse`
   - **注入实证改写根因形态**（debug 注入广播模拟系统 onTimeout）：原实现 stopSelf 缺失（误读「super 默认 stopSelf」——AOSP 为空实现）+ HomeViewModel binding 长持导致裸 stopSelf 也不退前台——真实 6h 场景 = 系统抛 ForegroundServiceDidNotStopInTimeException **强杀进程**（断链+列表空+须手动的真实形态）；原「后台重启被拦」疑点实证澄清（binding 存活下不拦）
-  - 修复两层：① specialUse 迁移（根因层——API≥34 无 6h 时限，manifest 双类型声明+运行时选择，官方文档双源确认时限仅 dataSync/mediaProcessing）；② onTimeout 显式 stopForeground+复位 foregroundStarted+stopSelf（防御层——迁移后系统路径永不触发，兜 OEM/未来政策）。验证：dumpsys types=0x40000000、前台/后台双场景注入链路完整（pid 连续/SSE 保持/FGS 恢复）、全量单测绿；剩 V6 用户验收
+  - 修复两层：① specialUse 迁移（根因层——API≥34 无 6h 时限，manifest 双类型声明+运行时选择，官方文档双源确认时限仅 dataSync/mediaProcessing）；② onTimeout 显式 stopForeground+复位 foregroundStarted+stopSelf（防御层——迁移后系统路径永不触发，兜 OEM/未来政策）。验证：dumpsys types=0x40000000、前台/后台双场景注入链路完整（pid 连续/SSE 保持/FGS 恢复）、全量单测绿
+  - **补篇（91af62b7）：网络切换路径根因**——用户证词「不满 6h 网络改变即触发」；黑洞隧道 E2E 红（SSE attempt 挂死 9min 零重试、恢复 8min 不连、条幅永挂=须手动）定罪 V1/V2 `socketTimeout=MAX_VALUE` 响应头等待死区（#108 只护流内）+ 重连单飞门被永久占用；修复 socketTimeout=45s（>心跳 40s 不改流行为）+回归测试×3；E2E 绿：黑洞 45s 周期重试、恢复 35s 自动 Connected、条幅自消；**用户预授权条件已满足，完结迁移待 soak（09:49-17:49 跨界）收尾一并执行**
   - → `docs/journal/2026-09-03-305-fgs-special-use.md`
 
 ## P1 — 核心功能需求
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#303 V2 REST 创建会话后列表不实时刷新——session.created SSE 未实时进列** `sse` `sessions`
-  - 2026-09-03 issue #6 验证顺带实证（V2 4199）：curl POST /api/session 建会话后 app 列表无实时新增（dump 0 命中），下拉刷新（REST 重拉）后出现；与 #6 报告方向相反（SSE 实时性差而非 REST 差），非 #6 症状
-  - 待取证：session.created 事件是否到达（V2 事件格式/handler 路由），或列表 Flow 过滤未覆盖新 directory
+- [~] **#303 V2 REST 创建会话后列表不实时刷新——session.created SSE 未实时进列** `sse` `sessions`
+  - 根因定罪（100003f2）：同一后端双配置（reverse 隧道+LAN 直连）下 **ownership 单飞门**（StreamingOwnershipRegistry claim 先到先得）被直连永赢 → 展示服务器的 Created/Updated/Deleted 被当「重复」吞 → 列表不实时；REST 刷新不经此路径故能恢复
+  - 修复：三类生命周期事件**豁免拦截**（幂等，双配置各自呈现）+ **claim 总执行**（占位语义保留，流式事件去重不变）；单测 +2、legacy 测试改造、全量绿；真机 E2E 绿（建会话→滚顶→新会话实时登顶；视口冻结假象坑入档：dump 前必滚顶）
+  - → `docs/journal/2026-09-03-sse-net-303-304.md`
 
-- [ ] **#304 SSE 重连风暴可掐死 session.list 基线预载——preLoadSessions 未纳入 NonCancellable** `sse` `sessions`
-  - #278（b10513c9）只保护了 syncFromRest 状态播种；preLoadSessions 的 session.list 拉取仍在 preloadJob 可取消范围（SseConnectionManager.kt:426-433 finally cancelAndJoin）——服务器暂不可达→重连风暴场景下连接后列表可短暂为空，SSE 稳定后下轮重跑自愈；issue #6（pplante）环境疑与此路径相关，HEAD 实测 V1/V2 正常路径不复现
-  - → `docs/journal/2026-09-01-291281-stash-v6.md`（#278 上下文）
+- [~] **#304 SSE 重连风暴可掐死 session.list 基线预载——preLoadSessions 未纳入 NonCancellable** `sse` `sessions`
+  - 根因确认：#278 只保护播种；正文（listSessions+setSessions）在 preloadJob 可取消范围——风暴 cancelAndJoin 掐在途拉取 → 基线丢失列表短暂空白
+  - 修复（6d2a514a）：两分支各纳入 NonCancellable+30s 上限（对齐 #278 模式）；单测红→绿（风暴掐 delay 250ms 在途拉取）、全量绿、真机回归 Pre-loaded 500×2 正常——**待用户验收**
+  - → `docs/journal/2026-09-03-sse-net-303-304.md` · `docs/journal/2026-09-01-291281-stash-v6.md`（#278 上下文）
 
 - [ ] **#299 DSH 会话进场分页加载 ~1 页/s——进场链路串行页管线提速** `dsh` `perf`
   - 现象（2026-09-02 Stage B 顺带观察）：58 msgs 会话进场 session.history 逐页拉取 ~1 页/s × ~10 页，三点加载约 10s
@@ -74,6 +77,7 @@
   - 残余观察：进场 ~17s 首渲染的其余成分已基本消除（对照见 §二B 表）；beforeSeq 游标链天然串行，并发窗口风险高二阶（不做）
   - **2026-09-03 测试方案回答+实测（journal 154b-gist §三）**：412 条（当前服务器最大会话）冷启 3.7s 管线收口、fts 3-4ms、进场后翻旧零请求零数据层活动——「~10s 三点体感」未现；测试三层法入档；旧 15.6 万条巨型会话属已下线服务器（.95 不可达）仅存手机本地归档残档，不可作测试载体；用户侧日常观察维持
   - → `docs/journal/2026-09-02-258-stage-b-history-chunking.md` §四观察备注 · `docs/journal/2026-09-03-154b-gist-299-245.md` §三
+  - **2026-09-03 技能评估（journal sse-net §评估）**：diagnosing-bugs Phase 1 无可建红回路——症状需 >1000 条会话载体而当前服务器最大 412 条（3.7s 收口）；「修」无可修对象，维持用户侧观察（遇体感卡顿回卡取证）
 
 ## P3 — 观察与低价值改进
 
@@ -85,6 +89,7 @@
   - 2026-09-02 复核：无新自动化通道可推进（守卫内打点的前提是先有现场样本）——**唯一激活路径=用户真人复现**（下次遇到「拖不动」时：记录是否贴底/录屏 10s/注明会话与消息位置）；在此之前此卡为等待现场的用户侧观察项
   - **2026-09-03 第五轮真机帧差分（journal 154b-gist §二）**：中段×两方向×冷窗口五格全「前爆发+尾零」且**两方向对称**=注入手势平台批处理伪影——`input swipe` 结构性无法模拟真手指连续位移流，注入慢拖不是检测此类 bug 的有效仪器；零次中段全死帧，卡维持用户侧观察项
   - → `docs/journal/2026-08-27-event-card-unification.md` §手势阶梯 · §八轮/#245 · `docs/research/2026-08-27-backlog-recheck-158-238-243-245.md`
+  - **2026-09-03 技能评估（journal sse-net §评估）**：Phase 1 无 agent 可跑回路——注入仪器已两轮证伪（平台批处理伪影），唯一路径=用户真人复现样本（贴底状态+录屏）；到位前不可修
 
 ## P4 — 外部前提阻塞（暂不可实现）
 
