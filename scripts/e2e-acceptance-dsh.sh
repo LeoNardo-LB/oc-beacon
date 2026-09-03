@@ -32,11 +32,16 @@ PASS=(); FAIL=(); SKIP=()
 
 adb() { command adb -s "$SERIAL" "$@"; }
 
+ensure_reverse() { # #316：adb reverse 可被 adbd 重启/USB-WiFi 切换静默拆除——入口探测重建
+  adb reverse --list 2>/dev/null | tr -d '\r' | grep -q "tcp:3080" \
+    || { adb reverse tcp:3080 tcp:3080 >/dev/null 2>&1 && echo "  [reverse] tcp:3080 已重建"; }
+}
+
 # 宿主侧全程序连续 logcat（#293 批教训：设备缓冲在洪泛期分钟级旋转，-d 快照会
 # 吃掉 Ktor/派发行）——一切日志门禁 grep 本文件，行号偏移做卡内隔离。
 LOG_HOST="$OUT/host-logcat.log"
 : > "$LOG_HOST"
-adb reverse tcp:3080 tcp:3080 >/dev/null
+ensure_reverse
 adb logcat -c
 adb logcat -v time > "$LOG_HOST" 2>&1 &
 LGPID=$!
@@ -79,6 +84,7 @@ enter_dsh() { # 冷启 + debug intent 直达 DSH 会话列表，等待回放沉�
   # 沉降两段式（#293 批教训：纯静默窗会在回放开始前假通过——8s「沉降完成」致
   # 导航撞进通知风暴/骨架屏）：①先等回放证据（persist queue full，上限 60s，
   # 温缓存可缺席）；②再等该行 24s 无新增。
+  ensure_reverse                                # #316：每卡冷启前探测重建
   local lc0; lc0=$(log_count)
   adb shell am force-stop "$PKG"; sleep 1
   adb shell pidof "$PKG" >/dev/null 2>&1 && { echo "  [warn] force-stop 未生效"; return 1; }
@@ -170,7 +176,7 @@ tap_text() { # tap_text <grep-pattern> [retries] [settle-s] [ymin] [ymax] ——
     local best_by=999999 bx=0 by=0 line x1 y1 x2 y2
     while IFS= read -r line; do
       [ -z "$line" ] && continue
-      IFS='[],' read -r _ x1 y1 x2 y2 _ <<< "$line"
+      IFS='[],' read -r _ x1 y1 x2 y2 _ <<< "${line//']['/','}"   # #315：先剥 ][ 空段（[x1,y1][x2,y2] 切分 token 错位根因）
       if [ "$y1" -ge "$ymin" ] && [ "$y1" -le "$ymax" ] && [ "$y1" -lt "$best_by" ]; then
         best_by=$y1; bx=$(( (x1+x2)/2 )); by=$(( (y1+y2)/2 ))
       fi
@@ -232,7 +238,7 @@ card_279() {
   sb=$(grep -ao 'text="保存[^"]*"[^>]*bounds="\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]"' "$OUT"/279-saf-dump-*.xml 2>/dev/null | head -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]')
   if [ -n "$sb" ]; then
     local x1 y1 x2 y2
-    IFS='[],' read -r _ x1 y1 x2 y2 _ <<< "$sb"
+    IFS='[],' read -r _ x1 y1 x2 y2 _ <<< "${sb//']['/','}"   # #315 同款修复
     adb shell input tap $(( (x1+x2)/2 )) $(( (y1+y2)/2 )); sleep 6
   else
     adb shell input keyevent KEYCODE_ENTER; sleep 6   # 兜底
@@ -302,6 +308,7 @@ card_285() {
   else
     echo "  [warn] 懒建未观察到位（发送通道环境受阻——回落既有会话弹层门禁）"
     adb shell am force-stop "$PKG"; sleep 1      # 回退不稳（BACK 层级漂移），冷启重进
+    ensure_reverse                               # #316
     adb shell am start -n "$ACT" --es debug_url http://127.0.0.1:3080 \
       --es debug_username opencode --es debug_name 127.0.0.1:3080 >/dev/null
     wait_logcat 'Debug channel → SessionList' 20 || true
