@@ -229,7 +229,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.components.dedupeConsecutiveSynthet
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatErrorState
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatMessageList
-import dev.leonardo.ocbeacon.ui.screens.chat.components.QueueDock
+import dev.leonardo.ocbeacon.ui.screens.chat.components.QueueSheet
 import dev.leonardo.ocbeacon.service.ServerLinkState
 import dev.leonardo.ocbeacon.ui.components.ServerLinkBanner
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatTopBar
@@ -629,6 +629,8 @@ fun ChatScreen(
     // D1③：会话运行错误持久卡（sendMessage 成功/手动 dismiss 清卡）
     val sessionErrors by viewModel.sessionErrors.collectAsStateWithLifecycle()
     val sessionTodos by viewModel.sessionTodos.collectAsStateWithLifecycle()
+    // #313：队列计数（FAB 菜单角标）——sheet 内容另在 QUEUE 分支采集（同一源）
+    val queueItemsForFab by viewModel.queueItems.collectAsStateWithLifecycle()
     val todoCapable by viewModel.todoCapable.collectAsStateWithLifecycle()
     val taskUi by viewModel.taskUiState.collectAsStateWithLifecycle()
     var toolbarSheet by remember { mutableStateOf<ChatToolbarEntry?>(null) }
@@ -776,34 +778,14 @@ fun ChatScreen(
         },
         bottomBar = {
             Column {
-                // 2026-09-01（Task 4 QueueDock）：排队收件箱条——ChatScreenBottomBar
-                // 上方；空队列不渲染；子代理会话只读（隐藏动作）；steer 仅运行中启用。
-                val queueItems by viewModel.queueItems.collectAsStateWithLifecycle()
-                val queueRunning = sessionMeta.sessionStatus is SessionStatus.Busy
-                val queueReadOnly = sessionMeta.sessionParentId != null
-                LaunchedEffect(queueRunning) {
+                // #313（2026-09-03 用户裁决）：队列面板迁入 FAB 菜单（QUEUE 入口 →
+                // QueueSheet），输入条上方 QueueDock 条退役（对 DSH Web dock 布局
+                // 照搬的废除）；状态采集与分发见 toolbarSheet when() 的 QUEUE 分支。
+                LaunchedEffect(Unit) {
                     viewModel.queueActionResult.collect { resId ->
                         snackbarHostState.showSnackbar(context.getString(resId))
                     }
                 }
-                QueueDock(
-                    items = queueItems,
-                    isRunning = queueRunning,
-                    isReadOnly = queueReadOnly,
-                    onSaveEdit = { itemId, text ->
-                        viewModel.updateQueueItem(
-                            itemId,
-                            dev.leonardo.ocbeacon.domain.model.QueueActionKind.EDIT,
-                            text,
-                        )
-                    },
-                    onRemove = { itemId ->
-                        viewModel.updateQueueItem(itemId, dev.leonardo.ocbeacon.domain.model.QueueActionKind.REMOVE, null)
-                    },
-                    onSteer = { itemId ->
-                        viewModel.updateQueueItem(itemId, dev.leonardo.ocbeacon.domain.model.QueueActionKind.STEER, null)
-                    },
-                )
                 ChatScreenBottomBar(
                 viewModel = viewModel,
                 sessionMeta = sessionMeta,
@@ -1009,6 +991,7 @@ fun ChatScreen(
                       agentRunningCount = taskUi.runningSubagentCount,
                       shellRunningCount = taskUi.runningShellCount,
                       goalPhase = goalState?.goal?.phase,
+                      queueCount = queueItemsForFab.size,
                       onOpenEntry = { toolbarSheet = it },
                       // 2026-08-29 基线对齐：菜单 08-27 稳定 API 复刻把按钮钉底（内部
                       // 底距移除）后，与 ⬇ FAB 的 padding(bottom=16dp) 失配 16dp——
@@ -1098,6 +1081,30 @@ fun ChatScreen(
                 onResume = { viewModel.resumeGoal() },
                 onComplete = { viewModel.completeGoal() },
                 onClear = { viewModel.clearGoal() },
+            )
+        }
+        // #313：排队队列面板（QUEUE 入口）——QueueSheet（FAB 体系第五面板；
+        // 行为沿 QueueDock 全量迁移：三动作/只读/编辑态；steer 仅运行中启用）
+        ChatToolbarEntry.QUEUE -> {
+            val queueItems by viewModel.queueItems.collectAsStateWithLifecycle()
+            QueueSheet(
+                items = queueItems,
+                isRunning = sessionMeta.sessionStatus is SessionStatus.Busy,
+                isReadOnly = sessionMeta.sessionParentId != null,
+                onDismiss = { toolbarSheet = null },
+                onSaveEdit = { itemId, text ->
+                    viewModel.updateQueueItem(
+                        itemId,
+                        dev.leonardo.ocbeacon.domain.model.QueueActionKind.EDIT,
+                        text,
+                    )
+                },
+                onRemove = { itemId ->
+                    viewModel.updateQueueItem(itemId, dev.leonardo.ocbeacon.domain.model.QueueActionKind.REMOVE, null)
+                },
+                onSteer = { itemId ->
+                    viewModel.updateQueueItem(itemId, dev.leonardo.ocbeacon.domain.model.QueueActionKind.STEER, null)
+                },
             )
         }
             ChatToolbarEntry.SHELL -> ShellSheet(

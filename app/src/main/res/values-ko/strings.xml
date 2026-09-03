@@ -800,6 +800,8 @@
     <string name="queue_remove">대기 메시지 제거</string>
     <string name="queue_steer">다음 턴으로 유도</string>
     <string name="queue_edit_hint">대기 메시지 편집</string>
+    <string name="queue_title">대기열</string>
+    <string name="queue_empty">대기 중인 메시지가 없습니다</string>
     <string name="queue_steer_unavailable">유도는 세션이 실행 중일 때만 가능합니다</string>
     <string name="queue_action_failed">대기열 작업 실패</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->

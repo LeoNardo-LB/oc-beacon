@@ -808,6 +808,8 @@
     <string name="queue_remove">Видалити повідомлення з черги</string>
     <string name="queue_steer">Спрямувати до наступного ходу</string>
     <string name="queue_edit_hint">Редагувати повідомлення в черзі</string>
+    <string name="queue_title">Черга</string>
+    <string name="queue_empty">Немає повідомлень у черзі</string>
     <string name="queue_steer_unavailable">Спрямування доступне лише під час роботи сесії</string>
     <string name="queue_action_failed">Помилка дії з чергою</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->

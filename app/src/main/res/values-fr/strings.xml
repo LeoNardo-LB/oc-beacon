@@ -798,6 +798,8 @@
     <string name="queue_remove">Supprimer le message en attente</string>
     <string name="queue_steer">Diriger vers le tour suivant</string>
     <string name="queue_edit_hint">Modifier le message en attente</string>
+    <string name="queue_title">File d\'attente</string>
+    <string name="queue_empty">Aucun message en attente</string>
     <string name="queue_steer_unavailable">Diriger est uniquement disponible pendant que la session tourne</string>
     <string name="queue_action_failed">Échec de l action sur la file d attente</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->

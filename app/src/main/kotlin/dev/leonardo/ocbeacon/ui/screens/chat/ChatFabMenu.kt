@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -68,7 +69,7 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlin.math.roundToInt
 
 /** 工具栏入口 id（沿用第十轮四入口独立 sheet 语义）。 */
-internal enum class ChatToolbarEntry { TODO, AGENT, SHELL, GOAL }
+internal enum class ChatToolbarEntry { TODO, AGENT, SHELL, GOAL, QUEUE }
 
 /** 贴边滑动顶边距（#194 D1：上限 = 容器高 − 按钮高 − 此边距）。 */
 internal val FabSlideTopMargin: Dp = 8.dp
@@ -84,7 +85,7 @@ internal val FabSlideTopMargin: Dp = 8.dp
 private val FabMenuItemHeight: Dp = 44.dp
 private val FabMenuItemSpacingVertical: Dp = 4.dp
 private val FabMenuPaddingBottomToken: Dp = 8.dp
-private const val FabMenuItemCount = 5
+private const val FabMenuItemCount = 6
 
 /**
  * #194 D1 展开溢出量计算（纯函数，单测覆盖）——全稳定量版（无 stagger 竞态）。
@@ -236,6 +237,8 @@ internal fun ChatFabMenu(
     todoPendingCount: Int,
     agentRunningCount: Int,
     shellRunningCount: Int,
+    /** #313：排队队列项数（FAB 菜单项计数角标；0 仍显示入口，sheet 内空态）。 */
+    queueCount: Int = 0,
     /** 目标状态（#286）：goal.active/blocked → FAB 运行点 + 菜单项 phase 角标；null/complete 不渲染角标。 */
     goalPhase: String? = null,
     onOpenEntry: (ChatToolbarEntry) -> Unit,
@@ -372,6 +375,15 @@ internal fun ChatFabMenu(
                         label = stringResource(R.string.toolbar_shell),
                         count = shellRunningCount,
                         onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.SHELL) },
+                    )
+                    Spacer(Modifier.height(FabMenuItemSpacingVertical))
+                    // #313：队列面板进 FAB 体系（用户「能力→容器」映射裁决）——
+                    // 取代输入条上方 QueueDock 条（对 DSH Web dock 布局的照搬，退役）
+                    FabMenuEntry(
+                        icon = Icons.Default.Schedule,
+                        label = stringResource(R.string.queue_title),
+                        count = queueCount,
+                        onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.QUEUE) },
                     )
                     // 列底距（FabMenuPaddingBottom token，与 #194 D2 溢出计算的
                     // menuPadPx 同源）：items 与 button 的间距

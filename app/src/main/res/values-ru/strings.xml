@@ -809,6 +809,8 @@
     <string name="queue_remove">Удалить сообщение из очереди</string>
     <string name="queue_steer">Направить в следующий ход</string>
     <string name="queue_edit_hint">Редактировать сообщение в очереди</string>
+    <string name="queue_title">Очередь</string>
+    <string name="queue_empty">Нет сообщений в очереди</string>
     <string name="queue_steer_unavailable">Направление доступно только при работающей сессии</string>
     <string name="queue_action_failed">Ошибка операции с очередью</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->

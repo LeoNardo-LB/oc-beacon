@@ -800,6 +800,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="queue_remove">Sıradaki mesajı kaldır</string>
     <string name="queue_steer">Sonraki tura yönlendir</string>
     <string name="queue_edit_hint">Sıradaki mesajı düzenle</string>
+    <string name="queue_title">Kuyruk</string>
+    <string name="queue_empty">Kuyrukta mesaj yok</string>
     <string name="queue_steer_unavailable">Yönlendirme yalnızca oturum çalışırken kullanılabilir</string>
     <string name="queue_action_failed">Sıra işlemi başarısız oldu</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->

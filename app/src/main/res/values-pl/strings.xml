@@ -808,6 +808,8 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="queue_remove">Usuń oczekującą wiadomość</string>
     <string name="queue_steer">Kieruj do następnej tury</string>
     <string name="queue_edit_hint">Edytuj oczekującą wiadomość</string>
+    <string name="queue_title">Kolejka</string>
+    <string name="queue_empty">Brak wiadomości w kolejce</string>
     <string name="queue_steer_unavailable">Sterowanie dostępne tylko podczas działania sesji</string>
     <string name="queue_action_failed">Akcja kolejki nie powiodła się</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->

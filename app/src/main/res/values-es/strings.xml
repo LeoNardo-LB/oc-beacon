@@ -800,6 +800,8 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="queue_remove">Eliminar mensaje en cola</string>
     <string name="queue_steer">Dirigir al siguiente turno</string>
     <string name="queue_edit_hint">Editar mensaje en cola</string>
+    <string name="queue_title">Cola</string>
+    <string name="queue_empty">No hay mensajes en cola</string>
     <string name="queue_steer_unavailable">Dirigir solo está disponible mientras la sesión está activa</string>
     <string name="queue_action_failed">La acción de la cola falló</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->

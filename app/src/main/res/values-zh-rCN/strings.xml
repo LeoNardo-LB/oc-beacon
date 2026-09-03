@@ -803,6 +803,8 @@
     <string name="queue_remove">移除排队消息</string>
     <string name="queue_steer">引导至下一轮</string>
     <string name="queue_edit_hint">编辑排队消息</string>
+    <string name="queue_title">排队队列</string>
+    <string name="queue_empty">暂无排队消息</string>
     <string name="queue_steer_unavailable">仅当会话运行中才可引导</string>
     <string name="queue_action_failed">队列操作失败</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->

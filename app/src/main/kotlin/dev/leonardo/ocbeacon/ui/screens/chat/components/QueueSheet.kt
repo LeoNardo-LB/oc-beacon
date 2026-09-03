@@ -1,6 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,7 +11,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,79 +29,91 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.ui.screens.chat.SheetScaffold
 import dev.leonardo.ocbeacon.domain.model.QueuedInboxItem
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
- * 排队收件箱条（2026-09-01 QueueDock）——ChatScreenBottomBar 上方。
+ * 排队队列 sheet（#313，2026-09-03 用户「能力→容器」映射裁决）——队列面板进
+ * FAB 菜单体系（与 TODO/AGENT/GOAL/SHELL 同款：FAB 入口 → 自有 sheet），
+ * 取代 2026-09-01 Task 4 的输入条上方 QueueDock 条（对 DSH Web dock 布局的
+ * 照搬，退役）。
  *
- * 行为对齐官方 QueueDock：
- * - 仅 queued placement 项（调用方/VM 已过滤）；空不渲染；
+ * 行为沿 QueueDock 全量迁移：
+ * - 仅 queued placement 项（调用方/VM 已过滤）；空队列给空态文案；
  * - 每条 preview + 动作：编辑（纯文本 text != null 时）/删除/steer（运行中）；
  * - 子代理会话只读（[isReadOnly]）——隐藏全部动作，仅预览；
  * - steer 仅 running + next-turn 有效：按钮按 [isRunning] 启用，服务器
  *   steer-unavailable 时经 VM 弹专属提示（本组件不直接感知）；
- * - 编辑态：OutlinedTextField 单行 + 保存/取消（Enter 保存于输入框 onDone）。
+ * - 编辑态：OutlinedTextField 单行 + 保存/取消；队列快照变化后编辑条目消失 → 退出编辑。
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QueueDock(
+fun QueueSheet(
     items: List<QueuedInboxItem>,
     isRunning: Boolean,
     isReadOnly: Boolean,
+    onDismiss: () -> Unit,
     onSaveEdit: (itemId: String, text: String) -> Unit,
     onRemove: (itemId: String) -> Unit,
     onSteer: (itemId: String) -> Unit,
 ) {
-    if (items.isEmpty()) return
     var editingId by remember { mutableStateOf<String?>(null) }
     var editingText by remember { mutableStateOf("") }
 
-    // 官方 QueueDock：队列快照变化后编辑条目消失 → 退出编辑
+    // 队列快照变化后编辑条目消失 → 退出编辑
     LaunchedEffect(items) {
         if (editingId != null && items.none { it.id == editingId }) {
             editingId = null
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp),
+    SheetScaffold(
+        title = stringResource(R.string.queue_title) + " (" + items.size + ")",
+        onDismiss = onDismiss,
     ) {
-        HorizontalDivider(
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
-        )
-        items.forEach { item ->
-            val isEditing = editingId == item.id
-            QueueDockRow(
-                item = item,
-                isRunning = isRunning,
-                isReadOnly = isReadOnly,
-                editing = isEditing,
-                editingText = if (isEditing) editingText else item.text.orEmpty(),
-                onEditingTextChange = { editingText = it },
-                onStartEdit = {
-                    editingId = item.id
-                    editingText = item.text.orEmpty()
-                },
-                onSaveEdit = {
-                    if (editingText.isNotBlank()) {
-                        onSaveEdit(item.id, editingText)
-                        editingId = null
-                    }
-                },
-                onCancelEdit = { editingId = null },
-                onRemove = { onRemove(item.id) },
-                onSteer = { onSteer(item.id) },
-            )
+        if (items.isEmpty()) {
+            Box(Modifier.fillMaxWidth().padding(SpacingTokens.LG.dp)) {
+                Text(
+                    text = stringResource(R.string.queue_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM),
+                )
+            }
+            return@SheetScaffold
+        }
+        Column(modifier = Modifier.fillMaxWidth()) {
+            items.forEach { item ->
+                val isEditing = editingId == item.id
+                QueueRow(
+                    item = item,
+                    isRunning = isRunning,
+                    isReadOnly = isReadOnly,
+                    editing = isEditing,
+                    editingText = if (isEditing) editingText else item.text.orEmpty(),
+                    onEditingTextChange = { editingText = it },
+                    onStartEdit = {
+                        editingId = item.id
+                        editingText = item.text.orEmpty()
+                    },
+                    onSaveEdit = {
+                        if (editingText.isNotBlank()) {
+                            onSaveEdit(item.id, editingText)
+                            editingId = null
+                        }
+                    },
+                    onCancelEdit = { editingId = null },
+                    onRemove = { onRemove(item.id) },
+                    onSteer = { onSteer(item.id) },
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun QueueDockRow(
+private fun QueueRow(
     item: QueuedInboxItem,
     isRunning: Boolean,
     isReadOnly: Boolean,

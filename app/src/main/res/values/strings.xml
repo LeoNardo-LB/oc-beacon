@@ -261,6 +261,8 @@
     <string name="queue_remove">Remove queued message</string>
     <string name="queue_steer">Steer to next turn</string>
     <string name="queue_edit_hint">Edit queued message</string>
+    <string name="queue_title">Queue</string>
+    <string name="queue_empty">No queued messages</string>
     <string name="queue_steer_unavailable">Steer is only available while the session is running</string>
     <string name="queue_action_failed">Queue action failed</string>
     <string name="shell_status_failed">Failed</string>

@@ -806,6 +806,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="queue_remove">Hapus pesan dalam antrean</string>
     <string name="queue_steer">Arahkan ke giliran berikutnya</string>
     <string name="queue_edit_hint">Edit pesan dalam antrean</string>
+    <string name="queue_title">Antrean</string>
+    <string name="queue_empty">Tidak ada pesan dalam antrean</string>
     <string name="queue_steer_unavailable">Mengarahkan hanya tersedia saat sesi berjalan</string>
     <string name="queue_action_failed">Aksi antrean gagal</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->

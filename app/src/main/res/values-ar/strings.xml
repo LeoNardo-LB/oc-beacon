@@ -816,6 +816,8 @@
     <string name="queue_remove">إزالة الرسالة من قائمة الانتظار</string>
     <string name="queue_steer">توجيه إلى الدور التالي</string>
     <string name="queue_edit_hint">تحرير الرسالة في قائمة الانتظار</string>
+    <string name="queue_title">قائمة الانتظار</string>
+    <string name="queue_empty">لا توجد رسائل في قائمة الانتظار</string>
     <string name="queue_steer_unavailable">التوجيه متاح فقط أثناء تشغيل الجلسة</string>
     <string name="queue_action_failed">فشل إجراء قائمة الانتظار</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
