@@ -66,7 +66,7 @@ Permission event received: PermissionAsked(id=4add5f44-…)
 Permission event received: PermissionReplied(requestId=4add5f44-…)
 [Permission] replyToPermission result: id=4add5f44-… success=true
 ```
-+ 宿主 `-rw-r--r-- /home/leo-tkp/dsh308-e2e-marker.txt 44B 22:37`——批准后升级 bash 真实执行。
++ 宿主 `-rw-r--r-- /home/leo-tkp/dsh308-e2e-marker.txt 44B 22:37`——批准后升级 bash 真实执行（放行→danger-full-access 重试→**真实 FS 落地**，主会话 22:37 轮询亲验）。注：该文件在收尾提交（8b103b36）时由主会话清理删除——subagent 23:0x 复查见无文件系此因，非「/home 亦被沙箱 namespace 私有化」（REPORT.md 该推论不成立）；另 auto-approve 全档 0 条，G2 为纯手动点按。
 
 **触发链定音**（复现要点）：DSH 沙箱给 bash 挂私有 /tmp（mount namespace）——沙箱内写 /tmp 不触发审批（turn4 实证 exit0 无帧）；真实升级触发=写**沙箱外真实路径**（家目录非仓库区）→ workspace-write 拒绝 → 工具带更高权限重试 → approval/requested（三旋钮经 /permission 命令切换：preset+sandbox+approval/policy=ask 三帧齐落）。
 
