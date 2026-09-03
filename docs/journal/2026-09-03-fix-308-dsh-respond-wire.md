@@ -50,6 +50,8 @@
 
 ## 九、真机 E2E 终章——双门禁 PASS（round5，2026-09-03 22:24/22:37）
 
+> 时间线勘误（subagent 终报澄清）：脱 blank 的脚手架 prompt 由 **subagent 于 21:01 注入**（先于宿主 21:03 的问题 prompt #1）——round1 八次 dump 未命中行定因于 blank 滤除，该注入是解锁「点行进入」的必要动作。服务端终态：turns=5 completed、running=false；标记文件 READY/Q-TAPPED/G1_DONE/ALL-DONE 齐备。
+
 **G1 提问半边**（22:24:16，pid7608，logcat 原文）：
 ```
 [Question] replyToQuestion: id=e011b934-1131-426a-8b85-3290ef67a5b4 answers=[[蓝色]] dir=/home/leo-tkp/Documents/code/mine/oc-beacon
