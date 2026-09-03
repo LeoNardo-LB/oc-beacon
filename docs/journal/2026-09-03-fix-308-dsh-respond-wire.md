@@ -48,6 +48,13 @@
   3. 会话定位：宿主 session.list 已验证可达（loopback RPC 200，见探针）；按标题定位手机侧要打开的会话行（tap_text）。
 - i18n 终验（批 1 全部新 key 后）：**PASSED，775 keys × 14 languages all consistent**。
 
+## 七、路线级裁决记录（2026-09-03 用户定规，「能力→容器」映射）
+
+- **原则**：DSH 服务端能力适配到 app 时，UI 形态一律落**我们自己的既有容器**，禁照搬 DSH Web 布局。用户举例：DSH 的 goal/todolist 在消息框上方、子代理/后台任务在面包屑——我们全部进 **FAB 菜单**（ChatFabMenu #192 体系：TODO/AGENT/GOAL/SHELL 四入口→自有 sheet）。
+- **批 1 审计**：①GoalSheet 第四钮 ②CompactionCard ③ConfirmDialog ④长按手势（自有 SendKey 双键体系）均为自有形态 ✓；④的呈现面（入队展示）与旧 QueueDock 属照搬 Web dock——已由 #313 纠正；⑤TurnMaxTokensCard 为自有 M3 卡片族（RetryBanner/SessionErrorCard 同族），流内内容不属面板类，维持流内。
+- **#313 落地（ea5c2f06）**：QUEUE 成为 FAB 第五入口（Schedule 图标+计数角标）→ QueueSheet（QueueDock 行为全量迁移：三动作/只读/编辑态/steer 门控）；QueueDock.kt 删除；i18n queue_title/queue_empty ×15（法语撇号转义踩坑一次，已 amend）。
+- **对 #310-#312 的约束**：Plan 模式=自有命令/chip 形态；deliverables=自有文件 chip；轨迹台账=自有轮次卡展开；归档/行菜单/左滑=既有列表形态——实现前逐一对照，凡「对位 Web 组件」的描述仅指能力语义，不指布局。
+
 ## 六、踩坑记录
 
 - **Kotlin 块注释嵌套**：doc 注释里写 `once/**always**`（想用 Markdown 加粗），其中 `/**` 开了一个**嵌套注释**（Kotlin 块注释可嵌套，与 Java 不同），把后续类体整个吞掉——症状是 :1356 Unclosed comment + 一串无关 Unresolved（readAttachment 等）。块注释内禁用含 `/*` 序列的 Markdown 强调。
