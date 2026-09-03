@@ -242,13 +242,29 @@ class EventDispatcher @Inject constructor(
     fun processEvent(event: SseEvent, serverId: String) {
         // 所有权检查：当两条 SSE 连接投递相同事件
         //（同一后端，不同配置）时，防止重复事件处理。
+        //
+        // #303（2026-09-03 真机定罪）：会话生命周期事件（Created/Updated/Deleted）
+        // **豁免**——三者幂等（trackSession 集合并集 + 列表 set/replace/移除），
+        // 双配置各自处理=各自归属呈现（用户配同一后端双入口即期望各自列表显示）。
+        // 原拦截形态：同一后端双配置（reverse 隧道 vs LAN 直连）下直连物理快几 ms
+        // 永赢 claim → 展示中服务器的 created 被当「重复」吞掉 → 列表不实时
+        // （真机打点三轮全直连赢；REST 下拉刷新不经此路径故能恢复——症状闭环）。
+        // 高频流式事件（delta/message 等）保留去重（防双倍入库/UI）。
+        val ownershipExempt = event is SseEvent.SessionCreated ||
+            event is SseEvent.SessionUpdated ||
+            event is SseEvent.SessionDeleted
         val sessionId = extractSessionId(event)
-        if (sessionId != null && !ownershipRegistry.claim(sessionId, serverId)) {
-            if (BuildConfig.DEBUG) {
-                AppLogger.d(TAG, "Skipping duplicate ${event::class.simpleName} for session " +
-                    "${sessionId.take(12)} from server=$serverId (owner=${ownershipRegistry.ownerOf(sessionId)})")
+        if (sessionId != null) {
+            // claim 总是执行（豁免类事件也首达即占位——后续非豁免事件按此拦截）；
+            // 豁免类忽略 claim 失败继续处理（幂等，双配置各自呈现）。
+            val claimed = ownershipRegistry.claim(sessionId, serverId)
+            if (!claimed && !ownershipExempt) {
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(TAG, "Skipping duplicate ${event::class.simpleName} for session " +
+                        "${sessionId.take(12)} from server=$serverId (owner=${ownershipRegistry.ownerOf(sessionId)})")
+                }
+                return
             }
-            return
         }
         // 注册表分发：将事件路由到其唯一注册的 handler（O(1) 查找）。
         // 替代了之前的广播模型，即每个事件都发送给全部 6 个 handler，

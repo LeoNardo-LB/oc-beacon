@@ -396,15 +396,14 @@ class EventDispatcherTest {
     @Test
     fun `second server events for claimed session are skipped`() = runTest {
         val session = testSession("s1")
-        // Server1 声明所有权
+        // Server1 声明所有权（#303：生命周期事件豁免拦截，但仍 claim 占位）
         dispatcher.processEvent(SseEvent.SessionCreated(session), "server1")
 
-        // Server2 发送同一会话的更新 —— 应被跳过
-        dispatcher.processEvent(
-            SseEvent.SessionUpdated(session.copy(title = "From Server2")), "server2"
-        )
+        // Server2 发送同一会话的流式事件 —— 应被跳过（去重保留给非幂等事件）
+        val msg = Message.User(id = "m1", sessionId = "s1", time = TimeInfo(1000L))
+        dispatcher.processEvent(SseEvent.MessageUpdated(msg), "server2")
 
-        assertEquals("Test", dispatcher.sessions.value.first().title)
+        assertNull(dispatcher.messages.value["s1"])
     }
 
     @Test
