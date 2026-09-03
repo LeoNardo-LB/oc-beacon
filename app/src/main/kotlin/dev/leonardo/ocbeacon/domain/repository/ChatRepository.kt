@@ -114,6 +114,9 @@ interface ChatRepository {
         steer: Boolean = false
     ): Result<Unit>
 
+    /** #309 批1⑤：turn/end max-tokens 通知（null=无；新一轮 Busy 即清）。 */
+    fun getTurnMaxTokensForSession(sessionId: String): Flow<Long?>
+
     /**
      * 从指定 messageId 开始撤销（revert）消息。
      */

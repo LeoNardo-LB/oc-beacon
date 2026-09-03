@@ -21,6 +21,8 @@
     <string name="session_status_idle">Inativo</string>
     <string name="session_status_busy">Trabalhando…</string>
     <string name="session_status_retry">Tentando novamente (%1$d)</string>
+    <string name="turn_max_tokens_title">Limite de saída alcançado</string>
+    <string name="turn_max_tokens_continue">Continuar</string>
     <!-- Chat Screen -->
     <string name="chat_send">Enviar</string>
     <string name="chat_send_queued">Enviar (na fila)</string>

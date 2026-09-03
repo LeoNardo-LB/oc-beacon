@@ -145,6 +145,9 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         return promptAsyncResult
     }
 
+    override fun getTurnMaxTokensForSession(sessionId: String): kotlinx.coroutines.flow.Flow<Long?> =
+        kotlinx.coroutines.flow.flowOf(null)
+
     override suspend fun revertSession(serverId: String, sessionId: String, messageId: String): Result<Unit> =
         revertResult
 

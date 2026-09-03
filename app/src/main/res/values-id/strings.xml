@@ -46,6 +46,8 @@
     <string name="session_status_idle">Tidak aktif</string>
     <string name="session_status_busy">Bekerja…</string>
     <string name="session_status_retry">Mencoba ulang (%1$d)</string>
+    <string name="turn_max_tokens_title">Batas output tercapai</string>
+    <string name="turn_max_tokens_continue">Lanjutkan</string>
     <string name="session_rename">Ganti Nama Sesi</string>
     <string name="session_rename_title">Judul</string>
     <string name="session_rename_button">Ganti Nama</string>

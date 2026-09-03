@@ -460,8 +460,50 @@ object DshEventMapper {
             // turn/step start → busy（重复 busy 的节流/FSM 去重留给 #276 编排层）
             "turn/start", "step/start" ->
                 listOf(DshMappedEvent.Sse(SseEvent.SessionStatus(sessionId, SessionStatus.Busy)))
-            // time 透传（#294）：重放的历史 turn/end 携带原始时刻供通知层陈旧过滤
-            "turn/end" -> listOf(DshMappedEvent.Sse(SseEvent.SessionIdle(sessionId, time.takeIf { it > 0 })))
+            // #309 批1⑤：llm/retry（dsh-llm-retry :100-122 载荷 {retryId,turn,step,
+            // retry(次数),maxRetries?,delayMs,failure{message,code?}}）→
+            // SessionStatus.Retry（next=事件时刻+delayMs；RetryBanner 全链现成）；
+            // llm/retry-started（延迟到期实际重试）→ Busy（横幅退场、工作恢复）。
+            // 历史重放同路径：其后必有 turn/end（SessionIdle）→ 终态不残留。
+            "llm/retry" -> {
+                val attempt = data.long("retry")
+                if (attempt == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+                else listOf(
+                    DshMappedEvent.Sse(
+                        SseEvent.SessionStatus(
+                            sessionId,
+                            SessionStatus.Retry(
+                                attempt = attempt.toInt(),
+                                message = data.obj("failure")?.str("message") ?: "",
+                                next = time + (data.long("delayMs") ?: 0L),
+                            ),
+                        )
+                    )
+                )
+            }
+            "llm/retry-started" ->
+                listOf(DshMappedEvent.Sse(SseEvent.SessionStatus(sessionId, SessionStatus.Busy)))
+            // time 透传（#294）：重放的历史 turn/end 携带原始时刻供通知层陈旧过滤。
+            // #309 批1⑤：TurnEndReason（dsh-session types.d.ts:145-165）——error →
+            // SessionError（D1③ 转录内错误行+sendMessage 清卡链现成）；max-tokens →
+            // TurnMaxTokens（通知卡带继续钮）；此前 reason 整体丢弃。
+            "turn/end" -> {
+                val idle = DshMappedEvent.Sse(SseEvent.SessionIdle(sessionId, time.takeIf { it > 0 }))
+                val reason = data.obj("reason")
+                when (reason?.str("kind")) {
+                    "error" -> listOf(
+                        idle,
+                        DshMappedEvent.Sse(
+                            SseEvent.SessionError(sessionId = sessionId, error = reason.obj("error")?.str("message") ?: "turn error")
+                        ),
+                    )
+                    "max-tokens" -> listOf(
+                        idle,
+                        DshMappedEvent.Sse(SseEvent.TurnMaxTokens(sessionId = sessionId, turn = data.long("turn") ?: 0L)),
+                    )
+                    else -> listOf(idle)
+                }
+            }
             "todo/write" -> mapTodoWrite(sessionId, data)
             "session/title" -> mapSessionTitle(sessionId, time, data)
 

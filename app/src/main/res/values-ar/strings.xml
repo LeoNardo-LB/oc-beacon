@@ -21,6 +21,8 @@
     <string name="session_status_idle">خامل</string>
     <string name="session_status_busy">يعمل…</string>
     <string name="session_status_retry">إعادة المحاولة (%1$d)</string>
+    <string name="turn_max_tokens_title">تم الوصول إلى حد الإخراج</string>
+    <string name="turn_max_tokens_continue">متابعة</string>
     <!-- Chat Screen -->
     <string name="chat_send">إرسال</string>
     <string name="chat_send_queued">إرسال (في الانتظار)</string>

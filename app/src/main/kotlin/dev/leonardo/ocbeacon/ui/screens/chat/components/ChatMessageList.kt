@@ -246,6 +246,8 @@ fun ChatMessageList(
     val toolProgress by viewModel.chatRepositoryExposed.getActiveToolProgressForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
     val stepProgress by viewModel.chatRepositoryExposed.getStepProgressForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
     val compactionState by viewModel.chatRepositoryExposed.getCompactionStateForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
+    // #309 批1⑤：max-tokens 通知（turn 非空即显示；新一轮 Busy 自动清）
+    val turnMaxTokens by viewModel.chatRepositoryExposed.getTurnMaxTokensForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
     val activeTools = toolProgress.orEmpty().map { 
         ToolProgressInfo(callId = it.callId, partId = it.partId, tool = it.tool, status = it.status, progress = it.progress, title = it.title)
     }
@@ -1106,6 +1108,19 @@ fun ChatMessageList(
                         item(key = "retry_banner") {
                             Box(modifier = Modifier.padding(bottom = messageSpacing)) {
                             RetryBanner(retryStatus)
+                            }
+                        }
+                    }
+
+                    // #309 批1⑤：max-tokens 通知卡（Web turn-max-tokens 对位）——
+                    // 本轮输出达上限被截断；继续=再发一条 "continue" prompt（无专用
+                    // 端点，Web 同款语义）；新一轮 turn/start（Busy）自动清卡。
+                    if (turnMaxTokens != null) {
+                        item(key = "turn_max_tokens") {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
+                                TurnMaxTokensCard(
+                                    onContinue = { viewModel.sendMessage("continue") },
+                                )
                             }
                         }
                     }

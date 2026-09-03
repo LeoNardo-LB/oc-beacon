@@ -655,6 +655,9 @@ class ChatRepositoryImpl @Inject constructor(
     override fun getCompactionStateForSession(sessionId: String): Flow<CompactionStateInfo?> =
         eventDispatcher.compactionState.map { it[sessionId]?.toDomain() }.distinctUntilChanged()
 
+    override fun getTurnMaxTokensForSession(sessionId: String): Flow<Long?> =
+        eventDispatcher.turnMaxTokens.map { it[sessionId] }.distinctUntilChanged()
+
     override fun getSessionDiffsForSession(sessionId: String): Flow<List<FileDiff>> =
         eventDispatcher.sessionDiffs.map { it[sessionId] ?: emptyList() }.distinctUntilChanged()
 

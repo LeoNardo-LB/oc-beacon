@@ -21,6 +21,8 @@
     <string name="session_status_idle">Bezczynny</string>
     <string name="session_status_busy">Pracuje…</string>
     <string name="session_status_retry">Ponawianie próby (%1$d)</string>
+    <string name="turn_max_tokens_title">Osiągnięto limit wyjścia</string>
+    <string name="turn_max_tokens_continue">Kontynuuj</string>
     <!-- Chat Screen -->
     <string name="chat_send">Wyślij</string>
     <string name="chat_send_queued">Wyślij (w kolejce)</string>

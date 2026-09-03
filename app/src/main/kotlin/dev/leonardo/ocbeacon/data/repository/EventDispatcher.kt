@@ -141,7 +141,7 @@ class EventDispatcher @Inject constructor(
             SseEvent.CommandsChanged::class
         )
         // SessionNext → SessionNextEventHandler
-        bind(sessionNextHandler, SseEvent.SessionNext::class)
+        bind(sessionNextHandler, SseEvent.SessionNext::class, SseEvent.TurnMaxTokens::class)
         // V2 后台 shell → ShellJobsHandler
         bind(
             shellJobsHandler,
@@ -215,6 +215,9 @@ class EventDispatcher @Inject constructor(
     val compactedSessions: StateFlow<Map<String, Long>> get() = sessionHandler.compactedSessions
     val shellState: StateFlow<Map<String, ShellStateInfo>> get() = sessionNextHandler.shellState
     val retryState: StateFlow<Map<String, Int>> get() = sessionNextHandler.retryState
+
+    /** #309 批1⑤：turn/end max-tokens 通知（sessionId → turn）。 */
+    val turnMaxTokens: StateFlow<Map<String, Long>> get() = sessionNextHandler.turnMaxTokens
     val gapDetected: StateFlow<Set<String>> get() = sessionNextHandler.gapDetected
 
     // ============ 事件处理 ============
@@ -331,6 +334,14 @@ class EventDispatcher @Inject constructor(
             historySyncManagerProvider.get().onSessionDeleted(deletedSessionId)
         }
 
+        // 跨 handler：#309 批1⑤——新一轮 turn/start/step/start（SessionStatus Busy）
+        // → max-tokens 通知退场（续写/新 prompt 后通知不再滞留）。
+        if (event is SseEvent.SessionStatus &&
+            event.status is dev.leonardo.ocbeacon.domain.model.SessionStatus.Busy
+        ) {
+            sessionNextHandler.clearTurnMaxTokens(event.sessionId)
+        }
+
         // 跨 handler：SessionCompacted（V2 session.compaction.ended 映射 /
         // legacy session.compacted）——服务器压缩真实完成，终结压缩横幅。
         // 用户发起路径的 HTTP 回调注入（SessionNext(CompactionEnded)）已幂等
@@ -392,6 +403,7 @@ class EventDispatcher @Inject constructor(
             is SseEvent.SessionStatus -> event.sessionId
             is SseEvent.SessionIdle -> event.sessionId
             is SseEvent.SessionError -> event.sessionId
+            is SseEvent.TurnMaxTokens -> event.sessionId
             is SseEvent.SessionNext -> event.event.sessionId
             // 会话生命周期（信息）
             is SseEvent.SessionCreated -> event.info.id

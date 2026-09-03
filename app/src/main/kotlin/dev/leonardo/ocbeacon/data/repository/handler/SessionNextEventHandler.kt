@@ -104,6 +104,10 @@ class SessionNextEventHandler @Inject constructor(
     private val _retryState = MutableStateFlow<Map<String, Int>>(emptyMap())
     val retryState: StateFlow<Map<String, Int>> = _retryState.asStateFlow()
 
+    /** #309 批1⑤：turn/end max-tokens 通知（sessionId → turn）——新一轮 Busy 即清。 */
+    private val _turnMaxTokens = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val turnMaxTokens: StateFlow<Map<String, Long>> = _turnMaxTokens.asStateFlow()
+
     private val _lastEventSeq = MutableStateFlow<Map<String, Long>>(emptyMap())
     val lastEventSeq: StateFlow<Map<String, Long>> = _lastEventSeq.asStateFlow()
 
@@ -117,7 +121,17 @@ class SessionNextEventHandler @Inject constructor(
             handleSessionNextEvent(event.event)
             return true
         }
+        // #309 批1⑤：max-tokens 通知入状态表（dispatcher bind 直达本 handler）
+        if (event is SseEvent.TurnMaxTokens) {
+            _turnMaxTokens.update { it + (event.sessionId to event.turn) }
+            return true
+        }
         return false
+    }
+
+    /** 新一轮 turn/start（SessionStatus Busy，dispatcher 跨 handler 调用）——通知退场。 */
+    fun clearTurnMaxTokens(sessionId: String) {
+        _turnMaxTokens.update { it - sessionId }
     }
 
     // ============ 事件处理 ============
@@ -339,6 +353,7 @@ class SessionNextEventHandler @Inject constructor(
         _compactionState.update { it - sessionId }
         _shellState.update { it - sessionId }
         _retryState.update { it - sessionId }
+        _turnMaxTokens.update { it - sessionId }
         _lastEventSeq.update { it - sessionId }
         _gapDetected.update { it - sessionId }
         _sessionUsage.update { it - sessionId }

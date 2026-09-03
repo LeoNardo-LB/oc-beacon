@@ -62,6 +62,8 @@
     <string name="session_status_idle">Idle</string>
     <string name="session_status_busy">Working…</string>
     <string name="session_status_retry">Retrying (%1$d)</string>
+    <string name="turn_max_tokens_title">Output limit reached</string>
+    <string name="turn_max_tokens_continue">Continue</string>
     <string name="session_rename">Rename Session</string>
     <string name="session_rename_title">Title</string>
     <string name="session_rename_button">Rename</string>

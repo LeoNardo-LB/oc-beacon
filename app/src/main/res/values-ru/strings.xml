@@ -35,6 +35,8 @@
     <string name="session_status_idle">Ожидание</string>
     <string name="session_status_busy">Выполняется…</string>
     <string name="session_status_retry">Повтор попытки (%1$d)</string>
+    <string name="turn_max_tokens_title">Достигнут лимит вывода</string>
+    <string name="turn_max_tokens_continue">Продолжить</string>
     <string name="session_rename">Переименовать сессию</string>
     <string name="session_rename_title">Заголовок</string>
     <string name="session_rename_button">Переименовать</string>

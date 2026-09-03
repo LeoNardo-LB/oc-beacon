@@ -57,6 +57,18 @@ sealed class SseEvent {
         val error: String
     ) : SseEvent()
 
+    /**
+     * #309 批1⑤：DSH turn/end reason.kind="max-tokens"（输出达上限，本轮被截断）。
+     * Web 对位 turn-max-tokens 通知节点（chat 内插、非悬浮）；续写=用户再发一条
+     * prompt（无专用 continue 端点）——UI 卡带「继续」钮发 "continue"。
+     * 新一轮 turn/start（SessionStatus Busy）即清除（跨 handler，dispatcher 装配）。
+     */
+    @Serializable
+    data class TurnMaxTokens(
+        val sessionId: String,
+        val turn: Long,
+    ) : SseEvent()
+
     // 消息事件
     @Serializable
     data class MessageUpdated(val info: Message) : SseEvent()

@@ -36,6 +36,16 @@ wire 已服务端定音（2026-09-03 源码）：
 - Web continue：dsh-client-ui-conversation 无专用 continue 端点——max-tokens 后走普通 session.prompt（下轮对照 Web UI 文案取样确认续写词）。
 - 实现面挂钩：SessionStatus.Retry 已存在（ChatScreenBottomBar:331 已消费）；Part.Retry 已备（Part.kt:236）；V2 先例 retryState=attempt 计数（SessionNextEventHandler:165）。
 
+## 项⑤ 重试倒计时 + max-tokens continue（实现，wire 定音见上节）
+
+- `llm/retry` → `SseEvent.SessionStatus(Retry(attempt=retry, message=failure.message, next=time+delayMs))`——RetryBanner/FSM/通知全链现成（零新事件）；`llm/retry-started` → Busy（横幅退场）。历史重放安全：其后必有 turn/end（Idle）终态。
+- `turn/end reason`（此前整体丢弃）：
+  - kind=error → +`SseEvent.SessionError`——D1③ 转录内错误行 + sendMessage 清卡 + snackbar 双通道全现成；
+  - kind=max-tokens → +`SseEvent.TurnMaxTokens`（**新事件，三步全走**：dispatcher bind 至 sessionNextHandler + extractSessionId + 状态表 `turnMaxTokens`；新一轮 turn/start/step/start（Busy）跨 handler 自动清卡）。
+- UI：`TurnMaxTokensCard`（Web turn-max-tokens 通知节点对位；继续钮发 "continue" prompt——wire 无专用端点，续写词固定英文原词不本地化）；ChatMessageList 直采 `getTurnMaxTokensForSession`（compactionState 同款模式，零聚合器波及）。
+- i18n：`turn_max_tokens_title`/`turn_max_tokens_continue` 15 语言（法/意无撇号）。
+- 测试：DshEventMapperTest +4（retry 字段/计数、retry-started→Busy、error→idle+SessionError、max-tokens→idle+TurnMaxTokens）；noise 目录移除 llm/retry 两项。
+
 ## 验证记录
 
 - `compileDevDebugKotlin` 通过；DshEventMapperTest 全绿（BUILD SUCCESSFUL）。

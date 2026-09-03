@@ -657,6 +657,61 @@ class DshEventMapperTest {
         )
     }
 
+    /**
+     * #309 批1⑤：llm/retry（dsh-llm-retry :100-122 载荷）→ SessionStatus.Retry
+     *（attempt=retry 次数、next=事件时刻+delayMs——sessionEvent 助手固定 time=1788109999000）；
+     * llm/retry-started → Busy（横幅退场）。turn/end reason：error → +SessionError
+     *（D1③ 转录内错误行链现成）；max-tokens → +TurnMaxTokens（通知卡带继续钮）。
+     */
+    @Test
+    fun `llm retry maps to SessionStatus Retry with countdown`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s9",
+            sessionEvent("llm/retry", """{"retryId":"r1","turn":2,"step":1,"retry":3,"delayMs":15000,"failure":{"message":"rate limited"}}"""),
+        )
+        val status = eventsOf(mapped).single() as SseEvent.SessionStatus
+        val retry = status.status as SessionStatus.Retry
+        assertEquals(3, retry.attempt)
+        assertEquals("rate limited", retry.message)
+        assertEquals(1788109999000L + 15000L, retry.next)
+    }
+
+    @Test
+    fun `llm retry started maps back to Busy`() {
+        assertEquals(
+            listOf(DshMappedEvent.Sse(SseEvent.SessionStatus("s9", SessionStatus.Busy))),
+            DshEventMapper.mapSessionEvent("s9", sessionEvent("llm/retry-started", """{"retryId":"r1","turn":2,"step":1,"retry":3}""")),
+        )
+    }
+
+    @Test
+    fun `turn end error reason emits SessionError after idle`() {
+        assertEquals(
+            listOf(
+                DshMappedEvent.Sse(SseEvent.SessionIdle("s9", 1788109999000)),
+                DshMappedEvent.Sse(SseEvent.SessionError(sessionId = "s9", error = "provider quota exceeded")),
+            ),
+            DshEventMapper.mapSessionEvent(
+                "s9",
+                sessionEvent("turn/end", """{"turn":4,"reason":{"kind":"error","error":{"message":"provider quota exceeded","code":"QUOTA"}}}"""),
+            ),
+        )
+    }
+
+    @Test
+    fun `turn end max-tokens reason emits TurnMaxTokens notice`() {
+        assertEquals(
+            listOf(
+                DshMappedEvent.Sse(SseEvent.SessionIdle("s9", 1788109999000)),
+                DshMappedEvent.Sse(SseEvent.TurnMaxTokens(sessionId = "s9", turn = 7)),
+            ),
+            DshEventMapper.mapSessionEvent(
+                "s9",
+                sessionEvent("turn/end", """{"turn":7,"reason":{"kind":"max-tokens"}}"""),
+            ),
+        )
+    }
+
     @Test
     fun `todo write maps to TodoUpdated full snapshot`() {
         val mapped = DshEventMapper.mapSessionEvent(
@@ -850,7 +905,7 @@ class DshEventMapperTest {
             // 三 knob（sandbox/mode、approval/policy、permission/preset）已映射为
             // SessionPermissionChanged，不在噪声目录（见下方专门断言）。
             "plan/mode",
-            "agent/inbox/spliced", "step/end", "llm/retry", "llm/retry-started",
+            "agent/inbox/spliced", "step/end", // llm/retry|retry-started 已映射（#309 批1⑤，见专门断言）
             "command/run", "command/done", "request/header", "request/context",
             "session/end-seed", "tool/code-dispatch", "tool/code-dispatch-start",
             "approval/asked", "approval/decided", "web/deepseek-search-llm-request",

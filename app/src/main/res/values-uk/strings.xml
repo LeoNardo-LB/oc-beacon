@@ -21,6 +21,8 @@
     <string name="session_status_idle">Очікує</string>
     <string name="session_status_busy">Працює…</string>
     <string name="session_status_retry">Повтор спроби (%1$d)</string>
+    <string name="turn_max_tokens_title">Досягнуто ліміту виводу</string>
+    <string name="turn_max_tokens_continue">Продовжити</string>
     <!-- Chat Screen -->
     <string name="chat_send">Надіслати</string>
     <string name="chat_send_queued">Надіслати (у черзі)</string>
