@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#308**。
+**编号**：全局递增，不回收。下一编号：**#313**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -51,11 +51,31 @@
 
 ## P0 — 主流程阻塞
 
-（当前无 P0 卡）
+- [ ] **#308 DSH 权限/提问应答 wire 不匹配（载荷缺键 + allowed-always 词不存在 + RpcReceipt 解码失败）** `dsh` `permission` `data`
+  - `replyToPermission` 只发 `{outcome}` 缺必填 `sessionId`+`approvalId`，`allowed-always` 在 dsh 0.1.1-rc.2 全树零命中（枚举仅 `allowed-once|rejected`）——「始终允许」无服务端对应，A-D7-02「服务器落持久规则」系 OpenCode 语义误植；`/api/respond` 回执 RpcReceipt 非信封，`exchange()` 解码必失败 → DSH 三键应答恒 false（超时兜底掩盖）；提问应答/取消载荷同不符
+  - 修复方向（根因层）：载荷补三键 + RpcReceipt 解析分支 + 提问改 `{sessionId,answer:{answers[]}}` + 取消改 Err 信封 + always 改本地规则自动 `allowed-once` 重答；验证=真机 DSH 审批三键 + logcat `accepted:true`
+  - → 取证 `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md`（四重证据链 + E2E 出处勘误；§五 研究文档勘误随本卡修复+活体复验后回写）· 修复批次 `docs/journal/2026-09-03-fix-308-dsh-respond-wire.md`（契约定音/实现/单测全绿；真机 E2E 待做）
 
 ## P1 — 核心功能需求
 
+- [ ] **#309 DSH 面对齐批 1·快速胜利：goal 完成/压缩呈现/Full access 确认/插话长按直发/重试 continue** `dsh` `ui` `sse`
+  - 五项全第一档（UI 已就绪纯接线，≈3 人日，不动 ChatScreen 协议文件或只轻触）：goal.complete 第四钮（API 全链在位）·压缩事件接线（CompactionCard 双态 UI 完整，DshEventMapper Ignored 未接）·Full access 二次确认（PermissionPresetSelector+现成 ConfirmDialog）·steer 长按直发（wire mode 已在）·重试倒计时+max-tokens continue 钮
+  - 横切铁律：新 SseEvent 三步全走（DEM 分支+EventDispatcher bind+handler 折叠，漏 bind 即静默丢弃，goal/change 曾中招）；触 composer 按 ChatScreen 编辑协议串行
+  - → `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md` §四 · `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §11.4 批 1 · `docs/research/dsh-gap-2026-09-01/implementability-ui.md`（挂点明细）
+
+- [ ] **#310 DSH 面对齐批 2·主价值：子智能体续聊/消息反馈/Plan 模式/轨迹台账/会话源引用** `dsh` `ui` `session`
+  - 子智能体续聊先做（UI 通道 100% 就绪，缺 `subagent.prompt/interrupt/history` 三方法，性价比最高）→ 消息反馈 👍/👎（气泡下动作行，禁长按）→ Plan 模式（chip+专卡）→ 轨迹台账+检查器（RenderableTurn 已预计算时间戳；时间轴缩放 L 不做）→ @ 会话源+mention 可点（文件源现成）；≈8-10 人日
+  - → `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md` §四 · `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §11.4 批 2 · `docs/research/dsh-gap-2026-09-01/implementability-ui.md`
+
 ## P2 — 优化与锦上添花
+
+- [ ] **#311 DSH 面对齐批 3·组织面：工作区归档/deliverables/工具卡增补/状态点** `dsh` `ui` `session`
+  - 工作区组织（归档+行菜单+左滑先行；多 workspace 真建模 L 缓行）→ deliverables 产出文件行（**依赖 #310 @ 会话源**）→ 工具卡增补（question/skill 行）→ 等待审批/提问状态点（动 SessionStateFSM 前先读架构文档承重规则）；≈6-8 人日
+  - → `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md` §四 · `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §11.4 批 3 · `docs/research/dsh-gap-2026-09-01/implementability-ui.md`
+
+- [ ] **#312 DSH 面对齐零星 S 级池：相对时间戳/KaTeX/spill 提示/命令带图限制/消息级分支锚点** `dsh` `ui`
+  - 五点均 S 级锦上添花，随批 1-3 顺手带或单独小批；分支锚点=补轮尾锚点 UI（session.fork atSeq API 已消费）
+  - → `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md` §四 · `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §12.3
 
 ## P3 — 观察与低价值改进
 
