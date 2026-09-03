@@ -73,8 +73,8 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
     var revertResult: Result<Unit> = Result.success(Unit)
     var unrevertResult: Result<Unit> = Result.success(Unit)
     var respondPermissionResult: Result<Boolean> = Result.success(true)
-    var listPendingPermissionsResult: Result<List<PermissionState>> = Result.success(emptyList())
-    var listPendingQuestionsResult: Result<List<QuestionState>> = Result.success(emptyList())
+    var listPendingPermissionsResult: Result<List<PermissionState>?> = Result.success(emptyList())
+    var listPendingQuestionsResult: Result<List<QuestionState>?> = Result.success(emptyList())
     var replyToQuestionResult: Result<Boolean> = Result.success(true)
     var rejectQuestionResult: Result<Boolean> = Result.success(true)
     var executeCommandResult: Result<Boolean> = Result.success(true)
@@ -164,10 +164,10 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
 
     // ============ 待处理查询 ============
 
-    override suspend fun listPendingPermissions(serverId: String, directory: String?): Result<List<PermissionState>> =
+    override suspend fun listPendingPermissions(serverId: String, directory: String?): Result<List<PermissionState>?> =
         listPendingPermissionsResult
 
-    override suspend fun listPendingQuestions(serverId: String, directory: String?): Result<List<QuestionState>> =
+    override suspend fun listPendingQuestions(serverId: String, directory: String?): Result<List<QuestionState>?> =
         listPendingQuestionsResult
 
     override suspend fun replyToQuestion(

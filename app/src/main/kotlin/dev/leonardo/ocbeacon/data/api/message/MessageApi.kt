@@ -78,7 +78,8 @@ interface MessageApi {
      * 列出待处理的权限请求。
      * GET /permission
      */
-    suspend fun listPendingPermissions(conn: ServerConnection, directory: String? = null): List<PermissionRequest>
+    /** #314：null = 端点缺席（DSH 无此 REST 面）——不得当「权威回答无待答」清 SSE 存储；非 null（含空表）才是权威快照。 */
+    suspend fun listPendingPermissions(conn: ServerConnection, directory: String? = null): List<PermissionRequest>?
 
     /**
      * 回复问题请求。
@@ -115,7 +116,8 @@ interface MessageApi {
      * 列出待处理的问题请求。
      * GET /question
      */
-    suspend fun listPendingQuestions(conn: ServerConnection, directory: String? = null): List<QuestionRequest>
+    /** #314：null = 端点缺席——同 [listPendingPermissions]。 */
+    suspend fun listPendingQuestions(conn: ServerConnection, directory: String? = null): List<QuestionRequest>?
 }
 
 /**
@@ -187,7 +189,7 @@ class MessageApiImpl @Inject constructor(
         metadata: Map<String, String>?
     ): Boolean = pick(conn).replyToPermission(conn, sessionId, requestId, reply, message, directory, metadata)
 
-    override suspend fun listPendingPermissions(conn: ServerConnection, directory: String?): List<PermissionRequest> =
+    override suspend fun listPendingPermissions(conn: ServerConnection, directory: String?): List<PermissionRequest>? =
         pick(conn).listPendingPermissions(conn, directory)
 
     override suspend fun replyToQuestion(
@@ -205,6 +207,6 @@ class MessageApiImpl @Inject constructor(
         sessionId: String?
     ): Boolean = pick(conn).rejectQuestion(conn, requestId, directory, sessionId)
 
-    override suspend fun listPendingQuestions(conn: ServerConnection, directory: String?): List<QuestionRequest> =
+    override suspend fun listPendingQuestions(conn: ServerConnection, directory: String?): List<QuestionRequest>? =
         pick(conn).listPendingQuestions(conn, directory)
 }

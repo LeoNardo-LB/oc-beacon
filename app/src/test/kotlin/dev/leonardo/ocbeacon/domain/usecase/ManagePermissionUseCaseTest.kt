@@ -6,6 +6,7 @@ import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -41,7 +42,14 @@ class ManagePermissionUseCaseTest {
 
         val result = useCase.listPendingPermissions("server1", null)
 
-        assertEquals(1, result.size)
+        assertEquals(1, result!!.size) // #314：null=端点缺席；本用例建模权威非空表
         assertEquals("p1", result[0].id)
+    }
+
+    /** #314：端点缺席（DSH）原样上抛 null——上游据此跳过同步/保守保留。 */
+    @Test
+    fun `listPendingPermissions null endpoint absence passes through`() = runTest {
+        coEvery { chatRepository.listPendingPermissions("server1", null) } returns Result.success(null)
+        assertNull(useCase.listPendingPermissions("server1", null))
     }
 }

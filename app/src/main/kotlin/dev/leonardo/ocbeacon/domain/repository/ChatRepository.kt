@@ -144,12 +144,13 @@ interface ChatRepository {
     /**
      * 列出某台服务器上待处理的权限请求。
      */
-    suspend fun listPendingPermissions(serverId: String, directory: String? = null): Result<List<PermissionState>>
+    /** #314：成功值 null = 端点缺席（DSH）——调用方跳过同步/保守保留；空表 = 服务器权威回答无待答。 */
+    suspend fun listPendingPermissions(serverId: String, directory: String? = null): Result<List<PermissionState>?>
 
     /**
      * 列出某台服务器上待处理的问题请求。
      */
-    suspend fun listPendingQuestions(serverId: String, directory: String? = null): Result<List<QuestionState>>
+    suspend fun listPendingQuestions(serverId: String, directory: String? = null): Result<List<QuestionState>?>
 
     /**
      * 以多个答案回复问题请求。

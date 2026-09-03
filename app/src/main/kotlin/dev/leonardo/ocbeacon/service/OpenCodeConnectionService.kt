@@ -529,11 +529,12 @@ class OpenCodeConnectionService : Service() {
         fanOut: Boolean
     ): List<dev.leonardo.ocbeacon.domain.model.QuestionState> {
         val result = mutableListOf<dev.leonardo.ocbeacon.domain.model.QuestionState>()
-        result += managePermissionUseCase.listPendingQuestions(server.id, directory = null)
+        // #314：null=端点缺席（DSH）——轮询跳过（恢复面走冷启 SSE 重放）
+        result += managePermissionUseCase.listPendingQuestions(server.id, directory = null) ?: emptyList()
         if (fanOut) {
             for (dir in fetchPolledProjectDirectories(server)) {
                 runCatching {
-                    result += managePermissionUseCase.listPendingQuestions(server.id, directory = dir)
+                    result += managePermissionUseCase.listPendingQuestions(server.id, directory = dir) ?: emptyList()
                 }.onFailure {
                     AppLogger.w(TAG, "[${server.displayName}] question polling (dir=$dir) failed: ${it.message}")
                 }

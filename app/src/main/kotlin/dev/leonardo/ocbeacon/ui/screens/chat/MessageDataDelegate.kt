@@ -631,7 +631,14 @@ internal class MessageDataDelegate(
         val sid = sessionIdFlow.value
         val directory = sessionDirectoryProvider()
         try {
+            // #314：null=端点缺席（DSH）——SSE 存储为唯一权威源（冷启重放恢复、
+            // resolved 帧移除），跳过 REST 同步；旧实现把 stub 的 emptyList 当
+            // 权威空表 → 进会话即清空 pre-existing 问题（卡不渲染三复现根因）。
             val allQuestions = managePermissionUseCase.listPendingQuestions(serverId, directory = directory)
+                ?: run {
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "listPendingQuestions endpoint absent (DSH) — SSE store authoritative, skip sync (sid=$sid)")
+                    return
+                }
             if (BuildConfig.DEBUG) AppLogger.d(TAG, "loadPendingQuestions: ${allQuestions.size} total pending (directory=$directory), filtering for session $sid")
 
             // 包含子智能体会话的问题
@@ -692,7 +699,13 @@ internal class MessageDataDelegate(
         val sid = sessionIdFlow.value
         val directory = sessionDirectoryProvider()
         try {
+            // #314：null=端点缺席（DSH）——同 loadPendingQuestions，跳过（本路径
+            // 本就只合并不清空，守卫仅为语义一致 + 跳过无谓过滤计算）。
             val allPermissions = managePermissionUseCase.listPendingPermissions(serverId, directory = directory)
+                ?: run {
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "listPendingPermissions endpoint absent (DSH) — SSE store authoritative, skip sync (sid=$sid)")
+                    return
+                }
             if (BuildConfig.DEBUG) AppLogger.d(TAG, "loadPendingPermissions: ${allPermissions.size} total pending (directory=$directory), filtering for session $sid")
 
             // 包含子智能体会话的权限

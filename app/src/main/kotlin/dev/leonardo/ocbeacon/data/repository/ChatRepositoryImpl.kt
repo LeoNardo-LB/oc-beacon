@@ -274,14 +274,15 @@ class ChatRepositoryImpl @Inject constructor(
 
     // ============ 待处理查询 ============
 
-    override suspend fun listPendingPermissions(serverId: String, directory: String?): Result<List<PermissionState>> = runCatchingCancellable {
+    override suspend fun listPendingPermissions(serverId: String, directory: String?): Result<List<PermissionState>?> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        messageApi.listPendingPermissions(conn, directory).map { it.toDomainPermissionState() }
+        // #314：null=端点缺席（DSH）原样上抛——上游跳过同步，不当权威空表
+        messageApi.listPendingPermissions(conn, directory)?.map { it.toDomainPermissionState() }
     }
 
-    override suspend fun listPendingQuestions(serverId: String, directory: String?): Result<List<QuestionState>> = runCatchingCancellable {
+    override suspend fun listPendingQuestions(serverId: String, directory: String?): Result<List<QuestionState>?> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        messageApi.listPendingQuestions(conn, directory).map { it.toDomainQuestionState() }
+        messageApi.listPendingQuestions(conn, directory)?.map { it.toDomainQuestionState() }
     }
 
     override suspend fun replyToQuestion(

@@ -12,13 +12,14 @@ import javax.inject.Inject
 class ManagePermissionUseCase @Inject constructor(
     private val chatRepository: ChatRepository
 ) {
-    suspend fun listPendingPermissions(serverId: String, directory: String?): List<PermissionState> =
+    /** #314：null = 端点缺席（DSH）——调用方跳过同步/保守保留。 */
+    suspend fun listPendingPermissions(serverId: String, directory: String?): List<PermissionState>? =
         chatRepository.listPendingPermissions(serverId, directory).getOrThrow()
 
     suspend fun replyToPermission(serverId: String, sessionId: String, requestId: String, reply: String, directory: String?): Boolean =
         chatRepository.respondPermission(serverId, sessionId, requestId, reply, directory).getOrThrow()
 
-    suspend fun listPendingQuestions(serverId: String, directory: String?): List<QuestionState> =
+    suspend fun listPendingQuestions(serverId: String, directory: String?): List<QuestionState>? =
         chatRepository.listPendingQuestions(serverId, directory).getOrThrow()
 
     suspend fun replyToQuestion(serverId: String, requestId: String, answers: List<List<String>>, directory: String?): Boolean =

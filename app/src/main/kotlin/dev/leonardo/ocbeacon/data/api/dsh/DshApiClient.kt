@@ -783,11 +783,15 @@ class DshApiClient @Inject constructor(
         return rpc.respond(conn, metadata?.get("rpcId") ?: requestId, payload).isSuccess
     }
 
-    /** 无待处理权限 REST 端点（开流即重放未决帧，§1.5 结论 5）——空列表。 */
+    /**
+     * 无待处理权限 REST 端点——**null = 端点缺席**（#314：emptyList 曾被上游当
+     * 「服务器权威回答无待答」清空 SSE 存储导致 pre-existing 卡不渲染）。恢复面=
+     * 冷启订阅重放未决帧；移除面=approval/resolved 帧。
+     */
     override suspend fun listPendingPermissions(
         conn: ServerConnection,
         directory: String?,
-    ): List<PermissionRequest> = emptyList()
+    ): List<PermissionRequest>? = null
 
     /**
      * 提问应答（/api/respond）。#308：载荷 {sessionId, answer:{answers:[{id,
@@ -842,7 +846,7 @@ class DshApiClient @Inject constructor(
     override suspend fun listPendingQuestions(
         conn: ServerConnection,
         directory: String?,
-    ): List<QuestionRequest> = emptyList()
+    ): List<QuestionRequest>? = null
 
     // ============ SystemApi（host.describe + 常量降级） ============
 

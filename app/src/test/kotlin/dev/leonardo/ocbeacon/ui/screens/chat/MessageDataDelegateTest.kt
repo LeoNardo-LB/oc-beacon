@@ -16,6 +16,7 @@ import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.usecase.ManagePermissionUseCase
 import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
 import dev.leonardo.ocbeacon.domain.usecase.MessagePaginationUseCase
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
@@ -143,6 +144,68 @@ class MessageDataDelegateTest {
     /** messageListState 由 stateIn(WhileSubscribed5s) 支撑，需要活跃订阅者。 */
     private fun CoroutineScope.subscribe(delegate: MessageDataDelegate): Job =
         launch { delegate.messageListState.collect { } }
+
+    /**
+     * #314 回归（症状 seam）：DSH 端点缺席（null）时进会话加载**不得清空**
+     * SSE 学到的 pending 问题——旧实现把 stub 的 emptyList 当权威空表 →
+     * setQuestions(sid, []) → pre-existing 卡不渲染（真机三复现）。
+     */
+    @Test
+    fun `loadPendingQuestions with null endpoint absence does not wipe SSE store`() = runTest {
+        val useCase = mockk<ManagePermissionUseCase>(relaxed = true)
+        coEvery { useCase.listPendingQuestions("srv", null) } returns null
+        val chatRepo = mockk<ChatRepository>(relaxed = true).also {
+            every { it.getMessagesFlow(any()) } returns messagesFlow
+            every { it.getAllPartsMap() } returns partsFlow
+            every { it.getActiveToolProgressForSession(any()) } returns progressFlow
+            every { it.getSessionsSnapshot() } returns emptyList()
+        }
+        val delegate = MessageDataDelegate(
+            manageSessionUseCase = mockk(relaxed = true),
+            managePermissionUseCase = useCase,
+            chatRepository = chatRepo,
+            messagePaging = mockk(relaxed = true),
+            messageStore = mockk(relaxed = true),
+            sessionStateRepository = mockk(relaxed = true),
+            sessionRepository = mockk(relaxed = true),
+            settingsRepository = mockk(relaxed = true),
+            serverId = "srv",
+            sessionIdFlow = sessionIdFlow,
+            sessionDirectoryProvider = { null },
+            scope = CoroutineScope(testDispatcher + SupervisorJob()).also { delegateScope = it },
+        )
+        delegate.loadPendingQuestions()
+        io.mockk.coVerify(exactly = 0) { chatRepo.setQuestions(any(), any()) }
+    }
+
+    /** 权威空表（V1/V2 语义）仍然清空——服务器真说无待答时移除他端已答条目。 */
+    @Test
+    fun `loadPendingQuestions with authoritative empty still wipes`() = runTest {
+        val useCase = mockk<ManagePermissionUseCase>(relaxed = true)
+        coEvery { useCase.listPendingQuestions("srv", null) } returns emptyList()
+        val chatRepo = mockk<ChatRepository>(relaxed = true).also {
+            every { it.getMessagesFlow(any()) } returns messagesFlow
+            every { it.getAllPartsMap() } returns partsFlow
+            every { it.getActiveToolProgressForSession(any()) } returns progressFlow
+            every { it.getSessionsSnapshot() } returns emptyList()
+        }
+        val delegate = MessageDataDelegate(
+            manageSessionUseCase = mockk(relaxed = true),
+            managePermissionUseCase = useCase,
+            chatRepository = chatRepo,
+            messagePaging = mockk(relaxed = true),
+            messageStore = mockk(relaxed = true),
+            sessionStateRepository = mockk(relaxed = true),
+            sessionRepository = mockk(relaxed = true),
+            settingsRepository = mockk(relaxed = true),
+            serverId = "srv",
+            sessionIdFlow = sessionIdFlow,
+            sessionDirectoryProvider = { null },
+            scope = CoroutineScope(testDispatcher + SupervisorJob()).also { delegateScope = it },
+        )
+        delegate.loadPendingQuestions()
+        io.mockk.coVerify(exactly = 1) { chatRepo.setQuestions("sid-1", emptyList()) }
+    }
 
     @Test
     fun `progress from args 9 injects output into Running tool part`() = runTest {

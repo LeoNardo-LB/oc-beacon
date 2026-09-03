@@ -393,6 +393,26 @@ class DshApiClientTest {
         assertTrue(captureRequests(engine).isEmpty())
     }
 
+    /**
+     * #314 根因回归：stub 曾以 emptyList 冒充「服务器权威回答：无待答」→ 进会话
+     * loadPendingQuestions 把 SSE 学到的 pending 清空（pre-existing 卡不渲染，三复现）。
+     * 修正语义：**null = 端点缺席**（DSH 无 GET /question|/permission REST 面）——
+     * 调用方见 null 跳过同步，SSE 存储为唯一权威源（移除走 question|permission resolved 帧）。
+     */
+    @Test
+    fun `listPendingQuestions returns null as endpoint unsupported`() = runTest {
+        val engine = MockEngine { respond("""{"accepted":true}""", HttpStatusCode.OK, jsonHeaders()) }
+        assertNull(client(engine).listPendingQuestions(conn, null))
+        assertTrue(captureRequests(engine).isEmpty()) // 零 HTTP——端点缺席不发请求
+    }
+
+    @Test
+    fun `listPendingPermissions returns null as endpoint unsupported`() = runTest {
+        val engine = MockEngine { respond("""{"accepted":true}""", HttpStatusCode.OK, jsonHeaders()) }
+        assertNull(client(engine).listPendingPermissions(conn, null))
+        assertTrue(captureRequests(engine).isEmpty())
+    }
+
     @Test
     fun `rejectQuestion posts cancelled error envelope`() = runTest {
         val engine = MockEngine { respond("""{"accepted":true}""", HttpStatusCode.OK, jsonHeaders()) }

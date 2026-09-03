@@ -206,8 +206,14 @@ internal class SessionActionsDelegate(
      */
     private suspend fun removePermissionIfGoneOnServer(requestId: String, op: String) {
         val stillPending = try {
-            managePermissionUseCase.listPendingPermissions(serverId, sessionDirectoryProvider())
-                .any { it.id == requestId }
+            // #314：null=端点缺席（DSSH 无 REST 复核面）——按「未知」保守保留
+            val pending = managePermissionUseCase.listPendingPermissions(serverId, sessionDirectoryProvider())
+            if (pending == null) {
+                AppLogger.w(TAG, "[Permission] $op recheck unavailable (endpoint absent) for $requestId, keeping card")
+                true
+            } else {
+                pending.any { it.id == requestId }
+            }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             AppLogger.w(TAG, "[Permission] $op failed and re-check also failed for $requestId, keeping card: ${e.message}")
@@ -286,8 +292,14 @@ internal class SessionActionsDelegate(
      */
     private suspend fun removeQuestionIfGoneOnServer(requestId: String, op: String) {
         val stillPending = try {
-            managePermissionUseCase.listPendingQuestions(serverId, sessionDirectoryProvider())
-                .any { it.id == requestId }
+            // #314：null=端点缺席（DSH 无 REST 复核面）——按「未知」保守保留
+            val pending = managePermissionUseCase.listPendingQuestions(serverId, sessionDirectoryProvider())
+            if (pending == null) {
+                AppLogger.w(TAG, "[Question] $op recheck unavailable (endpoint absent) for $requestId, keeping card")
+                true
+            } else {
+                pending.any { it.id == requestId }
+            }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             AppLogger.w(TAG, "[Question] $op failed and re-check also failed for $requestId, keeping card: ${e.message}")
