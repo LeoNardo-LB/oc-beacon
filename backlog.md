@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#317**。
+**编号**：全局递增，不回收。下一编号：**#320**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -57,6 +57,25 @@
   - → 取证 `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md`（四重证据链 + E2E 出处勘误；§五 研究文档勘误随本卡验收后回写）· 修复批次 `docs/journal/2026-09-03-fix-308-dsh-respond-wire.md`（§九 **真机 E2E 双门禁 PASS**：G1 提问 22:24:16 result success=true + G2 审批 22:37:28 success=true + 升级 bash 真实落地 marker 文件；单测/全量绿）——待用户验收
 
 ## P1 — 核心功能需求
+
+- [ ] **#317 DSH 0.1.2 鉴权层适配——双形态版本探测 + token 交换 + cookie 持久化 + TokenNeeded UX** `dsh` `auth` `session`
+  - 双形态探测：同一 POST 先 0.1.2 形态（`session/list`+`{args:{…}}`）再 0.1.1 形态（`session.list`+裸 payload），200/401/404 组合唯一判定 {版本×鉴权态}（0.1.2 点式恒 404 / 0.1.1 斜杠式恒 404，双向可判别）
+  - token 交换：GET `/?token=` → 303 + Set-Cookie `dsh-auth-<b64url(sha256(authority))>`（`v1.<payload>.<hmac>`，Max-Age 30d HttpOnly SameSite=Strict；**跨 DSH 重启存活**→月度输 token UX 成立）；cookie 按 (serverId,authority) 持久化，authority 不匹配 401
+  - 401 降级：RPC 裸访恒 `unauthorized`、WS 升级 401 unexpected-response → TokenNeeded 状态 + token UX（粘贴 URL/启动行/token 三形态）；宿主侧 token 回收通道 = 启动行 stdout（web.log grep）
+  - → `docs/journal/2026-09-04-dsh-012-adaptation.md` · 探针报告（/home/leo-tkp/workspace/dsh-0.1.2鉴权层容器探针报告-2026-09-03.md）§3/§5
+
+- [ ] **#318 DSH 0.1.2 方法面适配——斜杠端点+args 包装、remote.mux $events 事件流、waterfall 审批应答、端点普查** `dsh` `sse` `session`
+  - 端点命名 `session.list`→`session/list`（点→斜杠），payload 包一层 `{args:{<宿主方法参数名>}}`（`session/list` 要 `_request`、`session/create` 要 `request`）；错误层新增 `gateway/internal`、`gateway/arguments-invalid`，判别序 403→401→415→404→200+闭集
+  - 事件流整体重构：双 WS events.mux+events.host 已删（旧路径 socket hang up）→ 单 WS `/api/remote.mux`（上行 open/cancel + 下行 item/error/end），事件走 `$events` 逻辑流：ready/emit/wwaterfall/cancel 帧词汇；重连对账（原 session/subscribed{lastSeq}）对应物需重新探明
+  - 审批/提问应答：0.1.1 `/api/respond`+rpcId → 0.1.2 waterfall（Host→Client 请求）→ POST `$events/result` `{clientId,eventId,outcome:{next|result|rejected}}`——#308 wire 修复按目标版本二分
+  - 端点普查：已实证 `session/list`/`session/create`/`session/modelCatalog`/`settings/describe`/`$events/result`；goal/workspace/llm/host 等 404 待 @Remote/@RemoteScope 全量盘点
+  - → `docs/journal/2026-09-04-dsh-012-adaptation.md` · 探针报告 §4/§5
+
+- [ ] **#319 DSH 0.1.2 真机 E2E——0.1.2 容器靶机全链路 + 0.1.1 回归** `dsh` `e2e`
+  - 靶机：dsh-keepalive-e2e:0.1.2-alpha.5 容器 3081（生产同款 webserver 0.0.0.0 patch）+ 真机定向 `adb reverse tcp:3081 tcp:3081`；在役 3080（0.1.1）全程不动
+  - 全链路门禁：双形态探测判 0.1.2+auth → token 交换 303+cookie → 会话列表 → 发消息 → 提问卡（waterfall）渲染 → 应答 `$events/result` success → 会话解锁；logcat+SSE 可观测性证据
+  - 回归：同一 APK 对 0.1.1 在役 3080 无鉴权全流程回归（点式+裸 payload 路径不受损）
+  - → `docs/journal/2026-09-04-dsh-012-adaptation.md` · 探针报告 §2/§6
 
 - [ ] **#309 DSH 面对齐批 1·快速胜利：goal 完成/压缩呈现/Full access 确认/插话长按直发/重试 continue** `dsh` `ui` `sse`
   - 五项全第一档（UI 已就绪纯接线，≈3 人日，不动 ChatScreen 协议文件或只轻触）：goal.complete 第四钮（API 全链在位）·压缩事件接线（CompactionCard 双态 UI 完整，DshEventMapper Ignored 未接）·Full access 二次确认（PermissionPresetSelector+现成 ConfirmDialog）·steer 长按直发（wire mode 已在）·重试倒计时+max-tokens continue 钮
