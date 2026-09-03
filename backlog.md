@@ -53,16 +53,6 @@
 
 ## P2 — 优化与锦上添花
 
-- [~] **#303 V2 REST 创建会话后列表不实时刷新——session.created SSE 未实时进列** `sse` `sessions`
-  - 根因定罪（100003f2）：同一后端双配置（reverse 隧道+LAN 直连）下 **ownership 单飞门**（StreamingOwnershipRegistry claim 先到先得）被直连永赢 → 展示服务器的 Created/Updated/Deleted 被当「重复」吞 → 列表不实时；REST 刷新不经此路径故能恢复
-  - 修复：三类生命周期事件**豁免拦截**（幂等，双配置各自呈现）+ **claim 总执行**（占位语义保留，流式事件去重不变）；单测 +2、legacy 测试改造、全量绿；真机 E2E 绿（建会话→滚顶→新会话实时登顶；视口冻结假象坑入档：dump 前必滚顶）
-  - → `docs/journal/2026-09-03-sse-net-303-304.md`
-
-- [~] **#304 SSE 重连风暴可掐死 session.list 基线预载——preLoadSessions 未纳入 NonCancellable** `sse` `sessions`
-  - 根因确认：#278 只保护播种；正文（listSessions+setSessions）在 preloadJob 可取消范围——风暴 cancelAndJoin 掐在途拉取 → 基线丢失列表短暂空白
-  - 修复（6d2a514a）：两分支各纳入 NonCancellable+30s 上限（对齐 #278 模式）；单测红→绿（风暴掐 delay 250ms 在途拉取）、全量绿、真机回归 Pre-loaded 500×2 正常——**待用户验收**
-  - → `docs/journal/2026-09-03-sse-net-303-304.md` · `docs/journal/2026-09-01-291281-stash-v6.md`（#278 上下文）
-
 - [ ] **#299 DSH 会话进场分页加载 ~1 页/s——进场链路串行页管线提速** `dsh` `perf`
   - 现象（2026-09-02 Stage B 顺带观察）：58 msgs 会话进场 session.history 逐页拉取 ~1 页/s × ~10 页，三点加载约 10s
   - 取证（同日主机直测）：服务器页延迟非瓶颈（maxMessages=50→79ms / 200→220ms / 500→672ms，随事件量线性 ~14μs/event；50 msg 页 ≈ 7K events）；成本在 app 侧逐页串行管线（fold+装配+dispatch+Room 双写）
