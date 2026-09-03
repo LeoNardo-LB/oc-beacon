@@ -1096,6 +1096,7 @@ fun ChatScreen(
                 onEdit = { objective, rounds -> viewModel.editGoal(objective, rounds) },
                 onPause = { viewModel.pauseGoal() },
                 onResume = { viewModel.resumeGoal() },
+                onComplete = { viewModel.completeGoal() },
                 onClear = { viewModel.clearGoal() },
             )
         }

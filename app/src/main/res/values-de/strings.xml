@@ -775,6 +775,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="goal_blocked_reason">Grund: %1$s</string>
     <string name="goal_action_pause">Pause</string>
     <string name="goal_action_resume">Fortsetzen</string>
+    <string name="goal_action_complete">Als abgeschlossen markieren</string>
     <string name="goal_action_edit">Bearbeiten</string>
     <string name="goal_action_clear">Löschen</string>
     <string name="goal_create_heading">Ziel erstellen</string>

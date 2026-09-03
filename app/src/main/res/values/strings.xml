@@ -863,6 +863,7 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="goal_blocked_reason">Reason: %1$s</string>
     <string name="goal_action_pause">Pause</string>
     <string name="goal_action_resume">Resume</string>
+    <string name="goal_action_complete">Mark complete</string>
     <string name="goal_action_edit">Edit</string>
     <string name="goal_action_clear">Clear</string>
     <string name="goal_create_heading">Create a goal</string>

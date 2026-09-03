@@ -773,6 +773,7 @@
     <string name="goal_blocked_reason">Raison : %1$s</string>
     <string name="goal_action_pause">Pause</string>
     <string name="goal_action_resume">Reprendre</string>
+    <string name="goal_action_complete">Marquer comme terminé</string>
     <string name="goal_action_edit">Modifier</string>
     <string name="goal_action_clear">Effacer</string>
     <string name="goal_create_heading">Créer un objectif</string>

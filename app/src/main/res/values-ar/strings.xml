@@ -791,6 +791,7 @@
         <string name="goal_blocked_reason">السبب: %1$s</string>
         <string name="goal_action_pause">إيقاف مؤقت</string>
         <string name="goal_action_resume">استئناف</string>
+        <string name="goal_action_complete">وسم كمكتمل</string>
         <string name="goal_action_edit">تعديل</string>
         <string name="goal_action_clear">مسح</string>
         <string name="goal_create_heading">إنشاء هدف</string>

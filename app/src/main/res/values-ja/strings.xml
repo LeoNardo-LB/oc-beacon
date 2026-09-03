@@ -775,6 +775,7 @@
     <string name="goal_blocked_reason">理由: %1$s</string>
     <string name="goal_action_pause">一時停止</string>
     <string name="goal_action_resume">再開</string>
+    <string name="goal_action_complete">完了にする</string>
     <string name="goal_action_edit">編集</string>
     <string name="goal_action_clear">クリア</string>
     <string name="goal_create_heading">目標を作成</string>

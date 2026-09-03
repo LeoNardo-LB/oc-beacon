@@ -781,6 +781,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="goal_blocked_reason">Alasan: %1$s</string>
     <string name="goal_action_pause">Jeda</string>
     <string name="goal_action_resume">Lanjutkan</string>
+    <string name="goal_action_complete">Tandai selesai</string>
     <string name="goal_action_edit">Edit</string>
     <string name="goal_action_clear">Bersihkan</string>
     <string name="goal_create_heading">Buat tujuan</string>

@@ -807,6 +807,16 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /** goal.complete（#309 批1：标记目标完成——投影 phase 转 complete → 面板回创建表单，Web 对位第四钮）。 */
+    fun completeGoal() {
+        val ref = currentGoalRef() ?: return
+        viewModelScope.launch {
+            chatRepository.completeGoal(serverId, sessionId, ref)
+                .onSuccess { }
+                .onFailure { reportGoalFailure(it) }
+        }
+    }
+
     /** goal.clear（清除当前目标，保留 durable tombstone；投影转 null → 面板回创建表单）。 */
     fun clearGoal() {
         val ref = currentGoalRef() ?: return

@@ -5,6 +5,7 @@ import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.SseEvent
+import dev.leonardo.ocbeacon.domain.model.SessionNextEvent
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.model.ToolState
 import kotlinx.serialization.json.Json
@@ -690,6 +691,71 @@ class DshEventMapperTest {
         )
     }
 
+    /**
+     * #309 批1：压缩呈现接线——start/summary 不再 Ignored。
+     * 载荷形状对齐 dsh-compaction-basic（:437/:589）：start={compactionId,turn}、
+     * summary={...,summary}；DSH 无 V2 的 message id/reason，置空。
+     */
+    @Test
+    fun `compaction start maps to SessionNext CompactionStarted`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s9",
+            sessionEvent("compaction/start", """{"compactionId":"c-1","turn":3}"""),
+        )
+        assertEquals(
+            listOf(
+                DshMappedEvent.Sse(
+                    SseEvent.SessionNext(SessionNextEvent.CompactionStarted(sessionId = "s9", messageId = "", reason = ""))
+                )
+            ),
+            mapped,
+        )
+    }
+
+    @Test
+    fun `compaction summary maps to SessionNext CompactionDelta with full text`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s9",
+            sessionEvent("compaction/summary", """{"compactionId":"c-1","summary":"压缩摘要全文","shadowedTokenCount":100}"""),
+        )
+        assertEquals(
+            listOf(
+                DshMappedEvent.Sse(
+                    SseEvent.SessionNext(SessionNextEvent.CompactionDelta(sessionId = "s9", messageId = "", delta = "压缩摘要全文"))
+                )
+            ),
+            mapped,
+        )
+    }
+
+    @Test
+    fun `compaction summary without text stays ignored`() {
+        assertEquals(
+            listOf(DshMappedEvent.Ignored(DshIgnoreReason.COMPACTION)),
+            DshEventMapper.mapSessionEvent("s9", sessionEvent("compaction/summary", """{"compactionId":"c-1"}""")),
+        )
+    }
+
+    /** #309 批1：失败压缩（end 带 error）加发 CompactionEnded(error)——#219 失败 snackbar 通道。 */
+    @Test
+    fun `compaction end with error also emits CompactionEnded failure`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s9",
+            sessionEvent("compaction/end", """{"compactionId":"c-1","turn":3,"error":"summary too large"}"""),
+        )
+        assertEquals(
+            listOf(
+                DshMappedEvent.Sse(SseEvent.SessionCompacted(sessionId = "s9")),
+                DshMappedEvent.Sse(
+                    SseEvent.SessionNext(
+                        SessionNextEvent.CompactionEnded(sessionId = "s9", messageId = "", error = "summary too large")
+                    )
+                ),
+            ),
+            mapped,
+        )
+    }
+
     /** 实况帧路径（fixture 黄金样本）：session/event 包 compaction/end 同映射。 */
     @Test
     fun `compaction end frame maps to SessionCompacted`() {
@@ -765,11 +831,10 @@ class DshEventMapperTest {
 
     // ============ Tier2 / Tier3 目录：具名忽略 ============
 
+    /** #309 批1：compaction/start|summary 已接线（下方专门断言），移出具名忽略目录。 */
     @Test
     fun `tier2 catalog types are ignored with named reasons`() {
         val cases = mapOf(
-            "compaction/start" to DshIgnoreReason.COMPACTION,
-            "compaction/summary" to DshIgnoreReason.COMPACTION,
             "compaction/prune" to DshIgnoreReason.COMPACTION,
             "subagent/descriptor" to DshIgnoreReason.SUBAGENT_DESCRIPTOR,
         )

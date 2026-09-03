@@ -784,6 +784,7 @@
     <string name="goal_blocked_reason">Причина: %1$s</string>
     <string name="goal_action_pause">Пауза</string>
     <string name="goal_action_resume">Продолжить</string>
+    <string name="goal_action_complete">Отметить выполненной</string>
     <string name="goal_action_edit">Изменить</string>
     <string name="goal_action_clear">Очистить</string>
     <string name="goal_create_heading">Создать цель</string>

@@ -775,6 +775,7 @@
     <string name="goal_blocked_reason">이유: %1$s</string>
     <string name="goal_action_pause">일시정지</string>
     <string name="goal_action_resume">재개</string>
+    <string name="goal_action_complete">완료로 표시</string>
     <string name="goal_action_edit">편집</string>
     <string name="goal_action_clear">지우기</string>
     <string name="goal_create_heading">목표 만들기</string>

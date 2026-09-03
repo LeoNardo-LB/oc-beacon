@@ -6,6 +6,7 @@ import dev.leonardo.ocbeacon.domain.model.PartIdContract
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.SseEvent
+import dev.leonardo.ocbeacon.domain.model.SessionNextEvent
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.model.ToolState
 import dev.leonardo.ocbeacon.logging.AppLogger
@@ -464,16 +465,49 @@ object DshEventMapper {
             "todo/write" -> mapTodoWrite(sessionId, data)
             "session/title" -> mapSessionTitle(sessionId, time, data)
 
-            // ---- Tier 2：会话元数据（具名忽略，#276/后续承接） ----
+            // ---- Tier 2：会话元数据 ----
             // compaction/end → SessionCompacted（#276 后端接口补全）：压缩完成
-            // 信号——DSH compact 走 /compact 命令通道受理即回，完成只由本事件
-            // 通告；SessionEventHandler.compactedSessions 计数驱动 UI 刷新 +
-            // 完成 snackbar（对位 V2 session.compaction.ended 映射先例，刻意不
-            // 映射 SessionNext(CompactionEnded)——那类是本地幂等结束信号）。
-            "compaction/end" ->
-                listOf(DshMappedEvent.Sse(SseEvent.SessionCompacted(sessionId = sessionId)))
-            "compaction/start", "compaction/summary", "compaction/prune" ->
-                listOf(DshMappedEvent.Ignored(DshIgnoreReason.COMPACTION))
+            // 信号——SessionEventHandler.compactedSessions 计数驱动 UI 刷新 +
+            // 完成 snackbar；banner 终结走 dispatcher 跨 handler endCompaction。
+            // #309 批1：失败压缩（error 非空，dsh-compaction-basic :463）加发
+            // CompactionEnded(error)——对位 #219 失败 snackbar 通道。
+            "compaction/end" -> {
+                val events = mutableListOf(
+                    DshMappedEvent.Sse(SseEvent.SessionCompacted(sessionId = sessionId))
+                )
+                data.str("error")?.takeIf { it.isNotBlank() }?.let { err ->
+                    events += DshMappedEvent.Sse(
+                        SseEvent.SessionNext(
+                            SessionNextEvent.CompactionEnded(sessionId = sessionId, messageId = "", error = err)
+                        )
+                    )
+                }
+                events
+            }
+            // #309 批1：压缩呈现接线——CompactionCard 进行中双态 UI 现成，此前
+            // Ignored 未接。载荷（dsh-compaction-basic :437/:589，2026-09-03 源码）：
+            // start={compactionId,turn}、summary={...,summary}；无 message id/reason
+            // （V2 语义缺席置空），summary 单帧全文 → delta 一次累积即实时摘要区。
+            // 历史重放同路径：start→end 序列净零（banner 起→落），摘要不残留。
+            "compaction/start" -> listOf(
+                DshMappedEvent.Sse(
+                    SseEvent.SessionNext(
+                        SessionNextEvent.CompactionStarted(sessionId = sessionId, messageId = "", reason = "")
+                    )
+                )
+            )
+            "compaction/summary" -> {
+                val summary = data.str("summary")
+                if (summary == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.COMPACTION))
+                else listOf(
+                    DshMappedEvent.Sse(
+                        SseEvent.SessionNext(
+                            SessionNextEvent.CompactionDelta(sessionId = sessionId, messageId = "", delta = summary)
+                        )
+                    )
+                )
+            }
+            "compaction/prune" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.COMPACTION))
             // goal/change → SessionGoalChanged（whole-value last-wins；clear tombstone → null）。
             // 历史折叠与实况共用本入口（DshHistoryFolder 可折叠）。
             "goal/change" -> {

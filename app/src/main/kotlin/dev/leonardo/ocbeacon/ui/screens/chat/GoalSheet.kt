@@ -51,6 +51,7 @@ internal fun GoalSheet(
     onEdit: (objective: String, maxGoalRounds: Long?) -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
+    onComplete: () -> Unit,
     onClear: () -> Unit,
 ) {
     SheetScaffold(
@@ -76,6 +77,7 @@ internal fun GoalSheet(
                     goal = goal,
                     onPause = onPause,
                     onResume = onResume,
+                    onComplete = onComplete,
                     onEditClick = { editing = true },
                     onClear = onClear,
                 )
@@ -90,6 +92,7 @@ private fun GoalDetail(
     goal: DshGoalProjection,
     onPause: () -> Unit,
     onResume: () -> Unit,
+    onComplete: () -> Unit,
     onEditClick: () -> Unit,
     onClear: () -> Unit,
 ) {
@@ -173,6 +176,11 @@ private fun GoalDetail(
                     Text(stringResource(R.string.goal_action_resume))
                 }
                 else -> Unit
+            }
+            // #309 批1：goal.complete 第四钮（非 complete 相位常驻——active/paused/
+            // blocked 均可标记完成；完成后 phase=complete → 面板回创建表单）。
+            OutlinedButton(onClick = onComplete, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.goal_action_complete))
             }
             OutlinedButton(onClick = onEditClick, modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.goal_action_edit))

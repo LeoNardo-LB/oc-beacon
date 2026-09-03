@@ -775,6 +775,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="goal_blocked_reason">Neden: %1$s</string>
     <string name="goal_action_pause">Duraklat</string>
     <string name="goal_action_resume">Sürdür</string>
+    <string name="goal_action_complete">Tamamlandı olarak işaretle</string>
     <string name="goal_action_edit">Düzenle</string>
     <string name="goal_action_clear">Temizle</string>
     <string name="goal_create_heading">Hedef oluştur</string>

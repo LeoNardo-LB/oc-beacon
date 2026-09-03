@@ -778,6 +778,7 @@
     <string name="goal_blocked_reason">原因：%1$s</string>
     <string name="goal_action_pause">暂停</string>
     <string name="goal_action_resume">恢复</string>
+    <string name="goal_action_complete">标记完成</string>
     <string name="goal_action_edit">编辑</string>
     <string name="goal_action_clear">清除</string>
     <string name="goal_create_heading">创建目标</string>
