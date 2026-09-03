@@ -58,3 +58,78 @@
 - 根因方针（backlog 头部「修复方针」）首次落地实践：注入实证 → 根因层修复
 - #306（会话列表持久化回填）按裁决在本卡后实施——本卡消除非自愿断开根因后，
   #306 解决「断开/冷启动时白屏」的展示层架构缺陷
+
+## 补篇（2026-09-03 下午）：网络切换路径根因——SSE 响应头等待死区（91af62b7）
+
+### 用户新证词改写问题面
+
+> 「没有放 6h 这么久也会出现……网络环境改变导致的问题」——6h onTimeout 只是触发路径之一；
+> 网络黑洞/切换是独立触发路径，specialUse 迁移不覆盖。
+
+### Phase 1 反馈回路：黑洞隧道
+
+- 仪器：PC `nc -l 4299` 黑洞（accept 持有不响应）+ `adb reverse tcp:4199 tcp:4299` 重定向
+  + `adb kill-server` 断既有隧道连接（reverse --remove 不断既有——实证）。
+- 红信号：黑洞期后恢复隧道，观测 app 是否自动重连（用户症状「须手动」）。
+
+### Phase 2 红（修复前，pid 27242 build e8686593）
+
+- 黑洞下：SSE attempt 挂死 **9min+ 零新 attempt**（PC 侧 ESTAB 到黑洞实锤）；
+- 恢复隧道后 **8min 不自动重连**、条幅「服务器已断开，正在重连…」永挂、真映射连接数 0；
+- 同期 248 服务器路径全程健康（独立网络路径不受累）；#306 兜底列表显示正常（顺带实证）。
+- 现场顺带捕获 #304：`Failed to pre-load sessions: Request timeout has expired [120000 ms]`。
+
+### Phase 3/4 根因定界（打点 + 源码）
+
+- 候选淘汰：5min 冷却（全程无 Entering cooldown——黑洞形态是 IOException 不计 timeout）、
+  backoff 无限增长（attempt 根本没死，无 backoff 可言）。
+- 定罪：**V1/V2 SSE 客户端 `socketTimeoutMillis = Long.MAX_VALUE`**（SseClient.kt:180 /
+  SseClientV2.kt:118）在「等待 HTTP 响应头」阶段形成无超时死区——#108 流内 40s 心跳防护
+  只覆盖**响应到达之后**；黑洞/半开隧道（FIN 不达）下 `execute` 永挂 → 重连协程挂死 →
+  单飞门（`Reconnect already in progress, skipping`——日志实锤）被永久占用 → **永不自动重连**。
+- JVM 诊断（SseTimeoutDiagTest，跑完即删）：缺省注入值 45s 生效（elapsed=45422ms），
+  排除「per-request 配置不生效」疑点。
+
+### Phase 5 修复（91af62b7）
+
+- 两客户端 `connectToEvents/connectToGlobalEvents` 增 `socketTimeoutMs` 参数，
+  缺省 `SSE_SOCKET_TIMEOUT_MS = HEARTBEAT_TIMEOUT_MS + 5s = 45s`（internal 可测）。
+- 约束（注释入档）：必须 **大于** 流内心跳 40s——流中应用层 #108 防护先触发，本值不改流行为，
+  仅封顶响应头等待。
+- 回归测试 ×3（SseResponseHeaderTimeoutTest）：真 ServerSocket 黑洞 + 真 Ktor/OkHttp——
+  V1/V2 注入 500ms 必须失败终结（挂死形态=外层 TimeoutCancellation 判假红）；缺省值
+  防退化断言（40s < x ≤ 120s）。踩坑：runTest 虚拟时间令 withTimeout 瞬时触发——真时钟
+  runBlocking。
+
+### Phase 6 E2E 绿（pid 1423 build 91af62b7，打点 [305net] 已清理）
+
+- 黑洞期：**45s 周期重试循环**（`Socket timeout expired [socket_timeout=45000]` → attempt →
+  execute → 循环，打点铁证）；
+- 恢复隧道后 **35s 自动 Connected**（`response headers arrived: 200` → `Connected to server`）
+  + 条幅自动消失（banner_count=0）+ 列表正常。
+
+### 对照矩阵（同场景修复前后）
+
+| 信号 | 修复前 | 修复后 |
+|---|---|---|
+| 黑洞期 attempt | 1 次后永寂（挂死 9min+） | 45s 周期持续 |
+| 恢复后自动重连 | 8min 不连（观测窗口内永不） | 35s Connected |
+| UI 条幅 | 永挂「正在重连」 | 恢复即消 |
+| 用户动作 | 须手动点连接 | 零操作 |
+
+### 状态
+
+- 网络路径 E2E 绿 + 6h 路径（specialUse+onTimeout）此前已绿——#305 两条触发路径均闭环。
+- soak 以 pid 1423 重启（09:49–17:49，跨 15:49 六小时边界）作 6h 路径的加时长证据。
+- 用户预授权关闭条件（「真机端到端测试可以确定修复了，就可以关闭」）已满足；
+  完结迁移待 soak 收尾一并执行。
+
+## 完结迁移记录（2026-09-03 11:40）
+
+- **#305 FGS 断链根治（双路径）** `service` `sessions` `sse` `[x]`
+  - 用户预授权关闭条件达成：6h 路径（注入 E2E：onTimeout→退前台→重启→FGS 恢复，pid 连续/
+    SSE 保持；dumpsys types=0x40000000）+ 网络路径（黑洞 E2E：45s 周期重试、恢复 35s
+    自动 Connected、条幅自消）双绿。
+  - 交付：`e8686593`（specialUse 迁移+onTimeout 修复）+ `91af62b7`（SSE socketTimeout 死区）。
+  - soak 观察哨继续至 17:49（跨 15:49 旧 6h 边界）——若出异常另开新卡（specialUse 无时限
+    已有官方文档双源保证，预期绿）。

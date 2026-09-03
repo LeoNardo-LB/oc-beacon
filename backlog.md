@@ -49,12 +49,6 @@
 
 ## P0 — 主流程阻塞
 
-- [~] **#305 FGS 断链根治（双路径）——specialUse 迁移 + onTimeout 修复 + SSE 响应头等待死区** `service` `sessions` `sse`
-  - **注入实证改写根因形态**（debug 注入广播模拟系统 onTimeout）：原实现 stopSelf 缺失（误读「super 默认 stopSelf」——AOSP 为空实现）+ HomeViewModel binding 长持导致裸 stopSelf 也不退前台——真实 6h 场景 = 系统抛 ForegroundServiceDidNotStopInTimeException **强杀进程**（断链+列表空+须手动的真实形态）；原「后台重启被拦」疑点实证澄清（binding 存活下不拦）
-  - 修复两层：① specialUse 迁移（根因层——API≥34 无 6h 时限，manifest 双类型声明+运行时选择，官方文档双源确认时限仅 dataSync/mediaProcessing）；② onTimeout 显式 stopForeground+复位 foregroundStarted+stopSelf（防御层——迁移后系统路径永不触发，兜 OEM/未来政策）。验证：dumpsys types=0x40000000、前台/后台双场景注入链路完整（pid 连续/SSE 保持/FGS 恢复）、全量单测绿
-  - **补篇（91af62b7）：网络切换路径根因**——用户证词「不满 6h 网络改变即触发」；黑洞隧道 E2E 红（SSE attempt 挂死 9min 零重试、恢复 8min 不连、条幅永挂=须手动）定罪 V1/V2 `socketTimeout=MAX_VALUE` 响应头等待死区（#108 只护流内）+ 重连单飞门被永久占用；修复 socketTimeout=45s（>心跳 40s 不改流行为）+回归测试×3；E2E 绿：黑洞 45s 周期重试、恢复 35s 自动 Connected、条幅自消；**用户预授权条件已满足，完结迁移待 soak（09:49-17:49 跨界）收尾一并执行**
-  - → `docs/journal/2026-09-03-305-fgs-special-use.md`
-
 ## P1 — 核心功能需求
 
 ## P2 — 优化与锦上添花
