@@ -67,7 +67,9 @@ interface MessageApi {
         requestId: String,
         reply: String, // "once"、"always" 或 "reject"
         message: String? = null,
-        directory: String? = null
+        directory: String? = null,
+        /** #308（2026-09-03）：DSH 回程路由需要 requested 帧稳定 rpcId（PermissionAsked.metadata["rpcId"]，仓储层从 pending 存储补查）；V1/V2 忽略。 */
+        metadata: Map<String, String>? = null
     ): Boolean
 
     /**
@@ -178,8 +180,9 @@ class MessageApiImpl @Inject constructor(
         requestId: String,
         reply: String,
         message: String?,
-        directory: String?
-    ): Boolean = pick(conn).replyToPermission(conn, sessionId, requestId, reply, message, directory)
+        directory: String?,
+        metadata: Map<String, String>?
+    ): Boolean = pick(conn).replyToPermission(conn, sessionId, requestId, reply, message, directory, metadata)
 
     override suspend fun listPendingPermissions(conn: ServerConnection, directory: String?): List<PermissionRequest> =
         pick(conn).listPendingPermissions(conn, directory)

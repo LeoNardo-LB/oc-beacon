@@ -149,14 +149,15 @@ class DshRpcClientTest {
 
     // ============ respond 回程 ============
 
+    /** #308：回执是 RpcReceipt {accepted,reason}（非信封）——旧 mock 用信封形状掩盖了真实契约。 */
     @Test
-    fun `respond posts client-response envelope to api respond path`() = runTest {
+    fun `respond posts client-response envelope and parses rpc receipt`() = runTest {
         var capturedBody: String? = null
         val engine = MockEngine { request ->
             assertEquals("/api/respond", request.url.encodedPath)
             capturedBody = (request.body as TextContent).text
             respond(
-                """{"type":"server-response","rpcId":"ignored","result":{"ok":true,"value":{"accepted":true}}}""",
+                """{"accepted":true}""",
                 HttpStatusCode.OK, headersOf("Content-Type" to listOf("application/json")),
             )
         }
@@ -170,10 +171,10 @@ class DshRpcClientTest {
     }
 
     @Test
-    fun `respond error receipt maps to DshApiError keeping unknown code`() = runTest {
+    fun `respond rejected receipt maps to DshApiError keeping unknown code`() = runTest {
         val engine = MockEngine { request ->
             respond(
-                """{"type":"server-response","rpcId":"x","result":{"ok":false,"error":{"code":"not-pending","message":"no pending request","details":{}}}}""",
+                """{"accepted":false,"reason":"not-pending"}""",
                 HttpStatusCode.OK, headersOf("Content-Type" to listOf("application/json")),
             )
         }

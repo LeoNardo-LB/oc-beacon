@@ -9,8 +9,13 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -82,12 +87,52 @@ class DshRpcClient @Inject constructor(
      * /api/respond 回程（§1.6-2：WS 纯下行，上行全部走 HTTP）。
      *
      * [rpcId] 必须复用 server-request（approval/question requested）帧的稳定 id；
-     * [value] 为应答载荷（如 {"outcome":"allowed-once"}）。回执（RpcReceipt）的
-     * ok 值本期不解析——错误分支（如 not-pending）照常映射 [DshApiError]。
+     * [value] 为应答载荷。#308（2026-09-03 源码定音）：载荷 schema——审批
+     * {sessionId,approvalId,outcome} / 提问 {sessionId,answer:{answers[]}}；
+     * **回执是 RpcReceipt {accepted,reason} 而非业务信封**（无 rpcId/result，
+     * 走 [DshEnvelope.decode] 必返 null → 旧实现 respond 恒失败、HTTP 200 掩盖）。
+     * accepted=false 按 reason 构造 [DshApiError]（bad-response/not-pending 为
+     * 本端点专用词，不在 39 值闭集，[DshRpcErrorCode] 保留原串容错）。
      */
-    suspend fun respond(conn: ServerConnection, rpcId: String, value: JsonObject): Result<Unit> {
-        val envelope = DshEnvelope.ClientResponse(rpcId, DshRpcResult.Ok(value))
-        return exchange(conn, "respond", envelope).map { Unit }
+    suspend fun respond(conn: ServerConnection, rpcId: String, value: JsonObject): Result<Unit> =
+        postRespond(conn, DshEnvelope.ClientResponse(rpcId, DshRpcResult.Ok(value)))
+
+    /**
+     * /api/respond 取消回程（#308）：提问取消的唯一被接受形态 = Err 信封
+     * （result.ok=false + error.code="cancelled" → 服务端 claimQuestion("cancelled")
+     * → accepted:true）。审批无取消——Err 回执恒 bad-response，拒绝审批应走
+     * [respond] 的 outcome="rejected"。
+     */
+    suspend fun respondError(conn: ServerConnection, rpcId: String, code: DshRpcErrorCode, message: String): Result<Unit> =
+        postRespond(conn, DshEnvelope.ClientResponse(rpcId, DshRpcResult.Err(code, message, null)))
+
+    /** /api/respond 传输 + RpcReceipt 解析（#308：与 [exchange] 的信封解码分道）。 */
+    private suspend fun postRespond(conn: ServerConnection, envelope: DshEnvelope): Result<Unit> {
+        return try {
+            val response = apiClient.httpClient.post(url(conn, "respond")) {
+                contentType(ContentType.Application.Json)
+                setBody(DshEnvelope.encode(envelope))
+            }
+            val status = response.status.value
+            val text = response.bodyAsText()
+            if (status != HttpStatusCode.OK.value) {
+                Result.failure(DshApiError(null, "HTTP " + status + ": " + text.take(200), null, status))
+            } else {
+                val root = runCatching { Json.parseToJsonElement(text).jsonObject }.getOrNull()
+                val accepted = (root?.get("accepted") as? JsonPrimitive)?.booleanOrNull
+                if (accepted == true) {
+                    Result.success(Unit)
+                } else {
+                    val reason = (root?.get("reason") as? JsonPrimitive)?.contentOrNull
+                        ?: "malformed rpc receipt: " + text.take(120)
+                    Result.failure(DshApiError(DshRpcErrorCode(reason), "respond not accepted: " + reason, null, status))
+                }
+            }
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (t: Throwable) {
+            Result.failure(DshApiError(null, t.message ?: t::class.java.simpleName, null, null, cause = t))
+        }
     }
 
     /** 非信封入口共用传输（#276：session.export zip 流直下）——同一 OkHttp engine 配置。 */

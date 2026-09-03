@@ -263,7 +263,12 @@ class ChatRepositoryImpl @Inject constructor(
         directory: String?
     ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        messageApi.replyToPermission(conn, sessionId, permissionId, reply, directory = directory)
+        // #308：DSH 回程路由键 = approval/requested 帧稳定 rpcId（mapper 存
+        // PermissionAsked.metadata）——从内存 pending 补查；查不到（重启丢内存）
+        // 传 null，DSH 适配层回退 permissionId 尽力而为。
+        val metadata = eventDispatcher.permissions.value.values.flatten()
+            .firstOrNull { it.id == permissionId }?.metadata
+        messageApi.replyToPermission(conn, sessionId, permissionId, reply, directory = directory, metadata = metadata)
     }
 
     // ============ 待处理查询 ============

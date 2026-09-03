@@ -402,12 +402,12 @@ class V1V2DialectContractTest {
     @Test
     fun `message - V1 conn routes replyToPermission with sessionId`() = runTest {
         val api = MessageApiImpl(v1, v2, dsh)
-        coEvery { v1.replyToPermission(connV1, "ses_1", "req_1", "once", null, null) } returns true
+        coEvery { v1.replyToPermission(connV1, "ses_1", "req_1", "once", null, null, null) } returns true
 
         assertTrue(api.replyToPermission(connV1, "ses_1", "req_1", "once"))
 
-        coVerify(exactly = 1) { v1.replyToPermission(connV1, "ses_1", "req_1", "once", null, null) }
-        coVerify(exactly = 0) { v2.replyToPermission(any(), any(), any(), any(), any(), any()) }
+        coVerify(exactly = 1) { v1.replyToPermission(connV1, "ses_1", "req_1", "once", null, null, null) }
+        coVerify(exactly = 0) { v2.replyToPermission(any(), any(), any(), any(), any(), any(), any()) }
     }
 
     // ---------- 下沉适配的真实 client 守护（C1-3 字节等价） ----------

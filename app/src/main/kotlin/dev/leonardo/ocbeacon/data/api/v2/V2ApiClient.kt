@@ -885,7 +885,8 @@ class V2ApiClient @Inject constructor(
         requestId: String,
         reply: String,
         message: String?,
-        directory: String?
+        directory: String?,
+        metadata: Map<String, String>?
     ): Boolean {
         // 2026-08-17 根治（权限卡每次进入重弹）：真实契约为
         // POST /api/session/{权限所属会话}/permission/{id}/reply + {"reply":"once"|"always"|"reject"}

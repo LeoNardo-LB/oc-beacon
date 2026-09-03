@@ -14,6 +14,7 @@ import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -290,17 +291,120 @@ class DshApiClientTest {
         assertEquals("5", page.nextCursor)
     }
 
+    /**
+     * #308（2026-09-03 wire 定音）：/api/respond 请求 = client-response 信封
+     * （rpcId=requested 帧稳定 id），value 载荷三键 {sessionId,approvalId,outcome}；
+     * 回执 = RpcReceipt {accepted,reason}（非信封）。旧测试用信封回执 mock
+     * 掩盖了真实回执形状（#308 根因之一）——本组按服务端 schema 对齐
+     * （dsh-host-apiproxy respond impl :3726-3781 + approvalResponsePayloadSchema
+     * :678-682 + matchesQuestions :1306-1326）。
+     */
     @Test
-    fun `replyToPermission responds with mapped outcome`() = runTest {
-        val engine = MockEngine { respond(ok("{}"), HttpStatusCode.OK, jsonHeaders()) }
-        assertTrue(client(engine).replyToPermission(conn, "s", "rpc-1", "once"))
+    fun `replyToPermission posts three-key payload with frame rpcId and parses receipt`() = runTest {
+        val engine = MockEngine { respond("""{"accepted":true}""", HttpStatusCode.OK, jsonHeaders()) }
+        assertTrue(
+            client(engine).replyToPermission(conn, "ses-1", "appr-9", "once", metadata = mapOf("rpcId" to "frame-7")),
+        )
         val req = captureRequests(engine).single()
         assertEquals("/api/respond", req.url.encodedPath)
         val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
         assertEquals("client-response", body["type"]!!.jsonPrimitive.content)
-        assertEquals("rpc-1", body["rpcId"]!!.jsonPrimitive.content)
-        assertEquals("allowed-once", body["result"]!!.jsonObject["value"]!!.jsonObject["outcome"]!!.jsonPrimitive.content)
+        assertEquals("frame-7", body["rpcId"]!!.jsonPrimitive.content)
+        val value = body["result"]!!.jsonObject["value"]!!.jsonObject
+        assertEquals("ses-1", value["sessionId"]!!.jsonPrimitive.content)
+        assertEquals("appr-9", value["approvalId"]!!.jsonPrimitive.content)
+        assertEquals("allowed-once", value["outcome"]!!.jsonPrimitive.content)
     }
+
+    @Test
+    fun `replyToPermission maps always to allowed-once and reject to rejected`() = runTest {
+        val engine = MockEngine { respond("""{"accepted":true}""", HttpStatusCode.OK, jsonHeaders()) }
+        val c = client(engine)
+        assertTrue(c.replyToPermission(conn, "ses-1", "a1", "always"))
+        assertTrue(c.replyToPermission(conn, "ses-1", "a2", "reject"))
+        val outcomes = captureRequests(engine).map { req ->
+            json.parseToJsonElement(bodyTextOf(req)).jsonObject["result"]!!.jsonObject["value"]!!.jsonObject["outcome"]!!.jsonPrimitive.content
+        }
+        // allowed-always 在 dsh 0.1.1-rc.2 全树零命中：always=本地规则模拟 + allowed-once 重答
+        assertEquals(listOf("allowed-once", "rejected"), outcomes)
+    }
+
+    @Test
+    fun `replyToPermission falls back rpcId to requestId and fails on rejected receipt`() = runTest {
+        val engine = MockEngine { respond("""{"accepted":false,"reason":"not-pending"}""", HttpStatusCode.OK, jsonHeaders()) }
+        assertFalse(client(engine).replyToPermission(conn, "ses-1", "appr-9", "once", metadata = null))
+        val body = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single())).jsonObject
+        assertEquals("appr-9", body["rpcId"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `replyToQuestion posts session-scoped answers array with per-item ids`() = runTest {
+        val engine = MockEngine { respond("""{"accepted":true}""", HttpStatusCode.OK, jsonHeaders()) }
+        val question = QuestionFixture(
+            questions = listOf(
+                Q(header = "h1", question = "pick one", multiple = false, key = "qi-1", options = listOf(Opt("A"), Opt("B"))),
+                Q(header = "h2", question = "pick many", multiple = true, key = "qi-2", options = listOf(Opt("X"), Opt("Y"))),
+            ),
+        )
+        assertTrue(client(engine).replyToQuestion(conn, "frame-q", listOf(listOf("A"), listOf("X", "free text")), question = question))
+        val body = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single())).jsonObject
+        assertEquals("frame-q", body["rpcId"]!!.jsonPrimitive.content)
+        val value = body["result"]!!.jsonObject["value"]!!.jsonObject
+        assertEquals("ses-2", value["sessionId"]!!.jsonPrimitive.content)
+        val answers = value["answer"]!!.jsonObject["answers"]!!.jsonArray
+        assertEquals("qi-1", answers[0].jsonObject["id"]!!.jsonPrimitive.content)
+        assertEquals(listOf("A"), answers[0].jsonObject["selected"]!!.jsonArray.map { it.jsonPrimitive.content })
+        // 多选：label 进 selected，非 label 文本进 custom
+        assertEquals(listOf("X"), answers[1].jsonObject["selected"]!!.jsonArray.map { it.jsonPrimitive.content })
+        assertEquals("free text", answers[1].jsonObject["custom"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `replyToQuestion custom on single-select empties selected`() = runTest {
+        val engine = MockEngine { respond("""{"accepted":true}""", HttpStatusCode.OK, jsonHeaders()) }
+        val question = QuestionFixture(
+            questions = listOf(Q(header = "h", question = "q", multiple = false, key = "qi-1", options = listOf(Opt("A")))),
+        )
+        assertTrue(client(engine).replyToQuestion(conn, "frame-q", listOf(listOf("typed answer")), question = question))
+        val answers = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single()))
+            .jsonObject["result"]!!.jsonObject["value"]!!.jsonObject["answer"]!!.jsonObject["answers"]!!.jsonArray
+        // matchesQuestions 契约：单选 + custom → selected 必空
+        assertEquals(0, answers[0].jsonObject["selected"]!!.jsonArray.size)
+        assertEquals("typed answer", answers[0].jsonObject["custom"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `replyToQuestion with null question returns false without http`() = runTest {
+        val engine = MockEngine { respond("""{"accepted":true}""", HttpStatusCode.OK, jsonHeaders()) }
+        assertFalse(client(engine).replyToQuestion(conn, "frame-q", listOf(listOf("A")), question = null))
+        assertTrue(captureRequests(engine).isEmpty())
+    }
+
+    @Test
+    fun `rejectQuestion posts cancelled error envelope`() = runTest {
+        val engine = MockEngine { respond("""{"accepted":true}""", HttpStatusCode.OK, jsonHeaders()) }
+        assertTrue(client(engine).rejectQuestion(conn, "frame-q", null, "ses-2"))
+        val body = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single())).jsonObject
+        assertEquals("client-response", body["type"]!!.jsonPrimitive.content)
+        assertEquals("frame-q", body["rpcId"]!!.jsonPrimitive.content)
+        val result = body["result"]!!.jsonObject
+        assertEquals(false, result["ok"]!!.jsonPrimitive.boolean)
+        assertEquals("cancelled", result["error"]!!.jsonObject["code"]!!.jsonPrimitive.content)
+    }
+
+    private fun QuestionFixture(
+        id: String = "frame-q",
+        sessionId: String = "ses-2",
+        questions: List<dev.leonardo.ocbeacon.domain.model.SseEvent.QuestionAsked.Question>,
+    ) = dev.leonardo.ocbeacon.domain.model.SseEvent.QuestionAsked(id = id, sessionId = sessionId, questions = questions)
+
+    private fun Q(header: String, question: String, multiple: Boolean, key: String?, options: List<dev.leonardo.ocbeacon.domain.model.SseEvent.QuestionAsked.Option>) =
+        dev.leonardo.ocbeacon.domain.model.SseEvent.QuestionAsked.Question(
+            header = header, question = question, multiple = multiple, custom = true, options = options, key = key,
+        )
+
+    private fun Opt(label: String) =
+        dev.leonardo.ocbeacon.domain.model.SseEvent.QuestionAsked.Option(label = label, description = "")
 
     // ============ commands/execute + setPermissionPreset（权限预设切换） ============
 

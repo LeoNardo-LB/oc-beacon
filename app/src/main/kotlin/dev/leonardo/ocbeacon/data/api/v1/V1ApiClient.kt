@@ -442,14 +442,15 @@ class V1ApiClient @Inject constructor(
         return response.status.isSuccess()
     }
 
-    /** V1 契约为无会话前缀路径 POST /permission/{id}/reply——[sessionId] 仅满足域接口签名（C1-3），V1 忽略。 */
+    /** V1 契约为无会话前缀路径 POST /permission/{id}/reply——[sessionId]/[metadata] 仅满足域接口签名（C1-3），V1 忽略。 */
     override suspend fun replyToPermission(
         conn: ServerConnection,
         sessionId: String,
         requestId: String,
         reply: String,
         message: String?,
-        directory: String?
+        directory: String?,
+        metadata: Map<String, String>?
     ): Boolean {
         val body = buildMap<String, String> {
             put("reply", reply)

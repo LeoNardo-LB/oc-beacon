@@ -749,10 +749,15 @@ class DshApiClient @Inject constructor(
     ): Boolean = false
 
     /**
-     * 权限应答（/api/respond 回程，§1.6-2）：outcome 词汇 once→allowed-once /
-     * always→allowed-always / reject→rejected（allowed-once 见 P-4 fixture，
-     * 其余两词 E2E 定音）。[requestId] 即 PermissionAsked.id——requested 帧 rpcId
-     * 透传在 mapper 层（#276 接线注意①）。
+     * 权限应答（/api/respond 回程，§1.6-2）。#308（2026-09-03 服务端源码+官方
+     * 客户端四重定音）：载荷三键必填 {sessionId, approvalId, outcome}，outcome
+     * 枚举仅 allowed-once|rejected（dsh 0.1.1-rc.2 全树无 allowed-always）——
+     * - once 与 always → allowed-once：「始终允许」是客户端本地规则模拟（UI 层
+     *   savePermissionRule 已存规则，后续同类 ask 由 PermissionAutoApprover 自动
+     *   以 once 重答），非服务器能力；
+     * - 信封 rpcId = requested 帧稳定 id（[metadata]「rpcId」，#276 接线注意①），
+     *   与 payload approvalId 是两个不同 id（服务端 pendingApprovals 按帧 rpcId
+     *   路由 + 三键比对）；内存 pending 丢失（重启后）时回退 [requestId] 尽力而为。
      */
     override suspend fun replyToPermission(
         conn: ServerConnection,
@@ -761,14 +766,19 @@ class DshApiClient @Inject constructor(
         reply: String,
         message: String?,
         directory: String?,
+        metadata: Map<String, String>?,
     ): Boolean {
         val outcome = when (reply) {
-            "once" -> "allowed-once"
-            "always" -> "allowed-always"
+            "once", "always" -> "allowed-once"
             "reject" -> "rejected"
             else -> reply
         }
-        return rpc.respond(conn, requestId, buildJsonObject { put("outcome", outcome) }).isSuccess
+        val payload = buildJsonObject {
+            put("sessionId", sessionId)
+            put("approvalId", requestId)
+            put("outcome", outcome)
+        }
+        return rpc.respond(conn, metadata?.get("rpcId") ?: requestId, payload).isSuccess
     }
 
     /** 无待处理权限 REST 端点（开流即重放未决帧，§1.5 结论 5）——空列表。 */
@@ -778,8 +788,12 @@ class DshApiClient @Inject constructor(
     ): List<PermissionRequest> = emptyList()
 
     /**
-     * 提问应答（/api/respond）：answers（有序列表，V1 形态）→ {questionId: 选值}
-     * 键控 map——键取 [question] 各 item 的 key/id（V2FormMapper 同思路）。
+     * 提问应答（/api/respond）。#308：载荷 {sessionId, answer:{answers:[{id,
+     * selected, custom?}]}}——服务端 matchesQuestions 硬校验：answer.id === 题
+     * wire id（[SseEvent.QuestionAsked.Question.key] 即 mapper 存的 item.id）、
+     * selected ⊆ 选项 label 且无重复、custom 省略或非空、**单选题带 custom 时
+     * selected 必空**。非 label 的答案串视为自由文本进 custom。信封 rpcId =
+     * [requestId]（question/requested 帧 id 即提问标识，payload 无资源 id）。
      */
     override suspend fun replyToQuestion(
         conn: ServerConnection,
@@ -789,22 +803,39 @@ class DshApiClient @Inject constructor(
         question: SseEvent.QuestionAsked?,
     ): Boolean {
         if (question == null) return false
-        val answerObj = buildJsonObject {
-            question.questions.forEachIndexed { index, q ->
-                val key = q.key ?: q.question
-                val selected = answers.getOrNull(index) ?: emptyList()
-                put(key, if (selected.size == 1) kotlinx.serialization.json.JsonPrimitive(selected[0]) else JsonArray(selected.map { kotlinx.serialization.json.JsonPrimitive(it) }))
+        val answerObjects = mutableListOf<JsonObject>()
+        question.questions.forEachIndexed { index, q ->
+            val id = q.key ?: return false
+            val labels = q.options.map { it.label }.toSet()
+            val chosen = answers.getOrNull(index) ?: emptyList()
+            val custom = chosen.firstOrNull { it !in labels }?.trim()?.takeIf { it.isNotEmpty() }
+            // 单选 + custom 契约：selected 必空（matchesQuestions multiSelect!==true 分支）
+            val selected = if (!q.multiple && custom != null) emptyList() else chosen.filter { it in labels }
+            answerObjects += buildJsonObject {
+                put("id", id)
+                put("selected", JsonArray(selected.map { kotlinx.serialization.json.JsonPrimitive(it) }))
+                custom?.let { put("custom", kotlinx.serialization.json.JsonPrimitive(it)) }
             }
         }
-        return rpc.respond(conn, requestId, buildJsonObject { put("answers", answerObj) }).isSuccess
+        val payload = buildJsonObject {
+            put("sessionId", question.sessionId)
+            put("answer", buildJsonObject { put("answers", JsonArray(answerObjects)) })
+        }
+        return rpc.respond(conn, requestId, payload).isSuccess
     }
 
+    /**
+     * 提问取消（/api/respond）。#308：服务端唯一接受的取消形态 = Err 信封
+     * （result.ok=false + error.code="cancelled" → claimQuestion + accepted:true）；
+     * 旧 Ok 载荷 {outcome:"cancelled"} 恒 bad-response。[sessionId]/[directory]
+     * 仅满足域接口签名（DSH 路由键就是帧 rpcId=[requestId]），忽略。
+     */
     override suspend fun rejectQuestion(
         conn: ServerConnection,
         requestId: String,
         directory: String?,
         sessionId: String?,
-    ): Boolean = rpc.respond(conn, requestId, buildJsonObject { put("outcome", "cancelled") }).isSuccess
+    ): Boolean = rpc.respondError(conn, requestId, DshRpcErrorCode.Cancelled, "user cancelled ask_user_question").isSuccess
 
     override suspend fun listPendingQuestions(
         conn: ServerConnection,
