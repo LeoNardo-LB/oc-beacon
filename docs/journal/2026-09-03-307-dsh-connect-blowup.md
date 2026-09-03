@@ -1,8 +1,8 @@
 # 307-dsh-connect-blowup（2026-09-03）
 
-> 状态：Phase 1-2 完成（红回路=确定性崩溃；根因定界进行中——爆炸源头组件未定罪）
-> 关联：backlog #307（P0）· 阻塞 #299/#245 载体路径（15 万条巨型会话挂在 3080 DSH）
-> 来源：用户指令「#299 从数据库找大会话+滑动、#245 多维度尝试」→ 载体定位到 3080 → 连接即崩
+> 状态：**已完结**（2026-09-03 13:45，第三轮仪器化定罪+修复装机复测双场景通过+回归测试红绿；详见文末）
+> 关联：backlog #307（P0，已迁移）· 曾阻塞 #299/#245 载体路径（15 万条巨型会话挂在 3080 DSH）
+> 来源：用户指令「#299 从数据库找大会话+滑动、#245 多维度尝试」→ 载体定位到 3080 → 连接即崩；修复指令 /diagnosing-bugs
 
 ## 载体背景（#299/#245 依赖）
 
@@ -96,3 +96,52 @@ RSS 仅 350→470MB（线程栈虚拟内存爆炸，物理增长温和）。
   - 三仪器全部证伪：input swipe（平台批处理伪影，两轮帧差分）／input motionevent 逐事件注入
     （方向正确慢拖零滚动——不构成被消费的拖拽语义）／sendevent（无 root）。
   - 巨型载体+多维度尝试**未复现任何死帧** → 按用户指令关卡；若真人再遇，凭录屏+贴底状态重开。
+
+## 第三轮定罪（13:20-13:28，/diagnosing-bugs 完整走查）——**重大勘误**
+
+- **勘误第二轮「修复#1 生效」结论**：设备 APK `lastUpdateTime=11:35:21`，而 kick 冷却 commit
+  `f17998bb`=13:13:06——**第一针从未装上设备**；13:03 观察到的「kick 间隔 18s 遵守冷却」实为该阶段
+  kick 自然稀疏的误读。第二轮的「爆炸依旧」因此**不能**证伪第一针。
+- **仪器化复现（旧 APK，reverse 3080 移除 + 冷启 + tap 连接）**：tap 后 1.7s 即 530 线程；
+  logcat 全量标记：**6518 次 kick（间隔 3-10ms，零节流行）**全部打 3080（serverId 91d6f4d5）↔
+  **10868 次 session.list 失败**（≈kick 数，preload 的 DSH RPC 经共享 Ktor client）↔ 4051 次
+  SSE connection attempt；24s 后 pthread_create OOM 死亡（与首轮形态一致）。
+- **正反馈环路（终版定罪）**：preload `session.list` IOException → TransportFailureTap 上拍 origin →
+  `reportTransportFailure` → kick → `reconnectServer`（RS-017 守卫 finally 即释放=无频率上限）→
+  `cancelAndJoin` **掐掉退避 delay** → 新 attempt 的 preload 立即再失败 → 再上拍……毫秒级自旋
+  （≈260 kick/s）。**放大器**：`DshFrameSourceFactory.create()` 每周期新建 `DshWsEventEngine`，
+  每实例自建 OkHttpClient（DshWsEventClient.kt:134，Dispatch 池线程 60s 滞留）→ 315 线程/s 恒速。
+  （第二轮看到的 Host/248 洪流=同一环路在后端饱和阶段的副现象。）
+- **第二针（reconnectServer 守卫改连接成功才释放）裁定不必要**：kick 冷却已掐死唯一高频触发者；
+  reconnectAll 由 NetworkMonitor debounce 天然低频。按根因方针不叠加冗余防线。
+
+## 修复装机复测（13:26-13:35，versionCode 1788406405→1788413161）
+
+- **拒连风暴场景**（同引爆条件：reverse 3080 移除+冷启+tap）：60s 监控线程 82→86→61（平稳后
+  回落），**零崩溃**；logcat：**1 次 kick + 6 次 throttled (cooldown)**（毫秒级突发被冷却吸收）、
+  6 次 loop 尝试（退避 1s/2s/4s 接管）、6 次 session.list 失败——对照旧 APK 同场景 6518/10868/死亡。
+- **恢复场景**（恢复 reverse tcp:3080）：约 100s 内自然重连成功（`Connected to server 91d6f4d5`），
+  三服务器并存（HomeViewModel: [c4f11636, 617b2c29, 91d6f4d5]），DSH 对账 5 动作正常、巨型会话
+  listMessages 正常流动、线程稳定 67——冷却未阻碍健康恢复。
+- **回归测试红绿**（`SseConnectionManagerTest.transport failure feedback loop converges under kick cooldown`）：
+  mock 复刻 Ktor 拦截器契约（失败先上拍 origin 再抛 IOException），7s 观察窗断言 listProjects ≤20；
+  冷却置 0（scratch）→ **536 次（红）**，冷却 5s → 收敛（绿）；全套单测+全量单测绿。commit `18432d1c`。
+
+## 复盘（Phase 6：什么能提前拦住这个 bug）
+
+1. **装机验证缺口**：修复只 commit 未装机——「节流生效」在没有 versionCode 比对的情况下被日志外观
+   骗过。教训：**装包必须核对 versionCode 变化**（已在真机 runbook，本轮重申为强制项）。
+2. **测试缝隙缺口**：#267 引入 tap→kick 通路时无「失败回灌」闭环测试（只有 shouldKick 时间判定），
+   正反馈无红灯拦路。本轮补齐：tap 契约复刻进 mock 的端到端环路测试。
+3. **架构层面**：reconnectServer 守卫「finally 即释放」语义=重连频率无上限，安全性完全依赖调用方
+   自律；kick 冷却把频率约束收敛到单点（reportTransportFailure），后续若新增 reconnectServer
+   调用方需自带限频（backlog 不另立卡——当前仅两调用方均已低频）。
+
+## 完结迁移记录（2026-09-03 13:45，真机 E2E 双场景+回归红绿）
+
+- **#307 连接 DSH 服务器（3080）即崩——线程/内存爆炸（pthread_create OOM + native mprotect OOM）**
+  `crash` `dsh` `[x]`
+  - 根因=「传输失败上拍→kick→重连→preload 再失败」毫秒级正反馈（守卫 finally 释放+每周期新建
+    OkHttpClient 放大）；修复=kick 冷却 5s（`f17998bb`）+环路回归测试（`18432d1c`）。
+  - 真机 E2E：拒连 60s 线程稳定零崩溃（旧包 24s 必死）+恢复连接正常（三服务器并存）→ 关卡。
+  - 第二针（reconnectServer 守卫改造）裁定不必要（高频触发者已死、reconnectAll 天然低频）。

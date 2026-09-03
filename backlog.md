@@ -51,10 +51,7 @@
 
 ## P0 — 主流程阻塞
 
-- [ ] **#307 连接 DSH 服务器（3080）即崩——线程/内存爆炸（pthread_create OOM + native mprotect OOM）** `crash` `dsh`
-  - 2026-09-03 12:38 真机实证（两次 tap「连接」两次崩，非偶发）：连接过程 12:39:49 native `libc FATAL: shadow stack mprotect failed: Out of memory` → SIGABRT（pid 24211）；自动重启后 12:41:16 Java 层 `OutOfMemoryError: pthread_create failed` at `CoroutineScheduler.createNewWorker`（pid 25141）——**协程调度器疯狂创建 worker=某处无限/巨量并发**
-  - 嫌疑面（Phase 2 证据后收窄）：**867 OkHttp Dispatch 线程**（直方图铁证）+零 Ktor 日志=不走共享 client 的 OkHttp 路径海量 enqueue；恒速 315 线程/s×26s 线性（紧密循环非数据量驱动）；已排除 WS 重连风暴/Ktor 洪流/chatty 折叠；复现率 2/2 有效 tap；**阻塞 #299/#245 载体**
-  - → `docs/journal/2026-09-03-307-dsh-connect-blowup.md`
+（当前无 P0 卡）
 
 ## P1 — 核心功能需求
 
