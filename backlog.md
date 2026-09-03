@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#307**。
+**编号**：全局递增，不回收。下一编号：**#308**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -50,6 +50,11 @@
 ---
 
 ## P0 — 主流程阻塞
+
+- [ ] **#307 连接 DSH 服务器（3080）即崩——线程/内存爆炸（pthread_create OOM + native mprotect OOM）** `crash` `dsh`
+  - 2026-09-03 12:38 真机实证（两次 tap「连接」两次崩，非偶发）：连接过程 12:39:49 native `libc FATAL: shadow stack mprotect failed: Out of memory` → SIGABRT（pid 24211）；自动重启后 12:41:16 Java 层 `OutOfMemoryError: pthread_create failed` at `CoroutineScheduler.createNewWorker`（pid 25141）——**协程调度器疯狂创建 worker=某处无限/巨量并发**
+  - 嫌疑面（Phase 2 证据后收窄）：**867 OkHttp Dispatch 线程**（直方图铁证）+零 Ktor 日志=不走共享 client 的 OkHttp 路径海量 enqueue；恒速 315 线程/s×26s 线性（紧密循环非数据量驱动）；已排除 WS 重连风暴/Ktor 洪流/chatty 折叠；复现率 2/2 有效 tap；**阻塞 #299/#245 载体**
+  - → `docs/journal/2026-09-03-307-dsh-connect-blowup.md`
 
 ## P1 — 核心功能需求
 
