@@ -58,6 +58,30 @@ RSS 仅 350→470MB（线程栈虚拟内存爆炸，物理增长温和）。
 2. DshWsEventClient opener 打点（每次 newWebSocket 计数+URL）。
 3. 3080 服务端 WS 握手到达率对照 app 侧发起率。
 
-## 附：对 #299/#245 的阻塞
+## 第二轮定罪（13:03-13:07，kick 节流修复后的剩余通路）
 
-巨型会话载体挂在 3080——连接即崩使进场/滑动测试无法进行；#307 修复（或临时绕过）是两卡前置。
+- 修复#1（kick 冷却 5s，已合入）生效：`kicking reconnect` 间隔遵守冷却（13:03:06×2 → 13:03:24×3）。
+- **但爆炸依旧**（t+6s 1962→t+20s 7161 后死）——定量铁证：**reqTotal↔threads 1:1 同步**（~430 请求/s），
+  洪流主体=**Host/248 的 `GET /api/session?limit=50`（preload listSessions）3ms 连发**（多线程并发），
+  3080 侧仅少量 session.list。
+- 机制（Phase 3 更新）：3080 连接失败 → 某通路高频触发 reconnectServer(Host/248)（守卫在 finally
+  即释放）→ 每轮 cancelAndJoin 旧 job + 启新 job → **#304 的 NonCancellable 让旧 preload 跑满 30s
+  不死** → preload job 堆积 × 每 job 多页请求 = 洪流（#304 修复客观上放大了本 bug 的资源面）。
+- **待修方向**（下一批）：① reconnectServer 守卫改为「连接成功才释放」或 reconnect 频率限制；
+  ② `Reconnecting after network recovery` 通路（13:03:27 对 Host/248 各一条）来源审计。
+
+## 绕过解锁 + #299/#245 执行（13:07-13:15）
+
+- **绕过**：恢复 `adb reverse tcp:3080`（12:09 的 kill-server 曾清掉它——引爆条件即「3080 不可达」）
+  → tap 连接 → **连接成功、74 线程稳定、零风暴**——载体解锁。
+- **#299 巨型载体实测**：session-a6c4（服务端 20MB zstd/**93,295 事件行**，8.30「StreamingMarkdownState
+  的优化做了什么…」会话）冷进场：**26s / 46 页 session.history / 吞吐 ~360 msg/s**，加载指示正常
+  消失、渲染正常（概要卡显示）。与 412 条 3.7s 基线线性一致（体量 ×225），无退化。
+- **#245 第三仪器证伪**：同载体消息区，`input motionevent` 逐事件慢拖（方向正确 300px/30 步
+  ~20ms/步）**视口零变化**；同方向 `input swipe`（250ms）立即滚动——**逐事件注入不构成被消费的
+  拖拽语义**。三种仪器（swipe 批处理伪影 / motionevent 不认领 / 无 root sendevent）全部失效。
+
+## 附：对 #299/#245 的阻塞（已解除）
+
+~~巨型会话载体挂在 3080——连接即崩使进场/滑动测试无法进行~~ → 已通过恢复 reverse 绕过并完成
+两卡实测（结论入卡）；#307 根治（reconnect 守卫）仍待下一批。

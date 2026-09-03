@@ -49,6 +49,11 @@ private const val PRELOAD_PROJECT_CONCURRENCY = 4
 /** #278：播种（syncFromRest）NonCancellable 保护区的时间上限——服务器失联时防悬挂。 */
 private const val PRELOAD_SEED_TIMEOUT_MS = 30_000L
 
+/** #307：传输失败 kick 冷却窗——reconnectServer 守卫在 finally 即释放，「连接启动→毫秒级
+ *  失败→tap→kick」正反馈实测 8ms/轮 ≈375 请求/s → OkHttp 线程爆炸 OOM 崩溃
+ *  （真机 3/3 确定性复现：867 OkHttp Dispatch、315 线程/s 恒速至 7000+ 后 pthread_create 失败）。 */
+private const val TRANSPORT_KICK_COOLDOWN_MS = 5_000L
+
 /**
  * 每服务器的连接状态。
  */
@@ -142,8 +147,22 @@ class SseConnectionManager @Inject constructor(
      */
     fun reportTransportFailure(serverId: String) {
         if (!connections.containsKey(serverId)) return
+        // #307：冷却节流——冷却窗内的重复 kick 丢弃（打破正反馈；退避由 streamLoop
+        // 既有 backoff 接管。冷却前真机形态：8ms/轮 kick 风暴直至线程 OOM 崩溃）。
+        if (!shouldKick(serverId)) {
+            if (BuildConfig.DEBUG) AppLogger.d(TAG, "Transport failure kick for $serverId throttled (cooldown)")
+            return
+        }
         AppLogger.w(TAG, "Transport failure reported for server $serverId, kicking reconnect")
         scope.launch { reconnectServer(serverId) }
+    }
+
+    /** #307：kick 冷却判定（含时间戳更新）——时间参数供单测注入。 */
+    internal fun shouldKick(serverId: String, nowMs: Long = System.currentTimeMillis()): Boolean {
+        val last = lastKickMs[serverId] ?: 0L
+        if (nowMs - last < TRANSPORT_KICK_COOLDOWN_MS) return false
+        lastKickMs[serverId] = nowMs
+        return true
     }
 
     /** origin（scheme://host:port）→ serverId 反查（不匹配则忽略——非受管主机）。 */
@@ -158,6 +177,9 @@ class SseConnectionManager @Inject constructor(
      * 无法完全去重时出现重叠的重连尝试。
      */
     private val reconnectingServers = ConcurrentHashMap.newKeySet<String>()
+
+    /** #307：per-server 上次 kick 时间（冷却节流状态）。 */
+    private val lastKickMs = ConcurrentHashMap<String, Long>()
 
     /** 已实际连接（SSE 流活跃）的服务器 ID 的可观察集合。 */
     val connectedServerIds: StateFlow<Set<String>>

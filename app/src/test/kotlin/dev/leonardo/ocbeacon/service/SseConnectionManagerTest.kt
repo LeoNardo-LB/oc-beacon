@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.ConcurrentHashMap
@@ -285,6 +286,41 @@ class SseConnectionManagerTest {
             dispatcher.setSessions(match { it == "server-storm" }, any())
         }
         manager.stopAllConnections()
+    }
+
+    // ============ #307：传输失败 kick 冷却节流 ============
+
+    /**
+     * 根因（真机 3/3 定罪）：reconnectServer 守卫 finally 即释放，「连接启动→毫秒级
+     * 失败→tap→kick」正反馈 8ms/轮 ≈375 请求/s → 867 OkHttp Dispatch 线程 → pthread_create
+     * OOM 崩溃。冷却窗打破环路（退避由 streamLoop backoff 接管）。
+     */
+    @Test
+    fun `transport failure kick throttled within cooldown window`() {
+        val manager = SseConnectionManager(
+            sessionApi = mockk(relaxed = true),
+            messageApi = mockk(relaxed = true),
+            fileApi = mockk(relaxed = true),
+            sseClient = mockk(relaxed = true),
+            sseClientV2 = mockk(relaxed = true),
+            eventDispatcher = mockk(relaxed = true),
+            settingsRepository = mockk<SettingsRepository>(relaxed = true).also {
+                every { it.reconnectMode() } returns flowOf("normal")
+            },
+            networkMonitor = mockk(relaxed = true),
+            sessionStateRepository = mockk(relaxed = true),
+            dshConnectionOrchestrator = mockk(relaxed = true),
+            dshFrameSourceFactory = mockk(relaxed = true),
+            dshRpcClient = mockk(relaxed = true),
+            transportFailureTap = dev.leonardo.ocbeacon.data.api.TransportFailureTap(),
+        )
+        // 首次 kick 放行；冷却窗内（4999ms）全部节流；窗外（5000ms+）再次放行
+        assertTrue(manager.shouldKick("s1", nowMs = 10_000L))
+        assertFalse(manager.shouldKick("s1", nowMs = 10_001L))
+        assertFalse(manager.shouldKick("s1", nowMs = 14_999L))
+        assertTrue(manager.shouldKick("s1", nowMs = 15_000L))
+        // 服务器维度独立
+        assertTrue(manager.shouldKick("s2", nowMs = 10_002L))
     }
 
     private fun testServer() = ServerConfig(
