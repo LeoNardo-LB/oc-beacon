@@ -48,6 +48,30 @@
   3. 会话定位：宿主 session.list 已验证可达（loopback RPC 200，见探针）；按标题定位手机侧要打开的会话行（tap_text）。
 - i18n 终验（批 1 全部新 key 后）：**PASSED，775 keys × 14 languages all consistent**。
 
+## 九、真机 E2E 终章——双门禁 PASS（round5，2026-09-03 22:24/22:37）
+
+**G1 提问半边**（22:24:16，pid7608，logcat 原文）：
+```
+[Question] replyToQuestion: id=e011b934-1131-426a-8b85-3290ef67a5b4 answers=[[蓝色]] dir=/home/leo-tkp/Documents/code/mine/oc-beacon
+[Question] replyToQuestion result: id=e011b934-1131-426a-8b85-3290ef67a5b4 success=true
+```
+活体到达路径：问题帧→卡实时组合（蓝色 chip+提交）→点选提交→40ms 回程 success=true（信封 rpcId+{sessionId,answer:{answers:[{id,selected:["蓝色"]}]}} 通过 questionResponsePayloadSchema+matchesQuestions，RpcReceipt accepted）。
+
+**G2 审批半边**（22:37:21-28 + 服务器侧落地）：
+```
+Permission event received: PermissionAsked(id=4add5f44-…)
+[Permission] replyToPermission: id=4add5f44-… reply=once sid=session-f625…
+Permission event received: PermissionReplied(requestId=4add5f44-…)
+[Permission] replyToPermission result: id=4add5f44-… success=true
+```
++ 宿主 `-rw-r--r-- /home/leo-tkp/dsh308-e2e-marker.txt 44B 22:37`——批准后升级 bash 真实执行。
+
+**触发链定音**（复现要点）：DSH 沙箱给 bash 挂私有 /tmp（mount namespace）——沙箱内写 /tmp 不触发审批（turn4 实证 exit0 无帧）；真实升级触发=写**沙箱外真实路径**（家目录非仓库区）→ workspace-write 拒绝 → 工具带更高权限重试 → approval/requested（三旋钮经 /permission 命令切换：preset+sandbox+approval/policy=ask 三帧齐落）。
+
+**双路径行为差异（#314 证据）**：活体到达渲染 ✓ / pre-existing 不渲染 ✗（21:03 挂起三次复现无卡）。
+
+**工具链副产物（#315）**：subagent 发现 tap_text IFS='[],' 解析在 "][ 处产空段→坐标系统性偏移，e2e-acceptance-dsh.sh 同款同患。
+
 ## 八、#314 立案证据（E2E 副产物，2026-09-03 晚）
 
 - 时间线：21:03:47 问题帧活体到达（app 在列表页，全局订阅入库 QuestionEventHandler）→ 21:16 冷启重放入库 → 21:18 进会话 / 21:41 全列表滚动 / 21:43 退重进，**三次均无 QuestionCard 组合**（dump 无选项 chip/提交钮，仅消息流 run_code 参数文本含「蓝色」——round2 误点的正是这段非可点文本）。
