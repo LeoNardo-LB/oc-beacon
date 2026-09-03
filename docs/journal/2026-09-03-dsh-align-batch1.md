@@ -28,6 +28,14 @@
 - wire：DshApiClient.promptAsync `put("mode", if (steer) "steer" else "queue")`（服务端 zod expected queue|steer，2026-08-31 E2E 实证注释在案）；steer 参数全链穿透 13 文件：SendKey/SendStopButton/ChatInputBar → ChatScreenBottomBar（发送主链原样提升为 sendFromComposer(steer)，confirm/shell/斜杠判定共用）→ ChatViewModel 门面 → ChatSendDelegate → SendMessageUseCase → ChatRepository(+Impl) → MessageApi(接口+路由) → V1/V2(忽略) → Fake(androidTest)。
 - 测试：DshApiClientTest 新增 steer 用例（mode=steer 断言）；全链 mock 补第 8 参（6 个测试文件 14 处 7-any → 8-any）。
 
+## 项⑤ 重试倒计时 + max-tokens continue（§11.4 #10：S-M，下轮实现）
+
+wire 已服务端定音（2026-09-03 源码）：
+- `llm/retry`（dsh-llm-retry/lib/index.js:100-122）：`{retryId, turn, step, provider, mode, policyKey, retry(次数), maxRetries?, delayMs(倒计时), failure}`；延迟到期实际重试再发 `llm/retry-started {retryId, turn, step, retry}`。
+- `turn/end`（dsh-session/lib/types/types.d.ts:145-165）带 TurnEndReason `kind`：`blocked` / `error{error: LlmFailure}` / `max-tokens` / `interrupted`——现行 mapper 只取 time→SessionIdle，kind 整体丢弃（assistant/message 的 interrupted 前缀标记除外）。
+- Web continue：dsh-client-ui-conversation 无专用 continue 端点——max-tokens 后走普通 session.prompt（下轮对照 Web UI 文案取样确认续写词）。
+- 实现面挂钩：SessionStatus.Retry 已存在（ChatScreenBottomBar:331 已消费）；Part.Retry 已备（Part.kt:236）；V2 先例 retryState=attempt 计数（SessionNextEventHandler:165）。
+
 ## 验证记录
 
 - `compileDevDebugKotlin` 通过；DshEventMapperTest 全绿（BUILD SUCCESSFUL）。
