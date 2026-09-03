@@ -87,6 +87,8 @@ class SseConnectionManager @Inject constructor(
     private val dshConnectionOrchestrator: DshConnectionOrchestrator,
     private val dshFrameSourceFactory: DshFrameSourceFactory,
     private val dshRpcClient: DshRpcClient,
+    // #317：0.1.2 双形态探测 + cookie/token 运行时
+    private val dshConnectionRegistry: dev.leonardo.ocbeacon.data.api.dsh.DshConnectionRegistry,
     // #267：REST 传输层失败上拍（origin → serverId → 踢重连）
     private val transportFailureTap: dev.leonardo.ocbeacon.data.api.TransportFailureTap,
 ) {
@@ -190,6 +192,20 @@ class SseConnectionManager @Inject constructor(
     val connectingServerIds: StateFlow<Set<String>>
         get() = _connectingServerIds.asStateFlow()
     private val _connectingServerIds = MutableStateFlow<Set<String>>(emptySet())
+
+    /**
+     * #317：DSH 0.1.2+ token 待输入的服务器 ID 集合（探测双形态 401）。
+     * UI 据此呈现 token 输入入口；token 交换成功后连接循环自动续行。
+     */
+    val dshTokenNeededServers: StateFlow<Set<String>>
+        get() = _dshTokenNeededServers.asStateFlow()
+    private val _dshTokenNeededServers = MutableStateFlow<Set<String>>(emptySet())
+
+    private fun markTokenNeeded(serverId: String, needed: Boolean) {
+        _dshTokenNeededServers.update { current ->
+            if (needed) current + serverId else current - serverId
+        }
+    }
 
     /**
      * 启动到 [server] 的 SSE 连接。

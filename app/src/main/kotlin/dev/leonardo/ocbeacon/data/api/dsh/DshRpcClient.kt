@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.data.api.dsh
 
 import dev.leonardo.ocbeacon.data.api.ApiClient
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
@@ -34,10 +35,16 @@ import javax.inject.Singleton
  * 传输层失败（IOException/超时）→ code=null 且 httpStatus=null（Network 分类）。
  *
  * ⑦ 接入层按域包装：call(conn, "session.list", payload) { value -> … }。
+ *
+ * #317/#318（2026-09-04）：0.1.2 线面适配——本类是翻译唯一收口：方法名/payload 经
+ * [DshWireAdapter] 按注册表线面版本翻译（未探测保守 V011）；0.1.2 附 Cookie 头
+ * （[DshConnectionRegistry]）；HTTP 401 → [DshAuthRequiredException]（注册表清
+ * cookie，连接层进 TokenNeeded 而非普通断连）。调用方继续传 **0.1.1 规范方法名**。
  */
 @Singleton
 class DshRpcClient @Inject constructor(
     private val apiClient: ApiClient,
+    private val registry: DshConnectionRegistry,
 ) {
 
     /**
@@ -52,8 +59,8 @@ class DshRpcClient @Inject constructor(
         payload: JsonObject,
         transform: (JsonObject) -> T,
     ): Result<T> {
-        val envelope = DshEnvelope.ClientRequest(DshEnvelope.newRpcId(), method, payload)
-        val wire = exchange(conn, method, envelope)
+        val (wireMethod, envelope) = prepare(conn, method, payload)
+        val wire = exchange(conn, wireMethod, envelope)
         val ok = wire.getOrElse { return Result.failure(it) } as? DshRpcResult.Ok
             ?: return Result.failure(DshApiError(null, "malformed server-response envelope", null, HTTP_OK))
         val value = ok.value as? JsonObject
@@ -74,8 +81,8 @@ class DshRpcClient @Inject constructor(
         payload: JsonObject,
         transform: (JsonElement) -> T,
     ): Result<T> {
-        val envelope = DshEnvelope.ClientRequest(DshEnvelope.newRpcId(), method, payload)
-        val wire = exchange(conn, method, envelope)
+        val (wireMethod, envelope) = prepare(conn, method, payload)
+        val wire = exchange(conn, wireMethod, envelope)
         val ok = wire.getOrElse { return Result.failure(it) } as? DshRpcResult.Ok
             ?: return Result.failure(DshApiError(null, "malformed server-response envelope", null, HTTP_OK))
         val value = ok.value
@@ -140,15 +147,36 @@ class DshRpcClient @Inject constructor(
 
     // ---- 内部：传输 + 信封 + 业务错误分支统一收口 ------------------------
 
+    /**
+     * 线面翻译（#317/#318 唯一收口）：0.1.1 规范方法名 + 裸 payload →
+     * 目标线面（wire 方法名 + args 包装 + 字段改名）+ 信封。
+     * 信封 method 与 URL 方法段同步用 wire 名（P-4 铁律：不等 → bad-request）。
+     */
+    private fun prepare(conn: ServerConnection, method: String, payload: JsonObject): Pair<String, DshEnvelope.ClientRequest> {
+        val protocol = registry.protocolOf(conn.baseUrl) ?: DshWireProtocol.V011
+        val wireMethod = DshWireAdapter.method(method, protocol)
+        val wirePayload = DshWireAdapter.payload(method, protocol, payload)
+        return wireMethod to DshEnvelope.ClientRequest(DshEnvelope.newRpcId(), wireMethod, wirePayload)
+    }
+
+    /** 0.1.2 鉴权 Cookie 头（非空时由请求构造处挂载；也供 export 等非信封入口复用）。 */
+    internal fun cookieFor(conn: ServerConnection): String? = registry.cookieHeader(conn.baseUrl)
+
     private suspend fun exchange(conn: ServerConnection, method: String, envelope: DshEnvelope): Result<DshRpcResult> {
         return try {
+            val cookie = registry.cookieHeader(conn.baseUrl)
             val response = apiClient.httpClient.post(url(conn, method)) {
                 contentType(ContentType.Application.Json)
+                cookie?.let { header("Cookie", it) }
                 setBody(DshEnvelope.encode(envelope))
             }
             val status = response.status.value
             val text = response.bodyAsText()
-            if (status != HttpStatusCode.OK.value) {
+            if (status == HTTP_UNAUTHORIZED) {
+                // #317：0.1.2 cookie 缺失/过期/authority 不匹配——清凭据并进 TokenNeeded 模态
+                registry.markAuthFailure(conn.baseUrl)
+                Result.failure(DshAuthRequiredException(conn.baseUrl, "HTTP 401: " + text.take(120)))
+            } else if (status != HttpStatusCode.OK.value) {
                 // 搬运层错误：HTTP 状态表非信封内容（§5）
                 Result.failure(
                     DshApiError(null, "HTTP " + status + ": " + text.take(200), null, status),
@@ -181,5 +209,6 @@ class DshRpcClient @Inject constructor(
 
     private companion object {
         const val HTTP_OK = 200
+        const val HTTP_UNAUTHORIZED = 401
     }
 }
