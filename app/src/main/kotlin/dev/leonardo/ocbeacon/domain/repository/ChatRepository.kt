@@ -109,7 +109,9 @@ interface ChatRepository {
         model: ModelSelection? = null,
         agent: String? = null,
         variant: String? = null,
-        directory: String? = null
+        directory: String? = null,
+        /** #309 批1④：DSH 直发插话（session.prompt mode=steer）；OpenCode 后端忽略。 */
+        steer: Boolean = false
     ): Result<Unit>
 
     /**

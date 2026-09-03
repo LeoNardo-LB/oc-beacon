@@ -511,8 +511,8 @@ class V1V2DialectContractTest {
         api.promptAsync(connDsh, "ses_1", emptyList())
 
         coVerify(exactly = 1) { dsh.promptAsync(connDsh, "ses_1", any(), any(), any(), any(), any()) }
-        coVerify(exactly = 0) { v1.promptAsync(any(), any(), any(), any(), any(), any(), any()) }
-        coVerify(exactly = 0) { v2.promptAsync(any(), any(), any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { v1.promptAsync(any(), any(), any(), any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { v2.promptAsync(any(), any(), any(), any(), any(), any(), any(), any()) }
     }
 
     @Test

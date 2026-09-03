@@ -23,7 +23,7 @@ class SubmitAnnotationsUseCaseTest {
     @Test
     fun `invoke builds prompt and calls promptAsync`() = runTest {
         val anns = listOf(makeAnn(0), makeAnn(1))
-        coEvery { chatRepository.promptAsync(any(), any(), any(), any(), any(), any(), any()) } returns Result.success(Unit)
+        coEvery { chatRepository.promptAsync(any(), any(), any(), any(), any(), any(), any(), any()) } returns Result.success(Unit)
 
         useCase("srv-1", "sess-1", anns, "请修改", "src/App.kt", "/project")
 
@@ -37,7 +37,7 @@ class SubmitAnnotationsUseCaseTest {
 
     @Test
     fun `invoke propagates failure`() = runTest {
-        coEvery { chatRepository.promptAsync(any(), any(), any(), any(), any(), any(), any()) } returns
+        coEvery { chatRepository.promptAsync(any(), any(), any(), any(), any(), any(), any(), any()) } returns
             Result.failure(RuntimeException("Network error"))
         val result = useCase("srv-1", "sess-1", listOf(makeAnn(0)), "", "App.kt", "/project")
         assertTrue(result.isFailure)

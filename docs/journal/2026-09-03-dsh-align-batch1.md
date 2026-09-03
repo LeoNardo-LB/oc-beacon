@@ -22,6 +22,12 @@
 - 事件复用既有 SseEvent 类（SessionNext/SessionCompacted 已在 dispatcher 注册表）→ **SseEvent 三步铁律无需新增 bind**。
 - 测试：DshEventMapperTest 更新具名忽略目录（start/summary 移出）+ 新增 4 用例（start 映射/summary 全文映射/summary 缺文本维持忽略/end+error 双发）。
 
+## 项④ 插话长按直发（§11.4 #4：S-M）
+
+- 手势裁决：发送键长按原被 shell 切换占用（SendStopButton SendKey onLongClick）——改为**忙碌态长按=直发插话（steer），空闲态长按维持 shell 切换**（语义正交：shell+忙碌本就禁用；双键排队为主路径的定位不变）。
+- wire：DshApiClient.promptAsync `put("mode", if (steer) "steer" else "queue")`（服务端 zod expected queue|steer，2026-08-31 E2E 实证注释在案）；steer 参数全链穿透 13 文件：SendKey/SendStopButton/ChatInputBar → ChatScreenBottomBar（发送主链原样提升为 sendFromComposer(steer)，confirm/shell/斜杠判定共用）→ ChatViewModel 门面 → ChatSendDelegate → SendMessageUseCase → ChatRepository(+Impl) → MessageApi(接口+路由) → V1/V2(忽略) → Fake(androidTest)。
+- 测试：DshApiClientTest 新增 steer 用例（mode=steer 断言）；全链 mock 补第 8 参（6 个测试文件 14 处 7-any → 8-any）。
+
 ## 验证记录
 
 - `compileDevDebugKotlin` 通过；DshEventMapperTest 全绿（BUILD SUCCESSFUL）。

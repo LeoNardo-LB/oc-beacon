@@ -214,11 +214,12 @@ class ChatRepositoryImpl @Inject constructor(
         model: ModelSelection?,
         agent: String?,
         variant: String?,
-        directory: String?
+        directory: String?,
+        steer: Boolean
     ): Result<Unit> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         val admission = messageApi.promptAsync(
-            conn, sessionId, parts.map { it.toData() }, model?.toData(), agent, variant, directory
+            conn, sessionId, parts.map { it.toData() }, model?.toData(), agent, variant, directory, steer
         )
         // 2026-08-14 根治（用户消息"发送后无气泡"系统性修复）：
         // V2 prompt 响应体即 Inbox 条目（含消息 id）——立即本地播种用户消息，

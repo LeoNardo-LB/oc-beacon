@@ -408,7 +408,8 @@ class V1ApiClient @Inject constructor(
         model: ModelSelection?,
         agent: String?,
         variant: String?,
-        directory: String?
+        directory: String?,
+        steer: Boolean
     ): PromptAdmission? {
         val response = httpClient.post("${conn.baseUrl}/session/$sessionId/prompt_async") {
             auth(conn)

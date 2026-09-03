@@ -1237,7 +1237,8 @@ class V2ApiClient @Inject constructor(
         model: ModelSelection?,
         agent: String?,
         variant: String?,
-        directory: String?
+        directory: String?,
+        steer: Boolean
     ): PromptAdmission? {
         val text = parts.firstOrNull { it.type == "text" }?.text
             ?: parts.joinToString { it.text ?: "" }

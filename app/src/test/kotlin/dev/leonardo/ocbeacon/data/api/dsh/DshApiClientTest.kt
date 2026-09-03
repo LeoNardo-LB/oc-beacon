@@ -202,6 +202,19 @@ class DshApiClientTest {
         assertEquals("queue", payload["mode"]!!.jsonPrimitive.content)
     }
 
+    /** #309 批1④：忙碌长按发送键——直发插话（session.prompt mode=steer，注入进行中轮次）。 */
+    @Test
+    fun `promptAsync steer long-press posts mode steer`() = runTest {
+        val engine = MockEngine { respond(ok("{}"), HttpStatusCode.OK, jsonHeaders()) }
+        client(engine).promptAsync(
+            conn, "s-1",
+            listOf(dev.leonardo.ocbeacon.data.dto.request.PromptPart(type = "text", text = "mid-flight")),
+            steer = true,
+        )
+        val payload = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single())).jsonObject["payload"]!!.jsonObject
+        assertEquals("steer", payload["mode"]!!.jsonPrimitive.content)
+    }
+
     /**
      * #276 后端接口补充 + #297 通道勘误：compact 走 commands/execute 命令通道
      * （部署版 session.prompt 无斜杠派发——prompt 文本块 "/compact" 会变

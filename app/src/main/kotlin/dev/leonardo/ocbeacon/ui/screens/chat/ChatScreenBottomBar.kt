@@ -145,68 +145,11 @@ internal fun ChatScreenBottomBar(
         )
     }
 
-    if (sessionMeta.sessionParentId == null && !isTerminalMode && interaction.error == null) {
-        val modelLabel = if (modelConfig.selectedModelId != null && modelConfig.providers.isNotEmpty()) {
-            val provider = modelConfig.providers.find { it.id == modelConfig.selectedProviderId }
-            val model = provider?.models?.get(modelConfig.selectedModelId)
-            model?.name ?: modelConfig.selectedModelId
-        } else ""
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
-                .navigationBarsPadding()
-                .imePadding()
-        ) {
-            ChatInputBar(
-                textFieldValue = inputText,
-                onTextFieldValueChange = { newValue ->
-                    val wasEmpty = inputText.text.isEmpty()
-                    // #253 后续加固（2026-08-28）：前导空白不挡 shell 触发——真机 E2E
-                    // 实证「空格 + !cmd」整体回落普通消息（uiautomator 直读字段文本
-                    // 前导 0x20）。trimStart 后再检测/剥离。#252 E2E 补充：中文 IME 环境
-                    // 下「!」会偶发落成全角「！」（真机条带 exit 127 实证），检测同时
-                    // 接受两种形态（drop(1) 对两者均剥单字符）。
-                    val trimmed = newValue.text.trimStart()
-                    // #276：! 前缀自动切 shell 仅在 shell 域可用时；DSH 下按普通文本
-                    val shouldAutoShell = shellCommandSupported && !isShellMode &&
-                        (trimmed.startsWith("!") || trimmed.startsWith("！"))
-                    val normalizedValue = if (shouldAutoShell) {
-                        val stripped = trimmed.drop(1).trimStart()
-                        TextFieldValue(
-                            text = stripped,
-                            selection = TextRange(stripped.length)
-                        )
-                    } else {
-                        newValue
-                    }
-
-                    if (shouldAutoShell) {
-                        onInputModeChange(ChatInputMode.SHELL.name)
-                    }
-
-                    onInputTextChange(normalizedValue)
-                    viewModel.composer.updateDraftText(normalizedValue.text)
-
-                    // reverseLayout=true 锚定底部；输入时无需显式滚动。
-
-                    if (isShellMode || shouldAutoShell) {
-                        viewModel.composer.clearFileSearch()
-                        return@ChatInputBar
-                    }
-                    // 检测光标前的 @query 以进行文件提及
-                    val cursorPos = normalizedValue.selection.start
-                    val textBefore = normalizedValue.text.substring(0, cursorPos)
-                    val atMatch = AT_MENTION_REGEX.find(textBefore)
-                    if (atMatch != null) {
-                        val query = atMatch.groupValues[1]
-                        viewModel.composer.searchFilesForMention(query)
-                    } else {
-                        viewModel.composer.clearFileSearch()
-                    }
-                },
-                onSend = {
-                    val doSend = doSend@{
+    // #309 批1④：直发插话（steer）——忙碌时长按发送键触发（空闲长按维持 shell 切换，
+    // 语义正交：shell+忙碌本就禁用）。发送主链原样提升为本函数：steer 仅改写 DSH
+    // session.prompt 的 mode（queue→steer，注入进行中轮次），confirm/shell/斜杠判定全共用。
+    val sendFromComposer: (Boolean) -> Unit = { steer ->
+        val doSend = doSend@{
                         if (hapticEnabled) {
                             @Suppress("DEPRECATION")
                             val flags = android.view.HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING or
@@ -298,19 +241,81 @@ internal fun ChatScreenBottomBar(
                                 filename = att.filename
                             )
                         }
-                        viewModel.sendMessage(allParts, attachmentParts, rawText)
+                        viewModel.sendMessage(allParts, attachmentParts, rawText, steer)
                         // 2026-08-11 用户要求：输入框不在发送时立即清空——
                         // 发送成功由 ViewModel.sendSuccessTick 信号驱动清空（ChatScreen 监听，
                         // 含附件/文件提及/草稿）；发送失败 → 输入区内容完全保留 + AlertDialog。
                         onForceScroll()
-                    }
-                    if (confirmBeforeSend) {
-                        onPendingSendActionSet(doSend)
-                        onShowSendConfirmDialog()
+        }
+        if (confirmBeforeSend) {
+            onPendingSendActionSet(doSend)
+            onShowSendConfirmDialog()
+        } else {
+            doSend()
+        }
+    }
+    if (sessionMeta.sessionParentId == null && !isTerminalMode && interaction.error == null) {
+        val modelLabel = if (modelConfig.selectedModelId != null && modelConfig.providers.isNotEmpty()) {
+            val provider = modelConfig.providers.find { it.id == modelConfig.selectedProviderId }
+            val model = provider?.models?.get(modelConfig.selectedModelId)
+            model?.name ?: modelConfig.selectedModelId
+        } else ""
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .navigationBarsPadding()
+                .imePadding()
+        ) {
+            ChatInputBar(
+                textFieldValue = inputText,
+                onTextFieldValueChange = { newValue ->
+                    val wasEmpty = inputText.text.isEmpty()
+                    // #253 后续加固（2026-08-28）：前导空白不挡 shell 触发——真机 E2E
+                    // 实证「空格 + !cmd」整体回落普通消息（uiautomator 直读字段文本
+                    // 前导 0x20）。trimStart 后再检测/剥离。#252 E2E 补充：中文 IME 环境
+                    // 下「!」会偶发落成全角「！」（真机条带 exit 127 实证），检测同时
+                    // 接受两种形态（drop(1) 对两者均剥单字符）。
+                    val trimmed = newValue.text.trimStart()
+                    // #276：! 前缀自动切 shell 仅在 shell 域可用时；DSH 下按普通文本
+                    val shouldAutoShell = shellCommandSupported && !isShellMode &&
+                        (trimmed.startsWith("!") || trimmed.startsWith("！"))
+                    val normalizedValue = if (shouldAutoShell) {
+                        val stripped = trimmed.drop(1).trimStart()
+                        TextFieldValue(
+                            text = stripped,
+                            selection = TextRange(stripped.length)
+                        )
                     } else {
-                        doSend()
+                        newValue
+                    }
+
+                    if (shouldAutoShell) {
+                        onInputModeChange(ChatInputMode.SHELL.name)
+                    }
+
+                    onInputTextChange(normalizedValue)
+                    viewModel.composer.updateDraftText(normalizedValue.text)
+
+                    // reverseLayout=true 锚定底部；输入时无需显式滚动。
+
+                    if (isShellMode || shouldAutoShell) {
+                        viewModel.composer.clearFileSearch()
+                        return@ChatInputBar
+                    }
+                    // 检测光标前的 @query 以进行文件提及
+                    val cursorPos = normalizedValue.selection.start
+                    val textBefore = normalizedValue.text.substring(0, cursorPos)
+                    val atMatch = AT_MENTION_REGEX.find(textBefore)
+                    if (atMatch != null) {
+                        val query = atMatch.groupValues[1]
+                        viewModel.composer.searchFilesForMention(query)
+                    } else {
+                        viewModel.composer.clearFileSearch()
                     }
                 },
+                onSend = { sendFromComposer(false) },
+                onSendSteer = { sendFromComposer(true) },
                 inputMode = if (isShellMode) ChatInputMode.SHELL else ChatInputMode.NORMAL,
                 onInputModeChange = {
                     // #276：SHELL 模式入口能力位门控——发送钮长按切换在 DSH 下

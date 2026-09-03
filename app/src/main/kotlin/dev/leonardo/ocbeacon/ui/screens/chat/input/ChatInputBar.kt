@@ -62,6 +62,8 @@ internal fun ChatInputBar(
     textFieldValue: TextFieldValue,
     onTextFieldValueChange: (TextFieldValue) -> Unit,
     onSend: () -> Unit,
+    /** #309 批1④：忙碌长按发送键——直发插话（DSH mode=steer）；空闲长按维持 shell 切换。 */
+    onSendSteer: () -> Unit = {},
     isSending: Boolean,
     isBusy: Boolean = false,
     /** 2026-08-14：等待提问/权限响应时禁用输入（用户要求"提问时输入框不可以输入"）。 */
@@ -275,6 +277,7 @@ internal fun ChatInputBar(
                     isAmoled = isAmoled,
                     onStop = onStop,
                     onSend = onSend,
+                    onSendSteer = onSendSteer,
                     onInputModeChange = onInputModeChange
                 )
             }

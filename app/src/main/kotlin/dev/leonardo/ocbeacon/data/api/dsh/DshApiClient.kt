@@ -606,6 +606,7 @@ class DshApiClient @Inject constructor(
         agent: String?,
         variant: String?,
         directory: String?,
+        steer: Boolean,
     ): PromptAdmission? {
         val content = parts.mapNotNull { part -> promptContentPart(part) }
         if (content.isEmpty()) {
@@ -626,8 +627,9 @@ class DshApiClient @Inject constructor(
             put("sessionId", sessionId)
             put("content", JsonArray(content))
             // E2E 实证（2026-08-31）：mode 必填（zod expected queue|steer，缺席整单拒绝）。
-            // queue→send（对齐 oc-beacon 既有排队语义）；steer=注入进行中轮次，留给后续 UX。
-            put("mode", "queue")
+            // queue→send（对齐 oc-beacon 既有排队语义）；steer=注入进行中轮次
+            //（#309 批1④：忙碌长按发送键触发，双键排队为主路径的定位不变）。
+            put("mode", if (steer) "steer" else "queue")
         }
         rpc.call(conn, "session.prompt", payload) { Unit }.getOrElse { e -> throw e }
         return null

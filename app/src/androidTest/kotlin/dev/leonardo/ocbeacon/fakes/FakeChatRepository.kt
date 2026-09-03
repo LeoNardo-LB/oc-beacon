@@ -138,7 +138,8 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         model: ModelSelection?,
         agent: String?,
         variant: String?,
-        directory: String?
+        directory: String?,
+        steer: Boolean
     ): Result<Unit> {
         promptAsyncCalls.add(sessionId to parts)
         return promptAsyncResult

@@ -237,7 +237,7 @@ class ChatViewModelSendTest {
         viewModel.sendMessage("Hello while offline")
         runCurrent()
 
-        io.mockk.coVerify(exactly = 0) { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) }
+        io.mockk.coVerify(exactly = 0) { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any(), any()) }
         org.junit.Assert.assertEquals(
             ChatViewModel.SEND_FAIL_SERVER_DISCONNECTED,
             viewModel.sendFailure.value,
@@ -256,7 +256,7 @@ class ChatViewModelSendTest {
         viewModel.sendMessage("Hello while reconnecting")
         runCurrent()
 
-        io.mockk.coVerify(exactly = 0) { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) }
+        io.mockk.coVerify(exactly = 0) { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any(), any()) }
         org.junit.Assert.assertEquals(
             ChatViewModel.SEND_FAIL_SERVER_DISCONNECTED,
             viewModel.sendFailure.value,
@@ -266,7 +266,7 @@ class ChatViewModelSendTest {
     @Test
     fun `isSending flips during send and clears after REST accepted`() = runTest {
         // coAnswers + delay 模拟 POST 受理中的网络窗口：isSending 保持 true 直到响应返回
-        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) } coAnswers {
+        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any(), any()) } coAnswers {
             delay(1_000)
         }
         val viewModel = createViewModel()
@@ -284,7 +284,7 @@ class ChatViewModelSendTest {
 
     @Test
     fun `send failure emits sendFailure alert and clears isSending`() = runTest {
-        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) } throws
+        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any(), any()) } throws
             java.io.IOException("Network error")
         val viewModel = createViewModel()
         val collectJob = subscribeToState(viewModel)
@@ -307,7 +307,7 @@ class ChatViewModelSendTest {
     @Test
     fun `double send is ignored while sending`() = runTest {
         // sendPrompt 挂起期间 isSending=true，第二次 sendMessage 应被 isSendingValue 守卫拦截
-        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) } coAnswers {
+        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any(), any()) } coAnswers {
             delay(1_000)
         }
         val viewModel = createViewModel()
@@ -316,7 +316,7 @@ class ChatViewModelSendTest {
         viewModel.sendMessage("first")
         viewModel.sendMessage("second") // isSending 期间应被忽略
         advanceUntilIdle()
-        coVerify(exactly = 1) { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) }
+        coVerify(exactly = 1) { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any(), any()) }
         collectJob.cancel()
     }
 
@@ -326,7 +326,7 @@ class ChatViewModelSendTest {
     fun `send failure emits sendFailure in V1`() = runTest {
         // V1 sendParts() 捕获异常后：输入框内容保留（发送期间不清空），
         // 通过 sendFailureSink 触发 AlertDialog。restoredDraft 不再设置。
-        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) } throws
+        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any(), any()) } throws
             java.io.IOException("Network error")
 
         val viewModel = createViewModel()
@@ -372,7 +372,7 @@ class ChatViewModelSendTest {
         clearMocks(eventDispatcher)
         io.mockk.every { eventDispatcher.commandsChanged } returns kotlinx.coroutines.flow.MutableSharedFlow()
         io.mockk.every { eventDispatcher.parts } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap<String, List<dev.leonardo.ocbeacon.domain.model.Part>>())
-        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any()) } returns Unit
+        coEvery { sendMessageUseCase.sendPrompt(any(), any(), any(), any(), any(), any(), any(), any()) } returns Unit
         val viewModel = createViewModel()
         advanceUntilIdle()
         viewModel.sendMessage("Hello world")

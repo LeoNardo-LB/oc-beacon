@@ -53,14 +53,14 @@ internal class ChatSendDelegate(
     private val onSendSuccess: (String) -> Unit,
     private val draftDelegate: DraftInputDelegate,
 ) {
-    fun sendMessage(text: String, attachments: List<PromptPart> = emptyList()) {
+    fun sendMessage(text: String, attachments: List<PromptPart> = emptyList(), steer: Boolean = false) {
         if (text.isBlank() && attachments.isEmpty()) return
         val parts = mutableListOf<PromptPart>()
         if (text.isNotBlank()) {
             parts.add(PromptPart(type = "text", text = text))
         }
         parts.addAll(attachments)
-        sendParts(parts, text)
+        sendParts(parts, text, steer)
     }
 
     /** 发送预构建的 prompt parts（当 @ 文件提及需要结构化 parts 时使用）。
@@ -68,10 +68,10 @@ internal class ChatSendDelegate(
      *  PromptBuilder.buildPromptParts 会 trim() 并拆分 @file 提及，重组结果
      *  与输入框原始文本（含尾随空格/换行/@mention）不一致 → E8-1 比对失败 →
      *  发送成功后输入框偶发不清空（2026-08-15 修复）。 */
-    fun sendMessage(promptParts: List<PromptPart>, attachments: List<PromptPart>, rawText: String) {
+    fun sendMessage(promptParts: List<PromptPart>, attachments: List<PromptPart>, rawText: String, steer: Boolean = false) {
         val parts = promptParts + attachments
         if (parts.isEmpty()) return
-        sendParts(parts, rawText)
+        sendParts(parts, rawText, steer)
     }
 
     /**
@@ -98,7 +98,7 @@ internal class ChatSendDelegate(
         }
     }
 
-    private fun sendParts(parts: List<PromptPart>, snapshotText: String) {
+    private fun sendParts(parts: List<PromptPart>, snapshotText: String, steer: Boolean) {
         // RS-007 修复：防止快速双击。_isSending 由 setSending 同步设置，
         // 但 Compose 重组（禁用按钮）有 1 帧延迟。此检查消除了竞态窗口。
         if (sendStateStore.isSendingValue) {
@@ -142,7 +142,8 @@ internal class ChatSendDelegate(
                     model = model,
                     agent = modelCfg.selectedAgent,
                     variant = selectedVariantProvider(),
-                    directory = sessionDirectoryProvider()
+                    directory = sessionDirectoryProvider(),
+                    steer = steer
                 )
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Sent prompt to session $currentSessionId (${parts.size} parts)")
                 // 2026-08-16 修复（进行中图标过早）：置 Busy 从"POST 发出前"移到

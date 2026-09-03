@@ -17,7 +17,7 @@ class SendMessageUseCaseTest {
     @Test
     fun `sendPrompt delegates to chatRepository`() = runTest {
         val parts = listOf(PromptPart(type = "text", text = "Hello"))
-        coEvery { chatRepository.promptAsync(any(), any(), any(), any(), any(), any(), any()) } returns Result.success(Unit)
+        coEvery { chatRepository.promptAsync(any(), any(), any(), any(), any(), any(), any(), any()) } returns Result.success(Unit)
 
         useCase.sendPrompt(
             serverId = "server1",
@@ -35,7 +35,7 @@ class SendMessageUseCaseTest {
     @Test
     fun `sendPrompt propagates exception`() = runTest {
         val parts = listOf(PromptPart(type = "text", text = "Hello"))
-        coEvery { chatRepository.promptAsync(any(), any(), any(), any(), any(), any(), any()) } returns Result.failure(RuntimeException("Network error"))
+        coEvery { chatRepository.promptAsync(any(), any(), any(), any(), any(), any(), any(), any()) } returns Result.failure(RuntimeException("Network error"))
 
         var caught = false
         try {

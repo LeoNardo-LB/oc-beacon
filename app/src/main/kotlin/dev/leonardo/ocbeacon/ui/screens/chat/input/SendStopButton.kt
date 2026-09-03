@@ -64,6 +64,8 @@ internal fun SendStopButton(
     isAmoled: Boolean,
     onStop: () -> Unit,
     onSend: () -> Unit,
+    /** #309 批1④：忙碌长按发送键=直发插话（steer）；空闲长按仍切 shell。 */
+    onSendSteer: () -> Unit = {},
     onInputModeChange: (ChatInputMode) -> Unit,
 ) {
     // hasText 推导：showStop = isBusy && text.isBlank()（ChatInputBar 计算），
@@ -98,6 +100,9 @@ internal fun SendStopButton(
                 isAmoled = isAmoled,
                 contentDescRes = contentDescRes,
                 onSend = onSend,
+                // 忙碌长按=直发插话（steer，双键排队为主路径的定位不变）；空闲长按=shell
+                longPressSteers = isBusy,
+                onSteer = onSendSteer,
                 onInputModeChange = onInputModeChange,
             )
         }
@@ -189,6 +194,8 @@ private fun SendKey(
     isAmoled: Boolean,
     contentDescRes: Int,
     onSend: () -> Unit,
+    longPressSteers: Boolean,
+    onSteer: () -> Unit,
     onInputModeChange: (ChatInputMode) -> Unit,
 ) {
     Box(
@@ -217,9 +224,13 @@ private fun SendKey(
             .combinedClickable(
                 onClick = { if (canSend) onSend() },
                 onLongClick = {
-                    onInputModeChange(
-                        if (isShellMode) ChatInputMode.NORMAL else ChatInputMode.SHELL
-                    )
+                    if (longPressSteers && canSend) {
+                        onSteer()
+                    } else {
+                        onInputModeChange(
+                            if (isShellMode) ChatInputMode.NORMAL else ChatInputMode.SHELL
+                        )
+                    }
                 },
             ),
         contentAlignment = Alignment.Center

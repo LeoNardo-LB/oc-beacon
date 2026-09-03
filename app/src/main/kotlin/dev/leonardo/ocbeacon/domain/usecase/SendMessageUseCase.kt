@@ -19,7 +19,8 @@ class SendMessageUseCase @Inject constructor(
         model: ModelSelection?,
         agent: String,
         variant: String?,
-        directory: String?
+        directory: String?,
+        steer: Boolean = false
     ) {
         chatRepository.promptAsync(
             serverId = serverId,
@@ -28,7 +29,8 @@ class SendMessageUseCase @Inject constructor(
             model = model,
             agent = agent,
             variant = variant,
-            directory = directory
+            directory = directory,
+            steer = steer
         ).getOrThrow()
     }
 }

@@ -40,7 +40,9 @@ interface MessageApi {
         model: ModelSelection? = null,
         agent: String? = null,
         variant: String? = null,
-        directory: String? = null
+        directory: String? = null,
+        /** #309 批1④：DSH 直发插话（mode=steer）；V1/V2 忽略。 */
+        steer: Boolean = false
     ): PromptAdmission?
 
     /**
@@ -164,9 +166,10 @@ class MessageApiImpl @Inject constructor(
         model: ModelSelection?,
         agent: String?,
         variant: String?,
-        directory: String?
+        directory: String?,
+        steer: Boolean
     ): PromptAdmission? =
-        pick(conn).promptAsync(conn, sessionId, parts, model, agent, variant, directory)
+        pick(conn).promptAsync(conn, sessionId, parts, model, agent, variant, directory, steer)
 
     override suspend fun deleteMessage(conn: ServerConnection, sessionId: String, messageId: String): Boolean =
         pick(conn).deleteMessage(conn, sessionId, messageId)

@@ -1172,14 +1172,14 @@ class ChatViewModel @Inject constructor(
 
     // #267：断连快速失败——不发请求（OkHttp retryOnConnectionFailure 会悬挂
     // 15s+），草稿自然保留（sendDelegate 未执行，输入框不清空）。
-    fun sendMessage(text: String, attachments: List<PromptPart> = emptyList()) {
+    fun sendMessage(text: String, attachments: List<PromptPart> = emptyList(), steer: Boolean = false) {
         if (fastFailIfLinkBlocked()) return
-        sendDelegate.sendMessage(text, attachments)
+        sendDelegate.sendMessage(text, attachments, steer)
     }
 
-    fun sendMessage(promptParts: List<PromptPart>, attachments: List<PromptPart>, rawText: String) {
+    fun sendMessage(promptParts: List<PromptPart>, attachments: List<PromptPart>, rawText: String, steer: Boolean = false) {
         if (fastFailIfLinkBlocked()) return
-        sendDelegate.sendMessage(promptParts, attachments, rawText)
+        sendDelegate.sendMessage(promptParts, attachments, rawText, steer)
     }
 
     // ============ 权限/问题回复（门面 —— SessionActionsDelegate） ============
