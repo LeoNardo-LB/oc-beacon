@@ -37,6 +37,19 @@ import io.ktor.utils.io.ByteReadChannel
 private const val TAG = "SseClientV2"
 private const val HEARTBEAT_TIMEOUT_MS = 40_000L
 
+/**
+ * #305-net：SSE socket 读超时（engine 级）。
+ *
+ * 原 `Long.MAX_VALUE` 在「等待响应头」阶段形成无超时死区：网络黑洞/半开隧道下
+ * `execute` 永久挂起（FIN 可能不达——adb 隧道/NAT 静默断），重连协程被单飞门
+ * （`Reconnect already in progress`）永久占用 → 服务器**永不自动重连**（用户
+ * 「须手动点连接」的根因形态，2026-09-03 黑洞 E2E 实证挂死 9min+ 零 attempt）。
+ *
+ * 取值必须 **大于 [HEARTBEAT_TIMEOUT_MS]**：流建立后应用层 40s 读防护
+ * （#108 withTimeoutOrNull）先触发，本值不改变流中行为，仅封顶响应头等待。
+ */
+internal const val SSE_SOCKET_TIMEOUT_MS = HEARTBEAT_TIMEOUT_MS + 5_000L
+
 /** V2 事件信封元字段（非 payload 数据）——顶层格式剥除用。 */
 private val EVENT_META_KEYS = setOf("id", "created", "type", "durable", "location", "event")
 
@@ -100,7 +113,11 @@ class SseClientV2 @Inject constructor(
      *
      * V2 事件流格式：标准 SSE（event: + data: + id: 帧）
      */
-    fun connectToEvents(conn: ServerConnection, directory: String? = null): Flow<SseEvent> = flow {
+    fun connectToEvents(
+        conn: ServerConnection,
+        directory: String? = null,
+        socketTimeoutMs: Long = SSE_SOCKET_TIMEOUT_MS,
+    ): Flow<SseEvent> = flow {
         val sseUrl = "${conn.baseUrl}/api/event"
         // #98（M-1）：新连接代际开始——上一代残留的 admitted 条目
         //（断连丢失 promoted）不再有配对事件，清空防永驻。
@@ -113,9 +130,11 @@ class SseClientV2 @Inject constructor(
             directory?.let { header("x-opencode-directory", URLEncoder.encode(it, "UTF-8")) }
 
             timeout {
+                // requestTimeout 必须无限（SSE 流不限时长）；socketTimeout 封顶
+                // 响应头等待死区（见 [SSE_SOCKET_TIMEOUT_MS]）——流中由 #108 应用层防护接管。
                 requestTimeoutMillis = Long.MAX_VALUE
                 connectTimeoutMillis = 10_000
-                socketTimeoutMillis = Long.MAX_VALUE
+                socketTimeoutMillis = socketTimeoutMs
             }
         }
 

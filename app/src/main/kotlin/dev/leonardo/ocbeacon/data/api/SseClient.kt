@@ -23,6 +23,12 @@ import javax.inject.Singleton
 
 private const val TAG = "SseClient"
 private const val HEARTBEAT_TIMEOUT_MS = 40_000L
+
+/** #305-net：SSE socket 读超时（engine 级）——封顶「响应头等待」死区（黑洞/半开下
+ *  原MAX_VALUE致execute永挂、重连单飞门被永久占用→永不自动重连）。必须大于
+ *  [HEARTBEAT_TIMEOUT_MS]（流中 #108 应用层 40s 防护先触发，本值不改流行为）。
+ *  详见 SseClientV2.SSE_SOCKET_TIMEOUT_MS 同款注释（2026-09-03 黑洞 E2E 实证）。 */
+internal const val SSE_SOCKET_TIMEOUT_MS = HEARTBEAT_TIMEOUT_MS + 5_000L
 /** 单行上限：防止恶意/异常 server 推送超长行（无 \n 终结）导致 OOM。超限行被丢弃，连接保持。 */
 private const val MAX_SSE_LINE_SIZE = 512 * 1024
 /** 单事件上限：多条 data: 行累计超过此大小时丢弃整个事件（1MB，与上游 oc-remote 一致）。 */
@@ -165,7 +171,11 @@ class SseClient @Inject constructor(
      * 该 Flow 不会在内部自动重连——调用方应自行处理
      * 重连（service 已实现指数退避）。
      */
-    fun connectToGlobalEvents(conn: ServerConnection, directory: String? = null): Flow<SseEvent> = flow {
+    fun connectToGlobalEvents(
+        conn: ServerConnection,
+        directory: String? = null,
+        socketTimeoutMs: Long = SSE_SOCKET_TIMEOUT_MS,
+    ): Flow<SseEvent> = flow {
         val sseUrl = "${conn.baseUrl}/global/event"
         AppLogger.i(TAG, "Connecting to SSE: $sseUrl (auth=${conn.authHeader != null})")
 
@@ -175,9 +185,11 @@ class SseClient @Inject constructor(
             directory?.let { header("x-opencode-directory", URLEncoder.encode(it, "UTF-8")) }
 
             timeout {
+                // requestTimeout 必须无限（SSE 流不限时长）；socketTimeout 封顶
+                // 响应头等待死区（见 [SSE_SOCKET_TIMEOUT_MS]）——流中由 #108 应用层防护接管。
                 requestTimeoutMillis = Long.MAX_VALUE
                 connectTimeoutMillis = 10_000
-                socketTimeoutMillis = Long.MAX_VALUE
+                socketTimeoutMillis = socketTimeoutMs
             }
         }
 
