@@ -80,7 +80,7 @@
 - [ ] **#314 DSH「进会话前已挂起问题」交互卡不渲染（三次真机复现）** `dsh` `ui` `session`
   - 问题帧在 app 冷启全局订阅时入库 handler，但进会话/滚全列表/退重进三次均无 QuestionCard（dump 无选项 chip、无「提交」钮，仅消息流 run_code 参数文本）——活体到达路径正常、pre-existing 路径断链；DSH listPendingQuestions 恒空（stub）→ REST 恢复路缺席，「开流重放未决帧」重进时也不发生（logcat 无新增 Question 行）
   - 影响：问题挂起时用户不在会话内→回会话后无法作答→会话卡死（实证：21:03 挂起→21:18/21:43 两轮进会话无卡，靠宿主 session.cancel 解锁）
-  - → `docs/journal/2026-09-03-fix-308-dsh-respond-wire.md` §八（三次复现时间线；#308 E2E 收尾后接手根因）
+  - → `docs/journal/2026-09-03-fix-308-dsh-respond-wire.md` §八（三次复现时间线；#308 E2E 收尾后接手根因）；**取证就绪**：/tmp/e2e308b/ dump 系列 31/40/41/43（不渲染对照）vs 60/63/65（活体渲染）+ logcat 181 万行连续档
 
 - [ ] **#313 消息队列 UI 迁入 FAB——对齐「能力→容器」自有映射，废除 QueueDock 对 DSH Web dock 布局的照搬（2026-09-03 用户路线级裁决）** `dsh` `ui`
   - **映射原则（用户定规）**：DSH 的 goal/todo（消息框上方）、子代理/后台任务（面包屑）等面板类能力，在我们这里**一律进 FAB 菜单**（ChatFabMenu 现载 TODO/AGENT/GOAL/SHELL 四入口→自有 sheet）；QUEUE 同样处理：FAB 菜单项「队列(N)」→ QueueSheet（复用 QueueDock 行逻辑+三动作），输入条上方 dock 退役；流内内容（jobs 时间线卡/错误行/压缩分割线）不属面板、维持流内
