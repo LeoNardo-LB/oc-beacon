@@ -323,6 +323,73 @@ class SseConnectionManagerTest {
         assertTrue(manager.shouldKick("s2", nowMs = 10_002L))
     }
 
+    /**
+     * 场景（#307 真机定罪的正反馈环路，端到端）：服务器不可达 → preload 的
+     * REST 调用 IOException → 共享 client 拦截器上拍 origin（TransportFailureTap
+     * 契约）→ kick → reconnectServer（守卫 finally 即释放）→ cancelAndJoin 掐掉
+     * 退避 delay → 新 attempt 的 preload 立即再失败 → 再上拍……无冷却时毫秒级
+     * 自旋（真机 6518 kick / 24s ≈ 260/s，OkHttp 线程爆炸 pthread OOM）。
+     *
+     * 断言：kick 冷却（[SseConnectionManager] TRANSPORT_KICK_COOLDOWN_MS）打破
+     * 环路——观察窗内 listProjects 调用数有界（退避接管），风暴形态（数百次）变红。
+     */
+    @Test
+    fun `transport failure feedback loop converges under kick cooldown`() {
+        val tap = dev.leonardo.ocbeacon.data.api.TransportFailureTap()
+        val fileApi = mockk<FileApi>()
+        val sseClientV2 = mockk<SseClientV2>(relaxUnitFun = true)
+        val settingsRepository = mockk<SettingsRepository>()
+        val listProjectsCalls = AtomicInteger(0)
+
+        // 复刻 Ktor 拦截器契约（TransportFailureTap.install）：传输层失败
+        // 先上拍 origin（与 baseUrl 同串），再向调用方抛 IOException。
+        coEvery { fileApi.listProjects(any()) } coAnswers {
+            listProjectsCalls.incrementAndGet()
+            tap.onTransportFailure(firstArg<dev.leonardo.ocbeacon.domain.model.ServerConnection>().baseUrl)
+            throw java.io.IOException("connection refused")
+        }
+        every { sseClientV2.connectToEvents(any(), any(), any()) } returns
+            kotlinx.coroutines.flow.flow<dev.leonardo.ocbeacon.domain.model.SseEvent> {
+                throw java.io.IOException("connection refused")
+            }
+        every { settingsRepository.reconnectMode() } returns flowOf("normal")
+
+        val manager = SseConnectionManager(
+            sessionApi = mockk(relaxed = true),
+            messageApi = mockk(relaxed = true),
+            fileApi = fileApi,
+            sseClient = mockk(relaxed = true),
+            sseClientV2 = sseClientV2,
+            eventDispatcher = mockk(relaxed = true),
+            settingsRepository = settingsRepository,
+            networkMonitor = mockk(relaxed = true),
+            sessionStateRepository = mockk(relaxed = true),
+            dshConnectionOrchestrator = mockk(relaxed = true),
+            dshFrameSourceFactory = mockk(relaxed = true),
+            dshRpcClient = mockk(relaxed = true),
+            transportFailureTap = tap,
+        )
+
+        val server = ServerConfig(
+            id = "server-307",
+            url = "http://127.0.0.1:3080",
+            name = "Loop",
+            apiVersion = dev.leonardo.ocbeacon.domain.model.ApiVersion.V2,
+        )
+        manager.startConnection(server) { _, _ -> }
+
+        // 观察窗 7s：无冷却正反馈预期数百~数千次；冷却收敛后仅由退避驱动（~6 次）。
+        Thread.sleep(7_000)
+        val calls = listProjectsCalls.get()
+        manager.stopAllConnections()
+
+        assertTrue(
+            "feedback loop must converge: listProjects calls=" + calls + " in 7s window " +
+                "(>20 = kick storm shape, pre-#307 真机 260 kick/s 线程爆炸)",
+            calls <= 20
+        )
+    }
+
     private fun testServer() = ServerConfig(
         id = "server-1",
         url = "http://127.0.0.1:4199",
