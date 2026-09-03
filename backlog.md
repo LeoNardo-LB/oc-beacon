@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#316**。
+**编号**：全局递增，不回收。下一编号：**#317**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -66,6 +66,11 @@
 - [ ] **#310 DSH 面对齐批 2·主价值：子智能体续聊/消息反馈/Plan 模式/轨迹台账/会话源引用** `dsh` `ui` `session`
   - 子智能体续聊先做（UI 通道 100% 就绪，缺 `subagent.prompt/interrupt/history` 三方法，性价比最高）→ 消息反馈 👍/👎（气泡下动作行，禁长按）→ Plan 模式（chip+专卡）→ 轨迹台账+检查器（RenderableTurn 已预计算时间戳；时间轴缩放 L 不做）→ @ 会话源+mention 可点（文件源现成）；≈8-10 人日
   - → `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md` §四 · `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §11.4 批 2 · `docs/research/dsh-gap-2026-09-01/implementability-ui.md`
+
+- [ ] **#316 WiFi adb daemon 重启静默拆除 adb reverse 隧道——长程 E2E 需自动重建** `refactor`
+  - E2E 中途 WiFi adb daemon 重启后 reverse 隧道消失但脚本无感知（app 侧 127.0.0.1:3080 断连无提示），后续步骤静默失败（#308 E2E round4 实证）
+  - 修法：驱动脚本每阶段前 `adb reverse --list` 探活 + 缺失即重挂；e2e-acceptance-dsh.sh 同步加固
+  - → `docs/journal/2026-09-03-fix-308-dsh-respond-wire.md` §九
 
 - [ ] **#315 tap_text 坐标解析 IFS 缺陷——"][" 空段致系统性坐标偏移（E2E 工具链）** `refactor`
   - tap_text 的 `IFS='[],' read` 在 bounds "][ 拼接处产生空段→X2 落空取 0、Y2 错取 x2 值，历次点按中心坐标全偏、靠容器大命中区侥幸命中；scripts/e2e-acceptance-dsh.sh 同款实现同患（#308 E2E round4 实证，subagent 发现）

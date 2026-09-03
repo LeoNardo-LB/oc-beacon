@@ -70,7 +70,7 @@ Permission event received: PermissionReplied(requestId=4add5f44-…)
 
 **双路径行为差异（#314 证据）**：活体到达渲染 ✓ / pre-existing 不渲染 ✗（21:03 挂起三次复现无卡）。
 
-**工具链副产物（#315）**：subagent 发现 tap_text IFS='[],' 解析在 "][ 处产空段→坐标系统性偏移，e2e-acceptance-dsh.sh 同款同患。
+**工具链副产物（#315/#316）**：subagent 发现 tap_text IFS='[],' 解析在 "][ 处产空段→坐标系统性偏移（修正版 /tmp/e2e308b/g1.py，e2e-acceptance-dsh.sh 同患）；WiFi adb daemon 重启会静默拆 adb reverse 隧道（长程 E2E 需每阶段探活重挂）。终版产物 /tmp/e2e308b/REPORT-final.md（18 截图 + drive1-4 脚本日志 + 181 万行连续 logcat）。
 
 ## 八、#314 立案证据（E2E 副产物，2026-09-03 晚）
 
