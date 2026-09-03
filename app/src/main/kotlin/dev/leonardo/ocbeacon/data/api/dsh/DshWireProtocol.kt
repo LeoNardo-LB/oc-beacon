@@ -1,8 +1,15 @@
 package dev.leonardo.ocbeacon.data.api.dsh
 
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * DSH 传输线面版本（backlog #317/#318；journal 2026-09-04-dsh-012-adaptation §二）。
@@ -54,25 +61,65 @@ sealed interface DshProbeOutcome {
 }
 
 /**
+ * 线面版本只读视图（#318 方法面）。
+ *
+ * [DshApiClient] 的语义分支（0.1.2 载荷构造）需要知道目标线面版本，但不直接
+ * 依赖 [DshConnectionRegistry]——注册表构造需要 Android Keystore/DataStore，
+ * 单元测试不可建。生产侧由 [DshProtocolSourceAdapter] 转发注册表；测试用假实现
+ * （或 [DshUnprobedProtocolSource]）。
+ */
+interface DshProtocolSource {
+    /** 当前已知线面版本；未探测返回 null（调用方保守按 V011 处理）。 */
+    fun protocolOf(baseUrl: String): DshWireProtocol?
+}
+
+/** 生产适配器：转发 [DshConnectionRegistry]（注册表是 @Singleton 已注入管线）。 */
+@Singleton
+class DshProtocolSourceAdapter @Inject constructor(
+    private val registry: DshConnectionRegistry,
+) : DshProtocolSource {
+    override fun protocolOf(baseUrl: String): DshWireProtocol? = registry.protocolOf(baseUrl)
+}
+
+/** 接口注入面绑定（实现类 @Inject 构造；模块随接口同文件——#318 收口）。 */
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class DshProtocolSourceModule {
+    @Binds
+    abstract fun bindDshProtocolSource(impl: DshProtocolSourceAdapter): DshProtocolSource
+}
+
+/** 恒「未探测」（null → 调用方保守 V011）协议源——测试便利构造的缺省兜底。 */
+object DshUnprobedProtocolSource : DshProtocolSource {
+    override fun protocolOf(baseUrl: String): DshWireProtocol? = null
+}
+
+/**
  * 0.1.1 ↔ 0.1.2 线面适配器（纯函数，无状态；journal §2.3 端点注册表 + 参数键实测）。
  *
  * 职责边界：只做**机械翻译**（方法改名 + args 包装/字段改名）；带语义变化的载荷
  * （session.create 无 title、session.history→page 的 address/throughSeq、
- * session.prompt 增 requestId）由调用点按 [DshWireProtocol] 分支构造，不经本类。
+ * session.prompt 增 requestId、goals 域 args 语义结构）由调用点按 [DshWireProtocol]
+ * 分支构造，不经本类。
  *
- * 实测锚点（2026-09-04 alpha.5 容器 + 生产 rc.1）：
- * - session/list args 键 = `_request`；其余 session 域方法与 goals/create = `request`；
- * - agentPresets/select 与 goals 域的会话引用字段 **sessionId → agentId**；
- * - subagents/list 直接平铺 parentSessionId（无 request 包装）；
- * - commands/execute、commands/list 在 0.1.1 即 args 形态 → 两版恒等变换；
- * - settings/describe、session/modelCatalog、agentPresets/list、llm/listProviders
- *   无参（args:{}）。
+ * payload 风格表（0.1.2，按 wire 方法名分派；实测锚点 2026-09-04 alpha.5 容器 +
+ * 生产 rc.1）：
+ * - **SELF**：恒等（调用方已构造完整线面 payload，含 args 包装）——commands 两方法
+ *   （0.1.1 即 args 形态）+ goals 六方法（0.1.2 形态由调用点语义构造）；
+ * - **EMPTY_ARGS**：无参端点，payload 丢弃 → {args:{}}——settings/describe、
+ *   session/modelCatalog、agentPresets/list、llm/listProviders；
+ * - **FLAT**：{args:{…}} 直包裸 payload（sessionId→agentId 改名 + 丢弃 JsonNull 值）
+ *   ——subagents/list（键是 parentSessionId，无需改名）、agentPresets/select、
+ *   directoryPicker/list、settings/mutate；
+ * - **WRAPPED**：{args:{key:payload}}（key 默认 request；session/list = _request）
+ *   ——其余全部（session 域）。
  */
 object DshWireAdapter {
 
     /**
      * 方法名翻译（0.1.1 点式 → 0.1.2 斜杠式）。未列出的方法按点→斜杠机械替换
      * （0.1.2 命名规律：namespace/method；复数变化的命名空间显式列出）。
+     * 无点号的名字恒等（goals/create 等斜杠名直传不二次变换）。
      */
     fun method(method: String, protocol: DshWireProtocol): String = when (protocol) {
         DshWireProtocol.V011 -> method
@@ -80,21 +127,28 @@ object DshWireAdapter {
     }
 
     /**
-     * payload 翻译：0.1.1 裸 payload → 0.1.2 {args:{…}} 包装 + 字段改名。
+     * payload 翻译：0.1.1 裸 payload → 0.1.2 目标形态（风格表见类文档）。
      *
-     * 恒等情形：commands 两方法（0.1.1 已是 args 形态）。改名在包装**之前**对裸 payload
-     * 执行（sessionId→agentId 等仅适用于平铺键端点——见 [FLAT_KEYS]）。
+     * 恒等情形：SELF 集合（commands 两方法 + goals 六方法——调用点对两版本各自
+     * 构造完整 payload，本方法只对方法名做翻译）。字段改名仅适用于 FLAT 集合
+     * （平铺键端点）；WRAPPED 端点的包装内部字段由调用点语义分支负责。
      */
     fun payload(method: String, protocol: DshWireProtocol, payload: JsonObject): JsonObject = when (protocol) {
         DshWireProtocol.V011 -> payload
         DshWireProtocol.V012 -> {
             val wireMethod = method(method, protocol)
-            if (wireMethod in SELF_WRAPPED) {
-                payload
-            } else {
-                val bare = renameFlatFields(wireMethod, payload)
-                buildJsonObject {
-                    put("args", bare)
+            when {
+                wireMethod in SELF_METHODS -> payload
+                wireMethod in EMPTY_ARGS_METHODS -> buildJsonObject {
+                    put("args", buildJsonObject {})
+                }
+                wireMethod in FLAT_METHODS -> buildJsonObject {
+                    put("args", flatFields(wireMethod, payload))
+                }
+                else -> buildJsonObject {
+                    put("args", buildJsonObject {
+                        put(WRAPPED_ARG_KEYS[wireMethod] ?: "request", payload)
+                    })
                 }
             }
         }
@@ -132,10 +186,49 @@ object DshWireAdapter {
         "llm.models" to "session/modelCatalog",
     )
 
-    /** 0.1.1 即 args 形态的方法（恒等变换，勿二次包装）。 */
-    private val SELF_WRAPPED = setOf(
+    /**
+     * SELF：恒等变换（调用方已构造完整线面 payload）。commands 两方法 0.1.1 即
+     * args 形态；goals 六方法的 0.1.2 形态（含 args 包装 + agentId/request 语义
+     * 结构）由调用点构造——V011 分支同理由调用点构造裸 payload。
+     */
+    private val SELF_METHODS = setOf(
         "commands/execute",
         "commands/list",
+        "goals/create",
+        "goals/edit",
+        "goals/pause",
+        "goals/resume",
+        "goals/complete",
+        "goals/clear",
+    )
+
+    /** 无参端点：payload 丢弃 → {args:{}}。 */
+    private val EMPTY_ARGS_METHODS = setOf(
+        "settings/describe",
+        "session/modelCatalog",
+        "agentPresets/list",
+        "llm/listProviders",
+    )
+
+    /**
+     * 平铺端点：裸 payload 直包 {args:{…}}（改名 + 丢 JsonNull）。
+     * subagents/list 的键是 parentSessionId（无需改名，实测无 request 包装）。
+     */
+    private val FLAT_METHODS = setOf(
+        "subagents/list",
+        "agentPresets/select",
+        "directoryPicker/list",
+        "settings/mutate",
+    )
+
+    /** request 包装型端点的 args 键（默认 request；session/list 实测 = _request）。 */
+    private val WRAPPED_ARG_KEYS = mapOf(
+        "session/list" to "_request",
+    )
+
+    /** FLAT 端点的平铺字段改名（实测 agentPresets/select 会话引用 = agentId）。 */
+    private val FLAT_RENAMES = mapOf(
+        "agentPresets/select" to mapOf("sessionId" to "agentId"),
     )
 
     /** 数组直返端点（callJson 语义）。 */
@@ -144,27 +237,12 @@ object DshWireAdapter {
         "llm/listProviders",
     )
 
-    /**
-     * 平铺键端点：包装前对裸 payload 做字段改名（实测 agentPresets/select 与
-     * goals 域的会话引用 = agentId，0.1.1 为 sessionId）。
-     * request 包装型端点（session 域）的字段在包装内部，由调用点语义分支负责。
-     */
-    private val FLAT_KEYS = mapOf(
-        "agentPresets/select" to mapOf("sessionId" to "agentId"),
-        "goals/create" to mapOf("sessionId" to "agentId"),
-        "goals/edit" to mapOf("sessionId" to "agentId"),
-        "goals/pause" to mapOf("sessionId" to "agentId"),
-        "goals/resume" to mapOf("sessionId" to "agentId"),
-        "goals/complete" to mapOf("sessionId" to "agentId"),
-        "goals/clear" to mapOf("sessionId" to "agentId"),
-        "subagents/list" to mapOf("sessionId" to "agentId"),
-    )
-
-    private fun renameFlatFields(wireMethod: String, payload: JsonObject): JsonObject {
-        val renames = FLAT_KEYS[wireMethod] ?: return payload
-        if (renames.keys.none { it in payload }) return payload
+    /** FLAT 字段整理：改名 sessionId→agentId（按端点表）+ 丢弃 JsonNull 值。 */
+    private fun flatFields(wireMethod: String, payload: JsonObject): JsonObject {
+        val renames = FLAT_RENAMES[wireMethod] ?: emptyMap()
         return buildJsonObject {
             for ((key, value) in payload) {
+                if (value is JsonNull) continue
                 put(renames[key] ?: key, value)
             }
         }

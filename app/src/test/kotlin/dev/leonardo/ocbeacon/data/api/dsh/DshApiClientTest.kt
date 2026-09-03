@@ -12,6 +12,8 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
@@ -41,8 +43,27 @@ class DshApiClientTest {
         serverType = ServerType.Dsh,
     )
 
-    private fun client(engine: MockEngine): DshApiClient =
-        DshApiClient(DshRpcClient(ApiClient(HttpClient(engine), json)))
+    // #318：DshApiClient 构造注入 DshProtocolSource（语义分支）；DshRpcClient 侧
+    // 线面翻译/cookie 走 mockk 注册表替身——两路必须同源（同一 protocol/cookie）。
+    // 默认 protocol=null（未探测 → 保守 V011）承接既有 0.1.1 回归组。
+    private fun client(
+        engine: MockEngine,
+        protocol: DshWireProtocol? = null,
+        cookie: String? = null,
+    ): DshApiClient {
+        val registry = mockk<DshConnectionRegistry>(relaxed = true)
+        every { registry.protocolOf(any()) } returns protocol
+        every { registry.cookieHeader(any()) } returns cookie
+        return DshApiClient(
+            DshRpcClient(ApiClient(HttpClient(engine), json), registry),
+            FixedProtocolSource(protocol),
+        )
+    }
+
+    /** 测试假协议源：恒返回固定线面版本（null = 未探测 → 调用方保守 V011）。 */
+    private class FixedProtocolSource(private val protocol: DshWireProtocol?) : DshProtocolSource {
+        override fun protocolOf(baseUrl: String): DshWireProtocol? = protocol
+    }
 
     private fun ok(value: String) =
         """{"type":"server-response","rpcId":"r","result":{"ok":true,"value":$value}}""".trimIndent()
@@ -1198,5 +1219,392 @@ class DshApiClientTest {
         val engine = MockEngine { respond(ok("[]"), HttpStatusCode.OK, jsonHeaders()) }
         assertTrue(client(engine).listCommands(conn, null).isEmpty())
         assertTrue(engine.requestHistory.isEmpty())
+    }
+
+    // ============ #318：0.1.2 方法面语义分支（V012 payload 形态断言） ============
+
+    /** V012 session/list：斜杠方法 + {args:{_request:{}}}（WRAPPED 专用键）。 */
+    @Test
+    fun `v012 listSessions posts slash session list with _request args`() = runTest {
+        val engine = MockEngine { respond(ok(sessionListValue), HttpStatusCode.OK, jsonHeaders()) }
+        val sessions = client(engine, DshWireProtocol.V012).listSessions(conn)
+        assertEquals(listOf("s-1", "s-2"), sessions.map { it.id })
+        val req = captureRequests(engine).single()
+        assertEquals("/api/session/list", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("session/list", body["method"]!!.jsonPrimitive.content)
+        assertEquals("""{"args":{"_request":{}}}""", body["payload"].toString())
+    }
+
+    /**
+     * V012 create：schema 无 title/parentSessionId——payload 只放 cwd；title 非空
+     * 时创建成功后追加 session/rename（失败仅告警）。两步载荷均 {args:{request:…}}。
+     */
+    @Test
+    fun `v012 createSession sends cwd-only create then rename when title present`() = runTest {
+        val engine = MockEngine { req ->
+            when (req.url.encodedPath) {
+                "/api/session/create" -> respond(ok("""{"sessionId":"session-new-2","agentPreset":"code"}"""), HttpStatusCode.OK, jsonHeaders())
+                "/api/session/rename" -> respond(ok("""{"sessionId":"session-new-2"}"""), HttpStatusCode.OK, jsonHeaders())
+                else -> respond(ok("{}"), HttpStatusCode.OK, jsonHeaders())
+            }
+        }
+        val session = client(engine, DshWireProtocol.V012)
+            .createSession(conn, title = "My Title", parentId = "p-1", directory = "/tmp")
+        assertEquals("session-new-2", session.id)
+        assertEquals("My Title", session.title)
+        assertTrue(session.blank)
+        val paths = captureRequests(engine).map { it.url.encodedPath }
+        assertEquals(listOf("/api/session/create", "/api/session/rename"), paths)
+        val create = json.parseToJsonElement(bodyTextOf(captureRequests(engine)[0])).jsonObject
+        assertEquals("session/create", create["method"]!!.jsonPrimitive.content)
+        assertEquals("""{"args":{"request":{"cwd":"/tmp"}}}""", create["payload"].toString())
+        val rename = json.parseToJsonElement(bodyTextOf(captureRequests(engine)[1])).jsonObject
+        assertEquals("session/rename", rename["method"]!!.jsonPrimitive.content)
+        assertEquals(
+            """{"args":{"request":{"sessionId":"session-new-2","title":"My Title"}}}""",
+            rename["payload"].toString(),
+        )
+    }
+
+    /** V012 title 空——单发 create，无 rename 追加。 */
+    @Test
+    fun `v012 createSession without title issues single create without rename`() = runTest {
+        val engine = MockEngine { respond(ok("""{"sessionId":"session-new-3"}"""), HttpStatusCode.OK, jsonHeaders()) }
+        val session = client(engine, DshWireProtocol.V012)
+            .createSession(conn, title = null, parentId = null, directory = "/tmp")
+        assertEquals("session-new-3", session.id)
+        assertEquals(1, captureRequests(engine).size)
+        val create = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single())).jsonObject
+        assertEquals("""{"args":{"request":{"cwd":"/tmp"}}}""", create["payload"].toString())
+    }
+
+    /** V012 rename 追加失败仅告警——会话创建结果不受影响（本地 title 回退保真）。 */
+    @Test
+    fun `v012 createSession tolerates rename failure with warning only`() = runTest {
+        val engine = MockEngine { req ->
+            when (req.url.encodedPath) {
+                "/api/session/create" -> respond(ok("""{"sessionId":"s-new"}"""), HttpStatusCode.OK, jsonHeaders())
+                else -> respond(err("internal", "rename rejected"), HttpStatusCode.OK, jsonHeaders())
+            }
+        }
+        val session = client(engine, DshWireProtocol.V012)
+            .createSession(conn, title = "T", parentId = null, directory = null)
+        assertEquals("s-new", session.id)
+        assertEquals("T", session.title)
+    }
+
+    /**
+     * V012 history→page：方法名仍传 session.history（adapter 翻 session/page）；
+     * 载荷 {address:{kind:session,sessionId},throughSeq,…}——throughSeq 先行
+     * session/list 读 projections.asOfSeq；响应行数组键 records；{type:chunks}
+     * 压缩行跳过（fold 不认识会 refusedRebuild）。
+     */
+    @Test
+    fun `v012 listMessages resolves throughSeq then posts page address and skips chunk rows`() = runTest {
+        val pageValue = """{"records":[
+            {"type":"event","event":{"type":"user/message","seq":5,"time":11,"data":{"content":[{"type":"text","text":"hi"}],"source":{"kind":"user"}}}},
+            {"type":"chunks","event":{"type":"chunkrow/begin","seq":6,"time":12}}
+        ],"hasMore":false}""".trimIndent()
+        val engine = MockEngine { req ->
+            when (req.url.encodedPath) {
+                "/api/session/list" -> respond(
+                    ok("""{"items":[{"sessionId":"s-1","cwd":"/w","projections":{"asOfSeq":42,"values":{}}}]}"""),
+                    HttpStatusCode.OK, jsonHeaders(),
+                )
+                "/api/session/page" -> respond(ok(pageValue), HttpStatusCode.OK, jsonHeaders())
+                else -> respond(ok("{}"), HttpStatusCode.OK, jsonHeaders())
+            }
+        }
+        val page = client(engine, DshWireProtocol.V012).listMessages(conn, "s-1", limit = 30, before = null)
+        assertEquals(1, page.messages.size) // chunks 行跳过
+        assertEquals("seq-5", page.messages[0].info.id)
+        assertNull(page.nextCursor) // hasMore=false
+        val paths = captureRequests(engine).map { it.url.encodedPath }
+        assertEquals(listOf("/api/session/list", "/api/session/page"), paths)
+        val pageReq = json.parseToJsonElement(bodyTextOf(captureRequests(engine)[1])).jsonObject
+        assertEquals("session/page", pageReq["method"]!!.jsonPrimitive.content)
+        assertEquals(
+            """{"args":{"request":{"address":{"kind":"session","sessionId":"s-1"},"throughSeq":42,"maxMessages":30}}}""",
+            pageReq["payload"].toString(),
+        )
+    }
+
+    /** V012 throughSeq 解析：session.list 无该会话条目 → IllegalStateException。 */
+    @Test
+    fun `v012 listMessages throws when session absent from list`() = runTest {
+        val engine = MockEngine { respond(ok("""{"items":[{"sessionId":"other","cwd":"/w"}]}"""), HttpStatusCode.OK, jsonHeaders()) }
+        val outcome = runCatching { client(engine, DshWireProtocol.V012).listMessages(conn, "s-missing") }
+        assertTrue(outcome.exceptionOrNull() is IllegalStateException)
+    }
+
+    /**
+     * V012 prompt：requestId 必填（UUID 字符串）；图片 part 字段 mediaType
+     * （0.1.1 是 mime）。载荷 {args:{request:{requestId,sessionId,content,mode}}}。
+     */
+    @Test
+    fun `v012 promptAsync adds requestId and image mediaType`() = runTest {
+        val engine = MockEngine { respond(ok("{}"), HttpStatusCode.OK, jsonHeaders()) }
+        client(engine, DshWireProtocol.V012).promptAsync(
+            conn, "s-1",
+            listOf(
+                dev.leonardo.ocbeacon.data.dto.request.PromptPart(type = "file", url = "data:image/png;base64,aGk=", mime = "image/png"),
+                dev.leonardo.ocbeacon.data.dto.request.PromptPart(type = "text", text = "hello"),
+            ),
+        )
+        val req = captureRequests(engine).single()
+        assertEquals("/api/session/prompt", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("session/prompt", body["method"]!!.jsonPrimitive.content)
+        val request = body["payload"]!!.jsonObject["args"]!!.jsonObject["request"]!!.jsonObject
+        assertEquals("s-1", request["sessionId"]!!.jsonPrimitive.content)
+        assertEquals("queue", request["mode"]!!.jsonPrimitive.content)
+        val requestId = request["requestId"]!!.jsonPrimitive.content
+        assertEquals(36, requestId.length)
+        assertTrue("requestId 必须可解析为 UUID", runCatching { java.util.UUID.fromString(requestId) }.isSuccess)
+        val image = request["content"]!!.jsonArray[0].jsonObject
+        assertEquals("image", image["type"]!!.jsonPrimitive.content)
+        assertEquals("aGk=", image["data"]!!.jsonPrimitive.content)
+        assertEquals("image/png", image["mediaType"]!!.jsonPrimitive.content)
+        assertNull(image["mime"])
+    }
+
+    /** V012 goals/create SELF：调用点全量构造 {args:{agentId,request:…}}。 */
+    @Test
+    fun `v012 goalCreate wraps args with agentId and request`() = runTest {
+        val engine = MockEngine { respond(ok("""{"ref":{"id":"goal-9","revision":1}}"""), HttpStatusCode.OK, jsonHeaders()) }
+        val ref = client(engine, DshWireProtocol.V012).goalCreate(conn, "s-9", "build the ring", 5)
+        assertEquals("goal-9", ref!!.id)
+        val req = captureRequests(engine).single()
+        assertEquals("/api/goals/create", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("goals/create", body["method"]!!.jsonPrimitive.content)
+        assertEquals(
+            """{"args":{"agentId":"s-9","request":{"objective":"build the ring","maxGoalRounds":5}}}""",
+            body["payload"].toString(),
+        )
+    }
+
+    /** V012 goals/edit SELF：{args:{agentId,ref,request}}（request 内字段条件放入）。 */
+    @Test
+    fun `v012 goalEdit wraps args with ref and request`() = runTest {
+        val engine = MockEngine { respond(ok("""{"ref":{"id":"goal-9","revision":2}}"""), HttpStatusCode.OK, jsonHeaders()) }
+        val ref = client(engine, DshWireProtocol.V012)
+            .goalEdit(conn, "s-9", DshGoalRef("goal-9", 1L), objective = "v2", maxGoalRounds = null)
+        assertEquals(2L, ref!!.revision)
+        val body = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single())).jsonObject
+        assertEquals("goals/edit", body["method"]!!.jsonPrimitive.content)
+        assertEquals(
+            """{"args":{"agentId":"s-9","ref":{"id":"goal-9","revision":1},"request":{"objective":"v2"}}}""",
+            body["payload"].toString(),
+        )
+    }
+
+    /** V012 pause/resume/complete 共形 {args:{agentId,ref}}（FLAT 不进——SELF 语义构造）。 */
+    @Test
+    fun `v012 ref mutations post agentId and ref args`() = runTest {
+        val engine = MockEngine { respond(ok("""{"ref":{"id":"goal-1","revision":3}}"""), HttpStatusCode.OK, jsonHeaders()) }
+        client(engine, DshWireProtocol.V012).goalPause(conn, "s-9", DshGoalRef("goal-1", 2L))
+        val body = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single())).jsonObject
+        assertEquals("goals/pause", body["method"]!!.jsonPrimitive.content)
+        assertEquals(
+            """{"args":{"agentId":"s-9","ref":{"id":"goal-1","revision":2}}}""",
+            body["payload"].toString(),
+        )
+    }
+
+    /** V012 goals/clear 回执是 GoalRef 本身（顶层 {id,revision}）——成功即 true。 */
+    @Test
+    fun `v012 goalClear returns success on GoalRef receipt`() = runTest {
+        val engine = MockEngine { respond(ok("""{"id":"goal-1","revision":4}"""), HttpStatusCode.OK, jsonHeaders()) }
+        assertTrue(client(engine, DshWireProtocol.V012).goalClear(conn, "s-9", DshGoalRef("goal-1", 3L)))
+        val body = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single())).jsonObject
+        assertEquals("goals/clear", body["method"]!!.jsonPrimitive.content)
+        assertEquals(
+            """{"args":{"agentId":"s-9","ref":{"id":"goal-1","revision":3}}}""",
+            body["payload"].toString(),
+        )
+    }
+
+    /**
+     * V012 agentPresets/select：回程 value 是字符串（"standard"）非对象——走
+     * callJson 面；载荷由 adapter FLAT 自动改名（sessionId→agentId）+ 包装。
+     */
+    @Test
+    fun `v012 selectAgentPreset tolerates string value and renames sessionId`() = runTest {
+        val engine = MockEngine { respond(ok("\"standard\""), HttpStatusCode.OK, jsonHeaders()) }
+        assertTrue(client(engine, DshWireProtocol.V012).selectAgentPreset(conn, "s-1", "standard"))
+        val req = captureRequests(engine).single()
+        assertEquals("/api/agentPresets/select", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("agentPresets/select", body["method"]!!.jsonPrimitive.content)
+        assertEquals(
+            """{"args":{"agentId":"s-1","agentPreset":"standard"}}""",
+            body["payload"].toString(),
+        )
+    }
+
+    /** V012 subagents/list：FLAT 平铺 parentSessionId（无 request 包装、无改名）。 */
+    @Test
+    fun `v012 listSubagentCatalog posts subagents list with flat parentSessionId`() = runTest {
+        val engine = MockEngine { respond(ok(subagentCatalogValue), HttpStatusCode.OK, jsonHeaders()) }
+        val entries = client(engine, DshWireProtocol.V012).listSubagentCatalog(conn, "root-1")
+        assertEquals(3, entries.size)
+        val body = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single())).jsonObject
+        assertEquals("subagents/list", body["method"]!!.jsonPrimitive.content)
+        assertEquals("""{"args":{"parentSessionId":"root-1"}}""", body["payload"].toString())
+    }
+
+    /** V012 host.describe 已删——getHealth 直接返回常量健康（不发 RPC）。 */
+    @Test
+    fun `v012 getHealth returns constant health without rpc`() = runTest {
+        val engine = MockEngine { respond(ok("{}"), HttpStatusCode.OK, jsonHeaders()) }
+        val health = client(engine, DshWireProtocol.V012).getHealth(conn)
+        assertTrue(health.healthy)
+        assertEquals("0.1.2", health.version)
+        assertTrue(engine.requestHistory.isEmpty())
+    }
+
+    /** V012 getServerPaths：session/list 首条 cwd 兜底（无 host.describe）。 */
+    @Test
+    fun `v012 getServerPaths falls back to first session cwd`() = runTest {
+        val engine = MockEngine { respond(ok(sessionListValue), HttpStatusCode.OK, jsonHeaders()) }
+        val paths = client(engine, DshWireProtocol.V012).getServerPaths(conn)
+        assertEquals("/w/one", paths.directory)
+        assertEquals("/api/session/list", captureRequests(engine).single().url.encodedPath)
+    }
+
+    /** V012 workspace.list 无对应——session.list 聚合 distinct cwd 构造 Project。 */
+    @Test
+    fun `v012 listProjects aggregates distinct session cwds`() = runTest {
+        val engine = MockEngine { respond(ok(sessionListValue), HttpStatusCode.OK, jsonHeaders()) }
+        val projects = client(engine, DshWireProtocol.V012).listProjects(conn)
+        assertEquals(listOf("/w/one", "/w/two"), projects.map { it.id })
+        assertEquals("/w/one", projects[0].worktree)
+        assertEquals("one", projects[0].name) // name = 最后一段路径
+        assertEquals("/api/session/list", captureRequests(engine).single().url.encodedPath)
+    }
+
+    /**
+     * V012 空 path 根解析：跳过 workspace.list（404），直接 session.list 首条 cwd；
+     * host.listDirectory → directoryPicker/list（FLAT {args:{path}}）。
+     */
+    @Test
+    fun `v012 listDirectory resolves blank path via session list and posts directoryPicker`() = runTest {
+        val engine = MockEngine { req ->
+            when (req.url.encodedPath) {
+                "/api/session/list" -> respond(
+                    ok("""{"items":[{"sessionId":"s-1","cwd":"/w/root"}]}"""),
+                    HttpStatusCode.OK, jsonHeaders(),
+                )
+                else -> respond(ok("""{"entries":[{"name":"src","type":"directory"}]}"""), HttpStatusCode.OK, jsonHeaders())
+            }
+        }
+        val nodes = client(engine, DshWireProtocol.V012).listDirectory(conn, path = "")
+        assertEquals(listOf("src"), nodes.map { it.name })
+        val paths = captureRequests(engine).map { it.url.encodedPath }
+        assertEquals(listOf("/api/session/list", "/api/directoryPicker/list"), paths)
+        val listPayload = json.parseToJsonElement(bodyTextOf(captureRequests(engine).last()))
+            .jsonObject["payload"]!!.jsonObject
+        assertEquals("""{"args":{"path":"/w/root"}}""", listPayload.toString())
+    }
+
+    /**
+     * V012 目录：llm.providers→llm/listProviders 回**数组** [{id,name}]（callJson
+     * 面）；llm.models→session/modelCatalog 顶层键=组（跳过 default，值含 models
+     * 数组视为组）——合流语义与 V011 同构（目录名优先、未知组追加）。
+     */
+    @Test
+    fun `v012 getProviders parses provider array and model catalog keys`() = runTest {
+        val engine = MockEngine { req ->
+            when (req.url.encodedPath) {
+                "/api/llm/listProviders" -> respond(
+                    ok("""[{"id":"deepseek-official","name":"DeepSeek"},{"id":"opencode-go","name":"opencode-go"}]"""),
+                    HttpStatusCode.OK, jsonHeaders(),
+                )
+                "/api/session/modelCatalog" -> respond(
+                    ok("""{"default":"deepseek-official","deepseek-official":{"models":[{"id":"deepseek-v4-flash","name":"DeepSeek-V4-Flash","reasoning":{"efforts":[{"id":"high","name":"High"}]}}]},"opencode-go":{"models":[{"id":"glm-5.3"}]}}"""),
+                    HttpStatusCode.OK, jsonHeaders(),
+                )
+                else -> respond(ok("{}"), HttpStatusCode.OK, jsonHeaders())
+            }
+        }
+        val response = client(engine, DshWireProtocol.V012).getProviders(conn)
+        assertEquals(listOf("deepseek-official", "opencode-go"), response.providers.map { it.id })
+        assertEquals("DeepSeek", response.providers[0].name) // 目录名优先于组名
+        val flash = response.providers[0].models["deepseek-v4-flash"]
+        assertNotNull(flash)
+        assertEquals(listOf("high"), flash!!.variants?.keys?.toList())
+        val glm = response.providers[1].models["glm-5.3"]
+        assertNotNull(glm)
+        assertEquals("glm-5.3", glm!!.name) // 缺 name → 回退 id
+        val paths = captureRequests(engine).map { it.url.encodedPath }
+        assertEquals(listOf("/api/llm/listProviders", "/api/session/modelCatalog"), paths)
+        // 两端点 0.1.2 无参——payload 恒 {args:{}}（EMPTY_ARGS）
+        captureRequests(engine).forEach { req ->
+            assertEquals("""{"args":{}}""", json.parseToJsonElement(bodyTextOf(req)).jsonObject["payload"].toString())
+        }
+    }
+
+    /** V012 目录解析不出组（无 models 数组键）→ 退化为只有 providers 目录。 */
+    @Test
+    fun `v012 getProviders degrades to providers-only when catalog unparsable`() = runTest {
+        val engine = MockEngine { req ->
+            when (req.url.encodedPath) {
+                "/api/llm/listProviders" -> respond(ok("""[{"id":"p-1","name":"P1"}]"""), HttpStatusCode.OK, jsonHeaders())
+                "/api/session/modelCatalog" -> respond(ok("""{"default":"p-1","unrelated":"x"}"""), HttpStatusCode.OK, jsonHeaders())
+                else -> respond(ok("{}"), HttpStatusCode.OK, jsonHeaders())
+            }
+        }
+        val response = client(engine, DshWireProtocol.V012).getProviders(conn)
+        assertEquals(listOf("p-1"), response.providers.map { it.id })
+        assertTrue(response.providers.all { it.models.isEmpty() })
+    }
+
+    /**
+     * V012 settings 域：describe 无参（{args:{}}）；mutate FLAT 平铺
+     * {args:{ns,ops,expectedRevision}}——expectedRevision 恒非 JsonNull（双保险）。
+     */
+    @Test
+    fun `v012 settings describe empty args and mutate flat args with expectedRevision`() = runTest {
+        val engine = MockEngine { req ->
+            when (req.url.encodedPath) {
+                "/api/settings/describe" -> respond(ok(settingsDescribeValue), HttpStatusCode.OK, jsonHeaders())
+                else -> respond(
+                    ok("""{"ns":"permission","value":{"defaultPreset":"read-only"},"revision":43}"""),
+                    HttpStatusCode.OK, jsonHeaders(),
+                )
+            }
+        }
+        assertTrue(client(engine, DshWireProtocol.V012).setPermissionDefault(conn, "read-only"))
+        val paths = captureRequests(engine).map { it.url.encodedPath }
+        assertEquals(listOf("/api/settings/describe", "/api/settings/mutate"), paths)
+        val describe = json.parseToJsonElement(bodyTextOf(captureRequests(engine)[0])).jsonObject
+        assertEquals("settings/describe", describe["method"]!!.jsonPrimitive.content)
+        assertEquals("""{"args":{}}""", describe["payload"].toString())
+        val mutate = json.parseToJsonElement(bodyTextOf(captureRequests(engine)[1])).jsonObject
+        assertEquals("settings/mutate", mutate["method"]!!.jsonPrimitive.content)
+        val args = mutate["payload"]!!.jsonObject["args"]!!.jsonObject
+        assertEquals("permission", args["ns"]!!.jsonPrimitive.content)
+        assertEquals(42L, args["expectedRevision"]!!.jsonPrimitive.content.toLong())
+        val op = args["ops"]!!.jsonArray[0].jsonObject
+        assertEquals("set", op["op"]!!.jsonPrimitive.content)
+        assertEquals("defaultPreset", op["path"]!!.jsonArray[0].jsonPrimitive.content)
+        assertEquals("read-only", op["value"]!!.jsonPrimitive.content)
+    }
+
+    /** V012 导出（非信封 GET）：0.1.2 鉴权栅栏——Cookie 头挂载（URL 不变）。 */
+    @Test
+    fun `v012 exportSessionToStream attaches cookie header`() = runTest {
+        val zipBytes = byteArrayOf(0x50, 0x4b, 0x03, 0x04)
+        val engine = MockEngine {
+            respond(zipBytes, HttpStatusCode.OK, headersOf("Content-Type" to listOf("application/zip")))
+        }
+        client(engine, DshWireProtocol.V012, cookie = "dsh-auth-x=v1.abc")
+            .exportSessionToStream(conn, "s-1", java.io.ByteArrayOutputStream()) {}
+        val req = captureRequests(engine).single()
+        // 非信封 GET 入口——URL 不变（/api/session.export 点式路径，非方法名形态）
+        assertEquals("/api/session.export", req.url.encodedPath)
+        assertEquals("dsh-auth-x=v1.abc", req.headers["Cookie"])
     }
 }

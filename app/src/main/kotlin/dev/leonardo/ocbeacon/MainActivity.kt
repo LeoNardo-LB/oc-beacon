@@ -79,6 +79,10 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var fileRepository: dev.leonardo.ocbeacon.domain.repository.FileRepository
+
+    // #317：DSH 0.1.2 token 交换（debug_token 注入通道 + E2E 用）
+    @Inject
+    lateinit var dshConnectionRegistry: dev.leonardo.ocbeacon.data.api.dsh.DshConnectionRegistry
     
     /**
      * 用于通知点击产生的 deep-link 事件的 SharedFlow。
@@ -394,6 +398,15 @@ class MainActivity : ComponentActivity() {
             password = intent.getStringExtra("debug_password") ?: ""
         )
         AppLogger.i(TAG, "Debug channel requested via extra: " + profile.id + " (" + profile.url + ")")
+        // #317（2026-09-04）：DSH 0.1.2 launch token 注入——探测 TokenNeeded 时
+        // 连接循环挂起等 cookie，此处交换与挂起双向汇合（先后序无关）。
+        val debugToken = intent.getStringExtra("debug_token")
+        if (debugToken != null) {
+            lifecycleScope.launch {
+                val ok = dshConnectionRegistry.exchangeToken(url, debugToken)
+                AppLogger.i(TAG, "debug_token exchange for " + url + ": " + if (ok) "ok" else "rejected")
+            }
+        }
         activateDebugProfile(profile)
     }
 

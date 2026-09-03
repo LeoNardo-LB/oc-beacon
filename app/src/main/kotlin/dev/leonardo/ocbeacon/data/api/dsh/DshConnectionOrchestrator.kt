@@ -46,47 +46,127 @@ data class DshHistoryPage(
     val minSeq: Long?,
 )
 
-/** 每服务器帧源工厂（多服务器并存：每连接独立引擎实例，互不 stop）。 */
-class DshFrameSourceFactory @Inject constructor() {
-    fun create(): DshFrameSource = DshWsEngineFrameSource()
+/**
+ * 每服务器帧源工厂（多服务器并存：每连接独立引擎实例，互不 stop）。
+ *
+ * #318（2026-09-04）：按注册表线面版本路由——0.1.2 走 [DshRemoteMuxEngine]
+ * （单 WS remote.mux，帧合成 0.1.1 词汇），否则走 0.1.1 双流引擎。探测在
+ * 连接循环先行（SseConnectionManager DSH 分支），start 时协议已就位。
+ */
+class DshFrameSourceFactory @Inject constructor(
+    private val rpc: DshRpcClient,
+    private val registry: DshConnectionRegistry,
+) {
+    fun create(): DshFrameSource = DshProtocolRoutingFrameSource(rpc, registry)
 }
 
-/** 生产帧源：包一个 [DshWsEventEngine]（scope = IO + SupervisorJob；重连在引擎内部）。 */
-private class DshWsEngineFrameSource(
-    scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+/** 协议路由帧源：start 时按 [DshConnectionRegistry.protocolOf] 选引擎。 */
+private class DshProtocolRoutingFrameSource(
+    private val rpc: DshRpcClient,
+    private val registry: DshConnectionRegistry,
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) : DshFrameSource {
-    private val engine = DshWsEventEngine(scope = scope)
-    override val connectionState: StateFlow<DshWsConnectionState> get() = engine.connectionState
+    private var legacy: DshWsEventEngine? = null
+    private var mux: DshRemoteMuxEngine? = null
+    private val state = kotlinx.coroutines.flow.MutableStateFlow(DshWsConnectionState.Disconnected)
+
+    override val connectionState: StateFlow<DshWsConnectionState> get() = state
+
     override fun start(
         baseUrl: String,
         onFrame: (method: String, payload: JsonObject, rpcId: String) -> Unit,
-    ) = engine.start(baseUrl, onFrame)
+    ) {
+        stop()
+        if (registry.protocolOf(baseUrl) == DshWireProtocol.V012) {
+            val conn = ServerConnection.from(baseUrl)
+            mux = DshRemoteMuxEngine(
+                scope = scope,
+                baseUrl = baseUrl,
+                registry = registry,
+                listSessionIds = {
+                    rpc.call(conn, "session.list", buildJsonObject {}) { value ->
+                        (value.dshArr("items") ?: emptyList()).mapNotNull { el ->
+                            (el as? JsonObject)?.dshStr("sessionId")
+                        }
+                    }.getOrElse { emptyList() }
+                },
+            ).also {
+                scope.launch { it.connectionState.collect { s -> state.value = s } }
+                it.start(onFrame)
+            }
+        } else {
+            legacy = DshWsEventEngine(scope = scope).also {
+                scope.launch { it.connectionState.collect { s -> state.value = s } }
+                it.start(baseUrl, onFrame)
+            }
+        }
+    }
 
-    override fun stop() = engine.stop()
+    override fun stop() {
+        legacy?.stop()
+        legacy = null
+        mux?.stop()
+        mux = null
+        state.value = DshWsConnectionState.Disconnected
+    }
 }
 
-/** 生产历史源：session.history RPC（[conn] 为该服务器的连接参数）。 */
+/**
+ * 生产历史源：session.history RPC（[conn] 为该服务器的连接参数）。
+ *
+ * #318 V012（journal §2.3）：session.history → session/page——payload 换
+ * {address:{kind:session,sessionId}, throughSeq, beforeSeq?, maxMessages?}；
+ * throughSeq 必填且 ≤ 会话当前 cursor（探测实测 past-cursor 拒绝）——由
+ * session.list 该会话 projections.asOfSeq 提供（每次翻页现查，服务器权威）。
+ * 行数组键 entries/events（0.1.1）→ records（0.1.2），chunk 压缩行跳过。
+ */
 class DshRpcHistorySource(
     private val rpc: DshRpcClient,
     private val conn: ServerConnection,
+    private val protocolOf: () -> DshWireProtocol = { DshWireProtocol.V011 },
 ) : DshHistorySource {
     override suspend fun fetchPage(sessionId: String, beforeSeq: Long?, maxMessages: Int): DshHistoryPage {
-        val payload = buildJsonObject {
-            put("sessionId", sessionId)
-            beforeSeq?.let { put("beforeSeq", it) }
-            put("maxMessages", maxMessages)
+        val protocol = registryOf(conn)
+        val payload = if (protocol == DshWireProtocol.V012) {
+            val asOfSeq = currentAsOfSeq(sessionId)
+                ?: throw IllegalStateException("session not found for page fetch: $sessionId")
+            buildJsonObject {
+                put("address", buildJsonObject {
+                    put("kind", "session")
+                    put("sessionId", sessionId)
+                })
+                put("throughSeq", asOfSeq)
+                beforeSeq?.let { put("beforeSeq", it) }
+                put("maxMessages", maxMessages)
+            }
+        } else {
+            buildJsonObject {
+                put("sessionId", sessionId)
+                beforeSeq?.let { put("beforeSeq", it) }
+                put("maxMessages", maxMessages)
+            }
         }
         val value = rpc.call(conn, "session.history", payload) { it }.getOrElse { e ->
             AppLogger.w(TAG, "session.history failed for $sessionId: " + e.message)
             throw e
         }
-        val rows = (value.dshArr("entries") ?: value.dshArr("events") ?: emptyList())
+        val rows = (value.dshArr("entries") ?: value.dshArr("events") ?: value.dshArr("records") ?: emptyList())
             .filterIsInstance<JsonObject>()
         val minSeq = rows.minOfOrNull { row ->
             val entry = row.dshObj("event") ?: row
             entry.dshLong("seq") ?: entry.dshLong("seq0") ?: Long.MAX_VALUE
         }?.takeIf { it != Long.MAX_VALUE }
         return DshHistoryPage(rows = rows, hasMore = value.dshBool("hasMore") ?: false, minSeq = minSeq)
+    }
+
+    private fun registryOf(conn: ServerConnection): DshWireProtocol = protocolOf()
+
+    private suspend fun currentAsOfSeq(sessionId: String): Long? {
+        val list = rpc.call(conn, "session.list", buildJsonObject {}) { it }.getOrElse { return null }
+        val item = (list.dshArr("items") ?: emptyList())
+            .filterIsInstance<JsonObject>()
+            .firstOrNull { it.dshStr("sessionId") == sessionId } ?: return null
+        return item.dshObj("projections")?.dshLong("asOfSeq")
     }
 }
 

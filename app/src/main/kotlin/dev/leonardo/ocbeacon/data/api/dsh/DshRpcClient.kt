@@ -14,6 +14,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
@@ -113,6 +115,35 @@ class DshRpcClient @Inject constructor(
     suspend fun respondError(conn: ServerConnection, rpcId: String, code: DshRpcErrorCode, message: String): Result<Unit> =
         postRespond(conn, DshEnvelope.ClientResponse(rpcId, DshRpcResult.Err(code, message, null)))
 
+    /**
+     * 0.1.2 waterfall 应答（#318；journal §2.5）：POST /api/$events/result，
+     * payload {args:{clientId, eventId, outcome}}——clientId 来自本服务器
+     * $events ready 帧（[DshConnectionRegistry.clientId]，WS 引擎写入），
+     * eventId 来自 waterfall 帧。outcome 三形：result{value?}/next/rejected{error}。
+     *
+     * [outcome] 原样嵌入（调用方按 question/permission 语义构造）。
+     * 回程 {ok:true}；业务错误走既有 DshApiError 面。
+     */
+    suspend fun eventsResult(
+        conn: ServerConnection,
+        eventId: String,
+        outcome: JsonObject,
+    ): Result<Unit> {
+        val clientId = registry.clientId(conn.baseUrl)
+            ?: return Result.failure(
+                DshApiError(null, "no active \$events client for " + conn.baseUrl, null, null),
+            )
+        val payload = buildJsonObject {
+            put("args", buildJsonObject {
+                put("clientId", JsonPrimitive(clientId))
+                put("eventId", JsonPrimitive(eventId))
+                put("outcome", outcome)
+            })
+        }
+        val envelope = DshEnvelope.ClientRequest(DshEnvelope.newRpcId(), EVENTS_RESULT_METHOD, payload)
+        return exchange(conn, EVENTS_RESULT_METHOD, envelope).map { Unit }
+    }
+
     /** /api/respond 传输 + RpcReceipt 解析（#308：与 [exchange] 的信封解码分道）。 */
     private suspend fun postRespond(conn: ServerConnection, envelope: DshEnvelope): Result<Unit> {
         return try {
@@ -210,5 +241,7 @@ class DshRpcClient @Inject constructor(
     private companion object {
         const val HTTP_OK = 200
         const val HTTP_UNAUTHORIZED = 401
+        /** 0.1.2 waterfall 应答端点（journal §2.5）。 */
+        const val EVENTS_RESULT_METHOD = "\$events/result"
     }
 }

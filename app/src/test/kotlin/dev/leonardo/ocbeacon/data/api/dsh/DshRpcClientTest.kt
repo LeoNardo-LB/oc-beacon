@@ -8,6 +8,8 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -40,8 +42,14 @@ class DshRpcClientTest {
     // authHeader 故意携带：DSH 无鉴权，客户端必须忽略它（也不设 Origin）
     private val conn = ServerConnection(baseUrl = "http://dsh-test.local/", authHeader = "Basic dGVzdDp0ZXN0")
 
-    private fun client(engine: MockEngine): DshRpcClient =
-        DshRpcClient(ApiClient(HttpClient(engine), json))
+    // #317：DshRpcClient 构造新增 DshConnectionRegistry（0.1.2 线面翻译/cookie）——
+    // 注册表依赖 Android Keystore/DataStore 不可直建，mockk 替身 + 未探测（null
+    // → V011 恒等翻译）保持本组 0.1.1 传输契约断言语义不变。
+    private fun client(engine: MockEngine): DshRpcClient {
+        val registry = mockk<DshConnectionRegistry>(relaxed = true)
+        every { registry.protocolOf(any()) } returns null
+        return DshRpcClient(ApiClient(HttpClient(engine), json), registry)
+    }
 
     private val sessionListOk = """
         {"type":"server-response","rpcId":"ignored","result":{"ok":true,"value":{"items":[

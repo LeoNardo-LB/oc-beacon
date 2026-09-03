@@ -110,6 +110,8 @@ class SseConnectionManagerTest {
             dshConnectionOrchestrator = mockk(relaxed = true),
             dshFrameSourceFactory = mockk(relaxed = true),
             dshRpcClient = mockk(relaxed = true),
+            // #317：0.1.2 探测/cookie 注册表（SSE 路径 relaxed mock 不触发）
+            dshConnectionRegistry = mockk(relaxed = true),
             transportFailureTap = dev.leonardo.ocbeacon.data.api.TransportFailureTap(),
         )
 
@@ -199,6 +201,8 @@ class SseConnectionManagerTest {
             dshConnectionOrchestrator = mockk(relaxed = true),
             dshFrameSourceFactory = mockk(relaxed = true),
             dshRpcClient = mockk(relaxed = true),
+            // #317：0.1.2 探测/cookie 注册表（SSE 路径 relaxed mock 不触发）
+            dshConnectionRegistry = mockk(relaxed = true),
             transportFailureTap = dev.leonardo.ocbeacon.data.api.TransportFailureTap(),
         )
 
@@ -271,6 +275,8 @@ class SseConnectionManagerTest {
             dshConnectionOrchestrator = mockk(relaxed = true),
             dshFrameSourceFactory = mockk(relaxed = true),
             dshRpcClient = mockk(relaxed = true),
+            // #317：0.1.2 探测/cookie 注册表（SSE 路径 relaxed mock 不触发）
+            dshConnectionRegistry = mockk(relaxed = true),
             transportFailureTap = dev.leonardo.ocbeacon.data.api.TransportFailureTap(),
         )
 
@@ -312,6 +318,8 @@ class SseConnectionManagerTest {
             dshConnectionOrchestrator = mockk(relaxed = true),
             dshFrameSourceFactory = mockk(relaxed = true),
             dshRpcClient = mockk(relaxed = true),
+            // #317：0.1.2 探测/cookie 注册表（SSE 路径 relaxed mock 不触发）
+            dshConnectionRegistry = mockk(relaxed = true),
             transportFailureTap = dev.leonardo.ocbeacon.data.api.TransportFailureTap(),
         )
         // 首次 kick 放行；冷却窗内（4999ms）全部节流；窗外（5000ms+）再次放行
@@ -367,6 +375,8 @@ class SseConnectionManagerTest {
             dshConnectionOrchestrator = mockk(relaxed = true),
             dshFrameSourceFactory = mockk(relaxed = true),
             dshRpcClient = mockk(relaxed = true),
+            // #317：0.1.2 探测/cookie 注册表（SSE 路径 relaxed mock 不触发）
+            dshConnectionRegistry = mockk(relaxed = true),
             transportFailureTap = tap,
         )
 

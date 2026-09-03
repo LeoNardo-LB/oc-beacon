@@ -375,7 +375,10 @@ class SseConnectionManager @Inject constructor(
         dshConnectionOrchestrator.run(
             baseUrl = conn.baseUrl,
             frameSource = dshFrameSourceFactory.create(),
-            historySource = DshRpcHistorySource(dshRpcClient, conn),
+            historySource = DshRpcHistorySource(
+                dshRpcClient,
+                conn,
+            ) { dshConnectionRegistry.protocolOf(conn.baseUrl) ?: dev.leonardo.ocbeacon.data.api.dsh.DshWireProtocol.V011 },
             tracker = tracker,
             dispatch = { event -> eventDispatcher.processEvent(event, server.id) },
             onEvent = { event -> onEvent(server, event) },

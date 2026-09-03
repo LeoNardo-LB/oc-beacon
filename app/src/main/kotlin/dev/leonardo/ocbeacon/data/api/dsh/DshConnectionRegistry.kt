@@ -48,7 +48,7 @@ class DshConnectionRegistry @Inject constructor(
     private val apiClient: ApiClient,
     private val dataStore: DataStore<Preferences>,
     private val secretCipher: SecretCipher,
-) {
+) : DshMuxAuth {
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -73,7 +73,7 @@ class DshConnectionRegistry @Inject constructor(
         synchronized(protocolByAuthority) { protocolByAuthority[normalize(authority)] }
 
     /** 鉴权 Cookie 头值（"dsh-auth-…=v1.…"）；无 cookie 返回 null。 */
-    fun cookieHeader(authority: String): String? =
+    override fun cookieHeader(authority: String): String? =
         synchronized(cookieByAuthority) { cookieByAuthority[normalize(authority)] }
 
     /** $events clientId（0.1.2 waterfall 应答用）；未连接返回 null。 */
@@ -81,12 +81,12 @@ class DshConnectionRegistry @Inject constructor(
         synchronized(clientIdByAuthority) { clientIdByAuthority[normalize(authority)] }
 
     /** WS ready 帧写入 clientId（每代 $events 连接覆写）。 */
-    fun setClientId(authority: String, clientId: String) {
+    override fun setClientId(authority: String, clientId: String) {
         synchronized(clientIdByAuthority) { clientIdByAuthority[normalize(authority)] = clientId }
     }
 
     /** RPC/WS 401 打点：清 cookie（过期/失效），下次探测走 TokenNeeded。 */
-    fun markAuthFailure(authority: String) {
+    override fun markAuthFailure(authority: String) {
         val key = normalize(authority)
         synchronized(cookieByAuthority) { cookieByAuthority.remove(key) }
         persistSoon()
@@ -96,7 +96,7 @@ class DshConnectionRegistry @Inject constructor(
      * 挂起等待 cookie 就位（TokenNeeded 态连接循环协作用；每 [intervalMs] 轮询）。
      * 取消语义随调用方协程（连接停止即取消等待）。返回非空 cookie。
      */
-    suspend fun awaitCookie(authority: String, intervalMs: Long = 2_000L): String {
+    override suspend fun awaitCookie(authority: String, intervalMs: Long): String {
         val base = normalize(authority)
         while (true) {
             synchronized(cookieByAuthority) { cookieByAuthority[base] }?.let { return it }

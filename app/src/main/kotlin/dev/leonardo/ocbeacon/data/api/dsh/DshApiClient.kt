@@ -56,7 +56,9 @@ import dev.leonardo.ocbeacon.domain.model.ShellOutput
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.repository.DshSettingsForbiddenException
 import dev.leonardo.ocbeacon.logging.AppLogger
+import dev.leonardo.ocbeacon.util.PathUtils
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.utils.io.readAvailable
@@ -87,7 +89,17 @@ private const val TAG = "DshApi"
 @Singleton
 class DshApiClient @Inject constructor(
     private val rpc: DshRpcClient,
+    private val protocolSource: DshProtocolSource,
 ) : SessionApi, MessageApi, SystemApi, FileApi, ProviderApi, TerminalApi, ShellApi {
+
+    /**
+     * 测试便利构造（未探测线面——保守 V011；生产走 [DshProtocolSourceAdapter]）。
+     */
+    internal constructor(rpc: DshRpcClient) : this(rpc, DshUnprobedProtocolSource)
+
+    /** 线面版本判定（未探测保守 V011——与 DshRpcClient 翻译同源语义）。 */
+    private fun protocolOf(conn: ServerConnection): DshWireProtocol =
+        protocolSource.protocolOf(conn.baseUrl) ?: DshWireProtocol.V011
 
     private fun unsupported(method: String): Nothing =
         throw UnsupportedServerCapability(method, "Dsh")
@@ -142,6 +154,25 @@ class DshApiClient @Inject constructor(
         parentId: String?,
         directory: String?,
     ): Session {
+        if (protocolOf(conn) == DshWireProtocol.V012) {
+            // 0.1.2 schema {workspaceId?,cwd?,sessionId?,agentPreset?}——无 title/
+            // parentSessionId（journal §2.3）；改名走 create 成功后的 session.rename
+            // 追加（失败仅告警，本地 fallbackTitle 保真展示）。
+            val payload = buildJsonObject {
+                directory?.let { put("cwd", it) }
+            }
+            val value = rpc.call(conn, "session.create", payload) { it }.getOrElse { e -> throw e }
+            val session = mapSessionEcho(value, fallbackTitle = title, blankByDefault = true)
+            if (!title.isNullOrBlank()) {
+                rpc.call(conn, "session.rename", buildJsonObject {
+                    put("sessionId", session.id)
+                    put("title", title)
+                }) { Unit }.onFailure { e ->
+                    AppLogger.w(TAG, "session.rename after create failed for " + session.id + ": " + e.message)
+                }
+            }
+            return session
+        }
         val payload = buildJsonObject {
             title?.let { put("title", it) }
             parentId?.let { put("parentSessionId", it) }
@@ -326,7 +357,14 @@ class DshApiClient @Inject constructor(
             put("sessionId", sessionId)
             put("agentPreset", presetId)
         }
-        rpc.call(conn, "agentPreset.select", payload) { Unit }.getOrElse { e -> throw e }
+        // 0.1.2 回程 value 是字符串（"standard"）非对象——call 的对象前置会以
+        // non-object value 失败；callJson 无该前置。载荷由 adapter FLAT 自动
+        // 改名包装（sessionId→agentId），调用方无需手改。
+        if (protocolOf(conn) == DshWireProtocol.V012) {
+            rpc.callJson(conn, "agentPreset.select", payload) { _ -> Unit }.getOrElse { e -> throw e }
+        } else {
+            rpc.call(conn, "agentPreset.select", payload) { Unit }.getOrElse { e -> throw e }
+        }
         return true
     }
 
@@ -340,10 +378,25 @@ class DshApiClient @Inject constructor(
         objective: String,
         maxGoalRounds: Long?,
     ): DshGoalRef? {
-        val payload = buildJsonObject {
-            put("sessionId", sessionId)
-            put("objective", objective)
-            maxGoalRounds?.let { put("maxGoalRounds", it) }
+        // 0.1.2 goals/create = {args:{agentId, request:{objective,maxGoalRounds?}}}
+        //（SELF——调用点全量构造）；0.1.1 裸 {sessionId,objective,…}。方法名恒传
+        // 0.1.1 规范名，adapter 只做翻译（goal.create→goals/create）。
+        val payload = if (protocolOf(conn) == DshWireProtocol.V012) {
+            buildJsonObject {
+                put("args", buildJsonObject {
+                    put("agentId", sessionId)
+                    put("request", buildJsonObject {
+                        put("objective", objective)
+                        maxGoalRounds?.let { put("maxGoalRounds", it) }
+                    })
+                })
+            }
+        } else {
+            buildJsonObject {
+                put("sessionId", sessionId)
+                put("objective", objective)
+                maxGoalRounds?.let { put("maxGoalRounds", it) }
+            }
         }
         return rpc.call(conn, "goal.create", payload) { mapGoalRef(it) }.getOrElse { e -> throw e }
     }
@@ -355,11 +408,26 @@ class DshApiClient @Inject constructor(
         objective: String?,
         maxGoalRounds: Long?,
     ): DshGoalRef? {
-        val payload = buildJsonObject {
-            put("sessionId", sessionId)
-            put("ref", goalRefJson(ref))
-            objective?.let { put("objective", it) }
-            maxGoalRounds?.let { put("maxGoalRounds", it) }
+        // 0.1.2 goals/edit = {args:{agentId, ref:{id,revision}, request:{objective?,maxGoalRounds?}}}；
+        // 0.1.1 裸 {sessionId,ref,objective?,…}。
+        val payload = if (protocolOf(conn) == DshWireProtocol.V012) {
+            buildJsonObject {
+                put("args", buildJsonObject {
+                    put("agentId", sessionId)
+                    put("ref", goalRefJson(ref))
+                    put("request", buildJsonObject {
+                        objective?.let { put("objective", it) }
+                        maxGoalRounds?.let { put("maxGoalRounds", it) }
+                    })
+                })
+            }
+        } else {
+            buildJsonObject {
+                put("sessionId", sessionId)
+                put("ref", goalRefJson(ref))
+                objective?.let { put("objective", it) }
+                maxGoalRounds?.let { put("maxGoalRounds", it) }
+            }
         }
         return rpc.call(conn, "goal.edit", payload) { mapGoalRef(it) }.getOrElse { e -> throw e }
     }
@@ -374,12 +442,14 @@ class DshApiClient @Inject constructor(
         refMutation(conn, "goal.complete", sessionId, ref)
 
     override suspend fun goalClear(conn: ServerConnection, sessionId: String, ref: DshGoalRef): Boolean {
-        val payload = buildJsonObject {
-            put("sessionId", sessionId)
-            put("ref", goalRefJson(ref))
-        }
+        val payload = goalRefMutationPayload(conn, sessionId, ref)
         return rpc.call(conn, "goal.clear", payload) { value ->
-            value.dshBool("cleared") ?: false
+            if (protocolOf(conn) == DshWireProtocol.V012) {
+                // 0.1.2 回执是 GoalRef 本身（顶层 {id,revision}）——成功即 true
+                true
+            } else {
+                value.dshBool("cleared") ?: false
+            }
         }.getOrElse { e -> throw e }
     }
 
@@ -390,12 +460,28 @@ class DshApiClient @Inject constructor(
         sessionId: String,
         ref: DshGoalRef,
     ): DshGoalRef? {
-        val payload = buildJsonObject {
-            put("sessionId", sessionId)
-            put("ref", goalRefJson(ref))
-        }
+        val payload = goalRefMutationPayload(conn, sessionId, ref)
         return rpc.call(conn, method, payload) { mapGoalRef(it) }.getOrElse { e -> throw e }
     }
+
+    /**
+     * ref 形 mutation 载荷双版本构造（goalPause/Resume/Complete/Clear 共形）：
+     * 0.1.2 = {args:{agentId, ref}}（SELF——全量构造）；0.1.1 = 裸 {sessionId, ref}。
+     */
+    private fun goalRefMutationPayload(conn: ServerConnection, sessionId: String, ref: DshGoalRef): JsonObject =
+        if (protocolOf(conn) == DshWireProtocol.V012) {
+            buildJsonObject {
+                put("args", buildJsonObject {
+                    put("agentId", sessionId)
+                    put("ref", goalRefJson(ref))
+                })
+            }
+        } else {
+            buildJsonObject {
+                put("sessionId", sessionId)
+                put("ref", goalRefJson(ref))
+            }
+        }
 
     private fun goalRefJson(ref: DshGoalRef): JsonObject = buildJsonObject {
         put("id", ref.id)
@@ -521,11 +607,7 @@ class DshApiClient @Inject constructor(
         limit: Int?,
         before: String?,
     ): MessagePage {
-        val payload = buildJsonObject {
-            put("sessionId", sessionId)
-            before?.toLongOrNull()?.let { put("beforeSeq", it) }
-            limit?.let { put("maxMessages", it) }
-        }
+        val payload = historyPayload(conn, sessionId, limit, before)
         val value = rpc.call(conn, "session.history", payload) { it }
             .getOrElse { e ->
                 AppLogger.w(TAG, "session.history failed for $sessionId: " + e.message)
@@ -551,8 +633,55 @@ class DshApiClient @Inject constructor(
     }
 
     override suspend fun listMessagesRaw(conn: ServerConnection, sessionId: String): String {
-        val payload = buildJsonObject { put("sessionId", sessionId) }
+        val payload = historyPayload(conn, sessionId, limit = null, before = null)
         return rpc.call(conn, "session.history", payload) { it.toString() }.getOrElse { e -> throw e }
+    }
+
+    /**
+     * session.history 载荷双版本构造：V011 裸 {sessionId,beforeSeq?,maxMessages}；
+     * V012 语义替换 session/page——{address:{kind:session,sessionId},throughSeq,
+     * beforeSeq?,maxMessages?}（方法名仍传 session.history，adapter RENAMES 翻成
+     * session/page + request 包装；throughSeq 先行 session.list 读该会话
+     * projections.asOfSeq）。
+     */
+    private suspend fun historyPayload(
+        conn: ServerConnection,
+        sessionId: String,
+        limit: Int?,
+        before: String?,
+    ): JsonObject {
+        if (protocolOf(conn) != DshWireProtocol.V012) {
+            return buildJsonObject {
+                put("sessionId", sessionId)
+                before?.toLongOrNull()?.let { put("beforeSeq", it) }
+                limit?.let { put("maxMessages", it) }
+            }
+        }
+        val throughSeq = throughSeqOf(conn, sessionId)
+        return buildJsonObject {
+            put("address", buildJsonObject {
+                put("kind", "session")
+                put("sessionId", sessionId)
+            })
+            put("throughSeq", throughSeq)
+            before?.toLongOrNull()?.let { put("beforeSeq", it) }
+            limit?.let { put("maxMessages", it) }
+        }
+    }
+
+    /**
+     * V012 throughSeq（page 读上界）：session.list 找该 sessionId 条目读
+     * projections.asOfSeq；会话缺席/无投影 → IllegalStateException（0.1.2 无
+     * session.get，list 是唯一权威源）。
+     */
+    private suspend fun throughSeqOf(conn: ServerConnection, sessionId: String): Long {
+        val value = rpc.call(conn, "session.list", buildJsonObject {}) { it }.getOrElse { e -> throw e }
+        val item = (value.dshArr("items") ?: emptyList())
+            .filterIsInstance<JsonObject>()
+            .firstOrNull { it.dshStr("sessionId") == sessionId }
+            ?: throw IllegalStateException("DSH session not found: $sessionId")
+        return item.dshObj("projections")?.dshLong("asOfSeq")
+            ?: throw IllegalStateException("DSH session $sessionId has no projections.asOfSeq")
     }
 
     /**
@@ -571,6 +700,8 @@ class DshApiClient @Inject constructor(
     ) {
         val response = rpc.http.get(conn.baseUrl.trimEnd('/') + "/api/session.export") {
             parameter("sessionId", sessionId)
+            // 0.1.2 鉴权栅栏：非信封入口同样需要 Cookie（rpc.cookieFor 复用注册表）
+            rpc.cookieFor(conn)?.let { header("Cookie", it) }
         }
         if (response.status.value != 200) {
             throw java.io.IOException("session.export HTTP " + response.status.value)
@@ -608,7 +739,8 @@ class DshApiClient @Inject constructor(
         directory: String?,
         steer: Boolean,
     ): PromptAdmission? {
-        val content = parts.mapNotNull { part -> promptContentPart(part) }
+        val v012 = protocolOf(conn) == DshWireProtocol.V012
+        val content = parts.mapNotNull { part -> promptContentPart(part, v012) }
         if (content.isEmpty()) {
             AppLogger.w(TAG, "session.prompt skipped: no mappable content parts")
             return null
@@ -624,6 +756,8 @@ class DshApiClient @Inject constructor(
             }
         }
         val payload = buildJsonObject {
+            // 0.1.2 prompt 必填 requestId（journal §2.3）；0.1.1 无此键。
+            if (v012) put("requestId", java.util.UUID.randomUUID().toString())
             put("sessionId", sessionId)
             put("content", JsonArray(content))
             // E2E 实证（2026-08-31）：mode 必填（zod expected queue|steer，缺席整单拒绝）。
@@ -654,7 +788,7 @@ class DshApiClient @Inject constructor(
         reasoningEffort?.takeIf { it.isNotBlank() }?.let { put("reasoningEffort", it) }
     }) { Unit }.isSuccess
 
-    private fun promptContentPart(part: PromptPart): JsonObject? = when {
+    private fun promptContentPart(part: PromptPart, v012: Boolean = false): JsonObject? = when {
         part.type == "text" && !part.text.isNullOrBlank() -> buildJsonObject {
             put("type", "text")
             put("text", part.text)
@@ -671,7 +805,8 @@ class DshApiClient @Inject constructor(
             buildJsonObject {
                 put("type", "image")
                 data?.let { put("data", it) } ?: put("url", url)
-                put("mime", mime)
+                // 0.1.2 图片 part 字段是 mediaType（0.1.1 是 mime）
+                put(if (v012) "mediaType" else "mime", mime)
                 part.filename?.let { put("name", it) }
             }
         }
@@ -775,6 +910,15 @@ class DshApiClient @Inject constructor(
             "reject" -> "rejected"
             else -> reply
         }
+        // #318 V012：权限 waterfall 应答（帧事件名未实测——E2E 批次 /permission ask
+        // 触发后校准；先按 {kind:result, value:{outcome}} 形态，eventId=rpcId 槽）
+        if (protocolOf(conn) == DshWireProtocol.V012) {
+            val wireOutcome = buildJsonObject {
+                put("kind", "result")
+                put("value", buildJsonObject { put("outcome", outcome) })
+            }
+            return rpc.eventsResult(conn, metadata?.get("rpcId") ?: requestId, wireOutcome).isSuccess
+        }
         val payload = buildJsonObject {
             put("sessionId", sessionId)
             put("approvalId", requestId)
@@ -823,6 +967,15 @@ class DshApiClient @Inject constructor(
                 custom?.let { put("custom", kotlinx.serialization.json.JsonPrimitive(it)) }
             }
         }
+        // #318 V012：waterfall 应答走 $events/result（journal §2.5 实测闭环）——
+        // requestId = waterfall eventId（合成帧 rpcId 槽），answers 构造两版同源。
+        if (protocolOf(conn) == DshWireProtocol.V012) {
+            val outcome = buildJsonObject {
+                put("kind", "result")
+                put("value", buildJsonObject { put("answers", JsonArray(answerObjects)) })
+            }
+            return rpc.eventsResult(conn, requestId, outcome).isSuccess
+        }
         val payload = buildJsonObject {
             put("sessionId", question.sessionId)
             put("answer", buildJsonObject { put("answers", JsonArray(answerObjects)) })
@@ -841,7 +994,17 @@ class DshApiClient @Inject constructor(
         requestId: String,
         directory: String?,
         sessionId: String?,
-    ): Boolean = rpc.respondError(conn, requestId, DshRpcErrorCode.Cancelled, "user cancelled ask_user_question").isSuccess
+    ): Boolean {
+        // #318 V012：取消 = waterfall rejected（error 形态待 E2E 校准——先 message 单键）
+        if (protocolOf(conn) == DshWireProtocol.V012) {
+            val outcome = buildJsonObject {
+                put("kind", "rejected")
+                put("error", buildJsonObject { put("message", "user cancelled ask_user_question") })
+            }
+            return rpc.eventsResult(conn, requestId, outcome).isSuccess
+        }
+        return rpc.respondError(conn, requestId, DshRpcErrorCode.Cancelled, "user cancelled ask_user_question").isSuccess
+    }
 
     override suspend fun listPendingQuestions(
         conn: ServerConnection,
@@ -851,11 +1014,20 @@ class DshApiClient @Inject constructor(
     // ============ SystemApi（host.describe + 常量降级） ============
 
     override suspend fun getHealth(conn: ServerConnection): ServerHealth {
+        // 0.1.2 已删 host.describe（journal §2.3）——健康探活由双形态探测/连接层
+        // 承担（探测通过才可能判定 V012），这里直接报告在线。
+        if (protocolOf(conn) == DshWireProtocol.V012) {
+            return ServerHealth(healthy = true, version = "0.1.2")
+        }
         val value = rpc.call(conn, "host.describe", buildJsonObject {}) { it }.getOrElse { e -> throw e }
         return ServerHealth(healthy = true, version = value.dshStr("version"))
     }
 
     override suspend fun getServerPaths(conn: ServerConnection): ServerPaths {
+        // 0.1.2 host.describe 已删——session/list 首条 cwd 兜底（home 无来源留空）。
+        if (protocolOf(conn) == DshWireProtocol.V012) {
+            return ServerPaths(home = "", directory = firstSessionCwd(conn) ?: "")
+        }
         val value = rpc.call(conn, "host.describe", buildJsonObject {}) { it }.getOrElse { e -> throw e }
         return ServerPaths(
             home = value.dshStr("home") ?: "",
@@ -969,24 +1141,43 @@ class DshApiClient @Inject constructor(
     /** 根路径缓存（baseUrl → 解析结果）——workspace 注册表极少变，树根仅为浏览起点。 */
     private val rootPathCache = java.util.concurrent.ConcurrentHashMap<String, String>()
 
-    /** 空 path 的根解析：workspace.list 首个 path → host.describe cwd；都无则显式失败。 */
+    /**
+     * 空 path 的根解析：V012 直接 session.list 首条 cwd（workspace.list 已删——
+     * 404，不再打无谓请求）；V011 保持 workspace.list 首个 path → host.describe
+     * cwd；都无则显式失败。
+     */
     private suspend fun resolveRootPath(conn: ServerConnection): String {
         val base = conn.baseUrl.trimEnd('/')
         rootPathCache[base]?.let { return it }
-        val workspaceRoot = runCatching {
-            val value = rpc.call(conn, "workspace.list", buildJsonObject {}) { it }.getOrNull()
-            val items = value?.dshArr("items") ?: value?.dshArr("workspaces") ?: emptyList()
-            items.asSequence()
-                .mapNotNull { it as? JsonObject }
-                .firstNotNullOfOrNull { it.dshStr("path") ?: it.dshStr("cwd") ?: it.dshStr("directory") }
-        }.getOrNull()?.takeIf { it.isNotBlank() }
-        val root = workspaceRoot ?: runCatching {
-            rpc.call(conn, "host.describe", buildJsonObject {}) { it }.getOrNull()?.dshStr("cwd")
-        }.getOrNull()?.takeIf { it.isNotBlank() }
+        val root = when (protocolOf(conn)) {
+            DshWireProtocol.V012 -> firstSessionCwd(conn)
+            DshWireProtocol.V011 -> {
+                val workspaceRoot = runCatching {
+                    val value = rpc.call(conn, "workspace.list", buildJsonObject {}) { it }.getOrNull()
+                    val items = value?.dshArr("items") ?: value?.dshArr("workspaces") ?: emptyList()
+                    items.asSequence()
+                        .mapNotNull { it as? JsonObject }
+                        .firstNotNullOfOrNull { it.dshStr("path") ?: it.dshStr("cwd") ?: it.dshStr("directory") }
+                }.getOrNull()?.takeIf { it.isNotBlank() }
+                workspaceRoot ?: runCatching {
+                    rpc.call(conn, "host.describe", buildJsonObject {}) { it }.getOrNull()?.dshStr("cwd")
+                }.getOrNull()?.takeIf { it.isNotBlank() }
+            }
+        }?.takeIf { it.isNotBlank() }
             ?: throw DshApiError(null, "cannot resolve root path for empty listDirectory request", null, null)
         rootPathCache[base] = root
         return root
     }
+
+    /** session.list 首条 cwd（0.1.2 根路径/服务器路径兜底源；失败/空 → null）。 */
+    private suspend fun firstSessionCwd(conn: ServerConnection): String? = runCatching {
+        rpc.call(conn, "session.list", buildJsonObject {}) { it }.getOrNull()
+            ?.dshArr("items")
+            ?.filterIsInstance<JsonObject>()
+            ?.firstOrNull()
+            ?.dshStr("cwd")
+            ?.takeIf { it.isNotBlank() }
+    }.getOrNull()
 
     override suspend fun findSymbols(conn: ServerConnection, query: String, directory: String?): List<SymbolInfo> = emptyList()
 
@@ -1005,6 +1196,27 @@ class DshApiClient @Inject constructor(
 
     /** workspace.list → Project（时间戳单位双态坑位 §5：workspace 侧 ISO 字符串不进 Project）。 */
     override suspend fun listProjects(conn: ServerConnection): List<Project> {
+        // 0.1.2 workspace.list 无对应（journal §2.3）——从 session.list 聚合
+        // distinct cwd 构造 Project（id=cwd, worktree=cwd, name=最后一段路径）；
+        // 失败/空回退现状返回（emptyList）。
+        if (protocolOf(conn) == DshWireProtocol.V012) {
+            val cwds = runCatching {
+                rpc.call(conn, "session.list", buildJsonObject {}) { it }.getOrNull()
+            }.getOrNull()
+                ?.dshArr("items")
+                ?.filterIsInstance<JsonObject>()
+                ?.mapNotNull { it.dshStr("cwd")?.takeIf { c -> c.isNotBlank() } }
+                ?.distinct()
+                .orEmpty()
+            if (cwds.isEmpty()) return emptyList()
+            return cwds.map { cwd ->
+                Project(
+                    id = cwd,
+                    worktree = cwd,
+                    name = PathUtils.fileName(cwd).takeIf { it.isNotEmpty() } ?: cwd,
+                )
+            }
+        }
         val value = rpc.call(conn, "workspace.list", buildJsonObject {}) { it }
             .getOrElse { e ->
                 AppLogger.w(TAG, "workspace.list failed: " + e.message)
@@ -1095,6 +1307,7 @@ class DshApiClient @Inject constructor(
      * 拼目录；组失败目录仍完整返回（模型空，由上层 applyProviderFilter 过滤）。
      */
     override suspend fun getProviders(conn: ServerConnection): dev.leonardo.ocbeacon.data.dto.response.ProvidersResponse {
+        if (protocolOf(conn) == DshWireProtocol.V012) return providersV012(conn)
         val directory = rpc.call(conn, "llm.providers", buildJsonObject {}) { it }
             .getOrElse { e ->
                 AppLogger.w(TAG, "llm.providers failed: " + e.message)
@@ -1117,18 +1330,7 @@ class DshApiClient @Inject constructor(
         groups?.dshArr("groups")?.filterIsInstance<JsonObject>()?.forEach { group ->
             val groupId = group.dshStr("id") ?: return@forEach
             val models = (group.dshArr("models") ?: emptyList()).filterIsInstance<JsonObject>().mapNotNull { m ->
-                val modelId = m.dshStr("id") ?: return@mapNotNull null
-                val efforts = m.dshObj("reasoning")?.dshArr("efforts")
-                    ?.filterIsInstance<JsonObject>().orEmpty()
-                val variants = efforts.mapNotNull { e -> e.dshStr("id")?.let { it to e } }.toMap()
-                    .takeIf { it.isNotEmpty() }
-                ProviderModel(
-                    id = modelId,
-                    providerId = groupId,
-                    name = m.dshStr("name") ?: modelId,
-                    capabilities = variants?.let { ModelCapabilities(reasoning = true) },
-                    variants = variants,
-                )
+                mapCatalogModel(groupId, m)
             }
             if (models.isNotEmpty()) {
                 groupsById[groupId] = ProviderInfo(
@@ -1142,14 +1344,81 @@ class DshApiClient @Inject constructor(
 
         // 合流：目录序优先（目录名优先于组名）；目录未覆盖的组防御性追加
         // （目录整体失败时 groupsById 即全量——组序兜底）。
-        val providers = buildList {
-            directoryNames.forEach { (id, name) ->
-                val fromGroup = groupsById.remove(id)
-                add(fromGroup?.copy(name = name) ?: ProviderInfo(id = id, name = name, source = "dsh"))
+        return dev.leonardo.ocbeacon.data.dto.response.ProvidersResponse(
+            providers = mergeProviders(directoryNames, groupsById),
+        )
+    }
+
+    /**
+     * 0.1.2 目录（#318）：llm.providers → llm/listProviders 回**数组**
+     * [{id,name}]（callJson 面，call 的对象前置不适用）；llm.models →
+     * session/modelCatalog——防御式解析：遍历 value 顶层键（跳过 default），
+     * 值为对象且含 models 数组则视为组 {id=键, models=[{id,…}]}；解析不出组则
+     * 退化为只有 providers 目录。合流语义与 V011 同构（目录序优先）。
+     */
+    private suspend fun providersV012(conn: ServerConnection): dev.leonardo.ocbeacon.data.dto.response.ProvidersResponse {
+        val directoryNames = linkedMapOf<String, String>()
+        rpc.callJson(conn, "llm.providers", buildJsonObject {}) { it }.getOrElse { e ->
+            AppLogger.w(TAG, "llm.providers failed: " + e.message)
+            null
+        }?.let { value ->
+            (value as? JsonArray).orEmpty().filterIsInstance<JsonObject>().forEach { entry ->
+                val id = entry.dshStr("id") ?: return@forEach
+                directoryNames[id] = entry.dshStr("name") ?: id
             }
-            addAll(groupsById.values)
         }
-        return dev.leonardo.ocbeacon.data.dto.response.ProvidersResponse(providers = providers)
+
+        val groupsById = linkedMapOf<String, ProviderInfo>()
+        val catalog = rpc.call(conn, "llm.models", buildJsonObject {}) { it }.getOrElse { e ->
+            AppLogger.w(TAG, "llm.models failed: " + e.message)
+            null
+        }
+        catalog?.forEach { (key, groupEl) ->
+            if (key == "default") return@forEach
+            val group = groupEl as? JsonObject ?: return@forEach
+            val modelsArr = group["models"] as? JsonArray ?: return@forEach
+            val models = modelsArr.filterIsInstance<JsonObject>().mapNotNull { m -> mapCatalogModel(key, m) }
+            if (models.isNotEmpty()) {
+                groupsById[key] = ProviderInfo(
+                    id = key,
+                    name = key,
+                    source = "dsh",
+                    models = models.associateBy { it.id },
+                )
+            }
+        }
+
+        return dev.leonardo.ocbeacon.data.dto.response.ProvidersResponse(
+            providers = mergeProviders(directoryNames, groupsById),
+        )
+    }
+
+    /** 目录模型条目映射（V011/V012 共形）：reasoning.efforts → variants + capabilities。 */
+    private fun mapCatalogModel(groupId: String, m: JsonObject): ProviderModel? {
+        val modelId = m.dshStr("id") ?: return null
+        val efforts = m.dshObj("reasoning")?.dshArr("efforts")
+            ?.filterIsInstance<JsonObject>().orEmpty()
+        val variants = efforts.mapNotNull { e -> e.dshStr("id")?.let { it to e } }.toMap()
+            .takeIf { it.isNotEmpty() }
+        return ProviderModel(
+            id = modelId,
+            providerId = groupId,
+            name = m.dshStr("name") ?: modelId,
+            capabilities = variants?.let { ModelCapabilities(reasoning = true) },
+            variants = variants,
+        )
+    }
+
+    /** 合流：目录序优先（目录名优先于组名）；目录未覆盖的组防御性追加。 */
+    private fun mergeProviders(
+        directoryNames: LinkedHashMap<String, String>,
+        groupsById: LinkedHashMap<String, ProviderInfo>,
+    ): List<ProviderInfo> = buildList {
+        directoryNames.forEach { (id, name) ->
+            val fromGroup = groupsById.remove(id)
+            add(fromGroup?.copy(name = name) ?: ProviderInfo(id = id, name = name, source = "dsh"))
+        }
+        addAll(groupsById.values)
     }
 
     override suspend fun listProviderCatalog(conn: ServerConnection): ProviderCatalogResponse =
@@ -1272,6 +1541,8 @@ class DshApiClient @Inject constructor(
 
     /** settings.mutate → 单键 set（乐观并发：expectedRevision 由调用方先行读取）。 */
     private suspend fun settingsMutateSet(conn: ServerConnection, ns: String, key: String, value: String, expectedRevision: Long): Boolean {
+        // #318 双保险：expectedRevision 是非空 Long → 恒 JsonPrimitive（非 JsonNull）；
+        // 0.1.2 adapter FLAT 对 settings/mutate 亦丢 JsonNull 值。
         val payload = buildJsonObject {
             put("ns", ns)
             put("ops", JsonArray(listOf(buildJsonObject {
@@ -1279,7 +1550,7 @@ class DshApiClient @Inject constructor(
                 put("path", JsonArray(listOf(JsonPrimitive(key))))
                 put("value", JsonPrimitive(value))
             })))
-            put("expectedRevision", expectedRevision)
+            put("expectedRevision", JsonPrimitive(expectedRevision))
         }
         val outcome = rpc.call(conn, "settings.mutate", payload) { Unit }
         if (outcome.isFailure) {
@@ -1296,10 +1567,20 @@ class DshApiClient @Inject constructor(
 
     // ============ 共用 ============
 
-    /** session.history 响应行提取：entries/events 数组（HistoryEntry={event,view?} 由 folder 解包）。 */
+    /**
+     * session.history 响应行提取：entries/events（0.1.1）/ records（0.1.2 page）
+     * 数组（HistoryEntry={event,view?} 由 folder 解包）。防御：跳过 0.1.2 的
+     * chunk 压缩行（{type:chunks}）——fold 不认识该行型会 refusedRebuild 放弃
+     * 整页重建（journal §2.4），AppLogger.i 计数。
+     */
     internal fun historyEntryRows(value: JsonObject): List<JsonObject> {
-        val rows = value.dshArr("entries") ?: value.dshArr("events") ?: return emptyList()
-        return rows.mapNotNull { it as? JsonObject }
+        val rows = value.dshArr("entries") ?: value.dshArr("events") ?: value.dshArr("records") ?: return emptyList()
+        val all = rows.mapNotNull { it as? JsonObject }
+        val chunks = all.count { it.dshStr("type") == "chunks" }
+        if (chunks > 0) {
+            AppLogger.i(TAG, "history rows: skipped " + chunks + " chunk-compressed row(s) (dsh 0.1.2)")
+        }
+        return all.filterNot { it.dshStr("type") == "chunks" }
     }
 
     private fun joinPath(base: String, name: String): String =

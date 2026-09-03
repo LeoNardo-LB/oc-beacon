@@ -49,7 +49,7 @@
 - messageFeedback/: list · put · delete；sessionReferenceResolver/candidates；fileReferences/list；skills/list；pluginInventory/list；dynamicCordisRunner/*
 - **host.describe 无对应**——版本探测由双形态探测承担；健康探活可用 session/list
 - **`$events/result`**（应答通道，见 2.5）
-- 0.1.1→0.1.2 语义变化：session.create 0.1.1 {title?,parentSessionId?,cwd?} → 0.1.2 {workspaceId?,cwd?,sessionId?,agentPreset?}（**无 title**；改名走 rename）；session.history → session/page（address 包装）；session.prompt 新增必填 requestId+mode；session.export 待查（GET ZIP，未证）
+- 0.1.1→0.1.2 语义变化：session.create 0.1.1 {title?,parentSessionId?,cwd?} → 0.1.2 {workspaceId?,cwd?,sessionId?,agentPreset?}（**无 title**；改名走 rename）；session.history → session/page（address 包装）；session.prompt 新增必填 requestId+mode；session.export **实测存活**（0.1.2 GET /api/session.export?sessionId= 200 ZIP，2026-09-04 alpha.5 二轮探针）
 
 ### 2.4 事件流（remote.mux 单 WS）
 
@@ -71,6 +71,22 @@
 
 - RPC 信封 `{type:"client-request",rpcId,method,payload}` / server-response 不变；403/401/415 语义不变；媒体栅栏 application/json
 
+### 2.7 补充实测（2026-09-04 06:1x）
+
+- **权限 waterfall 帧未捕获**：生产 3080 造会话跑 run_code（150s 窗口）未到 waterfall（该会话策略未触发审批）——权限事件名/outcome 形态留 E2E 批次用 /permission ask 强制触发后校准；合成器已按事件名 contains approval/permission 防御性映射
+- **E2E 靶机布局**：dsh012-a5（alpha.5，:3081，鉴权）+ dsh011-rc2（0.1.1，:3082，无鉴权，四门禁回归用）+ 生产 :3080（0.1.2-rc.1，全链路主靶）；真机 192.168.110.239:5555 WiFi adb（#316 脆弱性——断连即重连）
+- **debug_token extra**：MainActivity 调试通道新增 token 注入（与 TokenNeeded awaitCookie 双向汇合，先后序无关）——E2E 自动化路径
+
 ## 三、实现落点（对齐侦察报告 §1-§9）
 
-进行中。批次：#317 鉴权+探测 → #318 方法面 → WS/编排 → #319 E2E。
+已落地（commit beab6a3c 核心 + WS 批次）：
+- **DshWireProtocol/DshWireAdapter**（#318 翻译收口）：方法名表（机械点→斜杠 + 显式改名 session.history→session/page、goal.→goals/、agentPreset.→agentPresets/、subagent.→subagents/、host.listDirectory→directoryPicker/list、llm.providers→llm/listProviders）+ payload 分风格包装表（SELF/EMPTY_ARGS/FLAT sessionId→agentId/WRAPPED _request|request）
+- **DshConnectionRegistry**（#317 运行时）：双形态探测（ensureProbed 判别表）+ token 交换（GET /?token= → 303 Set-Cookie）+ cookie SecretCipher 加密持久化（DataStore 键 dsh_cookies，authority 键控）+ awaitCookie 挂起 + clientId 存取（$events ready）；DshMuxAuth 缝隙接口供引擎注入
+- **DshRpcClient**：prepare() 线面翻译唯一收口（信封 method 同步 wire 名）+ Cookie 头 + 401→DshAuthRequiredException（清凭据）+ eventsResult()（$events/result 应答）
+- **SseConnectionManager**：DSH 分支探测门禁（TokenNeeded→dshTokenNeededServers 状态集+awaitCookie 挂起；Unreachable→退避；Online→预加载+事件循环）
+- **DshRemoteMuxEngine + DshMuxSynthesizer**（#318 WS 侧）：单 WS /api/remote.mux（Cookie 升级、401 特判等 token）；$events+session/control+session/follow(list 全量) 三流；**合成 0.1.1 帧词汇**（api-session/*→host/*、waterfall→question/requested(rpcId=eventId)、follow snapshot→subscribed 基线+session/event+projection、control baseline→jobs/queue/projection、chunk 压缩行跳过）——orchestrator/mapper/handler 零改动
+- **DshFrameSourceFactory**：协议路由帧源（V012→mux 引擎，否则 0.1.1 双流引擎）
+- **DshRpcHistorySource**：V012 page 翻页（address 包装 + throughSeq=asOfSeq 现查 + records 键 + 兼容 entries/events）
+- 单测：DshRemoteMuxEngineTest（codec 三型/合成表 10 例）
+
+进行中（子代理并行）：DshApiClient 调用点语义适配（create 无 title/page/prompt requestId+mediaType/goals args/agentPresets/select 回程字符串/llm 目录/workspace 降级/export cookie）。待办：replyTo* 三法 V012 分支（$events/result outcome 构造）、TokenNeeded UI + token 输入 + i18n、#319 E2E、#314-316 回归（0.1.1-rc.2 容器 3082）。
