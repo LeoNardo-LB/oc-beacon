@@ -48,6 +48,13 @@
   3. 会话定位：宿主 session.list 已验证可达（loopback RPC 200，见探针）；按标题定位手机侧要打开的会话行（tap_text）。
 - i18n 终验（批 1 全部新 key 后）：**PASSED，775 keys × 14 languages all consistent**。
 
+## 八、#314 立案证据（E2E 副产物，2026-09-03 晚）
+
+- 时间线：21:03:47 问题帧活体到达（app 在列表页，全局订阅入库 QuestionEventHandler）→ 21:16 冷启重放入库 → 21:18 进会话 / 21:41 全列表滚动 / 21:43 退重进，**三次均无 QuestionCard 组合**（dump 无选项 chip/提交钮，仅消息流 run_code 参数文本含「蓝色」——round2 误点的正是这段非可点文本）。
+- 旁证：DSH listPendingQuestions 恒空（stub）；重进会话时 mux 无未决帧重放（logcat 无新增 Question asked 行）——「开流即重放」只发生在冷启订阅。
+- 解锁手段（实证）：宿主 session.cancel 取消卡死轮次。
+- 活体到达路径待 round5 验证（宿主 22:05 重注入，手机停驻会话内）。
+
 ## 七、路线级裁决记录（2026-09-03 用户定规，「能力→容器」映射）
 
 - **原则**：DSH 服务端能力适配到 app 时，UI 形态一律落**我们自己的既有容器**，禁照搬 DSH Web 布局。用户举例：DSH 的 goal/todolist 在消息框上方、子代理/后台任务在面包屑——我们全部进 **FAB 菜单**（ChatFabMenu #192 体系：TODO/AGENT/GOAL/SHELL 四入口→自有 sheet）。
