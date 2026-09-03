@@ -38,7 +38,17 @@
 - 无文案改动 → i18n 不适用。
 - **真机 E2E（待做，转 [~] 前置条件）**：dev 包装真机（小米 houji `e69a99d8`，`./scripts/debug-entry.sh` 入口）→ `adb reverse` 接 DSH 服务 → 会话内触发审批（默认 preset 下 bash 工具）→ 点「仅此一次/始终允许/拒绝」→ logcat 断言 `[Permission] replyToPermission result: success=true` + 抓包/日志确认回执 `accepted:true`；提问卡同流程（含取消）。
 
-## 五、踩坑记录
+## 五、真机 E2E 阶段记录（2026-09-03 晚，未完结——目标暂停时点）
+
+- **三轮失败均在设备驱动层，与修复本体无关**：run1/run2 根因=点中输入框后 uiautomator 语义树死亡（a11y 树坏死，需 pause/resume 复活）；run3 树存活但 input text 打字链仍不可靠（FATAL3 dump 显示停在会话列表；列表中已存在标题「你是 OC Beacon 仓库的真机 E2E」的会话——说明至少一次 prompt 实际送达并生成了标题，卡的是驱动脚本对发送成功的判定/后续点按）。「Permission event received」全程 0 条=从未走到审批环节。
+- 产物：/tmp/e2e308/（logcat×3 轮 130MB+、FATAL dumps、drive1-3.sh、REPORT*.md）。
+- **替代策略（下轮执行，零手机打字）**：
+  1. **提问半边**：宿主侧（本 DSH 服务器）在「手机已打开的会话」直接调 ask_user_question——由宿主会话作对端触发问题卡，手机侧只开对应会话+点选项；宿主侧直接收到答案=wire 闭环铁证（replyToQuestion 载荷+matchesQuestions 服务端校验全真）。
+  2. **审批半边**：宿主 RPC 直接向手机会话 session.prompt（绕开手机输入法）下发「run: touch /tmp/dsh308-e2e.txt」——agent 的 bash 升级请求产生审批卡，手机点「仅一次」，门禁=replyToPermission result: success=true + 宿主 ls 文件存在。
+  3. 会话定位：宿主 session.list 已验证可达（loopback RPC 200，见探针）；按标题定位手机侧要打开的会话行（tap_text）。
+- i18n 终验（批 1 全部新 key 后）：**PASSED，775 keys × 14 languages all consistent**。
+
+## 六、踩坑记录
 
 - **Kotlin 块注释嵌套**：doc 注释里写 `once/**always**`（想用 Markdown 加粗），其中 `/**` 开了一个**嵌套注释**（Kotlin 块注释可嵌套，与 Java 不同），把后续类体整个吞掉——症状是 :1356 Unclosed comment + 一串无关 Unresolved（readAttachment 等）。块注释内禁用含 `/*` 序列的 Markdown 强调。
 - MockEngine 单测若 mock 了**错误形状的回执**（信封而非 receipt），旧实现测试照样绿——回执形状必须按服务端源码定音，不能按客户端期望。
