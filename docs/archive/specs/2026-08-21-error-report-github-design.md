@@ -1,6 +1,6 @@
 # 错误日志 GitHub 上报（Error Report to GitHub）设计 Spec
 
-> 状态：待确认（/grill-me 会话 Q1–Q19 全部定案的产物）
+> 状态：**已实现并完结**（#154 于 2026-09-03 用户验收，证据 journal 2026-09-03-154b-gist-299-245.md；归档自 docs/specs/）
 > 日期：2026-08-21
 > 来源：grilling 会话共识 + 三轮事实核查（仓库现状、GitHub 官方文档、日志分级审计）
 

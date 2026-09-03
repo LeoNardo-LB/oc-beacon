@@ -56,20 +56,7 @@
 
 ## P1 — 核心功能需求
 
-- [~] **#154 上报增强：崩溃后自动提示 + secret gist 全量日志附件** `ui` `data`
-  - 2026-08-23 评估（#151 两轮 E2E 全绿触发）：用户定规**两半均继续缓**——崩溃提示基建已齐（recordCrash→FATAL 持久化）只差启动提示 UI；gist 需 App 加 Gists 权限+重新授权，正文 20+3 上下文实证够分诊
-  - 复评时机：beta 线上跑出真实报告后再看（崩溃提示优先级高于 gist）
-  - **2026-09-02 用户解冻 154a 当批完结（journal 258-stage-b §九）**：未确认 FATAL → Home 横幅（查看→诊断/忽略→水位确认）落地，真机五步验证全过（am crash→横幅→诊断页→忽略重启消失→新崩溃回归）；gist 半（154b）维持缓
-  - **2026-09-03 154b 真机 E2E 双路径闭环（journal §一 E2E 节）**：无 Gists 权限→POST /gists 403→降级路径三重验证（正文照建/零孤儿/防抖）；App 补 Gists:RW+重授权（新菜单入口）→ happy path 全绿（secret gist 附评论、脱敏 0 泄漏、40KB<截断线）；测试产物已清理；**剩 V6 用户验收**
-  - → `docs/journal/2026-08-21-error-report-github.md` · `docs/journal/2026-09-03-154b-gist-299-245.md`
-
 ## P2 — 优化与锦上添花
-
-- [~] **#302 上报授权对话框 UX：链接可跳转 + 授权码一键复制** `ui`
-  - 2026-09-03 154b 真机 E2E 授权步现场实证（用户原话：链接要「点击可跳转」、授权码要「一键复制」，不然「复制不了很难操作」）：device flow 对话框仅纯文本 + 取消钮——URL 不可点、8 位码不可复制，需跨设备手抄
-  - 同日实现：授权码点按复制 chip（ClipboardManager + Toast，对齐 ServerProvidersScreen OAuth 模式）+「在浏览器打开」按钮（verification_uri_complete 带码直达，GitHubDeviceFlowAuth 增解析）；key 全复用 server_settings_oauth_*（删 1 孤儿 key ×15）；i18n/compile/全量单测绿（4e3449c2）
-  - **2026-09-03 晚全链 E2E 四点全绿（用户授权动 GitHub）**：A 复制 chip（Toast+KEYCODE_PASTE 剪贴板硬证据）·B 浏览器带码直达·C 授权回落 token 落库·D gist 上报（secret/186KB/脱敏 0）+issue#8 关闭+gist 删除清理闭环；用户亲手完成输码步（GitHub 2025 反钓鱼二步输码，自动化免疫——手册 `docs/github-device-auth-guide.md` 落档）；**剩验收拍板**
-  - → `docs/journal/2026-09-03-154b-gist-299-245.md` · `docs/github-device-auth-guide.md`
 
 - [ ] **#303 V2 REST 创建会话后列表不实时刷新——session.created SSE 未实时进列** `sse` `sessions`
   - 2026-09-03 issue #6 验证顺带实证（V2 4199）：curl POST /api/session 建会话后 app 列表无实时新增（dump 0 命中），下拉刷新（REST 重拉）后出现；与 #6 报告方向相反（SSE 实时性差而非 REST 差），非 #6 症状
@@ -78,14 +65,6 @@
 - [ ] **#304 SSE 重连风暴可掐死 session.list 基线预载——preLoadSessions 未纳入 NonCancellable** `sse` `sessions`
   - #278（b10513c9）只保护了 syncFromRest 状态播种；preLoadSessions 的 session.list 拉取仍在 preloadJob 可取消范围（SseConnectionManager.kt:426-433 finally cancelAndJoin）——服务器暂不可达→重连风暴场景下连接后列表可短暂为空，SSE 稳定后下轮重跑自愈；issue #6（pplante）环境疑与此路径相关，HEAD 实测 V1/V2 正常路径不复现
   - → `docs/journal/2026-09-01-291281-stash-v6.md`（#278 上下文）
-
-- [~] **#306 会话列表纯内存态无持久化回填——断开/清空后白屏** `sessions` `architecture`
-  - getSessionsFlow 唯一数据源是 eventDispatcher 内存态（serverSessions∩sessions），无 Room 兜底——对比消息流已有冷启动 Room 种子化（fc0ebfc9）；任何 clearForServer（断开/服务销毁/6h 时限）或拉取失败都直接白屏，恢复全靠重连+重进
-  - 根治：会话列表 Room 种子化（对齐 fc0ebfc9 模式——冷启动/清空后从缓存填充，断连时显示缓存数据+断连条幅而非空白）；顺带缓解 #304 及 issue #6 家族的「列表空」表象
-  - 2026-09-03 诊断：真机实验 A（断连列表保留）+ 单测（clearForServer 清空）+ 诊断库 FATAL 取证（ChatViewModel 附件 NPE 已于 4d025786 修复）三维修证
-  - **2026-09-03 用户裁决（根因优先方针）**：本卡 = 「白屏」症状的架构层根治（内存单源缺陷，非 #305 的补丁），实施顺序在 #305 之后；同日完成（427b21e8）：三路 combine（mapping==null→缓存兜底）+ StateBuilder 宽容过滤 + removeServer 清孤儿；单测 +9 全绿、全量绿
-  - **同日真机 E2E 三阶段全绿**：基线缓存写入（列表满载）→ 断连冷启动**兜底显示 8 会话+「服务器已断开，正在重连…」条幅**（旧版白屏点）→ reverse 恢复 25s 自动重连（无需手动）；**剩 V6 用户验收**（2 分钟：断网/飞行模式进列表看兜底，或直接依 E2E 证据拍板）
-  - → `docs/journal/2026-09-03-306-session-cache-backfill.md`
 
 - [ ] **#299 DSH 会话进场分页加载 ~1 页/s——进场链路串行页管线提速** `dsh` `perf`
   - 现象（2026-09-02 Stage B 顺带观察）：58 msgs 会话进场 session.history 逐页拉取 ~1 页/s × ~10 页，三点加载约 10s
