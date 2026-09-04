@@ -40,8 +40,10 @@ private const val TAG = "DshConnRegistry"
  * 3. **$events clientId**（0.1.2 waterfall 应答凭据）——WS ready 帧写入，
  *    replyToQuestion/replyToPermission 的 $events/result 回程读取。
  *
- * 探测/交换的 HTTP 走共享 [ApiClient.httpClient]（OkHttp engine 铁律；该 client
- * 未装 HttpRedirect → 303 原样返回，Set-Cookie 可直接捕获）。
+ * HTTP 面（2026-09-04 MITM 实证修订）：探测走共享 [ApiClient.httpClient]；token
+ * 交换走**专用裸 OkHttp**（followRedirects(false)）——Ktor OkHttp engine 的
+ * config{followRedirects(false)} 对 303 不透传 Set-Cookie（跟随到裸 index →
+ * 401，cookie 丢失），裸 Builder 级 API 才能直读 303 + Set-Cookie。
  */
 @Singleton
 class DshConnectionRegistry @Inject constructor(
@@ -135,30 +137,56 @@ class DshConnectionRegistry @Inject constructor(
     }
 
     /**
+     * 交换专用裸 OkHttp（非 Ktor）：303 Set-Cookie 必须直读——Ktor OkHttp engine
+     * 的 config{followRedirects(false)} 实测未透传（2026-09-04 MITM 实证：303 被
+     * 跟随到 / 裸 index → 401，cookie 丢失）。裸 Builder 与 [DshWsEventClient] 同源
+     * 依赖，Builder 级 API 无歧义。独立实例，不动共享 client。
+     */
+    private val exchangeOkHttp by lazy {
+        okhttp3.OkHttpClient.Builder()
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .connectTimeout(java.time.Duration.ofSeconds(10))
+            .readTimeout(java.time.Duration.ofSeconds(15))
+            .build()
+    }
+
+    /**
      * launch token 交换（0.1.2）：GET {base}/?token=… → 303 + Set-Cookie → 持久化。
      *
      * @return 成功=true；401/5xx/无 Set-Cookie=false（token 无效或服务异常，
-     *         调用方提示用户重输）。
+     *         调用方提示用户重输）。挂起语义：OkHttp enqueue + await。
      */
     suspend fun exchangeToken(authority: String, token: String): Boolean = mutex.withLock {
         val base = normalize(authority)
         loadPersistedOnce()
         return@withLock try {
-            val response = apiClient.httpClient.get(base + "/") {
-                url {
-                    parameters.append("token", token)
-                }
+            val url = base + "/?token=" + java.net.URLEncoder.encode(token, "UTF-8")
+            val call = exchangeOkHttp.newCall(okhttp3.Request.Builder().url(url).get().build())
+            val response = kotlinx.coroutines.suspendCancellableCoroutine { cont ->
+                cont.invokeOnCancellation { call.cancel() }
+                call.enqueue(object : okhttp3.Callback {
+                    override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                        if (cont.isActive) cont.resumeWith(Result.failure(e))
+                    }
+
+                    override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                        if (cont.isActive) cont.resumeWith(Result.success(response))
+                    }
+                })
             }
-            val setCookie = response.headers["Set-Cookie"]
-            if (response.status.value == 303 && !setCookie.isNullOrBlank()) {
-                val cookie = setCookie.substringBefore(';')
-                synchronized(cookieByAuthority) { cookieByAuthority[base] = cookie }
-                persistLocked()
-                AppLogger.i(TAG, "token exchange ok for " + base + " (cookie persisted)")
-                true
-            } else {
-                AppLogger.w(TAG, "token exchange rejected for " + base + ": HTTP " + response.status.value)
-                false
+            response.use {
+                val setCookie = it.header("Set-Cookie")
+                if (it.code == 303 && !setCookie.isNullOrBlank()) {
+                    val cookie = setCookie.substringBefore(';')
+                    synchronized(cookieByAuthority) { cookieByAuthority[base] = cookie }
+                    persistLocked()
+                    AppLogger.i(TAG, "token exchange ok for " + base + " (cookie persisted)")
+                    true
+                } else {
+                    AppLogger.w(TAG, "token exchange rejected for " + base + ": HTTP " + it.code)
+                    false
+                }
             }
         } catch (ce: kotlinx.coroutines.CancellationException) {
             throw ce

@@ -90,3 +90,31 @@
 - 单测：DshRemoteMuxEngineTest（codec 三型/合成表 10 例）
 
 进行中（子代理并行）：DshApiClient 调用点语义适配（create 无 title/page/prompt requestId+mediaType/goals args/agentPresets/select 回程字符串/llm 目录/workspace 降级/export cookie）。待办：replyTo* 三法 V012 分支（$events/result outcome 构造）、TokenNeeded UI + token 输入 + i18n、#319 E2E、#314-316 回归（0.1.1-rc.2 容器 3082）。
+
+## 四、#319 生产/MITM 实证反馈修复（2026-09-04，双轴审查收口）
+
+10bf7006 之后的验证反馈批（4 文件 + 新增 8 单测，全量 2666 绿）。提交前 Standards+Spec 双轴并行审查（code-review skill），两轴交叉定案：
+
+### 4.1 实证锚点（补 §二缺项）
+
+- **生产 440 会话全量 follow 拖垮服务端**（RPC 全线超时）——限界窗口依据；
+- **session/list 条目字段**（0.1.2）：running（boolean）、updatedAt（epoch ms）——过滤判据（此前只有代码注释，无 journal 锚点，Spec 轴指出）；
+- **DSH Web 前端 0 次 follow**：0.1.2-rc.1 dist bundle（index+vendor JS）grep session/follow 零命中——Web 按需 session/page 拉取，不批量 follow；移动端限界 follow 是推送需求的工程折中。
+
+### 4.2 修复清单
+
+1. **follow 限界窗口**（Orchestrator）：running || 24h 内活跃（提取 filterFollowableSessionIds 纯函数）+ **30min 时钟容差**（设备钟快偏防临界漏 follow；慢偏天然保守）；updatedAt 缺席判远古不 follow（保守）。
+2. **三事件动态补开**（MuxEngine，Spec 轴核心缺口）：api-session/added / status(running=true) / activity 均触发 onSessionActive → openFollow（followed 去重 + **发送失败回滚名额**，重连全量兜底）——>24h 老会话被任意客户端再激活不丢流（原实现只挂 added，老会话 turn 流断供到重连）。
+3. **token 交换裸 OkHttp**（Registry）：Ktor OkHttp engine config{followRedirects(false)} 对 303 不透传 Set-Cookie（MITM 实证：跟随到裸 index → 401）；专用裸 Builder（10s/15s 超时）+ suspendCancellableCoroutine 封装；类 KDoc 同步修订（Standards 硬违规：过时断言与新行为矛盾）。
+4. **TokenNeeded 状态泄漏**（Sse）：stopConnection/stopAllConnections 补 _dshTokenNeededServers 清理——awaitCookie 挂起中取消时 markTokenNeeded(false) 不可达（CancellationException 先行），不清理则已删服务器永久残留（幽灵 token 提示）。
+5. 探测门禁（Sse，原 diff 已含）：TokenNeeded 挂起等 token→回环重探；Unreachable 退避；Online 进事件循环。
+6. 卫生项：activeSocket 改名（原 handleMuxMessageSocket 按消费方法命名）、动态 follow 日志 BuildConfig.DEBUG 门禁、session.list 拉取失败 w 级日志（原静默 emptyList）、引擎 KDoc 限界策略更新。
+
+### 4.3 审查不修项（记录）
+
+- attempt 计数在 TokenNeeded 等待期不重置（噪声级退避抬高）；
+- 跨代 socket 窗口（旧代迟到帧经 onSessionActive 落到新代 socket）：followed 同代去重兜底，窗口极小，后果为幂等重开。
+
+### 4.4 验证
+
+compileDevDebugKotlin ✅；testDevDebugUnitTest **2666/2666 绿**（新增：filterFollowableSessionIds 4 例——running 无视年龄/窗口内保留/容差边界±31min/29min/updatedAt 缺席；onSessionActive 4 例——added 触发/status running=true 触发/false 不触发/activity 触发且零帧合成）。真机验证归入 #319 E2E 批次（含 >24h 会话恢复用例——Spec 轴建议）。

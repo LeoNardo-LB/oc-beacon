@@ -48,8 +48,9 @@ interface DshMuxAuth {
  *   （[DshConnectionRegistry.awaitCookie]，TokenNeeded 模态由连接层呈现）。
  *
  * 帧翻译策略：**引擎内合成 0.1.1 帧词汇**（[DshMuxSynthesizer]）——orchestrator/
- * DshEventMapper/handler 全链零改动。会话发现：连接后 session.list 全量 follow
- * （DSH 个人规模，几十量级）+ api-session/added 增量补 follow。
+ * DshEventMapper/handler 全链零改动。会话发现：连接后 session.list **限界集**
+ * follow（running 或 24h 内活跃——#319 生产实证 440 会话全量 follow 拖垮服务端）
+ * + added / status(running=true) / activity 三事件动态补开（老会话再激活不丢流）。
  */
 class DshRemoteMuxEngine(
     private val scope: CoroutineScope,
@@ -74,6 +75,9 @@ class DshRemoteMuxEngine(
 
     /** waterfall eventId → 合成帧 method（cancel 帧回查用）。 */
     private val pendingWaterfalls = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /** 当前代活跃 socket（动态 follow 补开用；断开置 null；按代更替覆写）。 */
+    @Volatile private var activeSocket: okhttp3.WebSocket? = null
 
     fun start(onFrame: (method: String, payload: JsonObject, rpcId: String) -> Unit) {
         synchronized(this) {
@@ -101,23 +105,49 @@ class DshRemoteMuxEngine(
         onFrame: (method: String, payload: JsonObject, rpcId: String) -> Unit,
     ) {
         val attempts = AtomicInteger(0)
+        val followed = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+        // 动态 follow 补开：followed 去重 + 发送失败回滚名额（重连后全量兜底不漏）
+        fun openFollow(sid: String) {
+            val ws = activeSocket ?: return
+            if (!followed.add(sid)) return
+            val sent = runCatching {
+                ws.send(openFrame(followStreamId(sid), "session/follow", followArgs(sid)))
+            }.getOrDefault(false)
+            if (!sent) {
+                followed.remove(sid)
+                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                    AppLogger.d(TAG, "动态 follow 发送失败（连接已断？）: " + sid)
+                }
+            }
+        }
         while (true) {
             state.value = DshWsConnectionState.Connecting
             val closed = CompletableDeferred<Throwable?>()
             var unauthorized = false
-            val syn = DshMuxSynthesizer(onFrame, onReady = { clientId -> registry.setClientId(baseUrl, clientId) })
+            followed.clear()
+            val syn = DshMuxSynthesizer(
+                onFrame,
+                onReady = { clientId -> registry.setClientId(baseUrl, clientId) },
+                // #319（双轴审查补全）：added / status(running=true) / activity
+                // 三事件动态补开——新建会话与 >24h 老会话再激活都不丢流
+                // （限界窗口外的会话事件唯一入口）。
+                onSessionActive = { sid -> openFollow(sid) },
+            )
             val listener = object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
                     state.value = DshWsConnectionState.Connected
                     attempts.set(0)
+                    activeSocket = webSocket
                     // $events：全局事件 + waterfall（clientId 由 ready 帧经 onReady 入注册表）
                     webSocket.send(openFrame(EVENTS_STREAM, EVENTS_ENDPOINT))
                     // session/control：jobs/队列/投影整快照基线
                     webSocket.send(openFrame(CONTROL_STREAM, "session/control"))
-                    // 会话 follow：list 全量
+                    // 会话 follow：限界集全量（running 或 24h 内活跃；后续新增/激活走 onSessionActive）
                     scope.launch {
-                        val ids = runCatching { listSessionIds() }.getOrElse { emptyList() }
-                        for (sid in ids) webSocket.send(openFrame(followStreamId(sid), "session/follow", followArgs(sid)))
+                        val ids = runCatching { listSessionIds() }.onFailure {
+                            AppLogger.w(TAG, "session.list 拉取失败——本轮零 follow，重连重试: " + it.message)
+                        }.getOrElse { emptyList() }
+                        for (sid in ids) openFollow(sid)
                     }
                 }
 
@@ -149,6 +179,7 @@ class DshRemoteMuxEngine(
             try {
                 closed.await()
             } finally {
+                activeSocket = null
                 runCatching { socket.cancel() }
             }
             state.value = DshWsConnectionState.Disconnected
@@ -245,6 +276,8 @@ object DshMuxCodec {
 class DshMuxSynthesizer(
     private val onFrame: (method: String, payload: JsonObject, rpcId: String) -> Unit,
     private val onReady: (clientId: String) -> Unit = {},
+    /** 会话需关注信号（added / status running=true / activity）——引擎据此动态补开 follow。 */
+    private val onSessionActive: (sessionId: String) -> Unit = {},
 ) {
 
     private var chunkRowsSkipped = 0L
@@ -286,6 +319,7 @@ class DshMuxSynthesizer(
             "api-session/added" -> {
                 val summary = args.firstOrNull() as? JsonObject ?: return
                 val sid = (summary["sessionId"] as? JsonPrimitive)?.content ?: return
+                onSessionActive(sid)
                 frame(
                     "host/session-added",
                     buildJsonObject {
@@ -299,9 +333,17 @@ class DshMuxSynthesizer(
                 val sid = (args.firstOrNull() as? JsonPrimitive)?.content ?: return
                 frame("host/session-removed", buildJsonObject { put("sessionId", sid) })
             }
+            "api-session/activity" -> {
+                // args:[sessionId, updatedAt]——收到即最近活跃；0.1.1 帧族无对应物
+                //（activity 数据面由 session.list 刷新承担），仅作动态补开信号。
+                val sid = (args.getOrNull(0) as? JsonPrimitive)?.content ?: return
+                onSessionActive(sid)
+            }
             "api-session/status" -> {
                 val sid = (args.getOrNull(0) as? JsonPrimitive)?.content ?: return
                 val running = args.getOrNull(1) as? JsonPrimitive ?: return
+                // running=true = 会话（可能超出限界窗口）再激活——动态补开 follow
+                if (running.content == "true") onSessionActive(sid)
                 frame(
                     "host/session-status",
                     buildJsonObject {

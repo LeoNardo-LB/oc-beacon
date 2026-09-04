@@ -12,7 +12,9 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -316,5 +318,53 @@ class DshConnectionOrchestratorTest {
         val created = dispatched.filterIsInstance<SseEvent.SessionCreated>().single()
         assertEquals(555L, created.info.time.created) // 防御合并而非 epoch0
         job.cancel()
+    }
+
+    // ---- filterFollowableSessionIds：follow 限界窗口（#319） ------------------
+
+    private fun itemOf(sid: String?, running: Boolean, updatedAt: Long?): JsonObject =
+        buildJsonObject {
+            sid?.let { put("sessionId", it) }
+            put("running", running)
+            updatedAt?.let { put("updatedAt", it) }
+        }
+
+    private val dayMs = 24L * 60 * 60 * 1000
+
+    @Test
+    fun followFilter_keepsRunningRegardlessOfAge() {
+        val now = 1_000_000_000_000L
+        val items = listOf(itemOf("s-run", running = true, updatedAt = now - 90 * dayMs))
+        assertEquals(listOf("s-run"), filterFollowableSessionIds(items, now))
+    }
+
+    @Test
+    fun followFilter_keepsRecentWithinWindow() {
+        val now = 1_000_000_000_000L
+        val items = listOf(
+            itemOf("s-fresh", running = false, updatedAt = now - 12 * 60 * 60 * 1000), // 12h 前，窗口内
+            itemOf("s-stale", running = false, updatedAt = now - 2 * dayMs), // 48h 前，窗外
+        )
+        assertEquals(listOf("s-fresh"), filterFollowableSessionIds(items, now))
+    }
+
+    @Test
+    fun followFilter_skipsStaleBeyondWindowEvenWithSkewTolerance() {
+        val now = 1_000_000_000_000L
+        // 距窗口边界 +31min：超出 30min 容差不 follow；窗口内（24h-29min）follow
+        val items = listOf(
+            itemOf("s-edge-out", running = false, updatedAt = now - dayMs - 31 * 60 * 1000),
+            itemOf("s-edge-in", running = false, updatedAt = now - dayMs + 29 * 60 * 1000),
+        )
+        assertEquals(listOf("s-edge-in"), filterFollowableSessionIds(items, now))
+    }
+
+    @Test
+    fun followFilter_missingUpdatedAtTreatedAsAncient_skipped() {
+        val items = listOf(
+            itemOf("s-no-ts", running = false, updatedAt = null),
+            itemOf(null, running = true, updatedAt = 1L), // 无 sessionId 丢弃
+        )
+        assertTrue(filterFollowableSessionIds(items, 1_000_000_000_000L).isEmpty())
     }
 }

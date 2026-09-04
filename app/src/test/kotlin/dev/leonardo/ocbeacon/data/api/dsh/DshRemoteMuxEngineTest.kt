@@ -21,10 +21,15 @@ class DshRemoteMuxEngineTest {
 
     private data class SynthFrame(val method: String, val payload: JsonObject, val rpcId: String)
 
-    private fun synthesizer(frames: MutableList<SynthFrame>, ready: MutableList<String>): DshMuxSynthesizer =
+    private fun synthesizer(
+        frames: MutableList<SynthFrame>,
+        ready: MutableList<String>,
+        active: MutableList<String> = mutableListOf(),
+    ): DshMuxSynthesizer =
         DshMuxSynthesizer(
             onFrame = { m, p, r -> frames += SynthFrame(m, p, r) },
             onReady = { ready += it },
+            onSessionActive = { active += it },
         )
 
     private fun item(streamId: String, valueJson: String): DshMuxCodec.Item? =
@@ -101,6 +106,70 @@ class DshRemoteMuxEngineTest {
             ConcurrentHashMap(),
         )
         assertEquals("commands/change", frames[0].method)
+    }
+
+    // ---- onSessionActive：三事件动态补开（#319 双轴审查补全） -----------------
+
+    @Test
+    fun sessionActive_apiSessionAdded_triggersCallback() {
+        val active = mutableListOf<String>()
+        val syn = synthesizer(mutableListOf(), mutableListOf(), active)
+        syn.onItem(
+            "evt",
+            Json.parseToJsonElement(
+                """{"type":"emit","event":"api-session/added","args":[{"sessionId":"s-new","updatedAt":1,"running":false}]}""",
+            ) as JsonObject,
+            ConcurrentHashMap(),
+        )
+        assertEquals(listOf("s-new"), active)
+    }
+
+    @Test
+    fun sessionActive_statusRunningTrue_triggersCallback() {
+        val active = mutableListOf<String>()
+        val syn = synthesizer(mutableListOf(), mutableListOf(), active)
+        syn.onItem(
+            "evt",
+            Json.parseToJsonElement(
+                """{"type":"emit","event":"api-session/status","args":["s-old",true]}""",
+            ) as JsonObject,
+            ConcurrentHashMap(),
+        )
+        // running=true（>24h 老会话再激活）触发补开；host/session-status 帧照常合成
+        assertEquals(listOf("s-old"), active)
+    }
+
+    @Test
+    fun sessionActive_statusRunningFalse_doesNotTrigger() {
+        val active = mutableListOf<String>()
+        val frames = mutableListOf<SynthFrame>()
+        val syn = synthesizer(frames, mutableListOf(), active)
+        syn.onItem(
+            "evt",
+            Json.parseToJsonElement(
+                """{"type":"emit","event":"api-session/status","args":["s-idle",false]}""",
+            ) as JsonObject,
+            ConcurrentHashMap(),
+        )
+        assertTrue(active.isEmpty())
+        assertEquals("host/session-status", frames[0].method) // 帧合成不受影响
+    }
+
+    @Test
+    fun sessionActive_activity_triggersCallback() {
+        val active = mutableListOf<String>()
+        val frames = mutableListOf<SynthFrame>()
+        val syn = synthesizer(frames, mutableListOf(), active)
+        syn.onItem(
+            "evt",
+            Json.parseToJsonElement(
+                """{"type":"emit","event":"api-session/activity","args":["s-wake",1690000000000]}""",
+            ) as JsonObject,
+            ConcurrentHashMap(),
+        )
+        // 仅补开信号，不合成 0.1.1 帧（activity 数据面由 session.list 刷新承担）
+        assertEquals(listOf("s-wake"), active)
+        assertTrue(frames.isEmpty())
     }
 
     // ---- waterfall -----------------------------------------------------------

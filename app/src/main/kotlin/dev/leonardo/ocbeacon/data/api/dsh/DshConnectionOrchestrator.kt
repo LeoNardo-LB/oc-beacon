@@ -60,6 +60,30 @@ class DshFrameSourceFactory @Inject constructor(
     fun create(): DshFrameSource = DshProtocolRoutingFrameSource(rpc, registry)
 }
 
+/** follow 限界窗口：running 或最近活跃（24h）会话才开流（#319 生产实证）。 */
+private const val FOLLOW_RECENCY_MS = 24L * 60 * 60 * 1000
+
+/**
+ * 时钟域容差（Standards 轴审查）：[FOLLOW_RECENCY_MS] 比较混用设备钟与服务端
+ * updatedAt——设备钟快偏会使临界会话（如 23h）被判过期漏 follow；慢偏天然保守。
+ */
+internal const val FOLLOW_CLOCK_SKEW_MS = 30L * 60 * 1000
+
+/**
+ * session.list 条目 → 动态 follow 候选（#319 生产实证：2026-09-04 生产 440 会话
+ * 全量 follow 拖垮服务端，RPC 全线超时）。窗口 = running || 24h 内活跃（带
+ * [FOLLOW_CLOCK_SKEW_MS] 容差）；updatedAt 缺席按 0 = 判远古不 follow（保守）。
+ * 窗口外的会话不丢事件：引擎 added/status(running)/activity 三事件动态补开。
+ */
+internal fun filterFollowableSessionIds(items: List<JsonObject>, nowMs: Long): List<String> =
+    items.mapNotNull { item ->
+        val sid = item.dshStr("sessionId") ?: return@mapNotNull null
+        val running = item.dshBool("running") == true
+        val updatedAt = item.dshLong("updatedAt") ?: 0L
+        val recent = nowMs - updatedAt < FOLLOW_RECENCY_MS + FOLLOW_CLOCK_SKEW_MS
+        if (running || recent) sid else null
+    }
+
 /** 协议路由帧源：start 时按 [DshConnectionRegistry.protocolOf] 选引擎。 */
 private class DshProtocolRoutingFrameSource(
     private val rpc: DshRpcClient,
@@ -85,10 +109,14 @@ private class DshProtocolRoutingFrameSource(
                 registry = registry,
                 listSessionIds = {
                     rpc.call(conn, "session.list", buildJsonObject {}) { value ->
-                        (value.dshArr("items") ?: emptyList()).mapNotNull { el ->
-                            (el as? JsonObject)?.dshStr("sessionId")
-                        }
-                    }.getOrElse { emptyList() }
+                        filterFollowableSessionIds(
+                            (value.dshArr("items") ?: emptyList()).filterIsInstance<JsonObject>(),
+                            nowMs = System.currentTimeMillis(),
+                        )
+                    }.getOrElse { e ->
+                        AppLogger.w(TAG, "session.list 拉取失败——本轮零 follow，重连重试: " + e.message)
+                        emptyList()
+                    }
                 },
             ).also {
                 scope.launch { it.connectionState.collect { s -> state.value = s } }
