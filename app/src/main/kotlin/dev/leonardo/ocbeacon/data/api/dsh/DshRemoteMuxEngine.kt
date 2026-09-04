@@ -497,26 +497,71 @@ class DshMuxSynthesizer(
         }
     }
 
-    // ---- session/control：baseline（jobs/队列/投影整快照） ------------------
+    // ---- session/control：baseline + 增量帧（#327 修复） ------------------
 
+    /**
+     * 控制流值分型（服务器 dsh-api-session-controller types/control.js
+     * SessionControlController）：baseline 一次（{type:'baseline',value:{queues,
+     * jobs,projections}}）+ 增量帧 {type:'queue'|'jobs'|'projection',…}。
+     *
+     * #327 根因：此前只解析 baseline 形状（value.value.{…}），增量帧无外层 value
+     * 键 → `?: return` 整包静默丢弃 → 入队/任务/投影变更后 DshQueueStore 等永不
+     * 更新 → FAB 队列角标恒 0（2026-09-04 实测症状）。修复=按 type 分型，增量帧
+     * 镜像为与 baseline 相同的合成帧（session/queue|jobs|projection），下游
+     * mapper/store 单一消费路径不变。
+     */
     private fun onControlValue(value: JsonObject) {
-        val baseline = (value["value"] as? JsonObject) ?: return
-        (baseline["jobs"] as? JsonObject)?.forEach { (sid, jobs) ->
-            frame("session/jobs", buildJsonObject {
-                put("sessionId", sid)
-                put("jobs", jobs)
-            })
-        }
-        (baseline["queues"] as? JsonObject)?.forEach { (sid, items) ->
-            frame("session/queue", buildJsonObject {
-                put("sessionId", sid)
-                put("items", items)
-            })
-        }
-        (baseline["projections"] as? JsonObject)?.forEach { (sid, proj) ->
-            (proj as? JsonObject)?.get("values")?.let { emitProjections(sid, it) }
+        when (value.strOf("type")) {
+            "queue" -> {
+                val sid = value.strOf("sessionId") ?: return
+                val items = value["items"] ?: return
+                frame("session/queue", buildJsonObject {
+                    put("sessionId", sid)
+                    put("items", items)
+                })
+            }
+            "jobs" -> {
+                val sid = value.strOf("sessionId") ?: return
+                val jobs = value["jobs"] ?: return
+                frame("session/jobs", buildJsonObject {
+                    put("sessionId", sid)
+                    put("jobs", jobs)
+                })
+            }
+            "projection" -> {
+                val sid = value.strOf("sessionId") ?: return
+                val key = value.strOf("key") ?: return
+                val projValue = value["value"] ?: return
+                frame("session/projection", buildJsonObject {
+                    put("sessionId", sid)
+                    put("key", key)
+                    put("value", projValue)
+                })
+            }
+            else -> {
+                // baseline（含无 type 字段的历史容错——按 value 包装识别）
+                val baseline = (value["value"] as? JsonObject) ?: return
+                (baseline["jobs"] as? JsonObject)?.forEach { (sid, jobs) ->
+                    frame("session/jobs", buildJsonObject {
+                        put("sessionId", sid)
+                        put("jobs", jobs)
+                    })
+                }
+                (baseline["queues"] as? JsonObject)?.forEach { (sid, items) ->
+                    frame("session/queue", buildJsonObject {
+                        put("sessionId", sid)
+                        put("items", items)
+                    })
+                }
+                (baseline["projections"] as? JsonObject)?.forEach { (sid, proj) ->
+                    (proj as? JsonObject)?.get("values")?.let { emitProjections(sid, it) }
+                }
+            }
         }
     }
+
+    private fun JsonObject.strOf(key: String): String? =
+        (this[key] as? kotlinx.serialization.json.JsonPrimitive)?.content
 
     private fun frame(method: String, payload: JsonObject, rpcId: String = "") {
         onFrame(method, payload, rpcId)

@@ -299,4 +299,58 @@ class DshRemoteMuxEngineTest {
 
     private fun JsonObject.strField(key: String): String? =
         (this[key] as? kotlinx.serialization.json.JsonPrimitive)?.content
+
+    // ---- session/control 增量帧（#327：baseline 后的实时推送——服务器 types/control.js
+    //      SessionControlController broadcast {type:'queue'|'jobs'|'projection',…}） ----
+
+    @Test
+    fun controlIncrementalQueue_synthesizesSessionQueueFrame() {
+        val frames = mutableListOf<SynthFrame>()
+        val syn = synthesizer(frames, mutableListOf())
+        syn.onItem(
+            "ctl",
+            Json.parseToJsonElement(
+                """{"type":"queue","sessionId":"s1","items":[{"id":"m2","placement":"queued"}]}""",
+            ) as JsonObject,
+            ConcurrentHashMap(),
+        )
+        assertEquals(1, frames.size)
+        assertEquals("session/queue", frames[0].method)
+        assertEquals("s1", frames[0].payload.strField("sessionId"))
+        assertTrue(frames[0].payload.containsKey("items"))
+    }
+
+    @Test
+    fun controlIncrementalJobs_synthesizesSessionJobsFrame() {
+        val frames = mutableListOf<SynthFrame>()
+        val syn = synthesizer(frames, mutableListOf())
+        syn.onItem(
+            "ctl",
+            Json.parseToJsonElement(
+                """{"type":"jobs","sessionId":"s1","jobs":[{"id":"j2"}]}""",
+            ) as JsonObject,
+            ConcurrentHashMap(),
+        )
+        assertEquals(1, frames.size)
+        assertEquals("session/jobs", frames[0].method)
+        assertEquals("s1", frames[0].payload.strField("sessionId"))
+        assertTrue(frames[0].payload.containsKey("jobs"))
+    }
+
+    @Test
+    fun controlIncrementalProjection_synthesizesSessionProjectionFrame() {
+        val frames = mutableListOf<SynthFrame>()
+        val syn = synthesizer(frames, mutableListOf())
+        syn.onItem(
+            "ctl",
+            Json.parseToJsonElement(
+                """{"type":"projection","sessionId":"s1","key":"tokenUsage","value":{"outputTokens":9},"seq":12}""",
+            ) as JsonObject,
+            ConcurrentHashMap(),
+        )
+        assertEquals(1, frames.size)
+        assertEquals("session/projection", frames[0].method)
+        assertEquals("s1", frames[0].payload.strField("sessionId"))
+        assertEquals("tokenUsage", frames[0].payload.strField("key"))
+    }
 }
