@@ -1,6 +1,9 @@
 package dev.leonardo.ocbeacon.ui.components
 
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -38,7 +41,12 @@ fun DshTokenNeededBanner(
     Surface(
         color = MaterialTheme.colorScheme.errorContainer,
         contentColor = MaterialTheme.colorScheme.onErrorContainer,
-        modifier = modifier.fillMaxWidth(),
+        // C2d 仪器验证发现的布局缺陷：Scaffold topBar Column 不自动避让状态栏，
+        // 横幅顶部 ~105px 沉入状态栏（视觉遮挡 + 系统拦截触摸 → 「输入令牌」
+        // 按钮不可点）。statusBarsPadding 把内容下推到状态栏下沿。
+        modifier = modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.statusBars),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

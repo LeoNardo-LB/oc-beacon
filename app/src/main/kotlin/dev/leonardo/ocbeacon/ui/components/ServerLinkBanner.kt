@@ -1,6 +1,9 @@
 package dev.leonardo.ocbeacon.ui.components
 
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -31,7 +34,11 @@ fun ServerLinkBanner(modifier: Modifier = Modifier) {
     Surface(
         color = MaterialTheme.colorScheme.errorContainer,
         contentColor = MaterialTheme.colorScheme.onErrorContainer,
-        modifier = modifier.fillMaxWidth(),
+        // 同 DshTokenNeededBanner：topBar Column 无状态栏避让——顶部沉入被裁（#267
+        // 零交互横幅无触摸损失，仅视觉顶部被状态栏盖住 ~105px；统一避让）。
+        modifier = modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.statusBars),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
