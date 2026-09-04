@@ -55,9 +55,9 @@
 
 ## P1 — 核心功能需求
 
-- [ ] **#326 busy 输入区单按钮统一——一键承担发送/入队，对齐 OpenCode 面（2026-09-04 用户定规）** `dsh` `ui`
-  - 现状 DSH 面 busy+有文本=停止+发送双键并排（ChatInputBar showStop 计算，2026-09-01 走查#8 形态）；定规：统一单键（OpenCode 面形态），空闲=立即发送/忙碌=入队，底层队列机制可按服务器类型各异（DSH 服务端队列/OpenCode 本地实现）
-  - 挂点 ChatInputBar.kt 双键区 · SendStopButton.kt（sendStopAreaState）· #309④ steer 长按语义保留；→ `docs/journal/2026-09-03-fix-308-dsh-respond-wire.md` §十
+- [~] **#326 busy 输入区单按钮统一——一键承担发送/入队，对齐 OpenCode 面（2026-09-04 用户定规）** `dsh` `ui`
+  - 已实现（commit 555c2ba4）：单键状态机 idle→SEND / 忙+空→STOP / 忙+文本→SEND 排队（长按=steer #309④ 保留）/ inputBlocked（等待提问/权限）→STOP，对齐 web primaryStops；红→绿 12 用例
+  - AI 真机验收全绿 10✔/0✘（四态全验/排队 vs steer wire 时序可分/blocked 恢复链/V2 回归/0 FATAL）：`docs/acceptance/2026-09-05-326-single-send-key.md`；**UIUX 卡待人工验收**（清单在该文档末节，与 #327 同域汇总提交）
 
 - [ ] **#327 排队消息未显示到 FAB 队列菜单项——queueItems 数据链断裂** `dsh` `sse` `data`
   - 现象：消息入队成功但 FAB QUEUE 菜项无计数角标（2026-09-04 #308 验收实测）；断点待查：session/queue 快照 last-wins → dshQueueStore.queueBySession → ChatViewModel.kt:714（isQueuedPlacement 过滤）→ ChatScreen.kt:994 queueCount
