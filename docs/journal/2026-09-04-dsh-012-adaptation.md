@@ -166,3 +166,33 @@ journal §三待办「TokenNeeded UI + token 输入 + i18n」落地：
 - >24h 老会话再激活真机用例（status/activity 补开已有单测，真机待自然发生）；
 - #314-316 在 3082 的回归（本轮仅验证连接+列表，四门禁脚本未跑）；
 - dsh012-a5 容器 LLM key 余额尽（Insufficient Balance）——提问链路验证移生产完成，容器 key 待充值或换 route。
+
+## 七、#314-316 容器回归 + 模型目录修复（2026-09-04 12:16-14:30）
+
+### 7.1 e2e 脚本容器化（ca133da3 + 后续参数化）
+
+- DSH_E2E_PORT/SESS/DIR1/DIR2 四参化（默认=生产值不变）：端口（ensure_reverse/rpc URL/两处 am start）、既有会话锚、新建目录 fallback 链；am start 补 debug_server_type dsh。
+- 容器播种：session.create ×3（/tmp、/e2e、/tmp/test-lab）+ rename（Test Lab/E2E 回归会话）+ prompt 种子消息（**0.1.1 prompt 必填 mode:"queue"**，app 源码 promptAsync 实证）→ 空 vs 有消息会话导出 0B vs 11.7KB。
+
+### 7.2 五卡回归结果（3082 = dsh-keepalive-e2e:0.1.1-rc.2，r5 轮 4 PASS）
+
+| 卡 | 结果 | 备注 |
+|---|---|---|
+| #279 导出 SAF | **PASS** | 预填 .zip + 落盘 unzip -t 通过（有消息会话） |
+| #285 斜杠命令 | **PASS** | 懒建会话 + 弹层确定性命中——**#315 tap_text 回归实证** |
+| #278 僵尸 Busy | **PASS** | 强杀重启 syncFromRest 播种（busy 计数） |
+| #283-a2 投影帧 | **PASS** | 外部 /permission 切档 → SessionPermissionsChanged 派发 ×2 |
+| #287 附件缩略图 | FAIL | 容器无附件历史数据（环境限制非代码问题；生产形态 #308 批已证） |
+
+- **#316 adb reverse 回归实证**：执行中真机 WiFi adb 掉线（第五轮前），重连 + ensure_reverse 自动重建后全链恢复。
+- **#314**：0.1.1 传输+mapper 段证据 = #308 批 G1/G2 真机 PASS（2026-09-03，当时生产 0.1.1-rc.2）；共享渲染段 = 本会话 §6.2 双端验证。容器完整复验（造 pre-existing 提问）需容器 LLM——见 7.4。
+
+### 7.3 模型目录修复（47f1e05a，用户反馈：切换模型无智谱而 Web 端有）
+
+- **定因（生产 0.1.2-rc.1 活体）**：session/modelCatalog value = {default, routableProviders, groups:[{id,name,models[]}], failures}——**组在 groups 数组**；providersV012 原按「顶层键=组 id」解析 → routableProviders/groups/failures 全无 models 键被跳过 → 组空 → 目录只剩 provider 名零模型。
+- 修复：groups 数组优先解析（含 name），顶层键形态保留为 fallback（防 alpha.5）；测试改生产真实形态（含 zai-coding-cn 组 glm-5.3/glm-5.3-flash 回归锚）+ fallback 正测。
+- **真机验证 PASS**：选择器三组齐全（DeepSeek/opencode-go/zai-coding-cn），智谱组 GLM-5.3/GLM-5.3-Flash 展示。
+
+### 7.4 遗留
+
+- 容器智谱注入（用户指示 glm-5.3-flash + 智谱套餐 key）：生产 key 在 keyring/launch-environment（environ 无明文），自动取得受阻——待用户提供 key 后注入（容器 settings.yaml llm-pi-ai 段 + credential），即可做 #314 的 0.1.1 容器完整复验（挂起提问→进会话渲染）。
