@@ -30,6 +30,19 @@ import javax.inject.Singleton
 private const val TAG = "DshConnRegistry"
 
 /**
+ * 从用户粘贴内容提取 DSH 0.1.2 访问令牌（#317 token UX 三形态）：
+ * 1. 完整 URL（http://host:port/?token=xxx）；
+ * 2. 宿主启动行（"dsh web: http://…?token=xxx"——web.log 回收通道原样粘贴）；
+ * 3. 裸 token（base64url，典型 43 字符——宽松下限 20 防误截断）。
+ */
+internal fun extractDshToken(raw: String): String? {
+    val trimmed = raw.trim()
+    if (trimmed.isEmpty()) return null
+    Regex("[?&]token=([A-Za-z0-9_-]+)").find(trimmed)?.groupValues?.get(1)?.let { return it }
+    return trimmed.takeIf { it.matches(Regex("[A-Za-z0-9_-]{20,200}")) }
+}
+
+/**
  * DSH 0.1.2 适配运行时注册表（backlog #317/#318；journal 2026-09-04 §2.1-2.2）。
  *
  * 按 authority（baseUrl）聚合三类每服务器状态：

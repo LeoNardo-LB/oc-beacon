@@ -822,4 +822,11 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="crash_notice_body_no_time">W poprzedniej sesji wystąpił nieoczekiwany błąd. Szczegóły znajdziesz w diagnostyce.</string>
     <string name="crash_notice_view">Zobacz</string>
     <string name="crash_notice_dismiss">Odrzuć</string>
+    <string name="dsh_token_banner_text">Ten serwer wymaga tokenu dostępu</string>
+    <string name="dsh_token_banner_action">Wprowadź token</string>
+    <string name="dsh_token_dialog_title">Wymagany token dostępu</string>
+    <string name="dsh_token_dialog_message">Wklej token lub pełny adres URL z wiersza startowego serwera (zawiera token=...).</string>
+    <string name="dsh_token_dialog_hint">Token lub URL</string>
+    <string name="dsh_token_dialog_connect">Połącz</string>
+    <string name="dsh_token_dialog_rejected">Token odrzucony przez serwer. Sprawdź go i spróbuj ponownie.</string>
 </resources>

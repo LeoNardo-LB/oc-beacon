@@ -814,4 +814,11 @@
     <string name="crash_notice_body_no_time">前回のセッションで予期しないクラッシュが発生しました。詳細は診断で確認できます。</string>
     <string name="crash_notice_view">表示</string>
     <string name="crash_notice_dismiss">閉じる</string>
+    <string name="dsh_token_banner_text">このサーバーにはアクセストークンが必要です</string>
+    <string name="dsh_token_banner_action">トークンを入力</string>
+    <string name="dsh_token_dialog_title">アクセストークンが必要です</string>
+    <string name="dsh_token_dialog_message">サーバーの起動行からトークンまたは完全な URL を貼り付けてください（token=... を含みます）。</string>
+    <string name="dsh_token_dialog_hint">トークンまたは URL</string>
+    <string name="dsh_token_dialog_connect">接続</string>
+    <string name="dsh_token_dialog_rejected">トークンがサーバーに拒否されました。確認してもう一度お試しください。</string>
 </resources>

@@ -830,4 +830,11 @@
     <string name="crash_notice_body_no_time">حدث تعطل غير متوقع في الجلسة السابقة. التفاصيل متاحة في قسم التشخيص.</string>
     <string name="crash_notice_view">عرض</string>
     <string name="crash_notice_dismiss">تجاهل</string>
+    <string name="dsh_token_banner_text">يتطلب هذا الخادم رمز دخول</string>
+    <string name="dsh_token_banner_action">إدخال الرمز</string>
+    <string name="dsh_token_dialog_title">رمز الدخول مطلوب</string>
+    <string name="dsh_token_dialog_message">الصق الرمز أو عنوان URL الكامل من سطر بدء تشغيل الخادم (يحتوي على token=...).</string>
+    <string name="dsh_token_dialog_hint">الرمز أو عنوان URL</string>
+    <string name="dsh_token_dialog_connect">اتصال</string>
+    <string name="dsh_token_dialog_rejected">رفض الخادم الرمز. تحقق منه وحاول مجددًا.</string>
 </resources>

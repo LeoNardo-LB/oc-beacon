@@ -817,4 +817,11 @@
     <string name="crash_notice_body_no_time">上次运行出现意外崩溃，可在诊断中查看详情。</string>
     <string name="crash_notice_view">查看</string>
     <string name="crash_notice_dismiss">忽略</string>
+    <string name="dsh_token_banner_text">此服务器需要访问令牌</string>
+    <string name="dsh_token_banner_action">输入令牌</string>
+    <string name="dsh_token_dialog_title">需要访问令牌</string>
+    <string name="dsh_token_dialog_message">粘贴服务器启动行中的令牌或完整 URL（含 token=...）。</string>
+    <string name="dsh_token_dialog_hint">令牌或 URL</string>
+    <string name="dsh_token_dialog_connect">连接</string>
+    <string name="dsh_token_dialog_rejected">服务器拒绝了令牌。请检查后重试。</string>
 </resources>

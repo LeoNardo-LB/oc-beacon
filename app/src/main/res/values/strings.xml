@@ -897,4 +897,11 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="crash_notice_body_no_time">An unexpected crash occurred during the last session. Details are available in diagnostics.</string>
     <string name="crash_notice_view">View</string>
     <string name="crash_notice_dismiss">Dismiss</string>
+    <string name="dsh_token_banner_text">This server requires an access token</string>
+    <string name="dsh_token_banner_action">Enter token</string>
+    <string name="dsh_token_dialog_title">Access token required</string>
+    <string name="dsh_token_dialog_message">Paste the token or the full URL from the server startup line (it contains token=...).</string>
+    <string name="dsh_token_dialog_hint">Token or URL</string>
+    <string name="dsh_token_dialog_connect">Connect</string>
+    <string name="dsh_token_dialog_rejected">Token rejected by the server. Check it and try again.</string>
 </resources>

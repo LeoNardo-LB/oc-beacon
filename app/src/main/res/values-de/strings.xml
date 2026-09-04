@@ -814,4 +814,11 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="crash_notice_body_no_time">Die App ist bei der letzten Sitzung unerwartet abgestürzt. Details findest du in der Diagnose.</string>
     <string name="crash_notice_view">Ansehen</string>
     <string name="crash_notice_dismiss">Verwerfen</string>
+    <string name="dsh_token_banner_text">Dieser Server erfordert ein Zugriffstoken</string>
+    <string name="dsh_token_banner_action">Token eingeben</string>
+    <string name="dsh_token_dialog_title">Zugriffstoken erforderlich</string>
+    <string name="dsh_token_dialog_message">Fügen Sie das Token oder die vollständige URL aus der Startzeile des Servers ein (enthält token=...).</string>
+    <string name="dsh_token_dialog_hint">Token oder URL</string>
+    <string name="dsh_token_dialog_connect">Verbinden</string>
+    <string name="dsh_token_dialog_rejected">Token vom Server abgelehnt. Prüfen Sie es und versuchen Sie es erneut.</string>
 </resources>

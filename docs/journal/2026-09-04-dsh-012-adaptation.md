@@ -118,3 +118,16 @@
 ### 4.4 验证
 
 compileDevDebugKotlin ✅；testDevDebugUnitTest **2666/2666 绿**（新增：filterFollowableSessionIds 4 例——running 无视年龄/窗口内保留/容差边界±31min/29min/updatedAt 缺席；onSessionActive 4 例——added 触发/status running=true 触发/false 不触发/activity 触发且零帧合成）。真机验证归入 #319 E2E 批次（含 >24h 会话恢复用例——Spec 轴建议）。
+
+## 五、TokenNeeded UX + token 输入 UI + i18n（#317 收口，2026-09-04）
+
+journal §三待办「TokenNeeded UI + token 输入 + i18n」落地：
+
+- **extractDshToken**（Registry 顶层纯函数）：三形态解析——完整 URL（?token=/&token= 查询参数）、宿主启动行（"dsh web: http://…?token=…"，web.log 原样粘贴）、裸 token（base64url，≥20 字符宽松下限）；4 单测（含拒绝空白/多段/过短）。
+- **DshTokenNeededBanner**（ui/components）：会话列表 TopAppBar 下沿细条幅（errorContainer+Key 图标，形态对齐 ServerLinkBanner），**优先于断连横幅**（token 需求比一般断连更具体，给出路而非干等）；右侧「输入令牌」TextButton。
+- **DshTokenDialog**（M3 AlertDialog）：粘贴框（URL/启动行/裸 token）→ submitDshToken → exchangeToken；交换成功自动关窗（LaunchedEffect 观察 Exchanging→Idle），被拒留窗示错（isError + supportingText）；成功后连接循环 awaitCookie 自动续行（无需手动重连）。
+- **SessionListViewModel**：dshTokenNeeded（map serverId in dshTokenNeededServers）+ DshTokenExchangeState（Idle/Exchanging/Rejected）+ submitDshToken/dismissDshTokenDialog；registry 直依赖先例同 unreadBadgeService（UI→data 注入既有惯例）。
+- **i18n**：7 键（dsh_token_banner_text/action、dsh_token_dialog_title/message/hint/connect/rejected）×15 语言，i18n-check **PASSED（784 keys × 14）**；cancel 复用既有键。
+- 三个既有 VM 测试补 registry mock + dshTokenNeededServers stub。
+
+验证：compileDevDebugKotlin ✅；testDevDebugUnitTest **2670/2670 绿**（+4 token 提取例）。真机 UI 走查归 #319 E2E 批次。

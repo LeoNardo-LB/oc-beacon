@@ -58,6 +58,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.service.ServerLinkState
+import dev.leonardo.ocbeacon.ui.components.DshTokenDialog
+import dev.leonardo.ocbeacon.ui.components.DshTokenNeededBanner
 import dev.leonardo.ocbeacon.ui.components.ServerLinkBanner
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.ContentSearchFilterChips
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.DeleteSessionDialog
@@ -104,6 +106,9 @@ var showMoreMenu by remember { mutableStateOf(false) }
     var deleteSessionTitle by remember { mutableStateOf("") }
     var showOpenProject by remember { mutableStateOf(false) }
     var showQuickNewSession by remember { mutableStateOf(false) }
+    // #317：DSH 0.1.2 token 输入（TokenNeeded 横幅入口）
+    var showDshTokenDialog by remember { mutableStateOf(false) }
+    var dshTokenExchangePending by remember { mutableStateOf(false) }
 
     // 会话分类选择器状态
     var showCategoryPicker by remember { mutableStateOf(false) }
@@ -163,8 +168,14 @@ viewModel.consumePendingReadSessionId()
             Column {
                 // #267：断连常驻细条幅（恢复自动消失）
                 val serverLinkState by viewModel.serverLinkState.collectAsStateWithLifecycle()
+                // #317：token 待输入优先于一般断连横幅（给出路而非干等重连）
+                val dshTokenNeeded by viewModel.dshTokenNeeded.collectAsStateWithLifecycle()
                 if (serverLinkState != ServerLinkState.Connected) {
-                    ServerLinkBanner()
+                    if (dshTokenNeeded) {
+                        DshTokenNeededBanner(onEnterToken = { showDshTokenDialog = true })
+                    } else {
+                        ServerLinkBanner()
+                    }
                 }
                 TopAppBar(
                 title = {
@@ -499,6 +510,31 @@ viewModel.consumePendingReadSessionId()
                 }
             }
         }
+    }
+
+    // #317：DSH 0.1.2 token 输入对话框（交换成功自动关闭；被拒留窗示错）
+    val dshTokenExchange by viewModel.dshTokenExchange.collectAsStateWithLifecycle()
+    LaunchedEffect(dshTokenExchange) {
+        when (dshTokenExchange) {
+            SessionListViewModel.DshTokenExchangeState.Exchanging -> dshTokenExchangePending = true
+            SessionListViewModel.DshTokenExchangeState.Idle ->
+                if (dshTokenExchangePending) {
+                    dshTokenExchangePending = false
+                    showDshTokenDialog = false
+                }
+            SessionListViewModel.DshTokenExchangeState.Rejected -> Unit
+        }
+    }
+    if (showDshTokenDialog) {
+        DshTokenDialog(
+            exchanging = dshTokenExchange == SessionListViewModel.DshTokenExchangeState.Exchanging,
+            rejected = dshTokenExchange == SessionListViewModel.DshTokenExchangeState.Rejected,
+            onSubmit = viewModel::submitDshToken,
+            onDismiss = {
+                viewModel.dismissDshTokenDialog()
+                showDshTokenDialog = false
+            },
+        )
     }
 
     // 打开项目对话框

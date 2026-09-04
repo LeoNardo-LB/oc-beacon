@@ -822,4 +822,11 @@
     <string name="crash_notice_body_no_time">У попередньому сеансі стався неочікуваний збій. Подробиці — у розділі діагностики.</string>
     <string name="crash_notice_view">Переглянути</string>
     <string name="crash_notice_dismiss">Закрити</string>
+    <string name="dsh_token_banner_text">Цей сервер потребує токен доступу</string>
+    <string name="dsh_token_banner_action">Ввести токен</string>
+    <string name="dsh_token_dialog_title">Потрібен токен доступу</string>
+    <string name="dsh_token_dialog_message">Вставте токен або повну URL-адресу з рядка запуску сервера (містить token=...).</string>
+    <string name="dsh_token_dialog_hint">Токен або URL</string>
+    <string name="dsh_token_dialog_connect">Підключитися</string>
+    <string name="dsh_token_dialog_rejected">Сервер відхилив токен. Перевірте його та спробуйте ще раз.</string>
 </resources>

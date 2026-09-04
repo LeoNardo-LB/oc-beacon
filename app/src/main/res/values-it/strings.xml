@@ -814,4 +814,11 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="crash_notice_body_no_time">Si è verificato un arresto anomalo imprevisto nell\'ultima sessione. Dettagli nella sezione diagnostica.</string>
     <string name="crash_notice_view">Visualizza</string>
     <string name="crash_notice_dismiss">Ignora</string>
+    <string name="dsh_token_banner_text">Questo server richiede un token di accesso</string>
+    <string name="dsh_token_banner_action">Inserisci token</string>
+    <string name="dsh_token_dialog_title">Token di accesso richiesto</string>
+    <string name="dsh_token_dialog_message">Incolla il token o l\'URL completo dalla riga di avvio del server (contiene token=...).</string>
+    <string name="dsh_token_dialog_hint">Token o URL</string>
+    <string name="dsh_token_dialog_connect">Connetti</string>
+    <string name="dsh_token_dialog_rejected">Token rifiutato dal server. Controllalo e riprova.</string>
 </resources>

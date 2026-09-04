@@ -820,4 +820,11 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="crash_notice_body_no_time">Terjadi crash tak terduga pada sesi terakhir. Detailnya tersedia di diagnostik.</string>
     <string name="crash_notice_view">Lihat</string>
     <string name="crash_notice_dismiss">Tutup</string>
+    <string name="dsh_token_banner_text">Server ini memerlukan token akses</string>
+    <string name="dsh_token_banner_action">Masukkan token</string>
+    <string name="dsh_token_dialog_title">Token akses diperlukan</string>
+    <string name="dsh_token_dialog_message">Tempel token atau URL lengkap dari baris startup server (berisi token=...).</string>
+    <string name="dsh_token_dialog_hint">Token atau URL</string>
+    <string name="dsh_token_dialog_connect">Hubungkan</string>
+    <string name="dsh_token_dialog_rejected">Token ditolak oleh server. Periksa dan coba lagi.</string>
 </resources>

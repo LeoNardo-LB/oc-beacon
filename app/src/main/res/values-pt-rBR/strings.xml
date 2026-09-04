@@ -814,4 +814,11 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="crash_notice_body_no_time">Ocorreu um encerramento inesperado na última sessão. Veja os detalhes nos diagnósticos.</string>
     <string name="crash_notice_view">Ver</string>
     <string name="crash_notice_dismiss">Dispensar</string>
+    <string name="dsh_token_banner_text">Este servidor requer um token de acesso</string>
+    <string name="dsh_token_banner_action">Inserir token</string>
+    <string name="dsh_token_dialog_title">Token de acesso necessário</string>
+    <string name="dsh_token_dialog_message">Cole o token ou a URL completa da linha de inicialização do servidor (contém token=...).</string>
+    <string name="dsh_token_dialog_hint">Token ou URL</string>
+    <string name="dsh_token_dialog_connect">Conectar</string>
+    <string name="dsh_token_dialog_rejected">Token rejeitado pelo servidor. Verifique e tente novamente.</string>
 </resources>

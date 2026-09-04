@@ -823,4 +823,11 @@
     <string name="crash_notice_body_no_time">В прошлом сеансе произошёл неожиданный сбой. Подробности — в разделе диагностики.</string>
     <string name="crash_notice_view">Открыть</string>
     <string name="crash_notice_dismiss">Скрыть</string>
+    <string name="dsh_token_banner_text">Этому серверу требуется токен доступа</string>
+    <string name="dsh_token_banner_action">Ввести токен</string>
+    <string name="dsh_token_dialog_title">Требуется токен доступа</string>
+    <string name="dsh_token_dialog_message">Вставьте токен или полный URL из строки запуска сервера (содержит token=...).</string>
+    <string name="dsh_token_dialog_hint">Токен или URL</string>
+    <string name="dsh_token_dialog_connect">Подключиться</string>
+    <string name="dsh_token_dialog_rejected">Сервер отклонил токен. Проверьте его и попробуйте снова.</string>
 </resources>

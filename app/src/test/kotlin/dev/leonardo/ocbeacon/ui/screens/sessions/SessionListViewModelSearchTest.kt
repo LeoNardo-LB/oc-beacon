@@ -48,6 +48,8 @@ class SessionListViewModelSearchTest {
     private val sseConnectionManager = io.mockk.mockk<dev.leonardo.ocbeacon.service.SseConnectionManager>(relaxed = true).also {
         io.mockk.every { it.linkState(any()) } returns dev.leonardo.ocbeacon.service.ServerLinkState.Connected
         io.mockk.every { it.observeLinkState(any()) } returns kotlinx.coroutines.flow.flowOf(dev.leonardo.ocbeacon.service.ServerLinkState.Connected)
+        // #317：TokenNeeded 流（VM 属性初始化即订阅）
+        io.mockk.every { it.dshTokenNeededServers } returns kotlinx.coroutines.flow.MutableStateFlow(emptySet<String>())
     }
 
     private val sessionRepository: SessionRepository = mockk(relaxed = true)
@@ -219,6 +221,7 @@ class SessionListViewModelSearchTest {
             chatRepository = mockk(relaxed = true),
             messageFtsIndex = ftsIndex,
             historySyncManager = mockk(relaxed = true),
+            dshConnectionRegistry = io.mockk.mockk(relaxed = true),
         )
     }
 }

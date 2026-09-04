@@ -812,4 +812,11 @@
     <string name="crash_notice_body_no_time">Un plantage inattendu s\'est produit lors de la dernière session. Détails dans les diagnostics.</string>
     <string name="crash_notice_view">Voir</string>
     <string name="crash_notice_dismiss">Ignorer</string>
+    <string name="dsh_token_banner_text">Ce serveur exige un jeton d\'accès</string>
+    <string name="dsh_token_banner_action">Saisir le jeton</string>
+    <string name="dsh_token_dialog_title">Jeton d\'accès requis</string>
+    <string name="dsh_token_dialog_message">Collez le jeton ou l\'URL complète de la ligne de démarrage du serveur (elle contient token=...).</string>
+    <string name="dsh_token_dialog_hint">Jeton ou URL</string>
+    <string name="dsh_token_dialog_connect">Connecter</string>
+    <string name="dsh_token_dialog_rejected">Jeton rejeté par le serveur. Vérifiez-le et réessayez.</string>
 </resources>

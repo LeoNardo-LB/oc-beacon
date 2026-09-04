@@ -814,4 +814,11 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="crash_notice_body_no_time">Son oturumda beklenmeyen bir çökme yaşandı. Ayrıntılar tanılama bölümünde.</string>
     <string name="crash_notice_view">Görüntüle</string>
     <string name="crash_notice_dismiss">Kapat</string>
+    <string name="dsh_token_banner_text">Bu sunucu bir erişim belirteci gerektiriyor</string>
+    <string name="dsh_token_banner_action">Belirteç gir</string>
+    <string name="dsh_token_dialog_title">Erişim belirteci gerekli</string>
+    <string name="dsh_token_dialog_message">Sunucunun başlangıç satırından belirteci veya tam URL\'yi yapıştırın (token=... içerir).</string>
+    <string name="dsh_token_dialog_hint">Belirteç veya URL</string>
+    <string name="dsh_token_dialog_connect">Bağlan</string>
+    <string name="dsh_token_dialog_rejected">Belirteç sunucu tarafından reddedildi. Kontrol edip tekrar deneyin.</string>
 </resources>
