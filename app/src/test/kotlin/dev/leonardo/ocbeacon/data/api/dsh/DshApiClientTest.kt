@@ -1511,8 +1511,10 @@ class DshApiClientTest {
 
     /**
      * V012 目录：llm.providers→llm/listProviders 回**数组** [{id,name}]（callJson
-     * 面）；llm.models→session/modelCatalog 顶层键=组（跳过 default，值含 models
-     * 数组视为组）——合流语义与 V011 同构（目录名优先、未知组追加）。
+     * 面）；llm.models→session/modelCatalog **groups 数组** [{id,name,models[]}]
+     * （生产 0.1.2-rc.1 实测形态，2026-09-04 智谱模型缺席定因；顶层另含
+     * default/routableProviders/failures）——合流语义与 V011 同构（目录名优先、
+     * 未知组追加）。
      */
     @Test
     fun `v012 getProviders parses provider array and model catalog keys`() = runTest {
@@ -1523,21 +1525,29 @@ class DshApiClientTest {
                     HttpStatusCode.OK, jsonHeaders(),
                 )
                 "/api/session/modelCatalog" -> respond(
-                    ok("""{"default":"deepseek-official","deepseek-official":{"models":[{"id":"deepseek-v4-flash","name":"DeepSeek-V4-Flash","reasoning":{"efforts":[{"id":"high","name":"High"}]}}]},"opencode-go":{"models":[{"id":"glm-5.3"}]}}"""),
+                    ok(
+                        """{"default":"deepseek-official","routableProviders":["deepseek-official","opencode-go","zai-coding-cn"],""" +
+                            """"groups":[{"id":"deepseek-official","name":"DeepSeek","models":[{"id":"deepseek-v4-flash","name":"DeepSeek-V4-Flash","reasoning":{"efforts":[{"id":"high","name":"High"}]}}]},""" +
+                            """{"id":"zai-coding-cn","name":"智谱","models":[{"id":"glm-5.3","name":"GLM-5.3","reasoning":{"efforts":[{"id":"low"},{"id":"max"}],"defaultEffort":"max"}},{"id":"glm-5.3-flash"}]}],""" +
+                            """"failures":{}}""",
+                    ),
                     HttpStatusCode.OK, jsonHeaders(),
                 )
                 else -> respond(ok("{}"), HttpStatusCode.OK, jsonHeaders())
             }
         }
         val response = client(engine, DshWireProtocol.V012).getProviders(conn)
-        assertEquals(listOf("deepseek-official", "opencode-go"), response.providers.map { it.id })
+        assertEquals(listOf("deepseek-official", "opencode-go", "zai-coding-cn"), response.providers.map { it.id })
         assertEquals("DeepSeek", response.providers[0].name) // 目录名优先于组名
         val flash = response.providers[0].models["deepseek-v4-flash"]
         assertNotNull(flash)
         assertEquals(listOf("high"), flash!!.variants?.keys?.toList())
-        val glm = response.providers[1].models["glm-5.3"]
+        // 用户反馈回归锚：智谱组（groups 数组内）缺席 = 切换模型无智谱——必须解析出
+        val glm = response.providers[2].models["glm-5.3"]
         assertNotNull(glm)
-        assertEquals("glm-5.3", glm!!.name) // 缺 name → 回退 id
+        assertEquals("GLM-5.3", glm!!.name)
+        assertEquals(listOf("low", "max"), glm.variants?.keys?.toList())
+        assertEquals("glm-5.3-flash", response.providers[2].models["glm-5.3-flash"]?.id)
         val paths = captureRequests(engine).map { it.url.encodedPath }
         assertEquals(listOf("/api/llm/listProviders", "/api/session/modelCatalog"), paths)
         // 两端点 0.1.2 无参——payload 恒 {args:{}}（EMPTY_ARGS）
@@ -1559,6 +1569,24 @@ class DshApiClientTest {
         val response = client(engine, DshWireProtocol.V012).getProviders(conn)
         assertEquals(listOf("p-1"), response.providers.map { it.id })
         assertTrue(response.providers.all { it.models.isEmpty() })
+    }
+
+    /** V012 fallback：groups 数组缺席时按顶层键为组解析（防御 alpha.5 形态）。 */
+    @Test
+    fun `v012 getProviders falls back to top-level group keys without groups array`() = runTest {
+        val engine = MockEngine { req ->
+            when (req.url.encodedPath) {
+                "/api/llm/listProviders" -> respond(ok("""[{"id":"p-1","name":"P1"}]"""), HttpStatusCode.OK, jsonHeaders())
+                "/api/session/modelCatalog" -> respond(
+                    ok("""{"default":"p-1","p-1":{"models":[{"id":"m-1","name":"M1"}]}}"""),
+                    HttpStatusCode.OK, jsonHeaders(),
+                )
+                else -> respond(ok("{}"), HttpStatusCode.OK, jsonHeaders())
+            }
+        }
+        val response = client(engine, DshWireProtocol.V012).getProviders(conn)
+        assertEquals(listOf("p-1"), response.providers.map { it.id })
+        assertEquals("M1", response.providers[0].models["m-1"]?.name)
     }
 
     /**

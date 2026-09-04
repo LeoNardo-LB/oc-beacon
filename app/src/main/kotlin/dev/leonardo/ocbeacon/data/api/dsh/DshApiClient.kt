@@ -1373,8 +1373,29 @@ class DshApiClient @Inject constructor(
             AppLogger.w(TAG, "llm.models failed: " + e.message)
             null
         }
-        catalog?.forEach { (key, groupEl) ->
-            if (key == "default") return@forEach
+        // 生产 0.1.2-rc.1 实测形态（2026-09-04，用户反馈智谱模型缺席定因）：value
+        // = {default, routableProviders, groups:[{id,name,models[]}], failures}——
+        // **组在 groups 数组**（条目含 id/name/models），非顶层键=组 id。原顶层
+        // 遍历全部落空（routableProviders/groups 无 models 键被跳过）→ 目录只剩
+        // provider 名、零模型 → 切换模型无智谱（Web 端读 groups 正常）。
+        val groupsArr = catalog?.get("groups") as? JsonArray
+        if (groupsArr != null) {
+            groupsArr.filterIsInstance<JsonObject>().forEach { group ->
+                val groupId = group.dshStr("id") ?: return@forEach
+                val models = (group.dshArr("models") ?: emptyList()).filterIsInstance<JsonObject>()
+                    .mapNotNull { m -> mapCatalogModel(groupId, m) }
+                if (models.isNotEmpty()) {
+                    groupsById[groupId] = ProviderInfo(
+                        id = groupId,
+                        name = group.dshStr("name") ?: groupId,
+                        source = "dsh",
+                        models = models.associateBy { it.id },
+                    )
+                }
+            }
+        } else catalog?.forEach { (key, groupEl) ->
+            // 防御 fallback：顶层键=组 id 形态（alpha.5 未复核；与 groups 数组互斥）
+            if (key == "default" || key == "routableProviders" || key == "failures") return@forEach
             val group = groupEl as? JsonObject ?: return@forEach
             val modelsArr = group["models"] as? JsonArray ?: return@forEach
             val models = modelsArr.filterIsInstance<JsonObject>().mapNotNull { m -> mapCatalogModel(key, m) }
