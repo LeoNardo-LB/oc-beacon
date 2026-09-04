@@ -521,7 +521,7 @@ internal fun ChatScreenBottomBar(
  *   （覆盖 V2 drain 窗口 FSM Busy↔Idle 抖动周期与 isSending→isBusy 接管缝隙）
  * - 释放等待期间任一变 true → 取消挂起的释放，立即回 true
  *
- * 只影响输入区视觉（showStop/busySpinner/shell canSend）；abort 等业务逻辑
+ * 只影响输入区视觉（单键形态/busy 指示/shell canSend，#326）；abort 等业务逻辑
  * 仍读 FSM 原始状态。FSM 语义与 SessionStateService 单一真相源不变。
  */
 @Composable

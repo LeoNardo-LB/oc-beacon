@@ -29,23 +29,24 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
- * 发送 / 停止按钮区 —— 忙碌双键并存（2026-09-01 走查 #8 用户裁决，Web 同款）。
+ * 发送 / 停止按钮区 —— 单键统一（#326，2026-09-04 用户裁决，对齐 web 主按钮）。
  *
- * - 空闲：仅发送键（点击发送，长按切换 shell 模式）
- * - 忙碌+输入空白：仅停止键（点击中断）
- * - 忙碌+输入非空：停止键+发送键并排——发送键启用，点击走既有 sendMessage
- *   链（DSH promptAsync 本就 mode=queue：服务端排队 → session/queue 帧 →
- *   QueueDock 呈现，下 step 边界消费）；忙碌转圈由停止键承载（2026-08-17
- *   用户需求：会话状态表示放按钮上）。
+ * - 空闲：发送键（点击发送，长按切换 shell 模式）
+ * - 忙碌+输入空白：停止键（点击中断）
+ * - 忙碌+输入非空：发送键（点击=服务端排队 enqueue；**长按=直发插话 steer**
+ *   #309④ 语义保留）——服务端排队 → session/queue 帧 → FAB 队列呈现
+ * - 忙碌+被阻塞（等待提问/权限应答）：停止键（web blocked 同款；
+ *   canSend 由 inputEnabled 关闭，输入框同步禁用）
  *
- * 本组件取代 2026-08-20 的 busy 气泡菜单（立即发送/堆积消息两项目）——
- * 双键裁决下「立即发送」升级为常驻发送键；本地堆积链路已随 #289 整体拆除。
+ * 取代 2026-09-01 走查 #8 的忙碌双键并存（该裁决被 #326 取代）；本地堆积
+ * 链路早已随 #289 拆除。
  *
  * 可见键集与变体由 [sendStopAreaState] 纯函数决定（单测覆盖全组合）。
  *
- * @param showStop 忙碌且输入空白（调用方以 text.isBlank() 计算）
+ * @param hasText 输入框是否有非空文本
  * @param isBusy 会话是否忙碌
- * @param canSend 当前是否允许发送（忙碌双键态普通模式恒可=排队发送；shell+忙碌=禁用）
+ * @param inputBlocked 输入被阻塞（等待提问/权限应答，inputEnabled=false）
+ * @param canSend 当前是否允许发送（忙碌+文本单键态普通模式恒可=排队发送；shell+忙碌=禁用）
  * @param isSending 当前是否正在发送消息（请求在途）
  * @param isShellMode shell 模式是否激活
  * @param isAmoled AMOLED 主题是否激活
@@ -56,8 +57,9 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun SendStopButton(
-    showStop: Boolean,
+    hasText: Boolean,
     isBusy: Boolean = false,
+    inputBlocked: Boolean = false,
     canSend: Boolean,
     isSending: Boolean,
     isShellMode: Boolean,
@@ -68,9 +70,7 @@ internal fun SendStopButton(
     onSendSteer: () -> Unit = {},
     onInputModeChange: (ChatInputMode) -> Unit,
 ) {
-    // hasText 推导：showStop = isBusy && text.isBlank()（ChatInputBar 计算），
-    // 故忙碌时 !showStop ⇔ 输入非空；空闲分支不消费 hasText。
-    val area = sendStopAreaState(isBusy = isBusy, hasText = !showStop, isSending = isSending)
+    val area = sendStopAreaState(isBusy = isBusy, hasText = hasText, isSending = isSending, inputBlocked = inputBlocked)
 
     Row(
         horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
@@ -82,7 +82,7 @@ internal fun SendStopButton(
                 isShellMode = isShellMode,
                 isAmoled = isAmoled,
                 onStop = onStop,
-                // 双键态沿用原单键长按切 shell 的授能（空白停止键维持无长按）
+                // 单键时代 stopSpinner 恒 false——停止键长按切 shell 授能保留接线（历史行为）
                 longPressTogglesShell = area.stopSpinner,
                 onInputModeChange = onInputModeChange,
             )

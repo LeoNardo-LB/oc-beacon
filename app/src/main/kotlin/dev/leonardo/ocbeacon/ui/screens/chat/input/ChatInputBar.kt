@@ -263,14 +263,13 @@ internal fun ChatInputBar(
                     onFocusChange = { textFieldFocused = it }
                 )
 
-                // 发送/停止按钮区——忙碌双键并存（2026-09-01 走查 #8 用户裁决）：
-                // isBusy 且无文本时仅停止键；isBusy 且有输入时停止键+发送键并排
-                //（发送点击=服务端排队，DSH prompt mode=queue → QueueDock）；
-                // 忙碌转圈由停止键承载（2026-08-17 用户需求）
-                val showStop = isBusy && text.isBlank()
+                // 发送/停止按钮区——单键统一（#326，2026-09-04 用户裁决，对齐 web 主按钮）：
+                // idle=发送 / busy+空=停止 / busy+文本=发送(服务端排队,长按=steer #309④) /
+                // 被阻塞(等待提问/权限,inputEnabled=false)=停止
                 SendStopButton(
-                    showStop = showStop,
+                    hasText = text.isNotBlank(),
                     isBusy = isBusy,
+                    inputBlocked = !inputEnabled,
                     canSend = canSend,
                     isSending = isSending,
                     isShellMode = isShellMode,
