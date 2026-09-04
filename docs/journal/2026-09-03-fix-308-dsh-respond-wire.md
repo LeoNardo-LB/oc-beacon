@@ -92,3 +92,11 @@ Permission event received: PermissionReplied(requestId=4add5f44-…)
 
 - **Kotlin 块注释嵌套**：doc 注释里写 `once/**always**`（想用 Markdown 加粗），其中 `/**` 开了一个**嵌套注释**（Kotlin 块注释可嵌套，与 Java 不同），把后续类体整个吞掉——症状是 :1356 Unclosed comment + 一串无关 Unresolved（readAttachment 等）。块注释内禁用含 `/*` 序列的 Markdown 强调。
 - MockEngine 单测若 mock 了**错误形状的回执**（信封而非 receipt），旧实现测试照样绿——回执形状必须按服务端源码定音，不能按客户端期望。
+
+## 十、用户验收轮（2026-09-04，真机生产 :3080）
+
+- **G1 提问 ✓**：本会话（agent 侧）发起 ask_user_question，用户在手机 app 问题卡作答「手机 app(OC Beacon)」→ 答案经修复后 wire（`{sessionId,answer:{answers[]}}` + RpcReceipt）真实送达 agent 并复述确认。修复前该路径恒超时、不可能收到——**wire 层修复经真手实证**。
+- **G2A 允许一次 / G2B 拒绝**：用户未报异常，按通过记录。
+- **G2C 始终允许 ✗（#308 转 [ ] 回修复）**：点「始终允许」后再发同类 bash 命令，**审批卡仍弹出**——本地规则自动 `allowed-once` 重答链未生效。排查方向：①规则是否落库（AutoApproveRules 持久层）②规则匹配键与审批帧携带标识能否对上（工具名/命令形状）③自动重答是否真的发出且早于用户可见弹卡 ④「相同命令」再发时审批 id 变化是否破坏匹配。PermissionRequestCard.kt:154（permission_allow_always 钮）为入口锚点。
+- **验收副产物两新卡**：①#326 busy 输入区双键（停止+发送并排，2026-09-01 走查#8 裁决形态）与 OpenCode 面单键不符——用户定规统一单键，一键承担空闲=发送/忙碌=入队，底层队列机制可按服务器类型各异；②#327 消息入队成功但 FAB QUEUE 菜单项无计数——queueItems 链（session/queue 快照 last-wins → dshQueueStore.queueBySession → ChatViewModel.kt:714 isQueuedPlacement 过滤 → ChatScreen.kt:994 queueCount）断点待查。
+- §九 仪器双门禁证据仍有效；§五 研究文档勘误仍随卡完结回写。

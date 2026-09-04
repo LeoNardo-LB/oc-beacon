@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#326**。
+**编号**：全局递增，不回收。下一编号：**#328**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -51,12 +51,20 @@
 
 ## P0 — 主流程阻塞
 
-- [~] **#308 DSH 权限/提问应答 wire 不匹配（载荷缺键 + allowed-always 词不存在 + RpcReceipt 解码失败）** `dsh` `permission` `data`
+- [ ] **#308 DSH 权限/提问应答 wire 不匹配（载荷缺键 + allowed-always 词不存在 + RpcReceipt 解码失败）** `dsh` `permission` `data`
   - `replyToPermission` 只发 `{outcome}` 缺必填 `sessionId`+`approvalId`，`allowed-always` 在 dsh 0.1.1-rc.2 全树零命中（枚举仅 `allowed-once|rejected`）——「始终允许」无服务端对应，A-D7-02「服务器落持久规则」系 OpenCode 语义误植；`/api/respond` 回执 RpcReceipt 非信封，`exchange()` 解码必失败 → DSH 三键应答恒 false（超时兜底掩盖）；提问应答/取消载荷同不符
   - 修复方向（根因层）：载荷补三键 + RpcReceipt 解析分支 + 提问改 `{sessionId,answer:{answers[]}}` + 取消改 Err 信封 + always 改本地规则自动 `allowed-once` 重答；验证=真机 DSH 审批三键 + logcat `accepted:true`
-  - → 取证 `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md`（四重证据链 + E2E 出处勘误；§五 研究文档勘误随本卡验收后回写）· 修复批次 `docs/journal/2026-09-03-fix-308-dsh-respond-wire.md`（§九 **真机 E2E 双门禁 PASS**：G1 提问 22:24:16 result success=true + G2 审批 22:37:28 success=true + 升级 bash 真实落地 marker 文件；单测/全量绿）——待用户验收
+  - → 取证 `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md`（四重证据链 + E2E 出处勘误；§五 研究文档勘误随本卡验收后回写）· 修复批次 `docs/journal/2026-09-03-fix-308-dsh-respond-wire.md`（§九 真机 E2E 双门禁 PASS；**§十 2026-09-04 用户验收：G1 提问 ✓（真手实证 wire 送达）/ G2A 允许一次 ✓ / G2B 拒绝 ✓ / G2C 始终允许规则不生效（同类 bash 再发仍弹卡）→ 转 [ ] 修 always 本地规则自动重答链**）
 
 ## P1 — 核心功能需求
+
+- [ ] **#326 busy 输入区单按钮统一——一键承担发送/入队，对齐 OpenCode 面（2026-09-04 用户定规）** `dsh` `ui`
+  - 现状 DSH 面 busy+有文本=停止+发送双键并排（ChatInputBar showStop 计算，2026-09-01 走查#8 形态）；定规：统一单键（OpenCode 面形态），空闲=立即发送/忙碌=入队，底层队列机制可按服务器类型各异（DSH 服务端队列/OpenCode 本地实现）
+  - 挂点 ChatInputBar.kt 双键区 · SendStopButton.kt（sendStopAreaState）· #309④ steer 长按语义保留；→ `docs/journal/2026-09-03-fix-308-dsh-respond-wire.md` §十
+
+- [ ] **#327 排队消息未显示到 FAB 队列菜单项——queueItems 数据链断裂** `dsh` `sse` `data`
+  - 现象：消息入队成功但 FAB QUEUE 菜项无计数角标（2026-09-04 #308 验收实测）；断点待查：session/queue 快照 last-wins → dshQueueStore.queueBySession → ChatViewModel.kt:714（isQueuedPlacement 过滤）→ ChatScreen.kt:994 queueCount
+  - → `docs/journal/2026-09-03-fix-308-dsh-respond-wire.md` §十
 
 - [ ] **#320 DSH 事件系统通知——turn 结束/问题到达/审批等待 → Android 通知+deep-link（web turn-notify 对位）** `dsh` `sse` `ui`
   - 非前台会话 turn 结束/question/approval → 系统通知点进会话；通知设置+deep-link+渠道基础设施全在（Settings→Notifications/host 事件流），纯接线；web 走 /turn-notify/focus-wait HTTP 长轮询，Android 用既有 WS 事件流即可
