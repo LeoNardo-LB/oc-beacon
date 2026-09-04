@@ -16,6 +16,7 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 | 🔴 MUST | [`docs/verification-requirements.md`](docs/verification-requirements.md) | 完整 4+1 维验证框架 | 完成开发、声称"完成"前 |
 | 🟡 SHOULD | [`docs/real-device-testing.md`](docs/real-device-testing.md) | 真机 runbook：pm install 静默装包、adb reverse 连通、debug intent 配置、签名备忘 | 任何真机测试/E2E/装包前（2026-08-20 方针：真机优先） |
 | 🟡 SHOULD | [`docs/qa-methodology.md`](docs/qa-methodology.md) | QA 方法论：交叉验证（≥2 维互证）、证据链、并行验证委派 | 修复/功能完成前的验证设计 |
+| 🟡 SHOULD | [`docs/ai-acceptance-workflow.md`](docs/ai-acceptance-workflow.md) | AI 真机验收三步法（生成→纯净审查→纯净执行）+ 真机串行纪律 + 关闭权限 | 任何 backlog 卡片交付验收前（2026-09-04 裁决） |
 | 🟡 SHOULD | [`docs/regression-guide.md`](docs/regression-guide.md) | 回归指南：变更分类、12 能力域清单 | 重构/接口变更/存储渲染层改动前 |
 | 🟡 SHOULD | [`docs/dialogue-e2e-test-plan.md`](docs/dialogue-e2e-test-plan.md) | 会话全生命周期 E2E 期望文档 | 会话相关改动/发版前的 E2E 设计 |
 | 🟡 SHOULD | [`docs/dialogue-e2e-test-runbook.md`](docs/dialogue-e2e-test-runbook.md) | 会话 E2E 实操记录与差异分析 | E2E 执行中实时记录 |

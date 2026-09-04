@@ -157,3 +157,7 @@ V1 契约要点（实测）：prompt 走 `POST /session/{id}/prompt_async`，bod
 3. **测试语言与设备系统语言解耦（chat.* 族已修）**：HiltEntryActivity 强制 en-US（#210）——英文资源断言（"Stop" 等）不再随系统语言漂移；其余 createComposeRule 族测试类仍依赖系统 locale=英文（#211）。
 
 > **元素定位/判定/手势的完整方法**（dump 失明区、像素探针、vision 纪律、slop/返回手势区坑、签名速查）见 [`docs/android-ui-probing-guide.md`](android-ui-probing-guide.md)（2026-08-23 #192 E2E 实战定稿）。
+
+## 真机独占与串行纪律（2026-09-04）
+
+真机是**单一独占资源**：同一时刻只允许一个验收执行流操作设备——一次一卡、卡内一次一项，**禁止多个 subagent 并发操作真机**。不碰真机的工作（checklist 生成/审查、代码分析、单测）可并行；Gradle 构建禁并发与真机锁相互独立（AGENTS.md）。完整协议见 [`ai-acceptance-workflow.md`](ai-acceptance-workflow.md) §5。
