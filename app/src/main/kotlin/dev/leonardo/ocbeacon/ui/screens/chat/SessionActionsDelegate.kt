@@ -239,7 +239,9 @@ internal class SessionActionsDelegate(
             }
             val rule = AutoApproveRule(
                 toolName = event.permission,
-                sessionId = null,
+                // #308 回修 Layer1：恒锚定本会话——目录解析与会话生命周期竞态解耦
+                // （运行期新建会话 handler 目录可空；matches() 会话命中即免目录）
+                sessionId = event.sessionId,
                 directoryPattern = directory
             )
             chatRepository.addPermissionAutoApproveRule(rule)

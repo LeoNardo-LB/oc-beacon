@@ -25,8 +25,13 @@ data class AutoApproveRule(
         // 若指定了会话，则会话必须匹配
         if (sessionId != null && event.sessionId != sessionId) return false
 
-        // 目录模式必须匹配
-        if (directoryPattern != "*" && directoryPattern != sessionDirectory) return false
+        // 目录模式必须匹配——#308 回修 Layer1：**会话锚定规则（sessionId 非空且
+        // 命中）免目录检查**——运行期新建会话的 cwd 回填与 session-added 帧存在
+        // 竞态（handler 目录可为空，approver 解析空目录致规则静默不命中）；
+        // 会话身份是比目录更强的锚，savePermissionRule 现恒带 sessionId。
+        if (sessionId == null &&
+            directoryPattern != "*" && directoryPattern != sessionDirectory
+        ) return false
 
         return true
     }

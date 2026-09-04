@@ -62,10 +62,16 @@ class PermissionAutoApprover @Inject constructor(
                     .firstOrNull { it.id == event.sessionId }?.directory ?: ""
                 if (!shouldAutoApprove(event, sessionDirectory)) return@launch
                 AppLogger.i(TAG, "[auto-approve] rule matched: permission=" + event.permission + " sid=" + event.sessionId.take(12) + " dir=" + sessionDirectory + " — replying once")
-                val ok = chatRepoProvider.get()
+                val repo = chatRepoProvider.get()
+                val ok = repo
                     .respondPermission(serverId, event.sessionId, event.id, "once", sessionDirectory.takeIf { it.isNotBlank() })
                     .getOrDefault(false)
-                if (!ok) {
+                if (ok) {
+                    // #308 回修 Layer2：与手动路径对齐——应答受理即本地收卡
+                    // （应答方不收 cancel 帧，approval/resolved 只广播其余客户端；
+                    // 不主动移除则卡片滞留）。
+                    repo.removePermission(event.id)
+                } else {
                     AppLogger.w(TAG, "[auto-approve] respondPermission returned false (request may have expired): id=" + event.id)
                 }
             } catch (t: Throwable) {

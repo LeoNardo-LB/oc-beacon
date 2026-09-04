@@ -910,12 +910,15 @@ class DshApiClient @Inject constructor(
             "reject" -> "rejected"
             else -> reply
         }
-        // #318 V012：权限 waterfall 应答（帧事件名未实测——E2E 批次 /permission ask
-        // 触发后校准；先按 {kind:result, value:{outcome}} 形态，eventId=rpcId 槽）
+        // #308 回修（2026-09-04 真机+服务端源码定音）：V012 权限 waterfall 应答的
+        // value 必须是**裸字符串**（dsh-user-approval decide() L179 以
+        // OUTCOMES.includes(outcome) 归一化——对象形态恒判 unavailable=fail-closed，
+        // 代理侧表现「no approval channel available」；网关对 eventsResult 恒回
+        // ok:true，旧 {outcome:...} 对象形态因此在 App 侧恒假成功）。
         if (protocolOf(conn) == DshWireProtocol.V012) {
             val wireOutcome = buildJsonObject {
                 put("kind", "result")
-                put("value", buildJsonObject { put("outcome", outcome) })
+                put("value", kotlinx.serialization.json.JsonPrimitive(outcome))
             }
             return rpc.eventsResult(conn, metadata?.get("rpcId") ?: requestId, wireOutcome).isSuccess
         }

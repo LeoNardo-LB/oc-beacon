@@ -51,10 +51,10 @@
 
 ## P0 — 主流程阻塞
 
-- [ ] **#308 DSH 权限/提问应答 wire 不匹配（载荷缺键 + allowed-always 词不存在 + RpcReceipt 解码失败）** `dsh` `permission` `data`
+- [~] **#308 DSH 权限/提问应答 wire 不匹配（载荷缺键 + allowed-always 词不存在 + RpcReceipt 解码失败）** `dsh` `permission` `data`
   - `replyToPermission` 只发 `{outcome}` 缺必填 `sessionId`+`approvalId`，`allowed-always` 在 dsh 0.1.1-rc.2 全树零命中（枚举仅 `allowed-once|rejected`）——「始终允许」无服务端对应，A-D7-02「服务器落持久规则」系 OpenCode 语义误植；`/api/respond` 回执 RpcReceipt 非信封，`exchange()` 解码必失败 → DSH 三键应答恒 false（超时兜底掩盖）；提问应答/取消载荷同不符
   - 修复方向（根因层）：载荷补三键 + RpcReceipt 解析分支 + 提问改 `{sessionId,answer:{answers[]}}` + 取消改 Err 信封 + always 改本地规则自动 `allowed-once` 重答；验证=真机 DSH 审批三键 + logcat `accepted:true`
-  - → 取证 `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md`（四重证据链 + E2E 出处勘误；§五 研究文档勘误随本卡验收后回写）· 修复批次 `docs/journal/2026-09-03-fix-308-dsh-respond-wire.md`（§九 真机 E2E 双门禁 PASS；**§十 2026-09-04 用户验收：G1 提问 ✓（真手实证 wire 送达）/ G2A 允许一次 ✓ / G2B 拒绝 ✓ / G2C 始终允许规则不生效（同类 bash 再发仍弹卡）→ 转 [ ] 修 always 本地规则自动重答链**）
+  - → 取证 `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md`（四重证据链 + E2E 出处勘误；§五 研究文档勘误随本卡验收后回写）· 修复批次 `docs/journal/2026-09-03-fix-308-dsh-respond-wire.md`（§九/§十 首轮）· **回修 `docs/journal/2026-09-04-fix-308-always-326-327.md` §一：根因=V012 审批 outcome 须裸字符串（对象形态服务器判 unavailable，app 恒 ok 假成功）+ 会话锚定规则免目录 + 自动应答本地收卡；真机终验 GREEN（审批卡自动消失 + 提权 bash 首次真实落盘 /tmp/g2c_probe4.txt）——待用户再验收**
 
 ## P1 — 核心功能需求
 

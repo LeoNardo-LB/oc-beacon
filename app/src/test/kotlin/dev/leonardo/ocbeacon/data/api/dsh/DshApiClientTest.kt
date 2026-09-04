@@ -1279,7 +1279,44 @@ class DshApiClientTest {
         assertEquals("""{"args":{"request":{"cwd":"/tmp"}}}""", create["payload"].toString())
     }
 
-    /** V012 rename 追加失败仅告警——会话创建结果不受影响（本地 title 回退保真）。 */
+    /**
+     * #308 回修(2026-09-04 真机定音):V012 审批 waterfall 应答的 value 必须是
+     * 裸字符串 allowed-once/rejected——dsh-user-approval decide() 以
+     * OUTCOMES.includes(outcome) 归一化,对象形态 {outcome:...} 恒判 unavailable
+     * (fail-closed,代理侧表现 no approval channel available)。网关对
+     * eventsResult 恒回 ok:true(pending 缺失也静默丢弃),旧对象形态在
+     * App 侧恒成功——假阳性根因。本测断言 value 为 JsonPrimitive。
+     */
+    @Test
+    fun `v012 replyToPermission eventsResult value is bare outcome string`() = runTest {
+        val engine = MockEngine {
+            respond(
+                """{"type":"server-response","rpcId":"r","result":{"ok":true,"value":null}}""",
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        val registry = mockk<DshConnectionRegistry>(relaxed = true)
+        every { registry.protocolOf(any()) } returns DshWireProtocol.V012
+        every { registry.cookieHeader(any()) } returns null
+        every { registry.clientId(any()) } returns "client-1"
+        val c = DshApiClient(
+            DshRpcClient(ApiClient(HttpClient(engine), json), registry),
+            FixedProtocolSource(DshWireProtocol.V012),
+        )
+        assertTrue(c.replyToPermission(conn, "ses-1", "appr-9", "once", metadata = mapOf("rpcId" to "wf-7")))
+        val req = captureRequests(engine).single()
+        assertEquals("/api/\$events/result", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        val args = body["payload"]!!.jsonObject["args"]!!.jsonObject
+        assertEquals("wf-7", args["eventId"]!!.jsonPrimitive.content)
+        val outcome = args["outcome"]!!.jsonObject
+        assertEquals("result", outcome["kind"]!!.jsonPrimitive.content)
+        val valueEl = outcome["value"]
+        assertTrue(valueEl is kotlinx.serialization.json.JsonPrimitive)
+        assertEquals("allowed-once", (valueEl as kotlinx.serialization.json.JsonPrimitive).content)
+    }
+
+    /** V012 rename 追加失败仅告警——会话创建结果不受影响(本地 title 回退保真)。 */
     @Test
     fun `v012 createSession tolerates rename failure with warning only`() = runTest {
         val engine = MockEngine { req ->
