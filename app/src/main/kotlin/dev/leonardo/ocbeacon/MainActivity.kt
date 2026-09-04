@@ -395,7 +395,14 @@ class MainActivity : ComponentActivity() {
             label = intent.getStringExtra("debug_name") ?: "Debug External",
             url = url,
             username = intent.getStringExtra("debug_username") ?: "opencode",
-            password = intent.getStringExtra("debug_password") ?: ""
+            password = intent.getStringExtra("debug_password") ?: "",
+            // #319：DSH 靶机 E2E——新建条目需显式指定类型（探测不推断 DSH，
+            // 默认 OpenCode 会走 SSE 404 循环）；未指定 null 保留既有语义。
+            serverType = when (intent.getStringExtra("debug_server_type")) {
+                "dsh" -> dev.leonardo.ocbeacon.domain.model.ServerType.Dsh
+                "opencode" -> dev.leonardo.ocbeacon.domain.model.ServerType.OpenCode
+                else -> null
+            },
         )
         AppLogger.i(TAG, "Debug channel requested via extra: " + profile.id + " (" + profile.url + ")")
         // #317（2026-09-04）：DSH 0.1.2 launch token 注入——探测 TokenNeeded 时
@@ -431,7 +438,9 @@ class MainActivity : ComponentActivity() {
                             name = profile.label,
                             url = profile.url.trimEnd('/'),
                             username = profile.username,
-                            password = profile.password.ifEmpty { existing.password }
+                            password = profile.password.ifEmpty { existing.password },
+                            // #319：显式 debug_server_type 时覆写（类型错配修正通道）
+                            serverType = profile.serverType ?: existing.serverType,
                             // autoConnect 不在此处写——统一由下方 promoteDebugBackend
                             // 作为系统管理位维护（#251）。
                         )
@@ -445,6 +454,8 @@ class MainActivity : ComponentActivity() {
                             username = profile.username,
                             password = profile.password,
                             name = profile.label,
+                            serverType = profile.serverType
+                                ?: dev.leonardo.ocbeacon.domain.model.ServerType.OpenCode, // #319：debug_server_type extra
                             // autoConnect 由下方 promoteDebugBackend 统一写（#251）。
                         )
                     )
@@ -463,6 +474,19 @@ class MainActivity : ComponentActivity() {
                 val refreshed = serverRepository.getServer(serverId)
                 if (refreshed != null) {
                     serverRepository.testConnection(refreshed).getOrNull()
+                }
+                // #319（sweep 竞态修复）：冷启 FGS sweep 可能已用旧配置（serverType
+                // 改写前）连上本后端——Coordinator 同 id 幂等会跳过本次 connect，
+                // 旧 OpenCode 循环继续 SSE 404。connect 前补发断连（#253 同款，
+                // 未连接时 no-op），迫使后续连接用新配置重建循环。
+                try {
+                    val sweepDisconnect = Intent(this@MainActivity, OpenCodeConnectionService::class.java).apply {
+                        action = OpenCodeConnectionService.ACTION_DISCONNECT
+                        putExtra("server_id", serverId)
+                    }
+                    startService(sweepDisconnect)
+                } catch (e: Exception) {
+                    AppLogger.d(TAG, "Debug channel: pre-connect sweep disconnect noop: " + e.message)
                 }
                 val serviceIntent = Intent(this@MainActivity, OpenCodeConnectionService::class.java).apply {
                     putExtra("server_id", serverId)

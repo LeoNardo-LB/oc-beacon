@@ -78,6 +78,12 @@ internal const val FOLLOW_CLOCK_SKEW_MS = 30L * 60 * 1000
 internal fun filterFollowableSessionIds(items: List<JsonObject>, nowMs: Long): List<String> =
     items.mapNotNull { item ->
         val sid = item.dshStr("sessionId") ?: return@mapNotNull null
+        // #319 生产实证：subagent 会话（parentSessionId/origin 标识）直连 follow 被
+        // 服务端拒（session/agent-busy："require their durable parent address"——需
+        // {kind:subagent} 地址形态）；其事件经父会话与 control 流覆盖，跳过。
+        if (item.dshStr("parentSessionId") != null || item.dshStr("origin") == "subagent") {
+            return@mapNotNull null
+        }
         val running = item.dshBool("running") == true
         val updatedAt = item.dshLong("updatedAt") ?: 0L
         val recent = nowMs - updatedAt < FOLLOW_RECENCY_MS + FOLLOW_CLOCK_SKEW_MS

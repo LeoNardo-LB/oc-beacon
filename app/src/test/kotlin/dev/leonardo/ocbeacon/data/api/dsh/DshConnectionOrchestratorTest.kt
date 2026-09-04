@@ -360,6 +360,23 @@ class DshConnectionOrchestratorTest {
     }
 
     @Test
+    fun followFilter_skipsSubagentSessions() {
+        // #319 生产实证：subagent 直连 follow 被拒（需 subagent 地址形态）
+        val now = 1_000_000_000_000L
+        val items = listOf(
+            itemOf("s-sub", running = true, updatedAt = now).let { item ->
+                buildJsonObject {
+                    for ((k, v) in item) put(k, v)
+                    put("parentSessionId", "s-parent")
+                    put("origin", "subagent")
+                }
+            },
+            itemOf("s-normal", running = true, updatedAt = now),
+        )
+        assertEquals(listOf("s-normal"), filterFollowableSessionIds(items, now))
+    }
+
+    @Test
     fun followFilter_missingUpdatedAtTreatedAsAncient_skipped() {
         val items = listOf(
             itemOf("s-no-ts", running = false, updatedAt = null),
