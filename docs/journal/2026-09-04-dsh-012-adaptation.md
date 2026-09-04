@@ -131,3 +131,38 @@ journal §三待办「TokenNeeded UI + token 输入 + i18n」落地：
 - 三个既有 VM 测试补 registry mock + dshTokenNeededServers stub。
 
 验证：compileDevDebugKotlin ✅；testDevDebugUnitTest **2670/2670 绿**（+4 token 提取例）。真机 UI 走查归 #319 E2E 批次。
+
+## 六、#319 真机 E2E 全链路（2026-09-04 11:40-12:12，全门禁 PASS）
+
+环境：真机 192.168.110.239:5555（WiFi adb）+ dsh012-a5（:3081，alpha.5 鉴权，凭据注入后 key 余额尽——LLM 轮次不可用）+ dsh011-rc2（:3082，0.1.1 无鉴权）+ 生产 :3080（0.1.2-rc.1，主靶场）。
+
+### 6.1 门禁结果
+
+- **G-A 探测判别**：3081 `slash=401 dot=401 → TokenNeeded` / 3080+cookie `slash=200 dot=404 → Online(V012)` / 3082 `slash=404 dot=200 → Online(V011)`——判别表三形态全中 ✅
+- **G-B token 交换**：debug_token → `token exchange ok (cookie persisted)`（裸 OkHttp 修复生效）；无 token 重启直接 Online（cookie 持久化，每设备年一次语义成立）✅
+- **G-C TokenNeeded UX**：横幅「此服务器需要访问令牌」+「输入令牌」渲染；token 后自动消失 ✅
+- **G-D 动态 follow 补开**：宿主 RPC 造会话（信封包装 session/create+prompt）→ 新会话实时出现列表（标题=首条 prompt，onSessionAdded 补开证据）✅
+- **G-E 限界 follow**：生产 440 会话连接正常，chunk 压缩行跳过计数上升（限界集 follow 在工作）；**发现并修复 subagent follow 拒收**（agent-busy：subagent 会话需 {kind:subagent} 地址——filterFollowableSessionIds 过滤 parentSessionId/origin 条目，修复后流错误 0）✅
+- **G-F waterfall 提问卡全链路**（生产 3080，宿主 agent 亲自 ask）：卡渲染（对话流内）→ 真机点选 → `POST /api/$events/result success=true` → 会话解锁续跑 ✅
+- **G-G Web 作答消除**（cancel 路径）：Web 端作答 → 服务端 finishRemoteEvent 对剩余客户端广播 cancel → subagent 观察卡 +11s 在/+20s 消失，logcat `QuestionRejected -> QuestionEventHandler` ✅
+- **G-H 0.1.1 回归**：3082 probe V011 Online + 会话列表渲染，点式+裸 payload 路径无损 ✅
+
+### 6.2 用户反馈三修（提问卡 UX，commit 7a85b5a6）
+
+用户实测反馈：①卡不在主对话流 ②Web 作答后 app 卡不消除 ③样式与 OpenCode 面不统一。
+
+1. **resolved 帧补 sessionId**（②根因）：synthesizer onCancel 合成的 question/approval resolved 帧原先无 sessionId → mapper 判 MALFORMED 静默丢弃（服务端 finishRemoteEvent 确实广播 cancel——dsh-api-gateway/lib/index.js 源码证实，架构可解）。修复：pendingWaterfalls 值扩为 PendingWaterfall(method, sessionId)，resolved 帧带 sessionId → QuestionRejected/PermissionReplied 正常路由。
+2. **卡进主对话流**（①③）：DSH waterfall 提问无 tool/part 锚（QuestionAsked.tool=null → 永走 unembedded 保底 dock）。修复：embeddedQuestionByMsgId 扩展——无锚提问关联到最新可见 assistant 消息；MessageCardAssistant 加气泡尾 fallback 槽位（effectiveAnchorId==null 时，错误展示前）——与 OpenCode 锚定路径同 QuestionCard 组件/动画/容器（样式统一），随消息流滚动。
+
+验证：用户确认「A: 已在对话流内+样式统一」；Web 作答消除 subagent 时间线+logcat 铁证；全量单测 2670 绿。
+
+### 6.3 E2E 工程缝（commit 537f41b4）
+
+- `debug_server_type` extra（dsh）：debug 通道新建/覆写 serverType（探测不推断 DSH，默认 OpenCode 走 SSE 404 循环）；
+- **sweep 竞态修复**：冷启 FGS sweep 先于 debug 通道用旧配置连接 → Coordinator 同 id 幂等跳过新配置 → connect 前补发 ACTION_DISCONNECT（#253 同款）。
+
+### 6.4 遗留（下批）
+
+- >24h 老会话再激活真机用例（status/activity 补开已有单测，真机待自然发生）；
+- #314-316 在 3082 的回归（本轮仅验证连接+列表，四门禁脚本未跑）；
+- dsh012-a5 容器 LLM key 余额尽（Insufficient Balance）——提问链路验证移生产完成，容器 key 待充值或换 route。
