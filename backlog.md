@@ -58,25 +58,6 @@
 
 ## P1 — 核心功能需求
 
-- [ ] **#317 DSH 0.1.2 鉴权层适配——双形态版本探测 + token 交换 + cookie 持久化 + TokenNeeded UX** `dsh` `auth` `session`
-  - 双形态探测：同一 POST 先 0.1.2 形态（`session/list`+`{args:{…}}`）再 0.1.1 形态（`session.list`+裸 payload），200/401/404 组合唯一判定 {版本×鉴权态}（0.1.2 点式恒 404 / 0.1.1 斜杠式恒 404，双向可判别）
-  - token 交换：GET `/?token=` → 303 + Set-Cookie `dsh-auth-<b64url(sha256(authority))>`（`v1.<payload>.<hmac>`，Max-Age 30d HttpOnly SameSite=Strict；**跨 DSH 重启存活**→月度输 token UX 成立）；cookie 按 (serverId,authority) 持久化，authority 不匹配 401
-  - 401 降级：RPC 裸访恒 `unauthorized`、WS 升级 401 unexpected-response → TokenNeeded 状态 + token UX（粘贴 URL/启动行/token 三形态）；宿主侧 token 回收通道 = 启动行 stdout（web.log grep）
-  - → `docs/journal/2026-09-04-dsh-012-adaptation.md` · 探针报告（/home/leo-tkp/workspace/dsh-0.1.2鉴权层容器探针报告-2026-09-03.md）§3/§5
-
-- [ ] **#318 DSH 0.1.2 方法面适配——斜杠端点+args 包装、remote.mux $events 事件流、waterfall 审批应答、端点普查** `dsh` `sse` `session`
-  - 端点命名 `session.list`→`session/list`（点→斜杠），payload 包一层 `{args:{<宿主方法参数名>}}`（`session/list` 要 `_request`、`session/create` 要 `request`）；错误层新增 `gateway/internal`、`gateway/arguments-invalid`，判别序 403→401→415→404→200+闭集
-  - 事件流整体重构：双 WS events.mux+events.host 已删（旧路径 socket hang up）→ 单 WS `/api/remote.mux`（上行 open/cancel + 下行 item/error/end），事件走 `$events` 逻辑流：ready/emit/wwaterfall/cancel 帧词汇；重连对账（原 session/subscribed{lastSeq}）对应物需重新探明
-  - 审批/提问应答：0.1.1 `/api/respond`+rpcId → 0.1.2 waterfall（Host→Client 请求）→ POST `$events/result` `{clientId,eventId,outcome:{next|result|rejected}}`——#308 wire 修复按目标版本二分
-  - 端点普查：已实证 `session/list`/`session/create`/`session/modelCatalog`/`settings/describe`/`$events/result`；goal/workspace/llm/host 等 404 待 @Remote/@RemoteScope 全量盘点
-  - → `docs/journal/2026-09-04-dsh-012-adaptation.md` · 探针报告 §4/§5
-
-- [ ] **#319 DSH 0.1.2 真机 E2E——0.1.2 容器靶机全链路 + 0.1.1 回归** `dsh` `e2e`
-  - 靶机：dsh-keepalive-e2e:0.1.2-alpha.5 容器 3081（生产同款 webserver 0.0.0.0 patch）+ 真机定向 `adb reverse tcp:3081 tcp:3081`；在役 3080（0.1.1）全程不动
-  - 全链路门禁：双形态探测判 0.1.2+auth → token 交换 303+cookie → 会话列表 → 发消息 → 提问卡（waterfall）渲染 → 应答 `$events/result` success → 会话解锁；logcat+SSE 可观测性证据
-  - 回归：同一 APK 对 0.1.1 在役 3080 无鉴权全流程回归（点式+裸 payload 路径不受损）
-  - → `docs/journal/2026-09-04-dsh-012-adaptation.md` · 探针报告 §2/§6
-
 - [ ] **#309 DSH 面对齐批 1·快速胜利：goal 完成/压缩呈现/Full access 确认/插话长按直发/重试 continue** `dsh` `ui` `sse`
   - 五项全第一档（UI 已就绪纯接线，≈3 人日，不动 ChatScreen 协议文件或只轻触）：goal.complete 第四钮（API 全链在位）·压缩事件接线（CompactionCard 双态 UI 完整，DshEventMapper Ignored 未接）·Full access 二次确认（PermissionPresetSelector+现成 ConfirmDialog）·steer 长按直发（wire mode 已在）·重试倒计时+max-tokens continue 钮
   - 横切铁律：新 SseEvent 三步全走（DEM 分支+EventDispatcher bind+handler 折叠，漏 bind 即静默丢弃，goal/change 曾中招）；触 composer 按 ChatScreen 编辑协议串行
@@ -85,21 +66,6 @@
 - [ ] **#310 DSH 面对齐批 2·主价值：子智能体续聊/消息反馈/Plan 模式/轨迹台账/会话源引用** `dsh` `ui` `session`
   - 子智能体续聊先做（UI 通道 100% 就绪，缺 `subagent.prompt/interrupt/history` 三方法，性价比最高）→ 消息反馈 👍/👎（气泡下动作行，禁长按）→ Plan 模式（chip+专卡）→ 轨迹台账+检查器（RenderableTurn 已预计算时间戳；时间轴缩放 L 不做）→ @ 会话源+mention 可点（文件源现成）；≈8-10 人日
   - → `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md` §四 · `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §11.4 批 2 · `docs/research/dsh-gap-2026-09-01/implementability-ui.md`
-
-- [ ] **#316 WiFi adb daemon 重启静默拆除 adb reverse 隧道——长程 E2E 需自动重建** `refactor`
-  - E2E 中途 WiFi adb daemon 重启后 reverse 隧道消失但脚本无感知（app 侧 127.0.0.1:3080 断连无提示），后续步骤静默失败（#308 E2E round4 实证）
-  - 修法：驱动脚本每阶段前 `adb reverse --list` 探活 + 缺失即重挂；e2e-acceptance-dsh.sh 同步加固
-  - → `docs/journal/2026-09-03-fix-308-dsh-respond-wire.md` §九
-
-- [ ] **#315 tap_text 坐标解析 IFS 缺陷——"][" 空段致系统性坐标偏移（E2E 工具链）** `refactor`
-  - tap_text 的 `IFS='[],' read` 在 bounds "][ 拼接处产生空段→X2 落空取 0、Y2 错取 x2 值，历次点按中心坐标全偏、靠容器大命中区侥幸命中；scripts/e2e-acceptance-dsh.sh 同款实现同患（#308 E2E round4 实证，subagent 发现）
-  - 修法：预剥离 "]["（如 `tr ']' '\n'` 或先 sed 归一）再切分；修后回归 e2e-acceptance-dsh.sh 全部 tap_text 调用点
-  - → `docs/journal/2026-09-03-fix-308-dsh-respond-wire.md` §九（发现经过）
-
-- [ ] **#314 DSH「进会话前已挂起问题」交互卡不渲染（三次真机复现）** `dsh` `ui` `session`
-  - 问题帧在 app 冷启全局订阅时入库 handler，但进会话/滚全列表/退重进三次均无 QuestionCard（dump 无选项 chip、无「提交」钮，仅消息流 run_code 参数文本）——活体到达路径正常、pre-existing 路径断链；DSH listPendingQuestions 恒空（stub）→ REST 恢复路缺席，「开流重放未决帧」重进时也不发生（logcat 无新增 Question 行）
-  - 影响：问题挂起时用户不在会话内→回会话后无法作答→会话卡死（实证：21:03 挂起→21:18/21:43 两轮进会话无卡，靠宿主 session.cancel 解锁）
-  - → `docs/journal/2026-09-03-fix-308-dsh-respond-wire.md` §八（三次复现时间线；#308 E2E 收尾后接手根因）；**取证就绪**：/tmp/e2e308b/ dump 系列 31/40/41/43（不渲染对照）vs 60/63/65（活体渲染）+ logcat 181 万行连续档
 
 - [ ] **#313 消息队列 UI 迁入 FAB——对齐「能力→容器」自有映射，废除 QueueDock 对 DSH Web dock 布局的照搬（2026-09-03 用户路线级裁决）** `dsh` `ui`
   - **映射原则（用户定规）**：DSH 的 goal/todo（消息框上方）、子代理/后台任务（面包屑）等面板类能力，在我们这里**一律进 FAB 菜单**（ChatFabMenu 现载 TODO/AGENT/GOAL/SHELL 四入口→自有 sheet）；QUEUE 同样处理：FAB 菜单项「队列(N)」→ QueueSheet（复用 QueueDock 行逻辑+三动作），输入条上方 dock 退役；流内内容（jobs 时间线卡/错误行/压缩分割线）不属面板、维持流内

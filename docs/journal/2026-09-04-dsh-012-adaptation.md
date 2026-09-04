@@ -196,3 +196,25 @@ journal §三待办「TokenNeeded UI + token 输入 + i18n」落地：
 ### 7.4 遗留
 
 - 容器智谱注入（用户指示 glm-5.3-flash + 智谱套餐 key）：生产 key 在 keyring/launch-environment（environ 无明文），自动取得受阻——待用户提供 key 后注入（容器 settings.yaml llm-pi-ai 段 + credential），即可做 #314 的 0.1.1 容器完整复验（挂起提问→进会话渲染）。
+
+### 7.5 条目关闭判定执行（qa-methodology §4.4 首次应用，2026-09-04 20:40-21:06）
+
+**N1 增量真机验证（层层递进补全 L1 逆向/边界 case）**：
+- C1 三态探测：3083 `slash=401 dot=401→TokenNeeded` / 3080 `slash=200 dot=404→Online(V012)` / 3082 `slash=404 dot=200→Online(V011)` ✅
+- C2a 全新 authority（新容器 :3083）首连 → TokenNeeded + 横幅渲染（dump=1）✅
+- C2b token 注入 → `exchange ok (cookie persisted)` → Online×3 + 横幅消失 ✅
+- C2c 错误 token → 探测保持 TokenNeeded（不误判 Online）✅
+- C3 cookie 跨容器重启存活（Online 保持）——journal §2.2「跨 DSH 重启存活」实测吻合 ✅
+- C2d **token 对话框 UI 全路径仪器化**（原 V6 人工项转仪器 PASS）：横幅按钮→对话框（标题/输入框/连接/取消 dump 断言）→ `input text` 注入 → 连接 → exchange ok→Online→**横幅+对话框双自动消失**；逆向：污染 token→`rejected 401`→**被拒红字保留对话框** ✅
+- C4 生产复核：agent-busy 流错误 0 / Online×2 / chunk 跳过×8（follow 工作）/ 列表渲染 ✅
+
+**C2d 过程发现并修复真 UI bug**（516a3859）：横幅「输入令牌」按钮沉入状态栏 ~105px（Scaffold topBar Column 无 statusBarsPadding）——视觉遮挡+触摸被系统拦截 → 按钮不可点。TokenNeeded/断连双横幅统一 statusBarsPadding；修复后按钮 bounds y54→188 全可点。
+
+**关闭判定**（仪器优先原则，全部 L1-L4 观测一致）：
+- **#314**（pre-existing 提问卡）：0.1.2 生产 dump 证据（渲染/作答/消除）+ 0.1.1 段 #308 批历史 → 关闭
+- **#315**（tap_text IFS）：五卡 #285 弹层确定性命中 → 关闭
+- **#316**（adb reverse 重建）：本批两次掉线重连实证 → 关闭
+- **#317**（鉴权层+UX）：C1-C3+C2d 全过（含对话框逆向）→ 关闭
+- **#318**（方法面）：L1-L4 全过 + modelCatalog 修复真机验证 → 关闭
+- **#319**（E2E 执行卡）：八门禁 + N1 增量 → 关闭
+- #308 保持 [~]（其自身验收流程）
