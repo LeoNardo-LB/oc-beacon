@@ -158,6 +158,10 @@ V1 契约要点（实测）：prompt 走 `POST /session/{id}/prompt_async`，bod
 
 > **元素定位/判定/手势的完整方法**（dump 失明区、像素探针、vision 纪律、slop/返回手势区坑、签名速查）见 [`docs/android-ui-probing-guide.md`](android-ui-probing-guide.md)（2026-08-23 #192 E2E 实战定稿）。
 
+### ⚠️ debug-entry.sh 会重指后端（2026-09-05 #308 验收实证）
+
+`./scripts/debug-entry.sh` 默认把 app 连接重指到 **Host-4199（opencode V2）**——DSH 生产(:3080)测试若直接跑该入口，会进错后端（会话/权限事件全然不同，PermissionAsked 不发）。DSH 生产测试流程：改脚本参数（或入口后手动切服务器）到 `http://127.0.0.1:3080` + `adb reverse tcp:3080 tcp:3080`，并在验收 P0 阶段**核验 app 当前连接 URL=预期后端**（服务器页/设置页可见）再开跑。
+
 ## 真机独占与串行纪律（2026-09-04）
 
 真机是**单一独占资源**：同一时刻只允许一个验收执行流操作设备——一次一卡、卡内一次一项，**禁止多个 subagent 并发操作真机**。不碰真机的工作（checklist 生成/审查、代码分析、单测）可并行；Gradle 构建禁并发与真机锁相互独立（AGENTS.md）。完整协议见 [`ai-acceptance-workflow.md`](ai-acceptance-workflow.md) §5。
