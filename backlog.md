@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#320**。
+**编号**：全局递增，不回收。下一编号：**#325**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -58,6 +58,10 @@
 
 ## P1 — 核心功能需求
 
+- [ ] **#320 DSH 事件系统通知——turn 结束/问题到达/审批等待 → Android 通知+deep-link（web turn-notify 对位）** `dsh` `sse` `ui`
+  - 非前台会话 turn 结束/question/approval → 系统通知点进会话；通知设置+deep-link+渠道基础设施全在（Settings→Notifications/host 事件流），纯接线；web 走 /turn-notify/focus-wait HTTP 长轮询，Android 用既有 WS 事件流即可
+  - → `docs/research/2026-09-04-dsh-web-parity-round2.md` #320
+
 - [ ] **#309 DSH 面对齐批 1·快速胜利：goal 完成/压缩呈现/Full access 确认/插话长按直发/重试 continue** `dsh` `ui` `sse`
   - 五项全第一档（UI 已就绪纯接线，≈3 人日，不动 ChatScreen 协议文件或只轻触）：goal.complete 第四钮（API 全链在位）·压缩事件接线（CompactionCard 双态 UI 完整，DshEventMapper Ignored 未接）·Full access 二次确认（PermissionPresetSelector+现成 ConfirmDialog）·steer 长按直发（wire mode 已在）·重试倒计时+max-tokens continue 钮
   - 横切铁律：新 SseEvent 三步全走（DEM 分支+EventDispatcher bind+handler 折叠，漏 bind 即静默丢弃，goal/change 曾中招）；触 composer 按 ChatScreen 编辑协议串行
@@ -74,6 +78,18 @@
 
 ## P2 — 优化与锦上添花
 
+- [ ] **#321 DSH @文件引用补全为空——findFiles stub 接 fileReferences/list** `dsh` `ui` `data`
+  - DshApiClient.findFiles 返回 emptyList → DSH 服务器上 @ 补全弹层永远空（composer 核心功能静默失效）；web 数据源 fileReferences/list（workspace-rooted 可下钻），UI（FileMentionSuggestions/VisualTransformation/草稿链）零改动
+  - → `docs/research/2026-09-04-dsh-web-parity-round2.md` #321
+
+- [ ] **#322 DSH 服务端内容搜索——searchText stub 接 session/search** `dsh` `session` `data`
+  - 内容搜索现空（searchText stub）；客户端 FTS 仅覆盖本地已加载会话；web session/search 搜全部历史（名字+内容）；命中导航（ContentHitNavigation/jumpToMessageId）与筛选 chips UI 全在
+  - → `docs/research/2026-09-04-dsh-web-parity-round2.md` #322
+
+- [ ] **#323 斜杠命令执行反馈行——command/run|done 映射 EventCard** `dsh` `sse` `ui`
+  - DshEventMapper 现 Ignored(COMMAND) → /compact 等执行后无流内反馈；web 渲染 Running…/Completed/Failed（+图片附件拒绝提示）；SseEvent 三步全走铁律适用
+  - → `docs/research/2026-09-04-dsh-web-parity-round2.md` #323
+
 - [ ] **#311 DSH 面对齐批 3·组织面：工作区归档/deliverables/工具卡增补/状态点** `dsh` `ui` `session`
   - 工作区组织（归档+行菜单+左滑先行；多 workspace 真建模 L 缓行）→ deliverables 产出文件行（**依赖 #310 @ 会话源**）→ 工具卡增补（question/skill 行）→ 等待审批/提问状态点（动 SessionStateFSM 前先读架构文档承重规则）；≈6-8 人日
   - → `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md` §四 · `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §11.4 批 3 · `docs/research/dsh-gap-2026-09-01/implementability-ui.md`
@@ -83,6 +99,10 @@
   - → `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md` §四 · `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §12.3
 
 ## P3 — 观察与低价值改进
+
+- [ ] **#324 DSH 设置面深度对齐缓行池——provider/模型目录 CRUD·插件配置与清单·preset 管理·skills 触发组** `dsh` `ui`
+  - web Settings 深度面：自定义 provider 增删+discoverModels、插件配置卡（shell 超时/agent loop/web search/子代理模型）+pluginInventory 清单、agentPresets 管理 CRUD、"/"菜单 skills/list 触发组；beacon 现有 auth+过滤+选择器，缺 CRUD/清单
+  - 移动端价值中等缓行；ServerSettingsContent/ProvidersScreen 行范式可直接扩 → `docs/research/2026-09-04-dsh-web-parity-round2.md` #324
 
 ## P4 — 外部前提阻塞（暂不可实现）
 
