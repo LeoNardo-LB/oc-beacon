@@ -24,6 +24,8 @@
 set -uo pipefail
 
 SERIAL=${1:-192.168.110.239:5555}
+# #319：目标端口可参（默认 3080 生产；DSH_E2E_PORT=3082 打 0.1.1-rc.2 回归容器）
+DSH_E2E_PORT=${DSH_E2E_PORT:-3080}
 PKG=dev.leonardo.ocbeacon.dev
 ACT=dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity
 OUT=/tmp/e2e-acceptance-$(date +%H%M%S)
@@ -33,8 +35,8 @@ PASS=(); FAIL=(); SKIP=()
 adb() { command adb -s "$SERIAL" "$@"; }
 
 ensure_reverse() { # #316：adb reverse 可被 adbd 重启/USB-WiFi 切换静默拆除——入口探测重建
-  adb reverse --list 2>/dev/null | tr -d '\r' | grep -q "tcp:3080" \
-    || { adb reverse tcp:3080 tcp:3080 >/dev/null 2>&1 && echo "  [reverse] tcp:3080 已重建"; }
+  adb reverse --list 2>/dev/null | tr -d '\r' | grep -q "tcp:$DSH_E2E_PORT" \
+    || { adb reverse "tcp:$DSH_E2E_PORT" "tcp:$DSH_E2E_PORT" >/dev/null 2>&1 && echo "  [reverse] tcp:$DSH_E2E_PORT 已重建"; }
 }
 
 # 宿主侧全程序连续 logcat（#293 批教训：设备缓冲在洪泛期分钟级旋转，-d 快照会
@@ -50,11 +52,11 @@ trap 'kill $LGPID 2>/dev/null' EXIT
 snap() { adb exec-out screencap -p > "$OUT/$1.png"; echo "  [shot] $1.png"; }
 
 rpc() { # rpc <method> <payload-json> → stdout=value JSON
-  python3 - "$1" "$2" <<'PYEOF'
+  python3 - "$1" "$2" "$DSH_E2E_PORT" <<'PYEOF'
 import json, sys, urllib.request
 method, payload = sys.argv[1], json.loads(sys.argv[2])
 req = urllib.request.Request(
-    "http://127.0.0.1:3080/api/" + method,
+    "http://127.0.0.1:" + sys.argv[3] + "/api/" + method,
     data=json.dumps({"type":"client-request","rpcId":"e2e","method":method,"payload":payload}).encode(),
     headers={"Content-Type":"application/json"})
 with urllib.request.urlopen(req, timeout=8) as r:
@@ -88,8 +90,8 @@ enter_dsh() { # 冷启 + debug intent 直达 DSH 会话列表，等待回放沉�
   local lc0; lc0=$(log_count)
   adb shell am force-stop "$PKG"; sleep 1
   adb shell pidof "$PKG" >/dev/null 2>&1 && { echo "  [warn] force-stop 未生效"; return 1; }
-  adb shell am start -n "$ACT" --es debug_url http://127.0.0.1:3080 \
-    --es debug_username opencode --es debug_name 127.0.0.1:3080 >/dev/null
+  adb shell am start -n "$ACT" --es debug_url "http://127.0.0.1:$DSH_E2E_PORT" \
+    --es debug_username opencode --es debug_server_type dsh --es debug_name "127.0.0.1:$DSH_E2E_PORT" >/dev/null
   wait_logcat 'Debug channel → SessionList' 40 "$lc0" || { echo "  [fail] 未到达会话列表"; return 1; }
   echo "  已进入 DSH 会话列表，等待回放沉降（证据→静默两段式，上限 ${SETTLE_S:-240}s）…"
   local i=0
@@ -309,10 +311,10 @@ card_285() {
     echo "  [warn] 懒建未观察到位（发送通道环境受阻——回落既有会话弹层门禁）"
     adb shell am force-stop "$PKG"; sleep 1      # 回退不稳（BACK 层级漂移），冷启重进
     ensure_reverse                               # #316
-    adb shell am start -n "$ACT" --es debug_url http://127.0.0.1:3080 \
-      --es debug_username opencode --es debug_name 127.0.0.1:3080 >/dev/null
+    adb shell am start -n "$ACT" --es debug_url "http://127.0.0.1:$DSH_E2E_PORT" \
+      --es debug_username opencode --es debug_server_type dsh --es debug_name "127.0.0.1:$DSH_E2E_PORT" >/dev/null
     wait_logcat 'Debug channel → SessionList' 20 || true
-    wait_dump '仲裁申请书' 30 || true
+    wait_dump '仲裁申请书' 30 || true              # 回退锚定生产既有会话（容器回归走懒建主路径）
     tap_text '仲裁申请书'                          # 开最新既有会话
     wait_dump '提问' 30 || echo "  [warn] 聊天页未就绪"
   fi
@@ -363,8 +365,8 @@ card_278() {
   local new_pid; new_pid=$(pid_now)
   if [ -n "$new_pid" ] && [ "$old_pid" = "$new_pid" ]; then FAIL+=("#278:force-stop 未生效"); return; fi
   local lc278; lc278=$(log_count)
-  adb shell am start -n "$ACT" --es debug_url http://127.0.0.1:3080 \
-    --es debug_username opencode --es debug_name 127.0.0.1:3080 >/dev/null
+  adb shell am start -n "$ACT" --es debug_url "http://127.0.0.1:$DSH_E2E_PORT" \
+    --es debug_username opencode --es debug_server_type dsh --es debug_name "127.0.0.1:$DSH_E2E_PORT" >/dev/null
   wait_logcat '\[syncFromRest\]' 45 "$lc278" || { FAIL+=("#278:重启后未见 syncFromRest 同步行"); return; }
   sleep 3
   local sync; sync=$(grep_from "$lc278" '\[syncFromRest\]' | tail -1)
