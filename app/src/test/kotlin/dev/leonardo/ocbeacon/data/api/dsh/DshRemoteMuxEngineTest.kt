@@ -177,7 +177,7 @@ class DshRemoteMuxEngineTest {
     @Test
     fun waterfall_userQuestions_synthesizesQuestionRequestedWithEventId() {
         val frames = mutableListOf<SynthFrame>()
-        val pending = ConcurrentHashMap<String, String>()
+        val pending = ConcurrentHashMap<String, PendingWaterfall>()
         val syn = synthesizer(frames, mutableListOf())
         syn.onItem(
             "evt",
@@ -192,13 +192,13 @@ class DshRemoteMuxEngineTest {
         val q = (frames[0].payload["questions"] as? kotlinx.serialization.json.JsonArray)?.firstOrNull() as? JsonObject
         // multiSelect → multi_select 归一化（mapper 键）
         assertEquals("false", (q?.get("multi_select") as? kotlinx.serialization.json.JsonPrimitive)?.content)
-        assertEquals("question/requested", pending["ev-1"])
+        assertEquals(PendingWaterfall("question/requested", "s1"), pending["ev-1"])
     }
 
     @Test
     fun cancel_pendingQuestion_synthesizesQuestionResolvedCancelled() {
         val frames = mutableListOf<SynthFrame>()
-        val pending = ConcurrentHashMap(mapOf("ev-9" to "question/requested"))
+        val pending = ConcurrentHashMap(mapOf("ev-9" to PendingWaterfall("question/requested", "s-host")))
         val syn = synthesizer(frames, mutableListOf())
         syn.onItem(
             "evt",
@@ -207,7 +207,26 @@ class DshRemoteMuxEngineTest {
         )
         assertEquals("question/resolved", frames[0].method)
         assertEquals("true", (frames[0].payload["cancelled"] as? kotlinx.serialization.json.JsonPrimitive)?.content)
+        // #319 E2E 实证修复：resolved 帧必须带 sessionId（无 sid 被 mapper MALFORMED 丢弃
+        // ——Web 端作答 settle 后 app 卡不消除根因）
+        assertEquals("s-host", frames[0].payload.strField("sessionId"))
         assertNull(pending["ev-9"])
+    }
+
+    @Test
+    fun cancel_pendingApproval_synthesizesApprovalResolvedWithSessionId() {
+        val frames = mutableListOf<SynthFrame>()
+        val pending = ConcurrentHashMap(mapOf("ev-7" to PendingWaterfall("approval/requested", "s-host")))
+        val syn = synthesizer(frames, mutableListOf())
+        syn.onItem(
+            "evt",
+            Json.parseToJsonElement("""{"type":"cancel","eventId":"ev-7"}""") as JsonObject,
+            pending,
+        )
+        assertEquals("approval/resolved", frames[0].method)
+        assertEquals("s-host", frames[0].payload.strField("sessionId"))
+        assertEquals("ev-7", frames[0].payload.strField("approvalId"))
+        assertNull(pending["ev-7"])
     }
 
     // ---- session/follow -------------------------------------------------------

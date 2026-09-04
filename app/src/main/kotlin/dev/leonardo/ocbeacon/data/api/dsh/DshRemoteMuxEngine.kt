@@ -73,8 +73,8 @@ class DshRemoteMuxEngine(
     /** 聚合连接状态（单流；对齐 [DshWsEventEngine.connectionState] 语义）。 */
     val connectionState: kotlinx.coroutines.flow.StateFlow<DshWsConnectionState> = state
 
-    /** waterfall eventId → 合成帧 method（cancel 帧回查用）。 */
-    private val pendingWaterfalls = java.util.concurrent.ConcurrentHashMap<String, String>()
+    /** waterfall eventId → 合成上下文（method + 会话 id；cancel 帧回查用）。 */
+    private val pendingWaterfalls = java.util.concurrent.ConcurrentHashMap<String, PendingWaterfall>()
 
     /** 当前代活跃 socket（动态 follow 补开用；断开置 null；按代更替覆写）。 */
     @Volatile private var activeSocket: okhttp3.WebSocket? = null
@@ -266,6 +266,17 @@ object DshMuxCodec {
 }
 
 /**
+ * 待决 waterfall 上下文：cancel 帧到达时合成 resolved 帧需要 method + sessionId
+ * （mapper 的 question/resolved / approval/resolved 均要求 sessionId 路由——
+ * #319 E2E 实证：无 sessionId 的 resolved 帧被判 MALFORMED 静默丢弃，Web 端
+ * 作答 settle 后 app 卡不消除的根因）。
+ */
+data class PendingWaterfall(
+    val method: String,
+    val sessionId: String,
+)
+
+/**
  * 0.1.2 mux 值 → 0.1.1 帧词汇合成器（纯回调输出；journal §2.4-2.5 对照表）。
  *
  * 输出帧全部走 [onFrame]（method, payload, rpcId）——与 [DshWsEventEngine] 的
@@ -285,7 +296,7 @@ class DshMuxSynthesizer(
     fun onItem(
         streamId: String,
         value: JsonObject,
-        pendingWaterfalls: java.util.concurrent.ConcurrentHashMap<String, String>,
+        pendingWaterfalls: java.util.concurrent.ConcurrentHashMap<String, PendingWaterfall>,
     ) {
         when {
             streamId == "evt" -> onEventsValue(value, pendingWaterfalls)
@@ -297,7 +308,7 @@ class DshMuxSynthesizer(
 
     // ---- $events：ready / emit / waterfall / cancel ------------------------
 
-    private fun onEventsValue(value: JsonObject, pending: java.util.concurrent.ConcurrentHashMap<String, String>) {
+    private fun onEventsValue(value: JsonObject, pending: java.util.concurrent.ConcurrentHashMap<String, PendingWaterfall>) {
         when ((value["type"] as? JsonPrimitive)?.content) {
             "ready" -> {
                 // clientId 入注册表（$events/result 应答凭据）——引擎注入回调
@@ -363,7 +374,7 @@ class DshMuxSynthesizer(
 
     private fun onWaterfall(
         value: JsonObject,
-        pending: java.util.concurrent.ConcurrentHashMap<String, String>,
+        pending: java.util.concurrent.ConcurrentHashMap<String, PendingWaterfall>,
     ) {
         val eventId = (value["eventId"] as? JsonPrimitive)?.content ?: return
         val event = (value["event"] as? JsonPrimitive)?.content ?: return
@@ -373,7 +384,7 @@ class DshMuxSynthesizer(
                 val request = value["request"] as? JsonObject ?: return
                 val questions = (request["questions"] as? JsonArray ?: JsonArray(emptyList()))
                     .mapNotNull { normalizeQuestionItem(it) }
-                pending[eventId] = "question/requested"
+                pending[eventId] = PendingWaterfall("question/requested", agentId)
                 frame(
                     "question/requested",
                     buildJsonObject {
@@ -385,7 +396,7 @@ class DshMuxSynthesizer(
             }
             event.contains("approval", ignoreCase = true) || event.contains("permission", ignoreCase = true) -> {
                 // 形态未实测（E2E 批次抓样本）——按 approval 合成，幂等可迭代
-                pending[eventId] = "approval/requested"
+                pending[eventId] = PendingWaterfall("approval/requested", agentId)
                 frame(
                     "approval/requested",
                     buildJsonObject {
@@ -401,21 +412,26 @@ class DshMuxSynthesizer(
 
     private fun onCancel(
         value: JsonObject,
-        pending: java.util.concurrent.ConcurrentHashMap<String, String>,
+        pending: java.util.concurrent.ConcurrentHashMap<String, PendingWaterfall>,
     ) {
         val eventId = (value["eventId"] as? JsonPrimitive)?.content ?: return
-        when (pending.remove(eventId)) {
-            "question/requested" -> frame(
-                "question/resolved",
-                buildJsonObject { put("id", eventId); put("cancelled", true) },
-                rpcId = eventId,
-            )
-            "approval/requested" -> frame(
-                "approval/resolved",
-                buildJsonObject { put("approvalId", eventId) },
-                rpcId = eventId,
-            )
-            else -> AppLogger.d(TAG, "cancel 无对应 pending: " + eventId)
+        when (val wf = pending.remove(eventId)?.takeIf { it.method == "question/requested" || it.method == "approval/requested" }) {
+            null -> AppLogger.d(TAG, "cancel 无对应 pending: " + eventId)
+            // resolved 帧必须带 sessionId（mapper MALFORMED 拒收无 sid 帧——Web 端
+            // 作答 settle 后 app 卡不消除根因；journal §2.5 finishRemoteEvent 广播）
+            else -> if (wf.method == "question/requested") {
+                frame(
+                    "question/resolved",
+                    buildJsonObject { put("sessionId", wf.sessionId); put("id", eventId); put("cancelled", true) },
+                    rpcId = eventId,
+                )
+            } else {
+                frame(
+                    "approval/resolved",
+                    buildJsonObject { put("sessionId", wf.sessionId); put("approvalId", eventId) },
+                    rpcId = eventId,
+                )
+            }
         }
     }
 

@@ -404,6 +404,30 @@ internal fun MessageCardAssistant(
                 }
             }
 
+            // #319（用户裁决：提问卡进主对话流）：DSH 0.1.2 waterfall 提问无
+            // tool/part 锚（questionAnchorPartId=null 且无 retained 锚）——气泡尾
+            // fallback 槽位：卡渲染在本 turn 内容之后、错误展示之前，与 OpenCode
+            // 锚定路径同一 QuestionCard 组件/动画语言（样式统一）；随消息流滚动。
+            androidx.compose.animation.AnimatedVisibility(
+                visible = qEntered && pendingQuestion != null && effectiveAnchorId == null,
+                enter = CardExpandEnterTransition,
+                exit = CardExpandExitTransition,
+            ) {
+                val avQuestion = pendingQuestion ?: lastQuestion
+                if (avQuestion != null) {
+                    QuestionCard(
+                        question = avQuestion,
+                        onSubmit = { answers ->
+                            onQuestionSubmit?.invoke(avQuestion.id, answers)
+                        },
+                        onReject = {
+                            onQuestionReject?.invoke(avQuestion.id)
+                        },
+                        answersStore = questionAnswersCache,
+                    )
+                }
+            }
+
             // 错误展示（气泡内）
             if (renderableTurn.errorText != null) {
                 Surface(

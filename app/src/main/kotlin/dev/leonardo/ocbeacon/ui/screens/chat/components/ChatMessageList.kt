@@ -380,12 +380,28 @@ fun ChatMessageList(
     val embeddedQuestionByMsgId: Map<String, SseEvent.QuestionAsked> = remember(
         interaction.pendingQuestions, displayItems
     ) {
-        val visibleMsgIds = displayItems.mapNotNull { (_, msg) ->
+        val visibleAssistantIds = displayItems.mapNotNull { (_, msg) ->
             if (msg.isAssistant) msg.message.id else null
-        }.toSet()
-        interaction.pendingQuestions
+        }
+        val visibleMsgIds = visibleAssistantIds.toSet()
+        val toolAnchored = interaction.pendingQuestions
             .filter { q -> q.tool?.messageId != null && q.tool.messageId in visibleMsgIds }
             .associateBy { it.tool!!.messageId }
+        // #319（用户裁决：提问卡进主对话流、样式与 OpenCode 统一）：DSH 0.1.2
+        // waterfall 提问无 tool/part 锚（全局帧，QuestionAsked.tool=null）——原走
+        // unembedded 保底 dock（钉在消息流下方固定区，流外+无气泡容器）。锚到
+        // **最新可见 assistant 消息**（displayItems 新→旧序取 first），卡进该
+        // 气泡尾部（MessageCardAssistant fallback 槽位），与 OpenCode 嵌入路径
+        // 同容器同样式；tool 锚路径不受影响。
+        val unanchored = interaction.pendingQuestions.filter { q ->
+            q.tool?.messageId == null || q.tool.messageId !in visibleMsgIds
+        }
+        val latestAssistantId = visibleAssistantIds.firstOrNull()
+        if (unanchored.isNotEmpty() && latestAssistantId != null && latestAssistantId !in toolAnchored) {
+            toolAnchored + (latestAssistantId to unanchored.first())
+        } else {
+            toolAnchored
+        }
     }
     // 未嵌入任何可见 assistant 消息的提问（保底独立显示）
     val unembeddedQuestions = remember(interaction.pendingQuestions, embeddedQuestionByMsgId) {
