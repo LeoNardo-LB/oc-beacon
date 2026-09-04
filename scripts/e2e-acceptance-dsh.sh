@@ -26,6 +26,10 @@ set -uo pipefail
 SERIAL=${1:-192.168.110.239:5555}
 # #319：目标端口可参（默认 3080 生产；DSH_E2E_PORT=3082 打 0.1.1-rc.2 回归容器）
 DSH_E2E_PORT=${DSH_E2E_PORT:-3080}
+# #314-316 回归适配（容器）：既有会话锚 + 新建目录 fallback 链（默认=生产环境）
+DSH_E2E_SESS=${DSH_E2E_SESS:-仲裁申请书}
+DSH_E2E_DIR1=${DSH_E2E_DIR1:-dsh-openapi-scratch}
+DSH_E2E_DIR2=${DSH_E2E_DIR2:-oc-beacon}
 PKG=dev.leonardo.ocbeacon.dev
 ACT=dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity
 OUT=/tmp/e2e-acceptance-$(date +%H%M%S)
@@ -120,10 +124,10 @@ open_new_chat() { # 顶栏「新建会话」(固定坐标) → 目录选择表 �
     adb shell input tap 972 230; sleep 2
     if wait_dump '打开其他项目' 8; then
       for scroll in 1 2 3 4; do
-        tap_text 'dsh-openapi-scratch' 2 2 850 2150 && { echo "  目录: dsh-openapi-scratch"; return 0; }
+        tap_text "$DSH_E2E_DIR1" 2 2 850 2150 && { echo "  目录: $DSH_E2E_DIR1"; return 0; }
         adb shell input swipe 600 1600 600 800 400; sleep 1
       done
-      tap_text 'oc-beacon' 3 2 850 2150 && { echo "  目录: oc-beacon（scratch 缺席回落）"; return 0; }
+      tap_text "$DSH_E2E_DIR2" 3 2 850 2150 && { echo "  目录: $DSH_E2E_DIR2（$DSH_E2E_DIR1 缺席回落）"; return 0; }
     fi
     # 表未开：heads-up 深链劫持 → BACK 回列表重试
     adb shell rm -f /sdcard/e2e-chk.xml
@@ -211,8 +215,8 @@ wait_dump() { # wait_dump <grep-pattern> <timeout-s> —— uiautomator dump 轮
 card_279() {
   echo "== #279 导出 SAF MIME/扩展名（落盘 .zip + unzip -t）=="
   enter_dsh || { FAIL+=("#279:无法进入DSH"); return; }
-  wait_dump '仲裁申请书' 30 || { FAIL+=("#279:会话列表未就绪"); return; }
-  tap_text '仲裁申请书'                          # 列表首条（最新会话）
+  wait_dump "$DSH_E2E_SESS" 30 || { FAIL+=("#279:会话列表未就绪"); return; }
+  tap_text "$DSH_E2E_SESS"                            # 列表首条（最新会话）
   wait_dump '提问' 30 || echo "  [warn] 聊天页 30s 未就绪"
   adb shell input tap 1130 185                  # ⋮
   wait_dump '导出' 15 || { FAIL+=("#279:菜单未打开"); return; }
@@ -314,8 +318,8 @@ card_285() {
     adb shell am start -n "$ACT" --es debug_url "http://127.0.0.1:$DSH_E2E_PORT" \
       --es debug_username opencode --es debug_server_type dsh --es debug_name "127.0.0.1:$DSH_E2E_PORT" >/dev/null
     wait_logcat 'Debug channel → SessionList' 20 || true
-    wait_dump '仲裁申请书' 30 || true              # 回退锚定生产既有会话（容器回归走懒建主路径）
-    tap_text '仲裁申请书'                          # 开最新既有会话
+    wait_dump "$DSH_E2E_SESS" 30 || true              # 回退锚定既有会话（容器回归走懒建主路径）
+    tap_text "$DSH_E2E_SESS"                          # 开最新既有会话
     wait_dump '提问' 30 || echo "  [warn] 聊天页未就绪"
   fi
   tap_text '提问' 4 2 || true
