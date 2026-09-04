@@ -13,6 +13,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -23,9 +28,24 @@ import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
+import kotlinx.coroutines.delay
 
 @Composable
 internal fun RetryBanner(retry: SessionStatus.Retry) {
+    // #309 批1⑤-a：秒级倒计时——next 为 epoch 毫秒（llm/retry 帧），逐秒递减；
+    // next<=0 或已到点（remaining=0）不显示倒计时行。
+    var remainingSeconds by remember(retry.next) {
+        mutableIntStateOf(
+            if (retry.next <= 0L) 0
+            else ((retry.next - System.currentTimeMillis() + 999L) / 1000L).toInt().coerceAtLeast(0)
+        )
+    }
+    LaunchedEffect(remainingSeconds) {
+        if (remainingSeconds > 0) {
+            delay(1000L)
+            remainingSeconds--
+        }
+    }
     Surface(
         color = MaterialTheme.colorScheme.errorContainer.copy(alpha = AlphaTokens.FAINT),
         shape = ShapeTokens.medium,
@@ -55,6 +75,13 @@ internal fun RetryBanner(retry: SessionStatus.Retry) {
                 if (retry.message.isNotBlank()) {
                     Text(
                         text = retry.message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = AlphaTokens.HIGH)
+                    )
+                }
+                if (remainingSeconds > 0) {
+                    Text(
+                        text = stringResource(R.string.session_status_retry_countdown, remainingSeconds),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = AlphaTokens.HIGH)
                     )

@@ -34,6 +34,7 @@
     <string name="sessions_new">Новая сессия</string>
     <string name="session_status_idle">Ожидание</string>
     <string name="session_status_busy">Выполняется…</string>
+    <string name="session_status_retry_countdown">Повторная попытка через %1$d с</string>
     <string name="session_status_retry">Повтор попытки (%1$d)</string>
     <string name="turn_max_tokens_title">Достигнут лимит вывода</string>
     <string name="turn_max_tokens_continue">Продолжить</string>

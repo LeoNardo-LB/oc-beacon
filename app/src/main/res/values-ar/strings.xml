@@ -20,6 +20,7 @@
     <string name="sessions_new">جلسة جديدة</string>
     <string name="session_status_idle">خامل</string>
     <string name="session_status_busy">يعمل…</string>
+    <string name="session_status_retry_countdown">إعادة المحاولة خلال %1$d ثانية</string>
     <string name="session_status_retry">إعادة المحاولة (%1$d)</string>
     <string name="turn_max_tokens_title">تم الوصول إلى حد الإخراج</string>
     <string name="turn_max_tokens_continue">متابعة</string>

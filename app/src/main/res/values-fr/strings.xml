@@ -20,6 +20,7 @@
     <string name="sessions_new">Nouvelle session</string>
     <string name="session_status_idle">Inactif</string>
     <string name="session_status_busy">En cours…</string>
+    <string name="session_status_retry_countdown">Nouvelle tentative dans %1$d s</string>
     <string name="session_status_retry">Nouvelle tentative (%1$d)</string>
     <string name="turn_max_tokens_title">Limite de sortie atteinte</string>
     <string name="turn_max_tokens_continue">Continuer</string>

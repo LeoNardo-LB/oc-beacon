@@ -20,6 +20,7 @@
     <string name="sessions_new">새 세션</string>
     <string name="session_status_idle">대기 중</string>
     <string name="session_status_busy">작업 중…</string>
+    <string name="session_status_retry_countdown">%1$d초 후 재시도</string>
     <string name="session_status_retry">재시도 중 (%1$d)</string>
     <string name="turn_max_tokens_title">출력 한도에 도달했습니다</string>
     <string name="turn_max_tokens_continue">계속</string>

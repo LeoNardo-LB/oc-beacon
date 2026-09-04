@@ -20,6 +20,7 @@
     <string name="sessions_new">Yeni Oturum</string>
     <string name="session_status_idle">Boşta</string>
     <string name="session_status_busy">Çalışıyor…</string>
+    <string name="session_status_retry_countdown">%1$d sn sonra yeniden deneniyor</string>
     <string name="session_status_retry">Yeniden deneniyor (%1$d)</string>
     <string name="turn_max_tokens_title">Çıktı sınırına ulaşıldı</string>
     <string name="turn_max_tokens_continue">Devam et</string>

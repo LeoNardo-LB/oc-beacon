@@ -20,6 +20,7 @@
     <string name="sessions_new">新規セッション</string>
     <string name="session_status_idle">アイドル</string>
     <string name="session_status_busy">作業中…</string>
+    <string name="session_status_retry_countdown">%1$d 秒後に再試行</string>
     <string name="session_status_retry">再試行中（%1$d）</string>
     <string name="turn_max_tokens_title">出力の上限に達しました</string>
     <string name="turn_max_tokens_continue">続ける</string>

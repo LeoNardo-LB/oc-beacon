@@ -45,6 +45,7 @@
     <string name="sessions_retrying">Mencoba ulang</string>
     <string name="session_status_idle">Tidak aktif</string>
     <string name="session_status_busy">Bekerja…</string>
+    <string name="session_status_retry_countdown">Mencoba lagi dalam %1$d detik</string>
     <string name="session_status_retry">Mencoba ulang (%1$d)</string>
     <string name="turn_max_tokens_title">Batas output tercapai</string>
     <string name="turn_max_tokens_continue">Lanjutkan</string>

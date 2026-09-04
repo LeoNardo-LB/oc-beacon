@@ -61,6 +61,7 @@
     <string name="sessions_create_session">Create Session</string>
     <string name="session_status_idle">Idle</string>
     <string name="session_status_busy">Working…</string>
+    <string name="session_status_retry_countdown">Retrying in %1$d s</string>
     <string name="session_status_retry">Retrying (%1$d)</string>
     <string name="turn_max_tokens_title">Output limit reached</string>
     <string name="turn_max_tokens_continue">Continue</string>

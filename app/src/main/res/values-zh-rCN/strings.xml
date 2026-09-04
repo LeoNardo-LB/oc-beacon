@@ -20,6 +20,7 @@
     <string name="sessions_new">新建会话</string>
     <string name="session_status_idle">空闲</string>
     <string name="session_status_busy">处理中…</string>
+    <string name="session_status_retry_countdown">%1$d 秒后重试</string>
     <string name="session_status_retry">重试中（%1$d）</string>
     <string name="turn_max_tokens_title">输出达到上限</string>
     <string name="turn_max_tokens_continue">继续</string>
