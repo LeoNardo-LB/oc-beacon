@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -63,6 +61,10 @@ import kotlinx.coroutines.launch
  * 「新增自定义 provider」入口开表单对话框（route/显示名/baseURL/协议/密钥 +
  * discoverModels 探查勾选）。凭据字段走 credentials/set——**不回显明文**
  * （credentials/describe 只回 configured/writable）。
+ *
+ * ⚠️ 本区块宿主是 ServerProvidersScreen 的外层 LazyColumn——内部**禁止**再
+ * 引入纵向滚动容器（LazyColumn/verticalScroll），否则无限高度约束测量期崩溃
+ * （#324① F1 事故；回归测试 DshCustomProvidersSectionLayoutTest）。
  */
 @Composable
 internal fun DshCustomProvidersSection(
@@ -127,8 +129,13 @@ internal fun DshCustomProvidersSection(
         }
     }
 
-    LazyColumn(modifier = Modifier.fillMaxWidth()) {
-        items(directory, key = { it.row.provider }) { entry ->
+    // F1 修复（#324①）：本区块嵌在 ServerProvidersScreen 的外层 LazyColumn
+    // item 内——纵向滚动容器（LazyColumn）在其中被以无限最大高度约束测量，
+    // 测量期即抛 IllegalStateException（提供方页 100% 崩溃）。目录条目量小
+    // （内置目录 + 自定义，数十级），按 ServerSettingsContent 既有约定改
+    // Column + forEach（该文件 143 行注释明令禁嵌套 LazyColumn）。
+    Column(modifier = Modifier.fillMaxWidth()) {
+        directory.forEach { entry ->
             val isCustom = entry.isCustom
             ListItem(
                 headlineContent = {
