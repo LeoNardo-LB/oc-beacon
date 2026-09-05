@@ -96,6 +96,11 @@
 - real-device-testing.md：真机操作 runbook，本文件 §5 引用其入口。
 - regression-guide：§2 步骤1 的回归域选择依据。
 
+### 自动化输入坑（2026-09-06 #334 改判沉淀）
+
+- **清稿用全选替换法**：tap 聚焦 → 全选（Select all / MOVE_END+精确计数）→ 一次性替换清空。**禁 keyevent 67 连发计数清稿**——平台焦点行为下连发失配（仓库两源真机互证）。
+- Compose TextToolbar（长按菜单）为独立 popup window，uiautomator dump 失明——菜单存在性不以 dump 判。
+
 ## 8. 模板
 
 ### 8.1 checklist 文件骨架
