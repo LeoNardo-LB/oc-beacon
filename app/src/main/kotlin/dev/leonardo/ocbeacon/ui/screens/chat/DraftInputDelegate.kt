@@ -93,13 +93,16 @@ internal class DraftInputDelegate(
             _sessionSearchResults.value = emptyList()
             return
         }
+        // #310⑤ 轮2 A3 修复：quoted 形态 @"a 的 trigger 词含前导引号——查询前必须
+        // 去引号（否则文件查询以 "a 开头恒空,真机轮2 铁证:同会话 @a 正常而 @"a 无弹窗）。
+        val effectiveQuery = if (quoted) query.removePrefix("\"") else query
         fileSearchJob = scope.launch {
-            if (query.isNotEmpty()) delay(150) // debounce
+            if (effectiveQuery.isNotEmpty()) delay(150) // debounce
             try {
                 val merged = chatRepository.mentionCandidates(
                     serverId = serverId,
                     sessionId = sessionIdProvider(),
-                    query = query,
+                    query = effectiveQuery,
                     directory = sessionDirectoryProvider(),
                     quoted = quoted,
                 ).getOrElse { e ->
