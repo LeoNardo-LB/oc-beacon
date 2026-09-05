@@ -42,7 +42,13 @@ import dev.leonardo.ocbeacon.data.dto.response.VcsChangeDto
 import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
 import dev.leonardo.ocbeacon.domain.model.AgentPreset
 import dev.leonardo.ocbeacon.domain.model.DshAgentPresetDefault
+import dev.leonardo.ocbeacon.domain.model.DshConfigurableProvider
+import dev.leonardo.ocbeacon.domain.model.DshCredentialStatus
+import dev.leonardo.ocbeacon.domain.model.DshCustomProviderDraft
+import dev.leonardo.ocbeacon.domain.model.DshCustomProviders
+import dev.leonardo.ocbeacon.domain.model.DshDiscoveredModel
 import dev.leonardo.ocbeacon.domain.model.DshGoalRef
+import dev.leonardo.ocbeacon.domain.model.DshModelDiscoveryRequest
 import dev.leonardo.ocbeacon.domain.model.FileDiff
 import dev.leonardo.ocbeacon.domain.model.MessagePage
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
@@ -1983,6 +1989,161 @@ class DshApiClient @Inject constructor(
 
     override suspend fun disposeInstance(conn: ServerConnection): Boolean = false
 
+    // ============ #324①：provider/模型目录（llm 目录探查 + credentials + 自定义增删） ============
+
+    /**
+     * llm/listConfigurableProviders → 可配置 provider 目录（数组直返，callJson 面）。
+     * 0.1.1 无该端点 → 恒空列表（UI 目录合流退化为已注册行）。失败软降级空列表。
+     */
+    suspend fun listConfigurableProviders(conn: ServerConnection): List<DshConfigurableProvider> {
+        if (protocolOf(conn) == DshWireProtocol.V011) return emptyList()
+        val value = rpc.callJson(conn, "llm.listConfigurableProviders", buildJsonObject {}) { it }.getOrElse { e ->
+            AppLogger.w(TAG, "llm/listConfigurableProviders failed: " + e.message)
+            return emptyList()
+        }
+        return (value as? JsonArray).orEmpty().filterIsInstance<JsonObject>().mapNotNull { entry ->
+            val provider = entry.dshStr("provider") ?: return@mapNotNull null
+            DshConfigurableProvider(
+                provider = provider,
+                displayName = entry.dshStr("displayName") ?: provider,
+                settingsNs = entry.dshStr("settingsNs") ?: "",
+                settingsPath = entry.dshArr("settingsPath")
+                    ?.mapNotNull { (it as? JsonPrimitive)?.takeIf { p -> p !is JsonNull }?.content }
+                    .orEmpty(),
+                declared = entry.dshBool("declared"),
+            )
+        }
+    }
+
+    /**
+     * llm/discoverModels(settingsNs, request) → 端点模型清单（数组直返）。
+     * request {provider?, baseURL?, api?, apiKey?} 全可选（探测未落盘配置）。
+     */
+    suspend fun discoverModels(conn: ServerConnection, request: DshModelDiscoveryRequest): List<DshDiscoveredModel> {
+        val payload = buildJsonObject {
+            put("settingsNs", request.settingsNs)
+            put("request", buildJsonObject {
+                request.provider?.let { put("provider", it) }
+                request.baseURL?.let { put("baseURL", it) }
+                request.api?.let { put("api", it) }
+                request.apiKey?.let { put("apiKey", it) }
+            })
+        }
+        val value = rpc.callJson(conn, "llm.discoverModels", payload) { it }.getOrElse { e ->
+            AppLogger.w(TAG, "llm/discoverModels failed: " + e.message)
+            throw e
+        }
+        return (value as? JsonArray).orEmpty().filterIsInstance<JsonObject>().mapNotNull { entry ->
+            val id = entry.dshStr("id") ?: return@mapNotNull null
+            DshDiscoveredModel(
+                id = id,
+                name = entry.dshStr("name"),
+                contextWindow = entry.dshLong("contextWindow"),
+                maxTokens = entry.dshLong("maxTokens"),
+            )
+        }
+    }
+
+    /**
+     * credentials/describe(keys) → 逐 ref 状态 {configured, source?, writable}。
+     * **永不携带明文**——UI 只显已配置态，写走 [setCredential]。
+     */
+    suspend fun describeCredentials(conn: ServerConnection, refs: List<String>): Map<String, DshCredentialStatus> {
+        if (refs.isEmpty()) return emptyMap()
+        val payload = buildJsonObject {
+            put("keys", JsonArray(refs.map { JsonPrimitive(it) }))
+        }
+        val value = rpc.call(conn, "credentials.describe", payload) { it }.getOrElse { e ->
+            AppLogger.w(TAG, "credentials/describe failed: " + e.message)
+            return emptyMap()
+        }
+        val out = linkedMapOf<String, DshCredentialStatus>()
+        value.forEach { (ref, entry) ->
+            val obj = entry as? JsonObject ?: return@forEach
+            out[ref] = DshCredentialStatus(
+                ref = ref,
+                configured = obj.dshBool("configured") ?: false,
+                writable = obj.dshBool("writable") ?: false,
+                source = obj.dshStr("source"),
+            )
+        }
+        return out
+    }
+
+    /** credentials/set(key, value) → 写凭据（void 回程走 [DshRpcClient.callVoid]）。 */
+    suspend fun setCredential(conn: ServerConnection, ref: String, value: String): Boolean =
+        rpc.callVoid(conn, "credentials.set", buildJsonObject {
+            put("key", ref)
+            put("value", value)
+        }).isSuccess
+
+    /** credentials/unset(key) → 删凭据（void 回程）。 */
+    suspend fun unsetCredential(conn: ServerConnection, ref: String): Boolean =
+        rpc.callVoid(conn, "credentials.unset", buildJsonObject { put("key", ref) }).isSuccess
+
+    /**
+     * 新建自定义 provider（契约锚点 web CustomProviderCard）：
+     * ① settings/mutate(ns=llm-pi-ai, set ["providers",route]=profile, expectedRevision?)；
+     * ② apiKey 非空 → credentials/set(deriveCredentialRef(route), key)。
+     * profile 落盘成功但凭据失败 → 返回 false（profile 已在，重试路径=凭据单写）。
+     */
+    suspend fun createCustomProvider(conn: ServerConnection, draft: DshCustomProviderDraft, expectedRevision: Long?): Boolean {
+        val payload = buildJsonObject {
+            put("ns", DshCustomProviders.SETTINGS_NS)
+            put("ops", JsonArray(listOf(buildJsonObject {
+                put("op", "set")
+                put("path", JsonArray(DshCustomProviders.providerPath(draft.route).map { JsonPrimitive(it) }))
+                put("value", DshCustomProviders.profileJson(draft))
+            })))
+            expectedRevision?.let { put("expectedRevision", it) }
+        }
+        val outcome = rpc.call(conn, "settings.mutate", payload) { Unit }
+        if (outcome.isFailure) {
+            val e = outcome.exceptionOrNull()
+            if (e is DshApiError && e.httpStatus == 403) {
+                AppLogger.w(TAG, "settings.mutate forbidden for provider create (403, loopback-only)")
+                throw DshSettingsForbiddenException()
+            }
+            AppLogger.w(TAG, "createCustomProvider mutate failed: " + e?.message)
+            return false
+        }
+        if (draft.apiKey.isNotBlank() && !setCredential(conn, DshCustomProviders.deriveCredentialRef(draft.route), draft.apiKey)) {
+            AppLogger.w(TAG, "createCustomProvider credential store failed for route=" + draft.route)
+            return false
+        }
+        return true
+    }
+
+    /**
+     * 删除自定义 provider（对齐 web removeProviderProfile）：
+     * ① settings/mutate(ns, unset path)（无 expectedRevision——整段删除不冲突）；
+     * ② credentialRef 非空 → credentials/unset（托管凭据一并清除）。
+     */
+    suspend fun deleteCustomProvider(conn: ServerConnection, settingsNs: String, settingsPath: List<String>, credentialRef: String?): Boolean {
+        val payload = buildJsonObject {
+            put("ns", settingsNs)
+            put("ops", JsonArray(listOf(buildJsonObject {
+                put("op", "unset")
+                put("path", JsonArray(settingsPath.map { JsonPrimitive(it) }))
+            })))
+        }
+        val outcome = rpc.call(conn, "settings.mutate", payload) { Unit }
+        if (outcome.isFailure) {
+            val e = outcome.exceptionOrNull()
+            if (e is DshApiError && e.httpStatus == 403) {
+                AppLogger.w(TAG, "settings.mutate forbidden for provider delete (403, loopback-only)")
+                throw DshSettingsForbiddenException()
+            }
+            AppLogger.w(TAG, "deleteCustomProvider mutate failed: " + e?.message)
+            return false
+        }
+        if (credentialRef != null && !unsetCredential(conn, credentialRef)) {
+            AppLogger.w(TAG, "deleteCustomProvider credential unset failed for ref=" + credentialRef)
+            return false
+        }
+        return true
+    }
+
     // ============ #282-a：settings 域同形收口 ============
 
     /** settings.describe → 指定 ns 条目（缺席/失败 → null；日志带 ns 便于分诊）。 */
@@ -2001,6 +2162,14 @@ class DshApiClient @Inject constructor(
             .filterIsInstance<JsonObject>()
             .firstOrNull { it.dshStr("ns") == ns }
     }
+
+    /**
+     * #324：settings.describe → 指定 ns 快照（public 仓库面；[settingsNamespace] 的
+     * 开放包装——provider 目录/自定义增删读 revision 与 providers 值）。
+     * 403 上抛 [DshSettingsForbiddenException]（同 [settingsNamespace] 栅栏）。
+     */
+    suspend fun settingsNamespaceSnapshot(conn: ServerConnection, ns: String): JsonObject? =
+        settingsNamespace(conn, ns)
 
     /** settings.mutate → 单键 set（乐观并发：expectedRevision 由调用方先行读取）。 */
     private suspend fun settingsMutateSet(conn: ServerConnection, ns: String, key: String, value: String, expectedRevision: Long): Boolean {

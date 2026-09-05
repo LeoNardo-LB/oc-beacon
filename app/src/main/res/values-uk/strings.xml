@@ -870,4 +870,30 @@
     <string name="server_pair_help_manual">Вручну: збережіть і під\'єднайте цей сервер, потім торкніться "Ввести токен" на банері та вставте токен із рядка запуску сервера</string>
     <string name="server_pair_help_adb">Через USB (dev-збірки): запустіть ./scripts/dsh-pair.sh на хості — токен буде введено автоматично</string>
     <string name="server_pair_help_deeplink">Або запустіть ./scripts/dsh-pair.sh --lan на хості та відскануйте або торкніться посилання ocbeacon://, щоб заповнити цю форму</string>
+
+    <!-- #324① DSH provider 目录/自定义增删 -->
+    <string name="dsh_settings_loopback_required">Ця дія потребує loopback-з\'єднання (adb reverse до 127.0.0.1).</string>
+    <string name="dsh_providers_section_title">Каталог постачальників DSH</string>
+    <string name="dsh_providers_empty">Сервер не повідомив про постачальників.</string>
+    <string name="dsh_provider_add_custom">Додати власного постачальника</string>
+    <string name="dsh_provider_route">Ідентифікатор маршруту</string>
+    <string name="dsh_provider_route_hint">Малі літери, цифри та дефіси; має починатися з літери.</string>
+    <string name="dsh_provider_route_invalid">Маршрут може містити лише малі літери, цифри та дефіси й має починатися з літери.</string>
+    <string name="dsh_provider_route_taken">Цей маршрут уже використовується.</string>
+    <string name="dsh_provider_display_name">Відображуване ім\'я (необов\'язково)</string>
+    <string name="dsh_provider_base_url">Базова URL-адреса</string>
+    <string name="dsh_provider_api_key">API-ключ (необов\'язково)</string>
+    <string name="dsh_provider_api_key_hint">Зберігається в облікових даних сервера; значення більше ніколи не показується.</string>
+    <string name="dsh_provider_discover">Виявити моделі</string>
+    <string name="dsh_provider_discover_failed">Не вдалося виконати виявлення: %1$s</string>
+    <string name="dsh_provider_models_none">Моделей ще не виявлено. Заповніть базову URL-адресу й торкніться «Виявити».</string>
+    <string name="dsh_provider_model_select">Виберіть моделі для включення</string>
+    <string name="dsh_provider_create">Створити</string>
+    <string name="dsh_provider_delete">Видалити</string>
+    <string name="dsh_provider_delete_confirm_title">Видалити власного постачальника</string>
+    <string name="dsh_provider_delete_confirm_text">Видалити власного постачальника %1$s? Збережені облікові дані (якщо є) також буде видалено.</string>
+    <string name="dsh_provider_credential_configured">Облікові дані налаштовано</string>
+    <string name="dsh_provider_credential_missing">Облікові дані не задано</string>
+    <string name="dsh_provider_active">Активний у середовищі виконання</string>
+    <string name="dsh_provider_inactive">Неактивний у середовищі виконання</string>
 </resources>

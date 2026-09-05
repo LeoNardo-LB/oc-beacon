@@ -860,4 +860,30 @@
     <string name="server_pair_help_manual">Manuel : enregistrez et connectez ce serveur, puis touchez « Saisir le jeton » sur la bannière et collez le jeton de la ligne de démarrage du serveur</string>
     <string name="server_pair_help_adb">USB (versions dev) : exécutez ./scripts/dsh-pair.sh sur l\'hôte — le jeton est injecté automatiquement</string>
     <string name="server_pair_help_deeplink">Ou exécutez ./scripts/dsh-pair.sh --lan sur l\'hôte et scannez ou touchez le lien ocbeacon:// pour préremplir ce formulaire</string>
+
+    <!-- #324① DSH provider 目录/自定义增删 -->
+    <string name="dsh_settings_loopback_required">Cette action nécessite une connexion loopback (adb reverse vers 127.0.0.1).</string>
+    <string name="dsh_providers_section_title">Répertoire des fournisseurs DSH</string>
+    <string name="dsh_providers_empty">Le serveur n\'a signalé aucun fournisseur.</string>
+    <string name="dsh_provider_add_custom">Ajouter un fournisseur personnalisé</string>
+    <string name="dsh_provider_route">ID de route</string>
+    <string name="dsh_provider_route_hint">Lettres minuscules, chiffres et tirets ; doit commencer par une lettre.</string>
+    <string name="dsh_provider_route_invalid">La route doit être en lettres minuscules, chiffres et tirets, et commencer par une lettre.</string>
+    <string name="dsh_provider_route_taken">Cette route est déjà utilisée.</string>
+    <string name="dsh_provider_display_name">Nom d\'affichage (facultatif)</string>
+    <string name="dsh_provider_base_url">URL de base</string>
+    <string name="dsh_provider_api_key">Clé API (facultatif)</string>
+    <string name="dsh_provider_api_key_hint">Stockée dans les identifiants du serveur ; la valeur n\'est plus jamais affichée.</string>
+    <string name="dsh_provider_discover">Découvrir les modèles</string>
+    <string name="dsh_provider_discover_failed">Échec de la découverte : %1$s</string>
+    <string name="dsh_provider_models_none">Aucun modèle découvert pour l\'instant. Renseignez l\'URL de base puis touchez Découvrir.</string>
+    <string name="dsh_provider_model_select">Sélectionner les modèles à inclure</string>
+    <string name="dsh_provider_create">Créer</string>
+    <string name="dsh_provider_delete">Supprimer</string>
+    <string name="dsh_provider_delete_confirm_title">Supprimer le fournisseur personnalisé</string>
+    <string name="dsh_provider_delete_confirm_text">Supprimer le fournisseur personnalisé %1$s ? Son identifiant stocké (le cas échéant) sera également supprimé.</string>
+    <string name="dsh_provider_credential_configured">Identifiant configuré</string>
+    <string name="dsh_provider_credential_missing">Identifiant non défini</string>
+    <string name="dsh_provider_active">Actif dans le runtime</string>
+    <string name="dsh_provider_inactive">Inactif dans le runtime</string>
 </resources>

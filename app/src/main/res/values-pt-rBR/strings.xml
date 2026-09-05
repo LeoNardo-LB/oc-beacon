@@ -862,4 +862,30 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="server_pair_help_manual">Manual: salve e conecte este servidor, depois toque em "Inserir token" na faixa e cole o token da linha de inicialização do servidor</string>
     <string name="server_pair_help_adb">USB (compilações dev): execute ./scripts/dsh-pair.sh no host — o token é injetado automaticamente</string>
     <string name="server_pair_help_deeplink">Ou execute ./scripts/dsh-pair.sh --lan no host e leia ou toque no link ocbeacon:// para preencher este formulário</string>
+
+    <!-- #324① DSH provider 目录/自定义增删 -->
+    <string name="dsh_settings_loopback_required">Esta ação requer uma conexão loopback (adb reverse para 127.0.0.1).</string>
+    <string name="dsh_providers_section_title">Diretório de provedores DSH</string>
+    <string name="dsh_providers_empty">O servidor não relatou provedores.</string>
+    <string name="dsh_provider_add_custom">Adicionar provedor personalizado</string>
+    <string name="dsh_provider_route">ID da rota</string>
+    <string name="dsh_provider_route_hint">Letras minúsculas, dígitos e hífens; deve começar com uma letra.</string>
+    <string name="dsh_provider_route_invalid">A rota deve conter apenas letras minúsculas, dígitos e hífens, e começar com uma letra.</string>
+    <string name="dsh_provider_route_taken">Esta rota já está em uso.</string>
+    <string name="dsh_provider_display_name">Nome de exibição (opcional)</string>
+    <string name="dsh_provider_base_url">URL base</string>
+    <string name="dsh_provider_api_key">Chave de API (opcional)</string>
+    <string name="dsh_provider_api_key_hint">Armazenada nas credenciais do servidor; o valor nunca é exibido novamente.</string>
+    <string name="dsh_provider_discover">Descobrir modelos</string>
+    <string name="dsh_provider_discover_failed">Falha na descoberta: %1$s</string>
+    <string name="dsh_provider_models_none">Nenhum modelo descoberto ainda. Preencha a URL base e toque em Descobrir.</string>
+    <string name="dsh_provider_model_select">Selecione os modelos a incluir</string>
+    <string name="dsh_provider_create">Criar</string>
+    <string name="dsh_provider_delete">Excluir</string>
+    <string name="dsh_provider_delete_confirm_title">Excluir provedor personalizado</string>
+    <string name="dsh_provider_delete_confirm_text">Excluir o provedor personalizado %1$s? A credencial armazenada (se houver) também será removida.</string>
+    <string name="dsh_provider_credential_configured">Credencial configurada</string>
+    <string name="dsh_provider_credential_missing">Credencial não definida</string>
+    <string name="dsh_provider_active">Ativo no runtime</string>
+    <string name="dsh_provider_inactive">Inativo no runtime</string>
 </resources>

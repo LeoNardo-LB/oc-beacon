@@ -73,6 +73,25 @@ class DshRpcClient @Inject constructor(
     }
 
     /**
+     * void 结果 RPC（#324：agentPresets/copy|deletePreset、credentials/set|unset）。
+     *
+     * 服务器 typert z.void() 结果经 JSON.stringify 丢 undefined 键 → 线面
+     * {"ok":true}（value 缺席）或 value:null——[call]/[callJson] 的非空前置均
+     * 会误判失败。本方法把 ok=true 的任意 value（含 null/JsonNull）判为成功。
+     */
+    internal suspend fun callVoid(
+        conn: ServerConnection,
+        method: String,
+        payload: JsonObject,
+    ): Result<Unit> {
+        val (wireMethod, envelope) = prepare(conn, method, payload)
+        val wire = exchange(conn, wireMethod, envelope)
+        val ok = wire.getOrElse { return Result.failure(it) } as? DshRpcResult.Ok
+            ?: return Result.failure(DshApiError(null, "malformed server-response envelope", null, HTTP_OK))
+        return Result.success(Unit)
+    }
+
+    /**
      * value 非对象 RPC（commands/list 等数组值方法，2026-08-31 活体定音）——
      * [call] 的「value 必为对象」前置不适用。transform 语义同 [call]
      *（ok=true 时执行；异常经 runCatching 语义接管，不冒充传输错误）。

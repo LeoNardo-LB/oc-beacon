@@ -862,4 +862,30 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="server_pair_help_manual">Manuel: bu sunucuyu kaydedip bağlayın, ardından bannerdaki "Token gir"e dokunun ve sunucu başlatma satırındaki tokeni yapıştırın</string>
     <string name="server_pair_help_adb">USB (dev sürümleri): ana makinede ./scripts/dsh-pair.sh çalıştırın — token otomatik olarak enjekte edilir</string>
     <string name="server_pair_help_deeplink">Veya ana makinede ./scripts/dsh-pair.sh --lan çalıştırın ve bu formu doldurmak için ocbeacon:// bağlantısını tarayın veya dokunun</string>
+
+    <!-- #324① DSH provider 目录/自定义增删 -->
+    <string name="dsh_settings_loopback_required">Bu işlem bir loopback bağlantısı gerektirir (adb reverse ile 127.0.0.1).</string>
+    <string name="dsh_providers_section_title">DSH sağlayıcı dizini</string>
+    <string name="dsh_providers_empty">Sunucu hiçbir sağlayıcı bildirmedi.</string>
+    <string name="dsh_provider_add_custom">Özel sağlayıcı ekle</string>
+    <string name="dsh_provider_route">Yol kimliği</string>
+    <string name="dsh_provider_route_hint">Küçük harfler, rakamlar ve tire; harfle başlamalıdır.</string>
+    <string name="dsh_provider_route_invalid">Yol yalnızca küçük harf, rakam ve tire içerebilir ve harfle başlamalıdır.</string>
+    <string name="dsh_provider_route_taken">Bu yol zaten kullanımda.</string>
+    <string name="dsh_provider_display_name">Görünen ad (isteğe bağlı)</string>
+    <string name="dsh_provider_base_url">Temel URL</string>
+    <string name="dsh_provider_api_key">API anahtarı (isteğe bağlı)</string>
+    <string name="dsh_provider_api_key_hint">Sunucu kimlik bilgilerinde saklanır; değer bir daha asla gösterilmez.</string>
+    <string name="dsh_provider_discover">Modelleri keşfet</string>
+    <string name="dsh_provider_discover_failed">Keşif başarısız: %1$s</string>
+    <string name="dsh_provider_models_none">Henüz model keşfedilmedi. Temel URL\'yi doldurun ve Keşfet\'e dokunun.</string>
+    <string name="dsh_provider_model_select">Dahil edilecek modelleri seçin</string>
+    <string name="dsh_provider_create">Oluştur</string>
+    <string name="dsh_provider_delete">Sil</string>
+    <string name="dsh_provider_delete_confirm_title">Özel sağlayıcıyı sil</string>
+    <string name="dsh_provider_delete_confirm_text">%1$s özel sağlayıcısı silinsin mi? Saklanan kimlik bilgisi (varsa) da kaldırılır.</string>
+    <string name="dsh_provider_credential_configured">Kimlik bilgisi yapılandırıldı</string>
+    <string name="dsh_provider_credential_missing">Kimlik bilgisi ayarlanmadı</string>
+    <string name="dsh_provider_active">Çalışma zamanında etkin</string>
+    <string name="dsh_provider_inactive">Çalışma zamanında etkin değil</string>
 </resources>

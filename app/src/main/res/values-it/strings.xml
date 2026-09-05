@@ -862,4 +862,30 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="server_pair_help_manual">Manuale: salva e connetti questo server, poi tocca "Inserisci token" nel banner e incolla il token dalla riga di avvio del server</string>
     <string name="server_pair_help_adb">USB (build dev): esegui ./scripts/dsh-pair.sh sull\'host — il token viene iniettato automaticamente</string>
     <string name="server_pair_help_deeplink">Oppure esegui ./scripts/dsh-pair.sh --lan sull\'host e scansiona o tocca il link ocbeacon:// per precompilare questo modulo</string>
+
+    <!-- #324① DSH provider 目录/自定义增删 -->
+    <string name="dsh_settings_loopback_required">Questa azione richiede una connessione loopback (adb reverse a 127.0.0.1).</string>
+    <string name="dsh_providers_section_title">Elenco provider DSH</string>
+    <string name="dsh_providers_empty">Il server non ha segnalato alcun provider.</string>
+    <string name="dsh_provider_add_custom">Aggiungi provider personalizzato</string>
+    <string name="dsh_provider_route">ID route</string>
+    <string name="dsh_provider_route_hint">Lettere minuscole, cifre e trattini; deve iniziare con una lettera.</string>
+    <string name="dsh_provider_route_invalid">La route deve contenere solo lettere minuscole, cifre e trattini e iniziare con una lettera.</string>
+    <string name="dsh_provider_route_taken">Questa route è già in uso.</string>
+    <string name="dsh_provider_display_name">Nome visualizzato (facoltativo)</string>
+    <string name="dsh_provider_base_url">URL di base</string>
+    <string name="dsh_provider_api_key">Chiave API (facoltativa)</string>
+    <string name="dsh_provider_api_key_hint">Salvata nelle credenziali del server; il valore non viene mai più mostrato.</string>
+    <string name="dsh_provider_discover">Scopri modelli</string>
+    <string name="dsh_provider_discover_failed">Discovery non riuscita: %1$s</string>
+    <string name="dsh_provider_models_none">Nessun modello scoperto. Compila l\'URL di base e tocca Scopri.</string>
+    <string name="dsh_provider_model_select">Seleziona i modelli da includere</string>
+    <string name="dsh_provider_create">Crea</string>
+    <string name="dsh_provider_delete">Elimina</string>
+    <string name="dsh_provider_delete_confirm_title">Elimina provider personalizzato</string>
+    <string name="dsh_provider_delete_confirm_text">Eliminare il provider personalizzato %1$s? Anche la credenziale salvata (se presente) verrà rimossa.</string>
+    <string name="dsh_provider_credential_configured">Credenziale configurata</string>
+    <string name="dsh_provider_credential_missing">Credenziale non impostata</string>
+    <string name="dsh_provider_active">Attivo nel runtime</string>
+    <string name="dsh_provider_inactive">Non attivo nel runtime</string>
 </resources>

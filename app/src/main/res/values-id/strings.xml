@@ -868,4 +868,30 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="server_pair_help_manual">Manual: simpan dan sambungkan server ini, lalu ketuk "Masukkan token" pada banner dan tempel token dari baris mulai server</string>
     <string name="server_pair_help_adb">USB (build dev): jalankan ./scripts/dsh-pair.sh di host — token disuntikkan otomatis</string>
     <string name="server_pair_help_deeplink">Atau jalankan ./scripts/dsh-pair.sh --lan di host lalu pindai atau ketuk tautan ocbeacon:// untuk mengisi formulir ini</string>
+
+    <!-- #324① DSH provider 目录/自定义增删 -->
+    <string name="dsh_settings_loopback_required">Tindakan ini memerlukan koneksi loopback (adb reverse ke 127.0.0.1).</string>
+    <string name="dsh_providers_section_title">Direktori penyedia DSH</string>
+    <string name="dsh_providers_empty">Server tidak melaporkan penyedia apa pun.</string>
+    <string name="dsh_provider_add_custom">Tambahkan penyedia kustom</string>
+    <string name="dsh_provider_route">ID rute</string>
+    <string name="dsh_provider_route_hint">Huruf kecil, angka, dan tanda hubung; harus diawali huruf.</string>
+    <string name="dsh_provider_route_invalid">Rute hanya boleh berisi huruf kecil, angka, dan tanda hubung, serta diawali huruf.</string>
+    <string name="dsh_provider_route_taken">Rute ini sudah digunakan.</string>
+    <string name="dsh_provider_display_name">Nama tampilan (opsional)</string>
+    <string name="dsh_provider_base_url">URL dasar</string>
+    <string name="dsh_provider_api_key">Kunci API (opsional)</string>
+    <string name="dsh_provider_api_key_hint">Disimpan di kredensial server; nilainya tidak akan pernah ditampilkan lagi.</string>
+    <string name="dsh_provider_discover">Temukan model</string>
+    <string name="dsh_provider_discover_failed">Gagal menemukan: %1$s</string>
+    <string name="dsh_provider_models_none">Belum ada model yang ditemukan. Isi URL dasar lalu ketuk Temukan.</string>
+    <string name="dsh_provider_model_select">Pilih model yang akan disertakan</string>
+    <string name="dsh_provider_create">Buat</string>
+    <string name="dsh_provider_delete">Hapus</string>
+    <string name="dsh_provider_delete_confirm_title">Hapus penyedia kustom</string>
+    <string name="dsh_provider_delete_confirm_text">Hapus penyedia kustom %1$s? Kredensial tersimpannya (jika ada) juga dihapus.</string>
+    <string name="dsh_provider_credential_configured">Kredensial terkonfigurasi</string>
+    <string name="dsh_provider_credential_missing">Kredensial belum diatur</string>
+    <string name="dsh_provider_active">Aktif di runtime</string>
+    <string name="dsh_provider_inactive">Tidak aktif di runtime</string>
 </resources>

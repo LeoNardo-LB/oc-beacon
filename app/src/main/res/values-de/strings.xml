@@ -862,4 +862,30 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="server_pair_help_manual">Manuell: Speichern und verbinden Sie diesen Server, tippen Sie dann auf „Token eingeben“ im Banner und fügen Sie das Token aus der Server-Startzeile ein</string>
     <string name="server_pair_help_adb">USB (Dev-Builds): Führen Sie ./scripts/dsh-pair.sh auf dem Host aus — das Token wird automatisch eingefügt</string>
     <string name="server_pair_help_deeplink">Oder führen Sie ./scripts/dsh-pair.sh --lan auf dem Host aus und scannen oder tippen Sie auf den ocbeacon://-Link, um dieses Formular vorzufüllen</string>
+
+    <!-- #324① DSH provider 目录/自定义增删 -->
+    <string name="dsh_settings_loopback_required">Diese Aktion erfordert eine Loopback-Verbindung (adb reverse zu 127.0.0.1).</string>
+    <string name="dsh_providers_section_title">DSH-Provider-Verzeichnis</string>
+    <string name="dsh_providers_empty">Der Server hat keine Provider gemeldet.</string>
+    <string name="dsh_provider_add_custom">Benutzerdefinierten Provider hinzufügen</string>
+    <string name="dsh_provider_route">Route-ID</string>
+    <string name="dsh_provider_route_hint">Kleinbuchstaben, Ziffern und Bindestriche; muss mit einem Buchstaben beginnen.</string>
+    <string name="dsh_provider_route_invalid">Die Route darf nur Kleinbuchstaben, Ziffern und Bindestriche enthalten und muss mit einem Buchstaben beginnen.</string>
+    <string name="dsh_provider_route_taken">Diese Route ist bereits belegt.</string>
+    <string name="dsh_provider_display_name">Anzeigename (optional)</string>
+    <string name="dsh_provider_base_url">Basis-URL</string>
+    <string name="dsh_provider_api_key">API-Schlüssel (optional)</string>
+    <string name="dsh_provider_api_key_hint">Wird in den Server-Credentials gespeichert; der Wert wird nie wieder angezeigt.</string>
+    <string name="dsh_provider_discover">Modelle ermitteln</string>
+    <string name="dsh_provider_discover_failed">Ermittlung fehlgeschlagen: %1$s</string>
+    <string name="dsh_provider_models_none">Noch keine Modelle ermittelt. Basis-URL ausfüllen und auf Ermitteln tippen.</string>
+    <string name="dsh_provider_model_select">Zu berücksichtigende Modelle auswählen</string>
+    <string name="dsh_provider_create">Erstellen</string>
+    <string name="dsh_provider_delete">Löschen</string>
+    <string name="dsh_provider_delete_confirm_title">Benutzerdefinierten Provider löschen</string>
+    <string name="dsh_provider_delete_confirm_text">Benutzerdefinierten Provider %1$s löschen? Dabei wird auch der gespeicherte Credential (falls vorhanden) entfernt.</string>
+    <string name="dsh_provider_credential_configured">Credential konfiguriert</string>
+    <string name="dsh_provider_credential_missing">Credential nicht gesetzt</string>
+    <string name="dsh_provider_active">Aktiv in der Laufzeit</string>
+    <string name="dsh_provider_inactive">Nicht aktiv in der Laufzeit</string>
 </resources>

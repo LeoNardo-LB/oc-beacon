@@ -871,4 +871,30 @@
     <string name="server_pair_help_manual">Вручную: сохраните и подключите этот сервер, затем нажмите «Ввести токен» на баннере и вставьте токен из строки запуска сервера</string>
     <string name="server_pair_help_adb">По USB (dev-сборки): выполните ./scripts/dsh-pair.sh на хосте — токен будет введён автоматически</string>
     <string name="server_pair_help_deeplink">Или выполните ./scripts/dsh-pair.sh --lan на хосте и отсканируйте или нажмите ссылку ocbeacon://, чтобы заполнить эту форму</string>
+
+    <!-- #324① DSH provider 目录/自定义增删 -->
+    <string name="dsh_settings_loopback_required">Это действие требует loopback-соединения (adb reverse на 127.0.0.1).</string>
+    <string name="dsh_providers_section_title">Каталог провайдеров DSH</string>
+    <string name="dsh_providers_empty">Сервер не сообщил о провайдерах.</string>
+    <string name="dsh_provider_add_custom">Добавить свой провайдер</string>
+    <string name="dsh_provider_route">Идентификатор маршрута</string>
+    <string name="dsh_provider_route_hint">Строчные буквы, цифры и дефисы; должен начинаться с буквы.</string>
+    <string name="dsh_provider_route_invalid">Маршрут должен состоять из строчных букв, цифр и дефисов и начинаться с буквы.</string>
+    <string name="dsh_provider_route_taken">Этот маршрут уже занят.</string>
+    <string name="dsh_provider_display_name">Отображаемое имя (необязательно)</string>
+    <string name="dsh_provider_base_url">Базовый URL</string>
+    <string name="dsh_provider_api_key">API-ключ (необязательно)</string>
+    <string name="dsh_provider_api_key_hint">Хранится в учётных данных сервера; значение больше никогда не показывается.</string>
+    <string name="dsh_provider_discover">Найти модели</string>
+    <string name="dsh_provider_discover_failed">Не удалось выполнить поиск: %1$s</string>
+    <string name="dsh_provider_models_none">Модели пока не найдены. Заполните базовый URL и нажмите «Найти».</string>
+    <string name="dsh_provider_model_select">Выберите модели для включения</string>
+    <string name="dsh_provider_create">Создать</string>
+    <string name="dsh_provider_delete">Удалить</string>
+    <string name="dsh_provider_delete_confirm_title">Удалить свой провайдер</string>
+    <string name="dsh_provider_delete_confirm_text">Удалить свой провайдер %1$s? Сохранённые учётные данные (если есть) также будут удалены.</string>
+    <string name="dsh_provider_credential_configured">Учётные данные настроены</string>
+    <string name="dsh_provider_credential_missing">Учётные данные не заданы</string>
+    <string name="dsh_provider_active">Активен в среде выполнения</string>
+    <string name="dsh_provider_inactive">Не активен в среде выполнения</string>
 </resources>

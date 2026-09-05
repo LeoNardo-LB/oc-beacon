@@ -107,11 +107,13 @@ object DshUnprobedProtocolSource : DshProtocolSource {
  * - **SELF**：恒等（调用方已构造完整线面 payload，含 args 包装）——commands 两方法
  *   （0.1.1 即 args 形态）+ goals 六方法（0.1.2 形态由调用点语义构造）；
  * - **EMPTY_ARGS**：无参端点，payload 丢弃 → {args:{}}——settings/describe、
- *   session/modelCatalog、agentPresets/list、llm/listProviders；
+ *   session/modelCatalog、agentPresets/list、llm/listProviders、#324 新增
+ *   llm/listConfigurableProviders、pluginInventory/list；
  * - **FLAT**：{args:{…}} 直包裸 payload（sessionId→agentId 改名 + 丢弃 JsonNull 值）
  *   ——subagents/list（键是 parentSessionId，无需改名）、#310⑤/#321 两引用端点
  *   （键是 agentId+query，无需改名）、agentPresets/select、directoryPicker/list、
- *   settings/mutate；
+ *   settings/mutate、#324 新增 llm/discoverModels、credentials/describe|set|unset、
+ *   agentPresets/read|copy|deletePreset（typert 参数名即 wire 键）；
  * - **WRAPPED**：{args:{key:payload}}（key 默认 request；session/list = _request）
  *   ——其余全部（session 域）。
  */
@@ -176,6 +178,12 @@ object DshWireAdapter {
         "subagent.interruptByParent" to "subagents/interruptByParent",
         "agentPreset.list" to "agentPresets/list",
         "agentPreset.select" to "agentPresets/select",
+        // #324②：agentPresets 域管理三方法（复数命名空间同族）
+        "agentPreset.read" to "agentPresets/read",
+        "agentPreset.copy" to "agentPresets/copy",
+        "agentPreset.deletePreset" to "agentPresets/deletePreset",
+        // #324①：llm 目录探查（listConfigurableProviders 复合名机械替换不中）
+        "llm.listConfigurableProviders" to "llm/listConfigurableProviders",
         "goal.create" to "goals/create",
         "goal.edit" to "goals/edit",
         "goal.pause" to "goals/pause",
@@ -211,6 +219,9 @@ object DshWireAdapter {
         "session/modelCatalog",
         "agentPresets/list",
         "llm/listProviders",
+        // #324①③：llm 目录探查 + 插件清单（typert 零参端点）
+        "llm/listConfigurableProviders",
+        "pluginInventory/list",
     )
 
     /**
@@ -227,6 +238,16 @@ object DshWireAdapter {
         "agentPresets/select",
         "directoryPicker/list",
         "settings/mutate",
+        // #324①：llm/discoverModels {settingsNs,request} + credentials 三方法
+        // {keys}/{key,value}/{key}（typert 参数名即 wire 键）
+        "llm/discoverModels",
+        "credentials/describe",
+        "credentials/set",
+        "credentials/unset",
+        // #324②：agentPresets 管理三方法（from/id/name? · agentPreset · id）
+        "agentPresets/copy",
+        "agentPresets/read",
+        "agentPresets/deletePreset",
     )
 
     /** request 包装型端点的 args 键（默认 request；session/list 实测 = _request）。 */

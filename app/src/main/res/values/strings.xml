@@ -945,4 +945,29 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="server_pair_help_manual">Manual: save and connect this server, then tap "Enter token" on the banner and paste the token from the server startup line</string>
     <string name="server_pair_help_adb">USB (dev builds): run ./scripts/dsh-pair.sh on the host — the token is injected automatically</string>
     <string name="server_pair_help_deeplink">Or run ./scripts/dsh-pair.sh --lan on the host and scan or tap the ocbeacon:// link to pre-fill this form</string>
+    <!-- #324① DSH provider 目录/自定义增删 -->
+    <string name="dsh_settings_loopback_required">This action needs a loopback connection (adb reverse to 127.0.0.1).</string>
+    <string name="dsh_providers_section_title">DSH provider directory</string>
+    <string name="dsh_providers_empty">No providers reported by the server.</string>
+    <string name="dsh_provider_add_custom">Add custom provider</string>
+    <string name="dsh_provider_route">Route ID</string>
+    <string name="dsh_provider_route_hint">Lowercase letters, digits and hyphens; must start with a letter.</string>
+    <string name="dsh_provider_route_invalid">Route must be lowercase letters/digits/hyphens and start with a letter.</string>
+    <string name="dsh_provider_route_taken">This route is already in use.</string>
+    <string name="dsh_provider_display_name">Display name (optional)</string>
+    <string name="dsh_provider_base_url">Base URL</string>
+    <string name="dsh_provider_api_key">API key (optional)</string>
+    <string name="dsh_provider_api_key_hint">Stored in server credentials; the value is never shown again.</string>
+    <string name="dsh_provider_discover">Discover models</string>
+    <string name="dsh_provider_discover_failed">Discovery failed: %1$s</string>
+    <string name="dsh_provider_models_none">No models discovered yet. Fill the Base URL and tap Discover.</string>
+    <string name="dsh_provider_model_select">Select models to include</string>
+    <string name="dsh_provider_create">Create</string>
+    <string name="dsh_provider_delete">Delete</string>
+    <string name="dsh_provider_delete_confirm_title">Delete custom provider</string>
+    <string name="dsh_provider_delete_confirm_text">Delete custom provider %1$s? Its stored credential (if any) is removed too.</string>
+    <string name="dsh_provider_credential_configured">Credential configured</string>
+    <string name="dsh_provider_credential_missing">Credential not set</string>
+    <string name="dsh_provider_active">Active in runtime</string>
+    <string name="dsh_provider_inactive">Not active in runtime</string>
 </resources>

@@ -494,6 +494,22 @@ fun ServerProvidersScreen(
                 }
             }
 
+            // #324①：DSH provider 目录 + 自定义增删区块（isDsh 门控；V1/V2 不渲染）
+            if (uiState.isDsh) {
+                item {
+                    DshCustomProvidersSection(
+                        directory = uiState.dshDirectory,
+                        loading = uiState.dshDirectoryLoading,
+                        settingsBlocked = uiState.dshSettingsBlocked,
+                        error = uiState.dshProviderError,
+                        onRefresh = viewModel::loadDshProviderDirectory,
+                        onDiscover = viewModel::discoverDshModels,
+                        onCreate = viewModel::createDshCustomProvider,
+                        onDelete = viewModel::deleteDshCustomProvider,
+                    )
+                }
+            }
+
             if (available.isNotEmpty()) {
                 item { SectionHeader(title = stringResource(R.string.server_settings_providers_available)) }
                 items(available, key = { it.providerId }) { provider ->

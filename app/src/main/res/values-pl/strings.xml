@@ -870,4 +870,30 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="server_pair_help_manual">Ręcznie: zapisz i połącz ten serwer, a następnie dotknij „Wprowadź token" na banerze i wklej token z wiersza startowego serwera</string>
     <string name="server_pair_help_adb">USB (kompilacje dev): uruchom ./scripts/dsh-pair.sh na hoście — token zostanie wstrzyknięty automatycznie</string>
     <string name="server_pair_help_deeplink">Albo uruchom ./scripts/dsh-pair.sh --lan na hoście i zeskanuj lub dotknij linku ocbeacon://, aby wypełnić ten formularz</string>
+
+    <!-- #324① DSH provider 目录/自定义增删 -->
+    <string name="dsh_settings_loopback_required">To działanie wymaga połączenia loopback (adb reverse do 127.0.0.1).</string>
+    <string name="dsh_providers_section_title">Katalog dostawców DSH</string>
+    <string name="dsh_providers_empty">Serwer nie zgłosił żadnych dostawców.</string>
+    <string name="dsh_provider_add_custom">Dodaj dostawcę niestandardowego</string>
+    <string name="dsh_provider_route">Identyfikator trasy</string>
+    <string name="dsh_provider_route_hint">Małe litery, cyfry i łączniki; musi zaczynać się od litery.</string>
+    <string name="dsh_provider_route_invalid">Trasa może zawierać tylko małe litery, cyfry i łączniki oraz musi zaczynać się od litery.</string>
+    <string name="dsh_provider_route_taken">Ta trasa jest już używana.</string>
+    <string name="dsh_provider_display_name">Nazwa wyświetlana (opcjonalnie)</string>
+    <string name="dsh_provider_base_url">Bazowy URL</string>
+    <string name="dsh_provider_api_key">Klucz API (opcjonalnie)</string>
+    <string name="dsh_provider_api_key_hint">Przechowywany w poświadczeniach serwera; wartość nigdy nie zostanie ponownie pokazana.</string>
+    <string name="dsh_provider_discover">Wykryj modele</string>
+    <string name="dsh_provider_discover_failed">Wykrywanie nie powiodło się: %1$s</string>
+    <string name="dsh_provider_models_none">Nie wykryto jeszcze modeli. Wypełnij bazowy URL i dotknij Wykryj.</string>
+    <string name="dsh_provider_model_select">Wybierz modele do dołączenia</string>
+    <string name="dsh_provider_create">Utwórz</string>
+    <string name="dsh_provider_delete">Usuń</string>
+    <string name="dsh_provider_delete_confirm_title">Usuń dostawcę niestandardowego</string>
+    <string name="dsh_provider_delete_confirm_text">Usunąć dostawcę niestandardowego %1$s? Przechowywane poświadczenie (jeśli jest) również zostanie usunięte.</string>
+    <string name="dsh_provider_credential_configured">Poświadczenie skonfigurowane</string>
+    <string name="dsh_provider_credential_missing">Poświadczenie nieustawione</string>
+    <string name="dsh_provider_active">Aktywny w środowisku uruchomieniowym</string>
+    <string name="dsh_provider_inactive">Nieaktywny w środowisku uruchomieniowym</string>
 </resources>

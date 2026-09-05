@@ -862,4 +862,30 @@
     <string name="server_pair_help_manual">手動：このサーバーを保存して接続し、上部バナーの「トークンを入力」をタップしてサーバー起動行のトークンを貼り付けてください</string>
     <string name="server_pair_help_adb">USB（dev ビルド）：ホストで ./scripts/dsh-pair.sh を実行するとトークンが自動注入されます</string>
     <string name="server_pair_help_deeplink">またはホストで ./scripts/dsh-pair.sh --lan を実行し、ocbeacon:// リンクをスキャンまたはタップしてこのフォームを自動入力できます</string>
+
+    <!-- #324① DSH provider 目录/自定义增删 -->
+    <string name="dsh_settings_loopback_required">この操作にはループバック接続（adb reverse で 127.0.0.1）が必要です。</string>
+    <string name="dsh_providers_section_title">DSH プロバイダーディレクトリ</string>
+    <string name="dsh_providers_empty">サーバーが報告したプロバイダーはありません。</string>
+    <string name="dsh_provider_add_custom">カスタムプロバイダーを追加</string>
+    <string name="dsh_provider_route">ルート ID</string>
+    <string name="dsh_provider_route_hint">小文字・数字・ハイフン。先頭は英小文字である必要があります。</string>
+    <string name="dsh_provider_route_invalid">ルートは小文字・数字・ハイフンのみで、先頭は英小文字にしてください。</string>
+    <string name="dsh_provider_route_taken">このルートは既に使用されています。</string>
+    <string name="dsh_provider_display_name">表示名（任意）</string>
+    <string name="dsh_provider_base_url">ベース URL</string>
+    <string name="dsh_provider_api_key">API キー（任意）</string>
+    <string name="dsh_provider_api_key_hint">サーバーの認証情報に保存され、値が再度表示されることはありません。</string>
+    <string name="dsh_provider_discover">モデルを検出</string>
+    <string name="dsh_provider_discover_failed">検出に失敗しました: %1$s</string>
+    <string name="dsh_provider_models_none">まだモデルが検出されていません。ベース URL を入力して検出をタップしてください。</string>
+    <string name="dsh_provider_model_select">含めるモデルを選択</string>
+    <string name="dsh_provider_create">作成</string>
+    <string name="dsh_provider_delete">削除</string>
+    <string name="dsh_provider_delete_confirm_title">カスタムプロバイダーを削除</string>
+    <string name="dsh_provider_delete_confirm_text">カスタムプロバイダー %1$s を削除しますか？保存された認証情報（あれば）も削除されます。</string>
+    <string name="dsh_provider_credential_configured">認証情報は設定済み</string>
+    <string name="dsh_provider_credential_missing">認証情報は未設定</string>
+    <string name="dsh_provider_active">ランタイムで有効</string>
+    <string name="dsh_provider_inactive">ランタイムで無効</string>
 </resources>

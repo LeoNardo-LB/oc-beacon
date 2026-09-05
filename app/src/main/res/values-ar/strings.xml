@@ -878,4 +878,30 @@
     <string name="server_pair_help_manual">يدويًا: احفظ هذا الخادم واتصل به، ثم انقر على "إدخال الرمز" في الشريط العلوي والصق الرمز من سطر بدء تشغيل الخادم</string>
     <string name="server_pair_help_adb">عبر USB (إصدارات التطوير): شغّل ./scripts/dsh-pair.sh على المضيف — يتم إدخال الرمز تلقائيًا</string>
     <string name="server_pair_help_deeplink">أو شغّل ./scripts/dsh-pair.sh --lan على المضيف وامسح رابط ocbeacon:// أو انقر عليه لتعبئة هذا النموذج تلقائيًا</string>
+
+    <!-- #324① DSH provider 目录/自定义增删 -->
+    <string name="dsh_settings_loopback_required">يتطلب هذا الإجراء اتصال loopback (عبر adb reverse إلى 127.0.0.1).</string>
+    <string name="dsh_providers_section_title">دليل مزودي DSH</string>
+    <string name="dsh_providers_empty">لم يُبلغ الخادم عن أي مزودين.</string>
+    <string name="dsh_provider_add_custom">إضافة مزود مخصص</string>
+    <string name="dsh_provider_route">معرّف المسار</string>
+    <string name="dsh_provider_route_hint">أحرف صغيرة وأرقام وشرطات؛ يجب أن يبدأ بحرف.</string>
+    <string name="dsh_provider_route_invalid">يجب أن يتكون المسار من أحرف صغيرة وأرقام وشرطات وأن يبدأ بحرف.</string>
+    <string name="dsh_provider_route_taken">هذا المسار مستخدم بالفعل.</string>
+    <string name="dsh_provider_display_name">اسم العرض (اختياري)</string>
+    <string name="dsh_provider_base_url">عنوان URL الأساسي</string>
+    <string name="dsh_provider_api_key">مفتاح API (اختياري)</string>
+    <string name="dsh_provider_api_key_hint">يُخزَّن في بيانات اعتماد الخادم؛ ولن تُعرض القيمة مرة أخرى أبدًا.</string>
+    <string name="dsh_provider_discover">اكتشاف النماذج</string>
+    <string name="dsh_provider_discover_failed">فشل الاكتشاف: %1$s</string>
+    <string name="dsh_provider_models_none">لم تُكتشف أي نماذج بعد. أدخل عنوان URL الأساسي واضغط اكتشاف.</string>
+    <string name="dsh_provider_model_select">اختر النماذج المراد تضمينها</string>
+    <string name="dsh_provider_create">إنشاء</string>
+    <string name="dsh_provider_delete">حذف</string>
+    <string name="dsh_provider_delete_confirm_title">حذف المزود المخصص</string>
+    <string name="dsh_provider_delete_confirm_text">حذف المزود المخصص %1$s؟ سيُزال مفتاح الاعتماد المخزَّن (إن وُجد) أيضًا.</string>
+    <string name="dsh_provider_credential_configured">مفتاح الاعتماد مُهيأ</string>
+    <string name="dsh_provider_credential_missing">مفتاح الاعتماد غير مضبوط</string>
+    <string name="dsh_provider_active">نشط في وقت التشغيل</string>
+    <string name="dsh_provider_inactive">غير نشط في وقت التشغيل</string>
 </resources>

@@ -865,4 +865,30 @@
     <string name="server_pair_help_manual">手动：先保存并连接此服务器，再点顶部横幅的「输入令牌」，粘贴服务器启动行中的令牌</string>
     <string name="server_pair_help_adb">USB（dev 构建）：在宿主机运行 ./scripts/dsh-pair.sh，令牌自动注入</string>
     <string name="server_pair_help_deeplink">或在宿主机运行 ./scripts/dsh-pair.sh --lan，扫描/点击 ocbeacon:// 链接自动填表</string>
+
+    <!-- #324① DSH provider 目录/自定义增删 -->
+    <string name="dsh_settings_loopback_required">此操作需要环回连接（adb reverse 到 127.0.0.1）。</string>
+    <string name="dsh_providers_section_title">DSH provider 目录</string>
+    <string name="dsh_providers_empty">服务器未报告任何 provider。</string>
+    <string name="dsh_provider_add_custom">新增自定义 provider</string>
+    <string name="dsh_provider_route">路由 ID</string>
+    <string name="dsh_provider_route_hint">小写字母、数字与连字符；须以字母开头。</string>
+    <string name="dsh_provider_route_invalid">路由只能包含小写字母、数字与连字符，且以字母开头。</string>
+    <string name="dsh_provider_route_taken">该路由已被占用。</string>
+    <string name="dsh_provider_display_name">显示名称（可选）</string>
+    <string name="dsh_provider_base_url">Base URL</string>
+    <string name="dsh_provider_api_key">API 密钥（可选）</string>
+    <string name="dsh_provider_api_key_hint">存入服务器凭据；该值不会再回显。</string>
+    <string name="dsh_provider_discover">发现模型</string>
+    <string name="dsh_provider_discover_failed">发现失败：%1$s</string>
+    <string name="dsh_provider_models_none">尚未发现模型。填写 Base URL 后点击「发现模型」。</string>
+    <string name="dsh_provider_model_select">选择要纳入的模型</string>
+    <string name="dsh_provider_create">创建</string>
+    <string name="dsh_provider_delete">删除</string>
+    <string name="dsh_provider_delete_confirm_title">删除自定义 provider</string>
+    <string name="dsh_provider_delete_confirm_text">删除自定义 provider %1$s？其存储的凭据（如有）也会一并移除。</string>
+    <string name="dsh_provider_credential_configured">凭据已配置</string>
+    <string name="dsh_provider_credential_missing">凭据未设置</string>
+    <string name="dsh_provider_active">运行时已启用</string>
+    <string name="dsh_provider_inactive">运行时未启用</string>
 </resources>

@@ -1,7 +1,11 @@
 package dev.leonardo.ocbeacon.domain.repository
 
 import dev.leonardo.ocbeacon.domain.model.DshAgentPresetDefault
+import dev.leonardo.ocbeacon.domain.model.DshCustomProviderDraft
+import dev.leonardo.ocbeacon.domain.model.DshDiscoveredModel
+import dev.leonardo.ocbeacon.domain.model.DshModelDiscoveryRequest
 import dev.leonardo.ocbeacon.domain.model.DshPermissionDefault
+import dev.leonardo.ocbeacon.domain.model.DshProviderDirectoryEntry
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 
 /**
@@ -33,4 +37,22 @@ interface DshSettingsRepository {
 
     /** 写新会话默认 Agent 预设（内部先 describe 取 revision 再 mutate，乐观并发）；403 → 抛 [DshSettingsForbiddenException]。 */
     suspend fun setDefaultAgentPreset(conn: ServerConnection, preset: String): Boolean
+
+    // ============ #324① provider/模型目录（llm 目录 + credentials + 自定义增删） ============
+
+    /**
+     * 目录合流行（llm/listProviders × llm/listConfigurableProviders）+ 自定义行
+     * 凭据状态（credentials/describe，仅 configured/writable——**无明文**）。
+     * V011 或目录端点缺席 → 仅已注册行（无设置地址）。
+     */
+    suspend fun listProviderDirectory(conn: ServerConnection): List<DshProviderDirectoryEntry>
+
+    /** llm/discoverModels（端点模型探查；失败上抛由 UI 提示）。 */
+    suspend fun discoverModels(conn: ServerConnection, request: DshModelDiscoveryRequest): List<DshDiscoveredModel>
+
+    /** 新建自定义 provider（settings/mutate + credentials/set；403 → 抛 [DshSettingsForbiddenException]）。 */
+    suspend fun createCustomProvider(conn: ServerConnection, draft: DshCustomProviderDraft): Boolean
+
+    /** 删除自定义 provider（settings/mutate unset + credentials/unset；403 → 抛 [DshSettingsForbiddenException]）。 */
+    suspend fun deleteCustomProvider(conn: ServerConnection, route: String): Boolean
 }
