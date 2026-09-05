@@ -281,8 +281,8 @@ class AppNotificationManager @Inject constructor(
         sessionId: String
     ) {
         val (sessionTitle, _) = getSessionInfo(sessionId)
-        val displayName = sessionTitle?.takeIf { it.isNotBlank() }
-            ?: appContext.getString(R.string.notification_new_session)
+        // #320：标题回退会话 id（title 缺失时直接可辨识，不再落泛化文案）
+        val displayName = SessionNotificationIds.notificationTitle(sessionTitle, sessionId)
 
         val typeLabel = appContext.getString(R.string.notification_tag_ready)
         val title = "$typeLabel · $displayName"
@@ -325,8 +325,8 @@ class AppNotificationManager @Inject constructor(
         if (!shouldNotifyPermission(server.id, sessionId, permission)) return
 
         val (sessionTitle, _) = getSessionInfo(sessionId)
-        val displayName = sessionTitle?.takeIf { it.isNotBlank() }
-            ?: appContext.getString(R.string.notification_new_session)
+        // #320：标题回退会话 id（title 缺失时直接可辨识，不再落泛化文案）
+        val displayName = SessionNotificationIds.notificationTitle(sessionTitle, sessionId)
         val title = "${appContext.getString(R.string.notification_tag_permission)} · $displayName"
         val contentText = findLatestUserMessages(sessionId, 1).firstOrNull()?.text
             ?: permission.ifBlank { appContext.getString(R.string.notification_new_message) }
@@ -359,8 +359,8 @@ class AppNotificationManager @Inject constructor(
         // 去重 + 抑制：key 含 serverId，避免跨服务器同 sessionId 误判
         if (!shouldNotifyQuestion(server.id, sessionId, questionText)) return
         val (sessionTitle, _) = getSessionInfo(sessionId)
-        val displayName = sessionTitle?.takeIf { it.isNotBlank() }
-            ?: appContext.getString(R.string.notification_new_session)
+        // #320：标题回退会话 id（title 缺失时直接可辨识，不再落泛化文案）
+        val displayName = SessionNotificationIds.notificationTitle(sessionTitle, sessionId)
         val title = "${appContext.getString(R.string.notification_tag_question)} · $displayName"
         // P3（2026-08-19）：正文优先问题文本本身——短且直接（"What is your
         // favorite animal?"）；此前优先最后一条用户消息，正文是触发 prompt
@@ -447,8 +447,8 @@ class AppNotificationManager @Inject constructor(
     ) {
         if (sessionId == null) return
         val (sessionTitle, _) = getSessionInfo(sessionId)
-        val displayName = sessionTitle?.takeIf { it.isNotBlank() }
-            ?: appContext.getString(R.string.notification_new_session)
+        // #320：标题回退会话 id（title 缺失时直接可辨识，不再落泛化文案）
+        val displayName = SessionNotificationIds.notificationTitle(sessionTitle, sessionId)
         val title = "${appContext.getString(R.string.notification_tag_error)} · $displayName"
         // 错误内容：JSON/数组错误包不可读但不应完全丢弃，保留前 200 字符
         val safeError = error.trim().let { raw ->
@@ -582,6 +582,28 @@ class AppNotificationManager @Inject constructor(
     }
 
     /**
+     * #320：撤指定 kind 的会话事件通知（PendingInteraction 三清除径同点撤除）。
+     *
+     * 与 [cancelSessionNotifications]（进会话全撤 + 全去重重置 + streak 重置）的
+     * 差异：只撤该 kind 槽位、只重置该槽去重（下一轮同类事件可再通知）；
+     * turn 完成/错误通知不动（信息性，发出后不撤）。
+     */
+    fun cancelInteractionNotifications(
+        serverId: String,
+        sessionId: String,
+        kind: SessionNotificationKind,
+    ) {
+        val notifId = SessionNotificationIds.of(serverId, sessionId, kind)
+        systemNotificationManager.cancel(notifId)
+        val notifKey = sessionNotificationKey(serverId, sessionId)
+        when (kind) {
+            SessionNotificationKind.PERMISSION -> lastNotifiedPermissionBySession.remove(notifKey)
+            SessionNotificationKind.QUESTION -> lastNotifiedQuestionBySession.remove(notifKey)
+            else -> Unit
+        }
+    }
+
+    /**
      * 清除指定服务器全部会话的去重缓存（防服务器级残留增长）。
      * 在服务器断开连接时调用。
      */
@@ -706,20 +728,8 @@ class AppNotificationManager @Inject constructor(
         return stableHash(serverId, sessionId) + typeOffset
     }
 
-    /**
-     * FNV-1a 32 位稳定 hash。
-     * 相比字符串拼接 + hashCode()：无拼接歧义（"a"+"bc" 与 "ab"+"c" 不再同值），
-     * 且跨 JVM/平台行为一致，语义明确。
-     */
-    private fun stableHash(vararg parts: String): Int {
-        var hash = 0x811c9dc5.toInt()
-        for (part in parts) {
-            for (i in part.indices) {
-                hash = (hash xor part[i].code) * 0x01000193
-            }
-        }
-        return hash
-    }
+    /** FNV-1a 32 位稳定 hash（#320 实现收口至 SessionNotificationIds.stableHashOf，值不变）。 */
+    private fun stableHash(vararg parts: String): Int = SessionNotificationIds.stableHashOf(*parts)
 
     companion object {
         const val PERSISTENT_NOTIFICATION_ID = 1001

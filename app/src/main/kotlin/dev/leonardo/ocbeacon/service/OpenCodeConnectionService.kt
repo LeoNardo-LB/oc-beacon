@@ -97,6 +97,10 @@ class OpenCodeConnectionService : Service() {
     @Inject
     lateinit var appNotificationManager: AppNotificationManager
 
+    // #320：PendingInteraction 清除 → 同点撤通知（订阅随构造启动；本注入保活实例）
+    @Inject
+    lateinit var pendingInteractionNotificationRevoker: PendingInteractionNotificationRevoker
+
     @Inject
     lateinit var feedbackPlayer: InSessionFeedbackPlayer
 
