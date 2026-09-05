@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#333**。
+**编号**：全局递增，不回收。下一编号：**#335**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -97,14 +97,22 @@
   - 六子项全实现（4ced86f5 数据层/0498e775 归档 UI/0fd15da8 多 workspace/3ac2dd71 deliverables+工具卡/a69fd71a 待审批点——**契约事实:归档单向无取消**;FSM 零动,采 web 本地 pending 域）;验收 13✔+3 BLOCKED-harness routing（run_code 内联族,契约同构休眠）:docs/acceptance/2026-09-05-311-batch3.md;**UIUX 待人工**（域汇总）
   - → `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md` §四 · `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §11.4 批 3 · `docs/research/dsh-gap-2026-09-01/implementability-ui.md`
 
-- [ ] **#312 DSH 面对齐零星 S 级池：相对时间戳/KaTeX/spill 提示/命令带图限制/消息级分支锚点** `dsh` `ui`
-  - 五点均 S 级锦上添花，随批 1-3 顺手带或单独小批；分支锚点=补轮尾锚点 UI（session.fork atSeq API 已消费）；**批 2/3 一并遵守 #313 原则：UI 形态=自有组件（sheet/chip/卡片族），禁照搬 DSH Web 布局**
+- [~] **#312 DSH 面对齐零星 S 级池：相对时间戳/KaTeX/spill 提示/命令带图限制/消息级分支锚点** `dsh` `ui`
+  - 四子项落地（f6e288b7+4b5f1618;③spill 转 #332 P4）;验收 6✔+A2 终裁✔（markdown 面,用户卡纯 Text 既有设计）:docs/acceptance/2026-09-05-312-s-pool.md——fork wire 112ms+导航/拦截 wire 级不派发/相对时间戳三形态;**UIUX 待人工**（域汇总;含下轮补一发助手面数学定向确认）
   - → `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md` §四 · `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §12.3
+
+## P2 — 优化与锦上添花
+
+- [ ] **#333 旧会话（35h/6h+）重进转录空白态** `dsh` `session` `data`
+  - #312 验收实测:9月4 会话(35h/6h+)重进转录空白多帧(无崩溃)——疑 session/follow 限界窗口(#319 语义)外的历史加载链(listMessages 分页/fold)断,待诊断;→ `docs/acceptance/2026-09-05-312-s-pool.md` 观测③
 
 ## P3 — 观察与低价值改进
 
-- [ ] **#331 新建会话行入列表 ~3min 时延（对话框 workspace 计数即时+1）** `dsh` `sse` `ui`
-  - #311 验收实测:本端新建会话行约 3 分钟才入列表(workspace upsert 计数即时)——session 行来源链(session.list 轮询/session-added 帧)时延待查;→ `docs/acceptance/2026-09-05-311-batch3.md` 顺带观测①
+- [ ] **#334 composer 草稿退格清理失效+跨冷启持久（自动化路径阻碍）** `ui`
+  - #312 验收实测:输入框残留文本退格无效/长按无菜单/force-stop 后草稿仍在——人工不受影响,自动化注入清理受阻;→ `docs/acceptance/2026-09-05-312-s-pool.md` 观测⑤
+
+- [ ] **#331 新建/派生会话行入列表 ~3min 时延（对话框 workspace 计数即时+1）** `dsh` `sse` `ui`
+  - #311 验收实测:本端新建会话行约 3 分钟才入列表(workspace upsert 计数即时);#312 验收实测:fork 派生子会话 3.5min 不入列表——session 行来源链(session.list 轮询/session-added 帧)时延待查;→ 两次验收顺带观测
 
 - [ ] **#330 workspace follow remove/order 增量未消费——新建对话框短暂显示已删 workspace** `dsh` `sse`
   - Task1/3 只消费 baseline/archived/upsert;remove 后对话框陈旧条目点击有目录回退兜底不阻断;价值低缓行;→ `docs/journal/2026-09-04-fix-308-always-326-327.md` §十五-#311 段
