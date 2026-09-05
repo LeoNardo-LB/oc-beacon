@@ -51,6 +51,13 @@ import dev.leonardo.ocbeacon.domain.model.DshCustomProviders
 import dev.leonardo.ocbeacon.domain.model.DshDiscoveredModel
 import dev.leonardo.ocbeacon.domain.model.DshGoalRef
 import dev.leonardo.ocbeacon.domain.model.DshModelDiscoveryRequest
+import dev.leonardo.ocbeacon.domain.model.DshPluginEnabled
+import dev.leonardo.ocbeacon.domain.model.DshPluginInventory
+import dev.leonardo.ocbeacon.domain.model.DshPluginInventoryEntry
+import dev.leonardo.ocbeacon.domain.model.DshPluginInventoryPreset
+import dev.leonardo.ocbeacon.domain.model.DshPluginInventoryPresetRow
+import dev.leonardo.ocbeacon.domain.model.DshSettingsOp
+import dev.leonardo.ocbeacon.domain.model.DshSettingsSnapshot
 import dev.leonardo.ocbeacon.domain.model.FileDiff
 import dev.leonardo.ocbeacon.domain.model.MessagePage
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
@@ -2192,6 +2199,115 @@ class DshApiClient @Inject constructor(
             return false
         }
         return true
+    }
+
+    // ============ #324③：settings 全量快照 / 泛化 mutate / pluginInventory ============
+
+    /**
+     * settings/describe → 全量快照（writable/hasDocument/namespaces 原始 JSON——
+     * 表单投影由 [DshSettingsFormMapper] 承担）。403 → [DshSettingsForbiddenException]
+     *（#298 特权面栅栏同 settingsNamespace）。
+     */
+    suspend fun describeSettings(conn: ServerConnection): DshSettingsSnapshot? {
+        val value = rpc.call(conn, "settings.describe", buildJsonObject {}) { it }.getOrElse { e ->
+            if (e is DshApiError && e.httpStatus == 403) {
+                AppLogger.w(TAG, "settings.describe forbidden (403, loopback-only)")
+                throw DshSettingsForbiddenException()
+            }
+            AppLogger.w(TAG, "settings.describe failed: " + e.message)
+            return null
+        }
+        return DshSettingsSnapshot(
+            writable = value.dshBool("writable") ?: false,
+            hasDocument = value.dshBool("hasDocument") ?: false,
+            namespaces = (value.dshArr("namespaces") ?: emptyList()).filterIsInstance<JsonObject>(),
+        )
+    }
+
+    /**
+     * settings/mutate 泛化 ops（顶层键 Set/Unset；expectedRevision 乐观并发）。
+     * 403 → [DshSettingsForbiddenException]；其余失败 false（UI 内联提示）。
+     */
+    suspend fun mutateSettings(
+        conn: ServerConnection,
+        ns: String,
+        ops: List<DshSettingsOp>,
+        expectedRevision: Long,
+    ): Boolean {
+        val opsArray = JsonArray(ops.map { op ->
+            when (op) {
+                is DshSettingsOp.Set -> buildJsonObject {
+                    put("op", "set")
+                    put("path", JsonArray(listOf(JsonPrimitive(op.key))))
+                    put("value", op.value)
+                }
+                is DshSettingsOp.Unset -> buildJsonObject {
+                    put("op", "unset")
+                    put("path", JsonArray(listOf(JsonPrimitive(op.key))))
+                }
+            }
+        })
+        val payload = buildJsonObject {
+            put("ns", ns)
+            put("ops", opsArray)
+            put("expectedRevision", expectedRevision)
+        }
+        val outcome = rpc.call(conn, "settings.mutate", payload) { Unit }
+        if (outcome.isFailure) {
+            val e = outcome.exceptionOrNull()
+            if (e is DshApiError && e.httpStatus == 403) {
+                AppLogger.w(TAG, "settings.mutate forbidden for ns=" + ns + " (403, loopback-only)")
+                throw DshSettingsForbiddenException()
+            }
+            AppLogger.w(TAG, "settings.mutate failed for ns=" + ns + ": " + e?.message)
+            return false
+        }
+        return true
+    }
+
+    /**
+     * pluginInventory/list → 清单快照（只读：entries + per-preset 行三态）。
+     * 失败 → null（UI 区块隐藏）。
+     */
+    suspend fun listPluginInventory(conn: ServerConnection): DshPluginInventory? {
+        val value = rpc.call(conn, "pluginInventory.list", buildJsonObject {}) { it }.getOrElse { e ->
+            AppLogger.w(TAG, "pluginInventory/list failed: " + e.message)
+            return null
+        }
+        val entries = (value.dshArr("entries") ?: emptyList()).filterIsInstance<JsonObject>().mapNotNull { entry ->
+            val entryId = entry.dshStr("entryId") ?: return@mapNotNull null
+            val moduleName = entry.dshStr("moduleName") ?: return@mapNotNull null
+            DshPluginInventoryEntry(
+                entryId = entryId,
+                moduleName = moduleName,
+                enabled = entry.dshBool("enabled") ?: false,
+                fiberPhase = entry.dshStr("fiberPhase"),
+            )
+        }
+        val presets = (value.dshArr("agentPresets") ?: emptyList()).filterIsInstance<JsonObject>().mapNotNull { preset ->
+            val id = preset.dshStr("id") ?: return@mapNotNull null
+            DshPluginInventoryPreset(
+                id = id,
+                trust = preset.dshStr("trust") ?: "system",
+                name = preset.dshStr("name") ?: id,
+                isDefault = preset.dshBool("isDefault") ?: false,
+                broken = preset.dshStr("broken"),
+                rows = (preset.dshArr("rows") ?: emptyList()).filterIsInstance<JsonObject>().mapNotNull { row ->
+                    val moduleName = row.dshStr("moduleName") ?: return@mapNotNull null
+                    val enabled = DshPluginEnabled.fromWire(
+                        (row["enabled"] as? JsonPrimitive)?.let { if (it is JsonNull) null else it.content }
+                    ) ?: return@mapNotNull null
+                    DshPluginInventoryPresetRow(
+                        entryId = row.dshStr("entryId"),
+                        moduleName = moduleName,
+                        enabled = enabled,
+                        condition = row.dshStr("condition"),
+                        fiberPhase = row.dshStr("fiberPhase"),
+                    )
+                },
+            )
+        }
+        return DshPluginInventory(entries = entries, presets = presets)
     }
 
     // ============ #282-a：settings 域同形收口 ============

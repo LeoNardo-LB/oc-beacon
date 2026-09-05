@@ -583,6 +583,12 @@ viewModel.consumePendingReadSessionId()
                         },
                         onCopyAgentPreset = { preset -> pendingCopyPreset = preset },
                         onDeleteAgentPreset = { preset -> pendingDeletePreset = preset },
+                        // #324④：插件清单 + 服务器配置表单
+                        pluginInventory = viewModel.pluginInventory.collectAsStateWithLifecycle().value,
+                        settingsForms = viewModel.settingsForms.collectAsStateWithLifecycle().value,
+                        settingsFormsBlocked = viewModel.settingsFormsBlocked.collectAsStateWithLifecycle().value,
+                        onSaveSettingField = viewModel::saveSettingField,
+                        onSaveSettingSecret = viewModel::saveSecretField,
                     )
                 }
             }

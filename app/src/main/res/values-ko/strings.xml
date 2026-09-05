@@ -898,4 +898,16 @@
     <string name="dsh_preset_delete_confirm_title">프리셋 삭제</string>
     <string name="dsh_preset_delete_confirm_text">사용자 프리셋 %1$s을(를) 삭제할까요? 실행 중인 세션은 영향을 받지 않으며 새 세션은 기본값으로 돌아갑니다.</string>
     <string name="dsh_preset_broken_badge">손상됨: %1$s</string>
+
+    <!-- #324③ 插件配置与清单 -->
+    <string name="dsh_plugins_inventory_title">서버 플러그인</string>
+    <string name="dsh_plugins_inventory_empty">보고된 플러그인 목록이 없습니다.</string>
+    <string name="dsh_plugin_enabled">활성화</string>
+    <string name="dsh_plugin_disabled">비활성화</string>
+    <string name="dsh_plugin_conditional">조건부</string>
+    <string name="dsh_plugin_preset_group">프리셋: %1$s</string>
+    <string name="dsh_server_config_title">서버 구성</string>
+    <string name="dsh_config_applies_live">즉시 적용</string>
+    <string name="dsh_config_applies_restart">재시작 필요</string>
+    <string name="dsh_secret_no_ref">이 앱 외부에서 관리됨(자격 증명 참조가 선언되지 않음).</string>
 </resources>

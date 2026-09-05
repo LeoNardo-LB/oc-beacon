@@ -907,4 +907,16 @@
     <string name="dsh_preset_delete_confirm_title">Удалить пресет</string>
     <string name="dsh_preset_delete_confirm_text">Удалить пользовательский пресет %1$s? Текущие сессии не затрагиваются; новые возвращаются к значению по умолчанию.</string>
     <string name="dsh_preset_broken_badge">Повреждён: %1$s</string>
+
+    <!-- #324③ 插件配置与清单 -->
+    <string name="dsh_plugins_inventory_title">Плагины сервера</string>
+    <string name="dsh_plugins_inventory_empty">Инвентарь плагинов не получен.</string>
+    <string name="dsh_plugin_enabled">Включён</string>
+    <string name="dsh_plugin_disabled">Отключён</string>
+    <string name="dsh_plugin_conditional">Условно</string>
+    <string name="dsh_plugin_preset_group">Пресет: %1$s</string>
+    <string name="dsh_server_config_title">Конфигурация сервера</string>
+    <string name="dsh_config_applies_live">Применяется сразу</string>
+    <string name="dsh_config_applies_restart">Требуется перезапуск</string>
+    <string name="dsh_secret_no_ref">Управляется вне этого приложения (ссылка на учётные данные не объявлена).</string>
 </resources>

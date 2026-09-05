@@ -211,6 +211,10 @@ class SessionListViewModel @Inject constructor(
     private val _agentPresetDefaultBlocked = MutableStateFlow(false)
     private val _agentPresetAuthorable = MutableStateFlow(false)
     private val _agentPresetDocument = MutableStateFlow<DshAgentPresetDocument?>(null)
+    // #324④：插件清单 + 服务器配置动态表单
+    private val _pluginInventory = MutableStateFlow<dev.leonardo.ocbeacon.domain.model.DshPluginInventory?>(null)
+    private val _settingsForms = MutableStateFlow<List<dev.leonardo.ocbeacon.domain.model.DshSettingsNamespaceForm>>(emptyList())
+    private val _settingsFormsBlocked = MutableStateFlow(false)
 
     private val directoryManager = DirectoryManager(
         serverId = serverId,
@@ -250,6 +254,7 @@ class SessionListViewModel @Inject constructor(
             loadPermissionDefault()
             // UI-B/UI-C：DSH-only 读 Agent 预设 roster + 默认档（能力位内才发请求）
             loadAgentPresets()
+            loadServerAdmin()  // #324④ 插件配置与清单
         }
     }
 
@@ -512,7 +517,64 @@ class SessionListViewModel @Inject constructor(
         }
     }
 
-    // ============ 聚合 UI 状态（#23 状态切片：嵌套分组 combine） ============
+    // ============ #324④ 插件配置与清单（设置页区块） ============
+
+    /** pluginInventory/list 清单（只读）。 */
+    val pluginInventory: StateFlow<dev.leonardo.ocbeacon.domain.model.DshPluginInventory?> = _pluginInventory.asStateFlow()
+
+    /** settings/describe 表单投影（空列表 = 未加载/无 ns）。 */
+    val settingsForms: StateFlow<List<dev.leonardo.ocbeacon.domain.model.DshSettingsNamespaceForm>> = _settingsForms.asStateFlow()
+
+    /** #298：配置面 loopback 栅栏。 */
+    val settingsFormsBlocked: StateFlow<Boolean> = _settingsFormsBlocked.asStateFlow()
+
+    /** 加载清单 + 配置表单（DSH-only；非 DSH no-op）。 */
+    fun loadServerAdmin() {
+        if (!_serverIsDsh.value) return
+        val conn = _mcpConn ?: return
+        viewModelScope.launch {
+            _pluginInventory.value = dshSettingsRepository.listPluginInventory(conn)
+        }
+        viewModelScope.launch {
+            _settingsFormsBlocked.value = false
+            try {
+                _settingsForms.value = dshSettingsRepository.describeSettingsForms(conn).orEmpty()
+            } catch (e: DshSettingsForbiddenException) {
+                AppLogger.w(TAG_SESSION_LIST_VM, "settings describe blocked: loopback-only connection (403)")
+                _settingsFormsBlocked.value = true
+            }
+        }
+    }
+
+    /** 单键保存（settings/mutate 乐观并发；成功后回读全量表单）。 */
+    fun saveSettingField(ns: String, revision: Long, op: dev.leonardo.ocbeacon.domain.model.DshSettingsOp) {
+        val conn = _mcpConn ?: return
+        viewModelScope.launch {
+            try {
+                if (dshSettingsRepository.mutateSettings(conn, ns, listOf(op), revision)) {
+                    _settingsForms.value = dshSettingsRepository.describeSettingsForms(conn).orEmpty()
+                }
+            } catch (e: DshSettingsForbiddenException) {
+                _settingsFormsBlocked.value = true
+            }
+        }
+    }
+
+    /** secret 字段保存（credentials/set；成功后回读披露态）。 */
+    fun saveSecretField(ref: String, value: String) {
+        val conn = _mcpConn ?: return
+        viewModelScope.launch {
+            try {
+                if (dshSettingsRepository.setSecret(conn, ref, value)) {
+                    _settingsForms.value = dshSettingsRepository.describeSettingsForms(conn).orEmpty()
+                }
+            } catch (e: DshSettingsForbiddenException) {
+                _settingsFormsBlocked.value = true
+            }
+        }
+    }
+
+    // ============     // ============ 聚合 UI 状态（#23 状态切片：嵌套分组 combine） ============
     // 分组设计：每组只携带自己拥有的字段（部分数据类），最终 dataFlow 合并 3 组。
     // 禁止"占位填充"（会重置其他组的字段）。
 

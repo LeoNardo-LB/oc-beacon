@@ -896,4 +896,16 @@
     <string name="dsh_preset_delete_confirm_title">Supprimer le préréglage</string>
     <string name="dsh_preset_delete_confirm_text">Supprimer le préréglage utilisateur %1$s ? Les sessions en cours ne sont pas affectées ; les nouvelles reviennent au défaut.</string>
     <string name="dsh_preset_broken_badge">Cassé : %1$s</string>
+
+    <!-- #324③ 插件配置与清单 -->
+    <string name="dsh_plugins_inventory_title">Extensions du serveur</string>
+    <string name="dsh_plugins_inventory_empty">Aucun inventaire d\'extensions signalé.</string>
+    <string name="dsh_plugin_enabled">Activé</string>
+    <string name="dsh_plugin_disabled">Désactivé</string>
+    <string name="dsh_plugin_conditional">Conditionnel</string>
+    <string name="dsh_plugin_preset_group">Préréglage : %1$s</string>
+    <string name="dsh_server_config_title">Configuration du serveur</string>
+    <string name="dsh_config_applies_live">Appliqué immédiatement</string>
+    <string name="dsh_config_applies_restart">Nécessite un redémarrage</string>
+    <string name="dsh_secret_no_ref">Géré hors de cette application (aucune référence d\'identifiant déclarée).</string>
 </resources>

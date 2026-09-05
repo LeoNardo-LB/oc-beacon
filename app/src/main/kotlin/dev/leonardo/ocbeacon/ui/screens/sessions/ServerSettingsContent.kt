@@ -31,6 +31,8 @@ import dev.leonardo.ocbeacon.domain.model.McpServerStatus
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.AgentPresetDefaultRow
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.DshPluginInventorySection
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.DshServerConfigSection
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.McpServerRow
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.PermissionDefaultRow
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.SettingsSectionHeader
@@ -69,6 +71,12 @@ fun ServerSettingsContent(
     onViewAgentPreset: (AgentPreset) -> Unit = {},
     onCopyAgentPreset: (AgentPreset) -> Unit = {},
     onDeleteAgentPreset: (AgentPreset) -> Unit = {},
+    // #324④：插件清单 + 服务器配置动态表单（空清单/空表单 + 非 DSH 不渲染）
+    pluginInventory: dev.leonardo.ocbeacon.domain.model.DshPluginInventory? = null,
+    settingsForms: List<dev.leonardo.ocbeacon.domain.model.DshSettingsNamespaceForm> = emptyList(),
+    settingsFormsBlocked: Boolean = false,
+    onSaveSettingField: (String, Long, dev.leonardo.ocbeacon.domain.model.DshSettingsOp) -> Unit = { _, _, _ -> },
+    onSaveSettingSecret: (String, String) -> Unit = { _, _ -> },
 ) {
     var mcpExpanded by remember { mutableStateOf(false) }
 
@@ -101,6 +109,20 @@ fun ServerSettingsContent(
                     onDeletePreset = onDeleteAgentPreset,
                 )
             }
+
+        // #324④：服务器配置（动态表单）+ 插件清单（DSH 门控；调用方传空即隐）
+        item {
+            DshServerConfigSection(
+                forms = settingsForms,
+                blocked = settingsFormsBlocked,
+                onSaveField = onSaveSettingField,
+                onSaveSecret = onSaveSettingSecret,
+            )
+        }
+
+        item {
+            DshPluginInventorySection(inventory = pluginInventory)
+        }
         }
 
         // 区块标题：MCP 服务器

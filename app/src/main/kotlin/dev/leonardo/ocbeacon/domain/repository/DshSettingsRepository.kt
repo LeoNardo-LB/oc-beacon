@@ -7,7 +7,10 @@ import dev.leonardo.ocbeacon.domain.model.DshCustomProviderDraft
 import dev.leonardo.ocbeacon.domain.model.DshDiscoveredModel
 import dev.leonardo.ocbeacon.domain.model.DshModelDiscoveryRequest
 import dev.leonardo.ocbeacon.domain.model.DshPermissionDefault
+import dev.leonardo.ocbeacon.domain.model.DshPluginInventory
 import dev.leonardo.ocbeacon.domain.model.DshProviderDirectoryEntry
+import dev.leonardo.ocbeacon.domain.model.DshSettingsNamespaceForm
+import dev.leonardo.ocbeacon.domain.model.DshSettingsOp
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 
 /**
@@ -39,6 +42,23 @@ interface DshSettingsRepository {
 
     /** 写新会话默认 Agent 预设（内部先 describe 取 revision 再 mutate，乐观并发）；403 → 抛 [DshSettingsForbiddenException]。 */
     suspend fun setDefaultAgentPreset(conn: ServerConnection, preset: String): Boolean
+
+    // ============ #324④ 插件配置与清单（settings/describe 动态表单 + pluginInventory） ============
+
+    /**
+     * settings/describe → 全部 namespace 表单投影（轻量动态表单；顶层标量字段×JSON
+     * 类型 + 枚举 + secret 剥离披露）。描述失败 → null；403 → 抛 [DshSettingsForbiddenException]。
+     */
+    suspend fun describeSettingsForms(conn: ServerConnection): List<DshSettingsNamespaceForm>?
+
+    /** settings/mutate 泛化 ops（乐观并发 revision）。 */
+    suspend fun mutateSettings(conn: ServerConnection, ns: String, ops: List<DshSettingsOp>, expectedRevision: Long): Boolean
+
+    /** 凭据写（credentials/set；secret 字段专用通道）。 */
+    suspend fun setSecret(conn: ServerConnection, ref: String, value: String): Boolean
+
+    /** pluginInventory/list 清单（只读）；失败 → null。 */
+    suspend fun listPluginInventory(conn: ServerConnection): DshPluginInventory?
 
     // ============ #324② preset 管理（roster 完整面 + read/copy/deletePreset） ============
 

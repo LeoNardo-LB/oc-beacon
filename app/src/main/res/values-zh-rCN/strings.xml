@@ -901,4 +901,16 @@
     <string name="dsh_preset_delete_confirm_title">删除预设</string>
     <string name="dsh_preset_delete_confirm_text">删除用户预设 %1$s？进行中的会话不受影响；新会话回退到默认档。</string>
     <string name="dsh_preset_broken_badge">已损坏：%1$s</string>
+
+    <!-- #324③ 插件配置与清单 -->
+    <string name="dsh_plugins_inventory_title">服务器插件</string>
+    <string name="dsh_plugins_inventory_empty">未报告插件清单。</string>
+    <string name="dsh_plugin_enabled">已启用</string>
+    <string name="dsh_plugin_disabled">已停用</string>
+    <string name="dsh_plugin_conditional">条件启用</string>
+    <string name="dsh_plugin_preset_group">预设：%1$s</string>
+    <string name="dsh_server_config_title">服务器配置</string>
+    <string name="dsh_config_applies_live">立即生效</string>
+    <string name="dsh_config_applies_restart">需重启</string>
+    <string name="dsh_secret_no_ref">在本应用之外管理（未声明凭据引用）。</string>
 </resources>

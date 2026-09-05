@@ -906,4 +906,16 @@
     <string name="dsh_preset_delete_confirm_title">Видалити пресет</string>
     <string name="dsh_preset_delete_confirm_text">Видалити користувацький пресет %1$s? Активні сесії не постраждають; нові повернуться до типового.</string>
     <string name="dsh_preset_broken_badge">Пошкоджений: %1$s</string>
+
+    <!-- #324③ 插件配置与清单 -->
+    <string name="dsh_plugins_inventory_title">Плагіни сервера</string>
+    <string name="dsh_plugins_inventory_empty">Реєстру плагінів не надійшло.</string>
+    <string name="dsh_plugin_enabled">Увімкнено</string>
+    <string name="dsh_plugin_disabled">Вимкнено</string>
+    <string name="dsh_plugin_conditional">Умовно</string>
+    <string name="dsh_plugin_preset_group">Пресет: %1$s</string>
+    <string name="dsh_server_config_title">Конфігурація сервера</string>
+    <string name="dsh_config_applies_live">Застосовується одразу</string>
+    <string name="dsh_config_applies_restart">Потребує перезапуску</string>
+    <string name="dsh_secret_no_ref">Керується поза цим застосунком (заявленої ссылки на облікові дані немає).</string>
 </resources>

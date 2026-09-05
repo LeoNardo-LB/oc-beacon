@@ -906,4 +906,16 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="dsh_preset_delete_confirm_title">Usuń preset</string>
     <string name="dsh_preset_delete_confirm_text">Usunąć preset użytkownika %1$s? Trwające sesje nie są dotknięte; nowe sesje wracają do domyślnego.</string>
     <string name="dsh_preset_broken_badge">Uszkodzony: %1$s</string>
+
+    <!-- #324③ 插件配置与清单 -->
+    <string name="dsh_plugins_inventory_title">Wtyczki serwera</string>
+    <string name="dsh_plugins_inventory_empty">Nie zgłoszono inwentarza wtyczek.</string>
+    <string name="dsh_plugin_enabled">Włączona</string>
+    <string name="dsh_plugin_disabled">Wyłączona</string>
+    <string name="dsh_plugin_conditional">Warunkowa</string>
+    <string name="dsh_plugin_preset_group">Preset: %1$s</string>
+    <string name="dsh_server_config_title">Konfiguracja serwera</string>
+    <string name="dsh_config_applies_live">Działa natychmiast</string>
+    <string name="dsh_config_applies_restart">Wymaga restartu</string>
+    <string name="dsh_secret_no_ref">Zarządzane poza tę aplikację (brak zadeklarowanej referencji poświadczenia).</string>
 </resources>

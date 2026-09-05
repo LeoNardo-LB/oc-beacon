@@ -898,4 +898,16 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="dsh_preset_delete_confirm_title">Excluir preset</string>
     <string name="dsh_preset_delete_confirm_text">Excluir o preset do usuário %1$s? Sessões em andamento não são afetadas; novas sessões voltam ao padrão.</string>
     <string name="dsh_preset_broken_badge">Quebrado: %1$s</string>
+
+    <!-- #324③ 插件配置与清单 -->
+    <string name="dsh_plugins_inventory_title">Plugins do servidor</string>
+    <string name="dsh_plugins_inventory_empty">Nenhum inventário de plugins relatado.</string>
+    <string name="dsh_plugin_enabled">Habilitado</string>
+    <string name="dsh_plugin_disabled">Desabilitado</string>
+    <string name="dsh_plugin_conditional">Condicional</string>
+    <string name="dsh_plugin_preset_group">Preset: %1$s</string>
+    <string name="dsh_server_config_title">Configuração do servidor</string>
+    <string name="dsh_config_applies_live">Aplica imediatamente</string>
+    <string name="dsh_config_applies_restart">Requer reinício</string>
+    <string name="dsh_secret_no_ref">Gerenciado fora deste app (nenhuma referência de credencial declarada).</string>
 </resources>

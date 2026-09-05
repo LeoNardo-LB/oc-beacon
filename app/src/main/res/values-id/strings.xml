@@ -904,4 +904,16 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="dsh_preset_delete_confirm_title">Hapus preset</string>
     <string name="dsh_preset_delete_confirm_text">Hapus preset pengguna %1$s? Sesi yang berjalan tidak terpengaruh; sesi baru kembali ke bawaan.</string>
     <string name="dsh_preset_broken_badge">Rusak: %1$s</string>
+
+    <!-- #324③ 插件配置与清单 -->
+    <string name="dsh_plugins_inventory_title">Plugin server</string>
+    <string name="dsh_plugins_inventory_empty">Tidak ada inventaris plugin yang dilaporkan.</string>
+    <string name="dsh_plugin_enabled">Diaktifkan</string>
+    <string name="dsh_plugin_disabled">Dinonaktifkan</string>
+    <string name="dsh_plugin_conditional">Bersyarat</string>
+    <string name="dsh_plugin_preset_group">Preset: %1$s</string>
+    <string name="dsh_server_config_title">Konfigurasi server</string>
+    <string name="dsh_config_applies_live">Berlaku segera</string>
+    <string name="dsh_config_applies_restart">Perlu mulai ulang</string>
+    <string name="dsh_secret_no_ref">Dikelola di luar aplikasi ini (tidak ada referensi kredensial yang dinyatakan).</string>
 </resources>

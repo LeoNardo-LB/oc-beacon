@@ -914,4 +914,16 @@
     <string name="dsh_preset_delete_confirm_title">حذف الإعداد</string>
     <string name="dsh_preset_delete_confirm_text">حذف إعداد المستخدم %1$s؟ الجلسات الجارية لا تتأثر؛ الجلسات الجديدة تعود إلى الافتراضي.</string>
     <string name="dsh_preset_broken_badge">تالف: %1$s</string>
+
+    <!-- #324③ 插件配置与清单 -->
+    <string name="dsh_plugins_inventory_title">إضافات الخادم</string>
+    <string name="dsh_plugins_inventory_empty">لم يُبلَّغ عن قائمة إضافات.</string>
+    <string name="dsh_plugin_enabled">مُمكّن</string>
+    <string name="dsh_plugin_disabled">معطّل</string>
+    <string name="dsh_plugin_conditional">مشروط</string>
+    <string name="dsh_plugin_preset_group">الإعداد: %1$s</string>
+    <string name="dsh_server_config_title">إعدادات الخادم</string>
+    <string name="dsh_config_applies_live">يسري فورًا</string>
+    <string name="dsh_config_applies_restart">يتطلب إعادة التشغيل</string>
+    <string name="dsh_secret_no_ref">يُدار خارج هذا التطبيق (لا يوجد مرجع اعتماد معلن).</string>
 </resources>

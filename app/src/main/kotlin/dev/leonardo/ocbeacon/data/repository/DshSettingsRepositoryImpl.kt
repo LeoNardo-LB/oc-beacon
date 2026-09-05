@@ -9,7 +9,11 @@ import dev.leonardo.ocbeacon.domain.model.DshCustomProviders
 import dev.leonardo.ocbeacon.domain.model.DshDiscoveredModel
 import dev.leonardo.ocbeacon.domain.model.DshModelDiscoveryRequest
 import dev.leonardo.ocbeacon.domain.model.DshPermissionDefault
+import dev.leonardo.ocbeacon.domain.model.DshPluginInventory
 import dev.leonardo.ocbeacon.domain.model.DshProviderDirectoryEntry
+import dev.leonardo.ocbeacon.domain.model.DshSettingsFormMapper
+import dev.leonardo.ocbeacon.domain.model.DshSettingsNamespaceForm
+import dev.leonardo.ocbeacon.domain.model.DshSettingsOp
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.repository.DshSettingsRepository
 import javax.inject.Inject
@@ -31,6 +35,24 @@ class DshSettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setDefaultAgentPreset(conn: ServerConnection, preset: String): Boolean =
         dshApi.setDefaultAgentPreset(conn, preset)
+
+    // ============ #324④ 插件配置与清单 ============
+
+    override suspend fun describeSettingsForms(conn: ServerConnection): List<DshSettingsNamespaceForm>? {
+        val snapshot = dshApi.describeSettings(conn) ?: return null
+        return snapshot.namespaces.mapNotNull { ns ->
+            DshSettingsFormMapper.map(ns, nsWritable = snapshot.writable)
+        }
+    }
+
+    override suspend fun mutateSettings(conn: ServerConnection, ns: String, ops: List<DshSettingsOp>, expectedRevision: Long): Boolean =
+        dshApi.mutateSettings(conn, ns, ops, expectedRevision)
+
+    override suspend fun setSecret(conn: ServerConnection, ref: String, value: String): Boolean =
+        dshApi.setCredential(conn, ref, value)
+
+    override suspend fun listPluginInventory(conn: ServerConnection): DshPluginInventory? =
+        dshApi.listPluginInventory(conn)
 
     // ============ #324② preset 管理 ============
 

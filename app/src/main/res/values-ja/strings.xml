@@ -898,4 +898,16 @@
     <string name="dsh_preset_delete_confirm_title">プリセットを削除</string>
     <string name="dsh_preset_delete_confirm_text">ユーザープリセット %1$s を削除しますか？実行中のセッションには影響せず、新しいセッションは既定に戻ります。</string>
     <string name="dsh_preset_broken_badge">破損: %1$s</string>
+
+    <!-- #324③ 插件配置与清单 -->
+    <string name="dsh_plugins_inventory_title">サーバープラグイン</string>
+    <string name="dsh_plugins_inventory_empty">プラグイン一覧は報告されていません。</string>
+    <string name="dsh_plugin_enabled">有効</string>
+    <string name="dsh_plugin_disabled">無効</string>
+    <string name="dsh_plugin_conditional">条件付き</string>
+    <string name="dsh_plugin_preset_group">プリセット: %1$s</string>
+    <string name="dsh_server_config_title">サーバー構成</string>
+    <string name="dsh_config_applies_live">即時反映</string>
+    <string name="dsh_config_applies_restart">再起動が必要</string>
+    <string name="dsh_secret_no_ref">このアプリの外で管理されています（資格情報参照の宣言なし）。</string>
 </resources>

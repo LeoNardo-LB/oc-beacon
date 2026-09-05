@@ -898,4 +898,16 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="dsh_preset_delete_confirm_title">Hazır ayarı sil</string>
     <string name="dsh_preset_delete_confirm_text">%1$s kullanıcı hazır ayarı silinsin mi? Devam eden oturumlar etkilenmez; yeni oturumlar varsayılana döner.</string>
     <string name="dsh_preset_broken_badge">Bozuk: %1$s</string>
+
+    <!-- #324③ 插件配置与清单 -->
+    <string name="dsh_plugins_inventory_title">Sunucu eklentileri</string>
+    <string name="dsh_plugins_inventory_empty">Bildirilen eklenti envanteri yok.</string>
+    <string name="dsh_plugin_enabled">Etkin</string>
+    <string name="dsh_plugin_disabled">Devre dışı</string>
+    <string name="dsh_plugin_conditional">Koşullu</string>
+    <string name="dsh_plugin_preset_group">Hazır ayar: %1$s</string>
+    <string name="dsh_server_config_title">Sunucu yapılandırması</string>
+    <string name="dsh_config_applies_live">Anında uygulanır</string>
+    <string name="dsh_config_applies_restart">Yeniden başlatma gerekir</string>
+    <string name="dsh_secret_no_ref">Bu uygulamanın dışında yönetiliyor (bildirilmiş bir kimlik bilgisi referansı yok).</string>
 </resources>
