@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#335**。
+**编号**：全局递增，不回收。下一编号：**#336**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -79,6 +79,9 @@
   - → `docs/journal/2026-09-03-fix-308-dsh-respond-wire.md` §七（裁决记录 + 批 1 审计）；**主体已落地**（审计+验收：FAB 五入口/QueueSheet 三动作/QueueDock 已删/i18n ×15/映射原则遵守——`docs/research/2026-09-05-audit-309-313.md` + #327 验收报告）；最后断点（角标数据链）已由 #327 修复并真机全绿（角标 1/2/清零全生命周期）→ **UIUX 卡待人工验收**（与 #326 同域汇总）
 
 ## P2 — 优化与锦上添花
+
+- [ ] **#335 DataStore 无 corruptionHandler——写事务被 SIGKILL 打断即静默清空服务器配置** `data` `security`
+  - 2026-09-06 真机事故实证:多次 force-stop 窗口内 servers key 丢失(preferences_pb 仅剩 65B;无自定义 corruptionHandler,损坏→默认 emptyPreferences 静默 wipe);修法=corruptionHandler+原子备份恢复;→ docs/acceptance/2026-09-06-final-combined.md E1 事故链
 
 - [ ] **#333 旧会话（35h/6h+）重进转录空白态** `dsh` `session` `data`
   - #312 验收实测:9月4 会话(35h/6h+)重进转录空白多帧(无崩溃)——疑 session/follow 限界窗口(#319 语义)外的历史加载链(listMessages 分页/fold)断,待诊断;→ `docs/acceptance/2026-09-05-312-s-pool.md` 观测③
