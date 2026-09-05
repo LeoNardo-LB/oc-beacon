@@ -74,6 +74,7 @@ class UnreadClockDomainTest {
             unreadBadgeService = unreadBadgeService,
             ownershipRegistry = StreamingOwnershipRegistry(),
             permissionAutoApprover = mockk(relaxed = true),
+            pendingInteractionStore = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingInteractionStore>(relaxed = true),
             historySyncManagerProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.HistorySyncManager>(relaxed = true) },
             dshJobsHandler = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.handler.DshJobsHandler>(relaxed = true),
             dshQueueHandler = dev.leonardo.ocbeacon.data.repository.handler.DshQueueHandler(mockk(relaxed = true)),

@@ -1,10 +1,12 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions.components
 
+import dev.leonardo.ocbeacon.data.repository.PendingInteractionKind
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionItem
 import dev.leonardo.ocbeacon.ui.screens.sessions.isUnread
+import dev.leonardo.ocbeacon.ui.screens.sessions.mergePendingInteraction
 import dev.leonardo.ocbeacon.util.PathUtils
 
 /**
@@ -60,12 +62,14 @@ fun buildTreeNodes(
     lastMessageTime: Map<String, Long> = emptyMap(),
     readTimes: Map<String, Long> = emptyMap(),
     allReadAt: Long = 0L,
+    // #311 Task4：会话待交互指示（与 RECENT 列表同源合流去重）
+    pendingInteractions: Map<String, PendingInteractionKind> = emptyMap(),
 ): List<TreeNode> {
     // 性能监控（2026-08-13 用户反馈目录点击卡顿）：树重建 >50ms 打 warn
     val buildStart = System.currentTimeMillis()
     val result = buildTreeNodesInternal(
         sessions, expandedDirs, baseDirectory, statuses, draftSessionIds,
-        sessionTags, lastMessageTime, readTimes, allReadAt
+        sessionTags, lastMessageTime, readTimes, allReadAt, pendingInteractions
     )
     val elapsed = System.currentTimeMillis() - buildStart
     if (elapsed > 50) {
@@ -87,6 +91,7 @@ private fun buildTreeNodesInternal(
     lastMessageTime: Map<String, Long>,
     readTimes: Map<String, Long>,
     allReadAt: Long,
+    pendingInteractions: Map<String, PendingInteractionKind>,
 ): List<TreeNode> {
     val result = mutableListOf<TreeNode>()
     val rootSessions = mutableListOf<Session>()
@@ -174,7 +179,7 @@ private fun buildTreeNodesInternal(
                 val status = statuses[session.id] ?: SessionStatus.Idle
                 result.add(TreeNode.Session(
                     id = session.id,
-                    session = SessionItem(session = session, status = status, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty(), hasUnread = isUnread(session.id, lastMessageTime, readTimes, allReadAt, status)),
+                    session = SessionItem(session = session, status = status, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty(), hasUnread = isUnread(session.id, lastMessageTime, readTimes, allReadAt, status), pendingInteraction = mergePendingInteraction(pendingInteractions[session.id], status)),
                 ))
             }
         }
@@ -185,7 +190,7 @@ private fun buildTreeNodesInternal(
         val status = statuses[session.id] ?: SessionStatus.Idle
         result.add(TreeNode.Session(
             id = session.id,
-            session = SessionItem(session = session, status = status, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty(), hasUnread = isUnread(session.id, lastMessageTime, readTimes, allReadAt, status)),
+            session = SessionItem(session = session, status = status, hasDraft = session.id in draftSessionIds, tags = sessionTags[session.id].orEmpty(), hasUnread = isUnread(session.id, lastMessageTime, readTimes, allReadAt, status), pendingInteraction = mergePendingInteraction(pendingInteractions[session.id], status)),
         ))
     }
 

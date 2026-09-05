@@ -179,6 +179,9 @@ class SessionListShellStateTest {
             chatRepository = chatRepository,
             messageFtsIndex = mockk(relaxed = true),
             historySyncManager = mockk(relaxed = true),
+            pendingInteractionStore = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingInteractionStore> {
+                io.mockk.every { pendingBySession } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap<String, dev.leonardo.ocbeacon.data.repository.PendingInteractionKind>())
+            },
             dshConnectionRegistry = io.mockk.mockk(relaxed = true),
         )
     }

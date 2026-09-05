@@ -110,12 +110,15 @@ internal suspend fun buildContentState(
 
     // #311：SessionItem 构建（RECENT 主列表与已归档列表共用形状）
     val toSessionItem: (dev.leonardo.ocbeacon.domain.model.Session) -> SessionItem = { session ->
+        val status = mergedStatuses[session.id] ?: SessionStatus.Idle
         SessionItem(
             session = session,
-            status = mergedStatuses[session.id] ?: SessionStatus.Idle,
+            status = status,
             hasDraft = session.id in draftSessionIds,
             tags = resolvedTags[session.id].orEmpty(),
-            hasUnread = isUnread(session.id, data.lastReplyTime, readTimes, data.allReadAt, mergedStatuses[session.id] ?: SessionStatus.Idle),
+            hasUnread = isUnread(session.id, data.lastReplyTime, readTimes, data.allReadAt, status),
+            // #311 Task4：待交互指示合流去重（question 族已由 Asking 表达时勿双点）
+            pendingInteraction = mergePendingInteraction(data.pendingInteractions[session.id], status),
         )
     }
 
@@ -127,7 +130,7 @@ internal suspend fun buildContentState(
             )
         }
     } else {
-        buildTreeNodes(favoritesFilteredSessions, ui.expandedPaths, ui.baseDirectory, mergedStatuses, draftSessionIds, resolvedTags, data.lastReplyTime, readTimes, data.allReadAt)
+        buildTreeNodes(favoritesFilteredSessions, ui.expandedPaths, ui.baseDirectory, mergedStatuses, draftSessionIds, resolvedTags, data.lastReplyTime, readTimes, data.allReadAt, data.pendingInteractions)
     }
 
     val prefillDirectory = if (ui.lastToggledDirectory != null && ui.lastToggledDirectory in ui.expandedPaths)

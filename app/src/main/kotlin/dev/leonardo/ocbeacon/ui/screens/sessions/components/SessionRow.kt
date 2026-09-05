@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.outlined.GppMaybe
 import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Badge
@@ -56,6 +57,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.data.repository.PendingInteractionKind
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.Tag
 import androidx.compose.material3.BasicAlertDialog
@@ -77,6 +79,7 @@ import dev.leonardo.ocbeacon.ui.theme.ButtonTokens
 import dev.leonardo.ocbeacon.ui.theme.DiffAdded
 import dev.leonardo.ocbeacon.ui.theme.DiffRemoved
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
+import dev.leonardo.ocbeacon.ui.theme.StatusWarning
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -241,6 +244,41 @@ internal fun SessionRow(
                         )
                     }
                     else -> {}
+                }
+
+                // #311 Task4：待交互行指示（客户端本地 PendingInteractionDomain——
+                // wire 契约④真服务器不推 approvals/questions 状态）。approval=琥珀
+                // 点（StatusWarning，与 Asking 指示同族形态：14dp 图标+labelSmall
+                // 文案）；question 族（plan-review 归并）复用提问标签形态——builder
+                // 已与 Asking 合流去重，此处到达即 Asking 未表达的残留态，勿双点。
+                when (item.pendingInteraction) {
+                    PendingInteractionKind.APPROVAL -> {
+                        Icon(
+                            imageVector = Icons.Outlined.GppMaybe,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = StatusWarning,
+                        )
+                        Text(
+                            text = stringResource(R.string.session_pending_approval),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = StatusWarning,
+                        )
+                    }
+                    PendingInteractionKind.QUESTION, PendingInteractionKind.PLAN_REVIEW -> {
+                        Icon(
+                            imageVector = Icons.Outlined.HelpOutline,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            text = stringResource(R.string.session_pending_question),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    null -> {}
                 }
 
                 // 草稿指示器

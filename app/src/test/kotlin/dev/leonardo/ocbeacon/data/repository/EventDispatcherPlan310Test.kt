@@ -64,6 +64,7 @@ class EventDispatcherPlan310Test {
             ),
             ownershipRegistry = StreamingOwnershipRegistry(),
             permissionAutoApprover = mockk<PermissionAutoApprover>(relaxed = true),
+            pendingInteractionStore = mockk(relaxed = true),
             historySyncManagerProvider = Provider { mockk<HistorySyncManager>(relaxed = true) },
             dshJobsHandler = mockk(relaxed = true),
             dshQueueHandler = DshQueueHandler(mockk(relaxed = true)),

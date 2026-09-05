@@ -47,6 +47,7 @@ class EventDispatcherOwnership303Test {
             shellJobsHandler = ShellJobsHandler(ShellJobsStore(), messageHandler),
             ownershipRegistry = StreamingOwnershipRegistry(),
             permissionAutoApprover = mockk(relaxed = true),
+            pendingInteractionStore = mockk(relaxed = true),
             historySyncManagerProvider = { mockk(relaxed = true) },
             dshJobsHandler = mockk(relaxed = true),
             dshQueueHandler = DshQueueHandler(mockk(relaxed = true)),

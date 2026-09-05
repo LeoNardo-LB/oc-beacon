@@ -1,5 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions
 
+import dev.leonardo.ocbeacon.data.repository.PendingInteractionKind
+import dev.leonardo.ocbeacon.data.repository.isQuestionFamily
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.Tag
@@ -16,7 +18,25 @@ data class SessionItem(
     val tags: List<Tag> = emptyList(),
     /** 会话有比最后已读时间更新的消息（未读提示红点）。 */
     val hasUnread: Boolean = false,
+    /** #311 Task4：待交互指示（[mergePendingInteraction] 合流去重后——null=行不呈现；
+     * approval=琥珀审批点；question/plan-review=提问族标签，仅当未由 Asking 表达）。 */
+    val pendingInteraction: PendingInteractionKind? = null,
 )
+
+/**
+ * #311 Task4：待交互指示合流去重——question 族（plan-review 归并）已由
+ * [SessionStatus.Asking] 状态表达时不再另挂指示（勿双点）；approval 恒独立
+ * 呈现（与 Asking 并存时两者各表——审批等待与提问等待语义不同）。
+ */
+internal fun mergePendingInteraction(
+    kind: PendingInteractionKind?,
+    status: SessionStatus,
+): PendingInteractionKind? = when {
+    kind == null -> null
+    !kind.isQuestionFamily -> kind
+    status is SessionStatus.Asking -> null
+    else -> kind
+}
 
 // 低频数据输入（DataStore/服务派生，变化少）
 data class SessionListDataInputs(
@@ -33,6 +53,8 @@ data class SessionListDataInputs(
     val allReadAt: Long,
     /** 有待回答问题（agent 提问等待回答）的会话 id 集合。 */
     val pendingQuestionIds: Set<String> = emptySet(),
+    /** #311 Task4：会话待交互指示（PendingInteractionStore 单源，服务器域内过滤后）。 */
+    val pendingInteractions: Map<String, PendingInteractionKind> = emptyMap(),
     /** #311：workspace 快照归档集合（V012 follow baseline+增量单源；非 DSH 恒空）。 */
     val archivedSessionIds: Set<String> = emptySet(),
 )

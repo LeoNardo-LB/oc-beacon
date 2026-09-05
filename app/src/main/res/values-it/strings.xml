@@ -187,6 +187,7 @@
     <string name="sessions_working">Operativo</string>
     <string name="sessions_retrying">Riprova</string>
     <string name="session_pending_question">In attesa di risposta</string>
+    <string name="session_pending_approval">In attesa di approvazione</string>
     <string name="session_changes_additions">+%1$d</string>
     <string name="session_changes_deletions">-%1$d</string>
     <string name="chat_response">Risposta</string>

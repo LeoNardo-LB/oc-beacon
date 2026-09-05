@@ -96,6 +96,8 @@ class SessionListViewModel @Inject constructor(
     private val serverRepository: ServerRepository,
     private val unreadBadgeService: dev.leonardo.ocbeacon.data.repository.UnreadBadgeService,
     private val chatRepository: ChatRepository,
+    // #311 Task4：会话行待审批/提问指示单源（PermissionAsked/QuestionAsked 分发点旁路记录）
+    private val pendingInteractionStore: dev.leonardo.ocbeacon.data.repository.PendingInteractionStore,
     // #176/#177：堆积队列手动「继续」入口（详情对话框）+ 计数可见性
     // 走查修复（UI→Data 分层）：经 domain 接口触发，不直依赖具体管线
     // #272：BM25 内容检索（FTS5 索引，纯本地）
@@ -454,7 +456,7 @@ class SessionListViewModel @Inject constructor(
     // 分组设计：每组只携带自己拥有的字段（部分数据类），最终 dataFlow 合并 3 组。
     // 禁止"占位填充"（会重置其他组的字段）。
 
-    // 分组1：会话数据（6 源）→ 部分字段
+    // 分组1：会话数据（7 源）→ 部分字段
     private data class SessionDataPart(
         val sessions: List<Session>,
         val statuses: Map<String, SessionStatus>,
@@ -462,6 +464,8 @@ class SessionListViewModel @Inject constructor(
         val lastUserMessageTime: Map<String, Long>,
         val lastReplyTime: Map<String, Long>,
         val questions: Map<String, List<SseEvent.QuestionAsked>>,
+        // #311 Task4：待审批/提问指示（客户端本地域单源）
+        val pendingInteractions: Map<String, dev.leonardo.ocbeacon.data.repository.PendingInteractionKind>,
     )
 
     // kotlinx.coroutines combine 仅有 2-5 源的类型化重载；第 6 源用嵌套 combine 接入。
@@ -478,8 +482,10 @@ class SessionListViewModel @Inject constructor(
             SessionCorePart(sessions, statuses, serverSessionMap, lastUserMessageTime, lastReplyTime)
         },
         chatRepository.getAllQuestionsFlow().distinctUntilChanged(),
-    ) { core, questions ->
-        SessionDataPart(core.sessions, core.statuses, core.serverSessionMap, core.lastUserMessageTime, core.lastReplyTime, questions)
+        // #311 Task4：待审批/提问指示（客户端本地域单源；StateFlow 自身去重）
+        pendingInteractionStore.pendingBySession,
+    ) { core, questions, pendingInteractions ->
+        SessionDataPart(core.sessions, core.statuses, core.serverSessionMap, core.lastUserMessageTime, core.lastReplyTime, questions, pendingInteractions)
     }
 
     /** 嵌套 combine 的中间载体（前 5 源）。 */
@@ -539,6 +545,9 @@ class SessionListViewModel @Inject constructor(
                 .filterValues { it.isNotEmpty() }
                 .keys
                 .toSet(),
+            // #311 Task4：服务器域内过滤（与 pendingQuestionIds 同款守卫）
+            pendingInteractions = sessionData.pendingInteractions
+                .filterKeys { it in sessionData.serverSessionMap[serverId].orEmpty() },
             archivedSessionIds = archivedIds,
         )
     }

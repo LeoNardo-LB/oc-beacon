@@ -55,6 +55,9 @@ class EventDispatcher @Inject constructor(
     // respondPermission + 专属协程）收进 PermissionAutoApprover.maybeAutoApprove——
     // 本类只在 PermissionAsked 分发点异步触发，不再持有 chatRepoProvider/scope。
     private val permissionAutoApprover: PermissionAutoApprover,
+    // #311 Task4：等待审批/提问状态点本地域（wire 契约④——真服务器不推
+    // approvals/questions 状态；PermissionAsked/QuestionAsked 分发点旁路记录）
+    private val pendingInteractionStore: PendingInteractionStore,
     // #271：Provider 打破 HistorySyncManager→SessionRepository→EventDispatcher 环
     private val historySyncManagerProvider: javax.inject.Provider<HistorySyncManager>,
 ) {
@@ -310,7 +313,20 @@ class EventDispatcher @Inject constructor(
         // .maybeAutoApprove（规则列表为空 = 恒不匹配，天然关闭；不阻塞事件分发
         // 主路径）。成功后 PermissionReplied 事件回流自然清卡片（handler 幂等去重已防重复）。
         if (event is SseEvent.PermissionAsked) {
+            // #311 Task4：等待审批指示先于 auto-approve 记录（ok 路径随
+            // removePermission 委托同点清除——clearIfKind 同族判定，净效果无指示）
+            pendingInteractionStore.record(event.sessionId, PendingInteractionKind.APPROVAL)
             permissionAutoApprover.maybeAutoApprove(event, serverId)
+        }
+
+        // #311 Task4：等待提问指示记录（plan-review intent 如实区分——#310③ kind）。
+        if (event is SseEvent.QuestionAsked) {
+            pendingInteractionStore.record(
+                event.sessionId,
+                if (event.questions.any { q -> q.intent?.kind == "plan-review" })
+                    PendingInteractionKind.PLAN_REVIEW
+                else PendingInteractionKind.QUESTION,
+            )
         }
 
         // 跨 handler：#216——.next 的 tool.progress 携带 subagent 子智能体会话
@@ -336,6 +352,8 @@ class EventDispatcher @Inject constructor(
             unreadBadgeService.removeSession(deletedSessionId)
             permissionHandler.clearForSession(deletedSessionId)
             questionHandler.clearForSession(deletedSessionId)
+            // #311 Task4：待审批/提问指示级联清除（③）
+            pendingInteractionStore.clearForSession(deletedSessionId)
             miscHandler.clearForSession(deletedSessionId)
             sessionNextHandler.clearForSession(deletedSessionId)
             shellJobsHandler.clearForSession(deletedSessionId)
@@ -541,14 +559,37 @@ class EventDispatcher @Inject constructor(
         unreadBadgeService.onEvent(UnreadEvent.RestSnapshot(sessionId, maxTs))
     }
 
-    fun removePermission(permissionId: String) =
+    fun removePermission(permissionId: String) {
+        // #311 Task4（清除①本地应答）：auto approver ok 路径（#308 Layer2）与手动
+        // 应答共用本委托——同点清待审批指示。先解析归属会话（handler 移除后无从
+        // 查起）；该会话已无同类 pending 才清（多条审批并存时保留指示）。
+        val owners = permissionHandler.permissions.value
+            .filterValues { perms -> perms.any { it.id == permissionId } }
+            .keys
         permissionHandler.removePermission(permissionId)
+        owners.forEach { sessionId ->
+            if (permissionHandler.permissions.value[sessionId].isNullOrEmpty()) {
+                pendingInteractionStore.clearIfKind(sessionId, PendingInteractionKind.APPROVAL)
+            }
+        }
+    }
 
     fun setPermissions(sessionId: String, permissions: List<SseEvent.PermissionAsked>) =
         permissionHandler.setPermissions(sessionId, permissions)
 
-    fun removeQuestion(questionId: String) =
+    fun removeQuestion(questionId: String) {
+        // #311 Task4（清除①本地应答）：reply/reject 成功路径共用本委托——同点清
+        // 提问指示（question 族互清含 plan-review）；先解析归属会话。
+        val owners = questionHandler.questions.value
+            .filterValues { qs -> qs.any { it.id == questionId } }
+            .keys
         questionHandler.removeQuestion(questionId)
+        owners.forEach { sessionId ->
+            if (questionHandler.questions.value[sessionId].isNullOrEmpty()) {
+                pendingInteractionStore.clearIfKind(sessionId, PendingInteractionKind.QUESTION)
+            }
+        }
+    }
 
     fun setQuestions(sessionId: String, questions: List<SseEvent.QuestionAsked>) =
         questionHandler.setQuestions(sessionId, questions)
@@ -583,6 +624,7 @@ class EventDispatcher @Inject constructor(
         sessionNextHandler.clearAll()
         sessionStateRepository.clearAll()
         ownershipRegistry.clearAll()
+        pendingInteractionStore.clearAll()
     }
 
     /**

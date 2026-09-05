@@ -187,6 +187,7 @@
     <string name="sessions_working">En cours</string>
     <string name="sessions_retrying">Nouvelle tentative</string>
     <string name="session_pending_question">En attente de réponse</string>
+    <string name="session_pending_approval">En attente d\'approbation</string>
     <string name="session_changes_additions">+%1$d</string>
     <string name="session_changes_deletions">-%1$d</string>
     <string name="chat_response">Réponse</string>
