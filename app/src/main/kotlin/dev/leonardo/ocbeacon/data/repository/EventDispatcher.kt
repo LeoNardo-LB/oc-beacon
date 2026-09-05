@@ -4,6 +4,7 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.repository.handler.*
+import dev.leonardo.ocbeacon.domain.model.CommandFeedback
 import dev.leonardo.ocbeacon.domain.model.FileDiff
 import dev.leonardo.ocbeacon.domain.model.MergeStrategy
 import dev.leonardo.ocbeacon.domain.model.Message
@@ -143,7 +144,10 @@ class EventDispatcher @Inject constructor(
             SseEvent.WorktreeReady::class, SseEvent.WorktreeFailed::class,
             SseEvent.LspUpdated::class,
             // #285：DSH 命令注册表全局帧（commands/change → MiscEventHandler 广播）
-            SseEvent.CommandsChanged::class
+            SseEvent.CommandsChanged::class,
+            // #323：斜杠命令执行反馈行（command/run|done → MiscEventHandler 折叠，
+            // TurnMaxTokens 同款既有 handler 扩展——漏 bind 即静默丢弃，goal 前车之鉴）
+            SseEvent.CommandRunStarted::class, SseEvent.CommandDone::class
         )
         // SessionNext → SessionNextEventHandler
         bind(sessionNextHandler, SseEvent.SessionNext::class, SseEvent.TurnMaxTokens::class)
@@ -233,6 +237,9 @@ class EventDispatcher @Inject constructor(
 
     /** #309 批1⑤：turn/end max-tokens 通知（sessionId → turn）。 */
     val turnMaxTokens: StateFlow<Map<String, Long>> get() = sessionNextHandler.turnMaxTokens
+
+    /** #323：斜杠命令执行反馈行（sessionId → 卡态列表，seq 升序；commandId 配对原位更新）。 */
+    val commandFeedback: StateFlow<Map<String, List<CommandFeedback>>> get() = miscHandler.commandFeedback
     val gapDetected: StateFlow<Set<String>> get() = sessionNextHandler.gapDetected
 
     // ============ 事件处理 ============
@@ -434,6 +441,8 @@ class EventDispatcher @Inject constructor(
             is SseEvent.SessionIdle -> event.sessionId
             is SseEvent.SessionError -> event.sessionId
             is SseEvent.TurnMaxTokens -> event.sessionId
+            is SseEvent.CommandRunStarted -> event.sessionId
+            is SseEvent.CommandDone -> event.sessionId
             is SseEvent.SessionNext -> event.event.sessionId
             // 会话生命周期（信息）
             is SseEvent.SessionCreated -> event.info.id

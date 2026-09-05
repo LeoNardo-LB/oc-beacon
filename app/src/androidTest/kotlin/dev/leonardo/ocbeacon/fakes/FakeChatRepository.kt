@@ -153,6 +153,9 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
     override fun getTurnMaxTokensForSession(sessionId: String): kotlinx.coroutines.flow.Flow<Long?> =
         kotlinx.coroutines.flow.flowOf(null)
 
+    override fun getCommandFeedbackForSession(sessionId: String): kotlinx.coroutines.flow.Flow<List<dev.leonardo.ocbeacon.domain.model.CommandFeedback>> =
+        kotlinx.coroutines.flow.flowOf(emptyList())
+
     override suspend fun revertSession(serverId: String, sessionId: String, messageId: String): Result<Unit> =
         revertResult
 

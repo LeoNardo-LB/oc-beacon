@@ -677,7 +677,14 @@ object DshEventMapper {
             "step/end" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.LIFECYCLE_NOISE))
             // llm/retry（实测 3,566 次）——Part.Retry 对位留给后续；不进目录会误伤真实会话
             "llm/retry", "llm/retry-started" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.LLM_RETRY))
-            "command/run", "command/done" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.COMMAND))
+            // #323：斜杠命令执行反馈行——转录 log-only 事件（dsh-commands 契约：run
+            // {commandId,name,args?,source} 先于 handler、done {commandId,kind,text?,
+            // sourceEventSeq?} 结算后；commandId 配对、直追加无轮包裹）。真实转录
+            // 事件（非历史行忽略词汇）——历史重放同路径渲染（DshHistoryFolder 共用
+            // 本入口）；畸形（缺 commandId）具名 MALFORMED，绝不落 UNKNOWN_UNIGNORABLE
+            //（#327 历史行防御纪律：不得触发整会话拒绝重建）。
+            "command/run" -> mapCommandRun(sessionId, seq, time, data)
+            "command/done" -> mapCommandDone(sessionId, seq, time, data)
             // log-only（设计 Tier3 明列）
             "request/header", "request/context", "session/end-seed",
             "web/deepseek-search-llm-request", "schedule/change", "feedback/record",
@@ -956,6 +963,53 @@ object DshEventMapper {
 
     /** workflow 卡宿主消息 id（runId 键控——start/end 原位更新同一卡）。 */
     private fun workflowMessageId(runId: String): String = "dsh-workflow-" + runId
+
+    /**
+     * #323：command/run {commandId, name, args?, source} → [SseEvent.CommandRunStarted]。
+     *
+     * args 是原始入参串（recordInput=false 的命令缺席）；source={kind} 只取 kind
+     * 保真透传。缺 commandId = 畸形（配对键不可缺失）→ MALFORMED 具名降级。
+     */
+    private fun mapCommandRun(sessionId: String, seq: Long, time: Long, data: JsonObject): List<DshMappedEvent> {
+        val commandId = data.str("commandId")
+            ?: return listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+        return listOf(
+            DshMappedEvent.Sse(
+                SseEvent.CommandRunStarted(
+                    sessionId = sessionId,
+                    commandId = commandId,
+                    name = data.str("name") ?: "",
+                    args = data.str("args"),
+                    source = data.obj("source")?.str("kind"),
+                    seq = seq,
+                    time = time,
+                )
+            )
+        )
+    }
+
+    /**
+     * #323：command/done {commandId, kind, text?, sourceEventSeq?} →
+     * [SseEvent.CommandDone]。kind 词汇开放（success|error|…）原样透传，由
+     * CommandFeedbackFolder/UI 分支呈现。
+     */
+    private fun mapCommandDone(sessionId: String, seq: Long, time: Long, data: JsonObject): List<DshMappedEvent> {
+        val commandId = data.str("commandId")
+            ?: return listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+        return listOf(
+            DshMappedEvent.Sse(
+                SseEvent.CommandDone(
+                    sessionId = sessionId,
+                    commandId = commandId,
+                    kind = data.str("kind") ?: "success",
+                    text = data.str("text"),
+                    sourceEventSeq = data.long("sourceEventSeq"),
+                    seq = seq,
+                    time = time,
+                )
+            )
+        )
+    }
 
     /**
      * tool-workflow/run-start {runId, name} → synthetic 运行中卡（降级）。
@@ -1367,9 +1421,6 @@ object DshIgnoreReason {
 
     /** chunk 工具流式增量/收尾标记（tool-call-delta/finish）。 */
     const val CHUNK_LIFECYCLE = "chunk-lifecycle"
-
-    /** command/run|done。 */
-    const val COMMAND = "command"
 
     /** log-only 事件（设计 Tier3：request/header|context、session/end-seed 等）。 */
     const val LOG_ONLY = "log-only"

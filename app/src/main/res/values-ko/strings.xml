@@ -24,6 +24,10 @@
     <string name="session_status_retry">재시도 중 (%1$d)</string>
     <string name="turn_max_tokens_title">출력 한도에 도달했습니다</string>
     <string name="turn_max_tokens_continue">계속</string>
+    <string name="command_feedback_running">실행 중…</string>
+    <string name="command_feedback_completed">완료됨</string>
+    <string name="command_feedback_failed">실패</string>
+    <string name="command_feedback_a11y_running">명령 실행 중</string>
     <!-- Chat Screen -->
     <string name="chat_mention_session_a11y">세션 %1$s</string>
     <string name="chat_mention_same_workspace">같은 워크스페이스</string>

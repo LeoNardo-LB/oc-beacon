@@ -24,6 +24,10 @@
     <string name="session_status_retry">重试中（%1$d）</string>
     <string name="turn_max_tokens_title">输出达到上限</string>
     <string name="turn_max_tokens_continue">继续</string>
+    <string name="command_feedback_running">执行中…</string>
+    <string name="command_feedback_completed">已完成</string>
+    <string name="command_feedback_failed">失败</string>
+    <string name="command_feedback_a11y_running">命令执行中</string>
     <!-- Chat Screen -->
     <string name="chat_mention_session_a11y">会话 %1$s</string>
     <string name="chat_mention_same_workspace">同工作区</string>

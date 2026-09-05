@@ -297,6 +297,11 @@ fun ChatMessageList(
     val compactionState by viewModel.chatRepositoryExposed.getCompactionStateForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
     // #309 批1⑤：max-tokens 通知（turn 非空即显示；新一轮 Busy 自动清）
     val turnMaxTokens by viewModel.chatRepositoryExposed.getTurnMaxTokensForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
+    // #323：斜杠命令执行反馈行（command/run|done 折叠，commandId 配对原位更新）——
+    // 直接订阅仓库流（TurnMaxTokens 同款），V1/V2 后端恒空。
+    val commandFeedbackRows by viewModel.chatRepositoryExposed
+        .getCommandFeedbackForSession(currentSessionId)
+        .collectAsStateWithLifecycle(initialValue = emptyList())
     val activeTools = toolProgress.orEmpty().map { 
         ToolProgressInfo(callId = it.callId, partId = it.partId, tool = it.tool, status = it.status, progress = it.progress, title = it.title)
     }
@@ -1280,6 +1285,19 @@ fun ChatMessageList(
                                     onForceScrollToBottom()
                                 }
                             )
+                            }
+                        }
+                    }
+
+                    // #323 斜杠命令执行反馈行（EventCard 族，非流式内容——不接高度补偿）：
+                    // log-only 无轮包裹 → 行挂消息流尾部、组内按 seq 插入序（升序＝
+                    // 事件到达序）；key=commandId 稳定 → run→done 同卡原位刷新（非两行）。
+                    // durable 事件：历史重放同渲染。reverseLayout=true：先声明 = 视觉底部，
+                    // asReversed 使最新卡贴底（与消息流时间方向一致）。
+                    commandFeedbackRows.asReversed().forEach { feedback ->
+                        item(key = "cmd_feedback_" + feedback.commandId) {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
+                                CommandFeedbackCard(state = feedback)
                             }
                         }
                     }

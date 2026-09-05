@@ -38,6 +38,10 @@
     <string name="session_status_retry">Повтор попытки (%1$d)</string>
     <string name="turn_max_tokens_title">Достигнут лимит вывода</string>
     <string name="turn_max_tokens_continue">Продолжить</string>
+    <string name="command_feedback_running">Выполняется…</string>
+    <string name="command_feedback_completed">Завершено</string>
+    <string name="command_feedback_failed">Не удалось</string>
+    <string name="command_feedback_a11y_running">Команда выполняется</string>
     <string name="session_rename">Переименовать сессию</string>
     <string name="session_rename_title">Заголовок</string>
     <string name="session_rename_button">Переименовать</string>

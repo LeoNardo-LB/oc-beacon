@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.domain.repository
 
 import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
 import dev.leonardo.ocbeacon.domain.model.AgentPreset
+import dev.leonardo.ocbeacon.domain.model.CommandFeedback
 import dev.leonardo.ocbeacon.domain.model.DshGoalRef
 import dev.leonardo.ocbeacon.domain.model.AutoApproveRule
 import dev.leonardo.ocbeacon.domain.model.CompactionStateInfo
@@ -118,6 +119,12 @@ interface ChatRepository {
 
     /** #309 批1⑤：turn/end max-tokens 通知（null=无；新一轮 Busy 即清）。 */
     fun getTurnMaxTokensForSession(sessionId: String): Flow<Long?>
+
+    /**
+     * #323：斜杠命令执行反馈行（DSH command/run|done 折叠；seq 升序＝插入序，
+     * commandId 配对原位更新；空列表=无）。V1/V2 后端无此事件面恒空。
+     */
+    fun getCommandFeedbackForSession(sessionId: String): Flow<List<CommandFeedback>>
 
     /**
      * 从指定 messageId 开始撤销（revert）消息。

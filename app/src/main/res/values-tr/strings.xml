@@ -24,6 +24,10 @@
     <string name="session_status_retry">Yeniden deneniyor (%1$d)</string>
     <string name="turn_max_tokens_title">Çıktı sınırına ulaşıldı</string>
     <string name="turn_max_tokens_continue">Devam et</string>
+    <string name="command_feedback_running">Çalışıyor…</string>
+    <string name="command_feedback_completed">Tamamlandı</string>
+    <string name="command_feedback_failed">Başarısız</string>
+    <string name="command_feedback_a11y_running">Komut çalışıyor</string>
     <!-- Chat Screen -->
     <string name="chat_mention_session_a11y">Oturum %1$s</string>
     <string name="chat_mention_same_workspace">Aynı çalışma alanı</string>

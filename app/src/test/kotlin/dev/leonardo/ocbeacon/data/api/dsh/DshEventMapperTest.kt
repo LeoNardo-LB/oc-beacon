@@ -924,7 +924,8 @@ class DshEventMapperTest {
             // SessionPermissionChanged，不在噪声目录（见下方专门断言）。
             "plan/mode",
             "agent/inbox/spliced", "step/end", // llm/retry|retry-started 已映射（#309 批1⑤，见专门断言）
-            "command/run", "command/done", "request/header", "request/context",
+            // command/run|done 已映射为 CommandRunStarted/CommandDone（#323——真实转录事件，见专门测试）
+            "request/header", "request/context",
             "session/end-seed", "tool/code-dispatch", "tool/code-dispatch-start",
             "approval/asked", "approval/decided", "web/deepseek-search-llm-request",
             "schedule/change", "feedback/record",

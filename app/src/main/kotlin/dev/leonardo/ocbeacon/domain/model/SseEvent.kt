@@ -69,6 +69,45 @@ sealed class SseEvent {
         val turn: Long,
     ) : SseEvent()
 
+    /**
+     * #323：DSH 斜杠命令执行开始（转录 log-only 事件 command/run——先于 handler
+     * 的直追加，无轮包裹）。由 MiscEventHandler 折叠进 commandFeedback
+     * （commandId 配对，见 [CommandFeedbackFolder]）；历史重放同路径（durable）。
+     */
+    @Serializable
+    data class CommandRunStarted(
+        val sessionId: String,
+        /** 配对键（command/done 携带同一 id）。 */
+        val commandId: String,
+        val name: String,
+        /** 命令原始入参（recordInput=false 的命令缺席为 null）。 */
+        val args: String? = null,
+        /** 发起来源（wire source.kind，如 "user"；保真透传）。 */
+        val source: String? = null,
+        /** 信封 seq（消息列表插入序键）。 */
+        val seq: Long = 0L,
+        /** 信封 time（卡时间戳）。 */
+        val time: Long = 0L,
+    ) : SseEvent()
+
+    /**
+     * #323：DSH 斜杠命令执行结算（command/done——handler 结算后的直追加）。
+     * 与 [CommandRunStarted] 经 commandId 配对，同卡原位刷新为终态（非两行）。
+     */
+    @Serializable
+    data class CommandDone(
+        val sessionId: String,
+        val commandId: String,
+        /** 结算种类（success|error|…——dsh-commands 契约开放词汇）。 */
+        val kind: String,
+        /** 结算文本（缺席为 null）。 */
+        val text: String? = null,
+        /** success 结算引用的源事件 seq（缺席为 null）。 */
+        val sourceEventSeq: Long? = null,
+        val seq: Long = 0L,
+        val time: Long = 0L,
+    ) : SseEvent()
+
     // 消息事件
     @Serializable
     data class MessageUpdated(val info: Message) : SseEvent()

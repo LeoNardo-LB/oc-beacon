@@ -3,6 +3,8 @@ package dev.leonardo.ocbeacon.data.repository.handler
 import dev.leonardo.ocbeacon.logging.AppLogger
 
 import dev.leonardo.ocbeacon.BuildConfig
+import dev.leonardo.ocbeacon.domain.model.CommandFeedback
+import dev.leonardo.ocbeacon.domain.model.CommandFeedbackFolder
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +35,15 @@ class MiscEventHandler @Inject constructor() : SseEventHandler {
     private val _commandsChanged = MutableSharedFlow<Unit>(replay = 1)
     val commandsChanged: SharedFlow<Unit> = _commandsChanged.asSharedFlow()
 
+    /**
+     * #323：斜杠命令执行反馈行（sessionId → 有序卡态列表；seq 升序＝消息列表
+     * 插入序）。commandId 配对原位更新由 [CommandFeedbackFolder] 纯函数承担
+     * （run 建卡、done 同卡终态化）；durable——历史重放同路径折叠，SessionDeleted
+     * 级联清（退出会话不清，#252 shell 卡同款裁决：转录可见性跨进入退出保持）。
+     */
+    private val _commandFeedback = MutableStateFlow<Map<String, List<CommandFeedback>>>(emptyMap())
+    val commandFeedback: StateFlow<Map<String, List<CommandFeedback>>> = _commandFeedback.asStateFlow()
+
     /** REST hydrate（进会话补首屏 todo，2026-08-20）；与 SSE 路径同型幂等覆盖。 */
     fun setTodos(sessionId: String, todos: List<SseEvent.TodoUpdated.Todo>) {
         _todos.update { it + (sessionId to todos) }
@@ -42,6 +53,19 @@ class MiscEventHandler @Inject constructor() : SseEventHandler {
         return when (event) {
             is SseEvent.TodoUpdated -> { _todos.update { it + (event.sessionId to event.todos) }; true }
             is SseEvent.CommandsChanged -> { _commandsChanged.tryEmit(Unit); true } // #285：全局注册表通知
+            // #323：command/run|done → 反馈行卡态（配对纯函数折叠，本类只做容器写）
+            is SseEvent.CommandRunStarted -> {
+                _commandFeedback.update { all ->
+                    all + (event.sessionId to CommandFeedbackFolder.onRun(all[event.sessionId].orEmpty(), event))
+                }
+                true
+            }
+            is SseEvent.CommandDone -> {
+                _commandFeedback.update { all ->
+                    all + (event.sessionId to CommandFeedbackFolder.onDone(all[event.sessionId].orEmpty(), event))
+                }
+                true
+            }
             is SseEvent.PtyCreated -> { if (BuildConfig.DEBUG) AppLogger.d(TAG, "PTY created: ${event.id}"); true }
             is SseEvent.PtyUpdated -> { if (BuildConfig.DEBUG) AppLogger.d(TAG, "PTY updated: ${event.id}"); true }
             is SseEvent.PtyDeleted -> { if (BuildConfig.DEBUG) AppLogger.d(TAG, "PTY deleted: ${event.id}"); true }
@@ -66,13 +90,16 @@ class MiscEventHandler @Inject constructor() : SseEventHandler {
 
     fun clearForSession(sessionId: String) {
         _todos.update { it - sessionId }
+        _commandFeedback.update { it - sessionId }
     }
 
     fun clearForServer(sessionIds: Set<String>) {
         _todos.update { it - sessionIds }
+        _commandFeedback.update { it - sessionIds }
     }
 
     fun clearAll() {
         _todos.value = emptyMap()
+        _commandFeedback.value = emptyMap()
     }
 }

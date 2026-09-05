@@ -24,6 +24,10 @@
     <string name="session_status_retry">إعادة المحاولة (%1$d)</string>
     <string name="turn_max_tokens_title">تم الوصول إلى حد الإخراج</string>
     <string name="turn_max_tokens_continue">متابعة</string>
+    <string name="command_feedback_running">قيد التشغيل…</string>
+    <string name="command_feedback_completed">اكتمل</string>
+    <string name="command_feedback_failed">فشل</string>
+    <string name="command_feedback_a11y_running">الأمر قيد التنفيذ</string>
     <!-- Chat Screen -->
     <string name="chat_mention_session_a11y">الجلسة %1$s</string>
     <string name="chat_mention_same_workspace">نفس مساحة العمل</string>

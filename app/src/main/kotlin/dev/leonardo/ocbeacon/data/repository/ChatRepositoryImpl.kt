@@ -16,6 +16,7 @@ import dev.leonardo.ocbeacon.data.repository.handler.StepProgressInfo as DataSte
 import dev.leonardo.ocbeacon.data.repository.handler.ToolProgressInfo as DataToolProgressInfo
 import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
 import dev.leonardo.ocbeacon.domain.model.AgentPreset
+import dev.leonardo.ocbeacon.domain.model.CommandFeedback
 import dev.leonardo.ocbeacon.domain.model.DshGoalRef
 import dev.leonardo.ocbeacon.domain.model.CompactionStateInfo
 import dev.leonardo.ocbeacon.domain.model.FileDiff
@@ -856,6 +857,9 @@ class ChatRepositoryImpl @Inject constructor(
 
     override fun getTurnMaxTokensForSession(sessionId: String): Flow<Long?> =
         eventDispatcher.turnMaxTokens.map { it[sessionId] }.distinctUntilChanged()
+
+    override fun getCommandFeedbackForSession(sessionId: String): Flow<List<CommandFeedback>> =
+        eventDispatcher.commandFeedback.map { it[sessionId].orEmpty() }.distinctUntilChanged()
 
     override fun getSessionDiffsForSession(sessionId: String): Flow<List<FileDiff>> =
         eventDispatcher.sessionDiffs.map { it[sessionId] ?: emptyList() }.distinctUntilChanged()

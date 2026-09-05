@@ -24,6 +24,10 @@
     <string name="session_status_retry">Tentando novamente (%1$d)</string>
     <string name="turn_max_tokens_title">Limite de saída alcançado</string>
     <string name="turn_max_tokens_continue">Continuar</string>
+    <string name="command_feedback_running">Executando…</string>
+    <string name="command_feedback_completed">Concluído</string>
+    <string name="command_feedback_failed">Falhou</string>
+    <string name="command_feedback_a11y_running">Comando em execução</string>
     <!-- Chat Screen -->
     <string name="chat_mention_session_a11y">Sessão %1$s</string>
     <string name="chat_mention_same_workspace">Mesmo espaço de trabalho</string>

@@ -66,6 +66,10 @@
     <string name="session_status_retry">Retrying (%1$d)</string>
     <string name="turn_max_tokens_title">Output limit reached</string>
     <string name="turn_max_tokens_continue">Continue</string>
+    <string name="command_feedback_running">Running…</string>
+    <string name="command_feedback_completed">Completed</string>
+    <string name="command_feedback_failed">Failed</string>
+    <string name="command_feedback_a11y_running">Command execution in progress</string>
     <string name="session_rename">Rename Session</string>
     <string name="session_rename_title">Title</string>
     <string name="session_rename_button">Rename</string>

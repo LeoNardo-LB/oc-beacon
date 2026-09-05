@@ -24,6 +24,10 @@
     <string name="session_status_retry">Wiederholen (%1$d)</string>
     <string name="turn_max_tokens_title">Ausgabelimit erreicht</string>
     <string name="turn_max_tokens_continue">Fortfahren</string>
+    <string name="command_feedback_running">Wird ausgeführt…</string>
+    <string name="command_feedback_completed">Abgeschlossen</string>
+    <string name="command_feedback_failed">Fehlgeschlagen</string>
+    <string name="command_feedback_a11y_running">Befehl wird ausgeführt</string>
     <!-- Chat Screen -->
     <string name="chat_mention_session_a11y">Sitzung %1$s</string>
     <string name="chat_mention_same_workspace">Gleicher Workspace</string>

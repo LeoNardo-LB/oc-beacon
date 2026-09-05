@@ -24,6 +24,10 @@
     <string name="session_status_retry">Повтор спроби (%1$d)</string>
     <string name="turn_max_tokens_title">Досягнуто ліміту виводу</string>
     <string name="turn_max_tokens_continue">Продовжити</string>
+    <string name="command_feedback_running">Виконується…</string>
+    <string name="command_feedback_completed">Завершено</string>
+    <string name="command_feedback_failed">Не вдалося</string>
+    <string name="command_feedback_a11y_running">Команда виконується</string>
     <!-- Chat Screen -->
     <string name="chat_mention_session_a11y">Сесія %1$s</string>
     <string name="chat_mention_same_workspace">Той самий робочий простір</string>
