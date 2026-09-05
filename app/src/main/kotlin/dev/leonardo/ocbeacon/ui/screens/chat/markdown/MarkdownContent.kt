@@ -120,6 +120,11 @@ internal fun normalizeMarkdown(raw: String, isUser: Boolean): String {
     // 紧跟在段落后的表格（无空行）会渲染为纯文本。
     result = ensureBlankLineBeforeGfmTables(result)
 
+    // #312② 数学块降级（方案 C）：成对数学定界符（$$...$$ / \(...\) / \[...\]）
+    // → tex 围栏/行内代码（见 transformMathFallback KDoc——流式取舍同注）。
+    // 置于用户单换行空行化之前：多行公式块的行结构先成围栏、不被打散。
+    result = transformMathFallback(result)
+
     if (!isUser) return result
     // 用户消息：单个 \n 在 Markdown 中不换行（软换行）。
     return result.replace(SINGLE_NEWLINE_REGEX, "\n\n")
