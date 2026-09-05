@@ -584,8 +584,12 @@ class DshMuxSynthesizer(
      *
      * #311 Task1 消费面：baseline + {type:'archived'}（归档集合替换式——帧即新
      * 集合）镜像为合成帧 workspace/baseline|archived，下游 mapper/store 单一消费
-     * 路径。upsert/remove/order（注册表结构变更）属 #311 Task2（多 workspace UI），
-     * 到达仅留痕不合成。
+     * 路径。
+     *
+     * #311 Task3 增量消费：{type:'upsert', workspace}（WorkspaceView 整行——title
+     * 重命名/新会话入组等注册表行变更）→ 合成帧 workspace/upsert（对话框
+     * title/sessionIds 实时消费面）。remove/order 仍留痕不合成（无消费面——
+     * remove 后注册表行由重连 baseline 收敛；order 不进移动端排序语义）。
      */
     private fun onWorkspaceValue(value: JsonObject) {
         when (value.strOf("type")) {
@@ -600,7 +604,11 @@ class DshMuxSynthesizer(
                 val ids = value["archivedSessionIds"] ?: return
                 frame("workspace/archived", buildJsonObject { put("archivedSessionIds", ids) })
             }
-            else -> AppLogger.d(TAG, "workspace 增量未消费型（upsert/remove/order 属 #311 Task2）: " + value.toString().take(120))
+            "upsert" -> {
+                val ws = value["workspace"] ?: return
+                frame("workspace/upsert", buildJsonObject { put("workspace", ws) })
+            }
+            else -> AppLogger.d(TAG, "workspace 增量未消费型（remove/order）: " + value.toString().take(120))
         }
     }
 

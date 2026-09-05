@@ -20,6 +20,7 @@ import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.StepProgressInfo
 import dev.leonardo.ocbeacon.domain.model.SubagentCatalog
 import dev.leonardo.ocbeacon.domain.model.ToolProgressInfo
+import dev.leonardo.ocbeacon.domain.model.WorkspaceSnapshot
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,6 +52,9 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
     val stepProgressState = MutableStateFlow<StepProgressInfo?>(null)
     val compactionState = MutableStateFlow<CompactionStateInfo?>(null)
     val sessionDiffsState = MutableStateFlow<List<FileDiff>>(emptyList())
+
+    // #311：workspace 快照流（Task1/2 接口成员——此前缺席致本 fake 编译破损）
+    val workspaceSnapshotState = MutableStateFlow(WorkspaceSnapshot())
 
     // 同步变更的内部后备存储
     private val messagesStore = mutableMapOf<String, MutableList<MessageWithParts>>()
@@ -236,6 +240,33 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
 
     override suspend fun removeShell(serverId: String, shellId: String, directory: String?): Result<Boolean> =
         Result.success(true)
+
+    // ============ #311 workspace（归档 + 连接候选） ============
+
+    val archiveSessionCalls = mutableListOf<Pair<String, String>>()
+    var archiveSessionResult: Result<List<String>> = Result.success(emptyList())
+
+    override fun getWorkspaceSnapshotFlow(serverId: String): Flow<WorkspaceSnapshot> =
+        workspaceSnapshotState
+
+    override suspend fun archiveSession(serverId: String, sessionId: String): Result<List<String>> {
+        archiveSessionCalls.add(serverId to sessionId)
+        return archiveSessionResult
+    }
+
+    /** #311 Task3：连接复用候选（fake 无 workspace 语义——空表）。 */
+    override suspend fun listSessionsIncludingBlank(serverId: String): Result<List<Session>> =
+        Result.success(emptyList())
+
+    /** #310⑤/#321：@ 补全候选（此前缺席致本 fake 编译破损——空表 fake）。 */
+    override suspend fun mentionCandidates(
+        serverId: String,
+        sessionId: String,
+        query: String,
+        directory: String?,
+        quoted: Boolean,
+    ): Result<List<dev.leonardo.ocbeacon.domain.model.MentionCandidate>> =
+        Result.success(emptyList())
 
     // ============ 权限自动批准 ============
 

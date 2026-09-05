@@ -24,6 +24,10 @@ class DshWorkspaceHandler @Inject constructor(
             store.applyArchived(serverId, event.archivedSessionIds)
             true
         }
+        is SseEvent.WorkspaceUpserted -> {
+            store.applyUpsert(serverId, event.workspace)
+            true
+        }
         else -> false
     }
 }

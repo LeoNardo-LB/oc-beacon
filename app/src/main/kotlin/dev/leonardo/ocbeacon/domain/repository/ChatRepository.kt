@@ -319,6 +319,13 @@ interface ChatRepository {
      */
     fun getWorkspaceSnapshotFlow(serverId: String): Flow<WorkspaceSnapshot>
 
+    /**
+     * #311 Task3：session.list 全量（含 blank 空壳会话）——新建会话对话框连接
+     * 复用判定候选源（web connectWorkspace 语义：blank 会话在列表滤除面外）。
+     * 非 DSH 服务器 → 空表。
+     */
+    suspend fun listSessionsIncludingBlank(serverId: String): Result<List<Session>>
+
 
     // ============ DSH @ 引用候选（backlog #310⑤/#321；非 DSH 走 findFiles 现路径） ============
 

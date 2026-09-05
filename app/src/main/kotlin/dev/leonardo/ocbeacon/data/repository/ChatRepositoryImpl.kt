@@ -513,6 +513,21 @@ class ChatRepositoryImpl @Inject constructor(
             .map { it[serverId] ?: WorkspaceSnapshot() }
             .distinctUntilChanged()
 
+    /**
+     * #311 Task3：session.list 全量（含 blank 空壳）——连接复用判定候选源
+     * （web connectWorkspace mod29:46-58 在含 blank 的会话集上找复用；列表流
+     * 的 blank 滤除面见 DshSessionMapper.filterByDirectory）。非 DSH → 空表
+     * （无 workspace 连接语义，快照恒空不产生 workspace 条目）。
+     */
+    override suspend fun listSessionsIncludingBlank(serverId: String): Result<List<Session>> =
+        runCatchingCancellable {
+            val conn = resolveConnection(serverId)
+            if (conn.serverType != dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
+                return@runCatchingCancellable emptyList()
+            }
+            dshApiClient.listSessionsIncludingBlank(conn)
+        }
+
     // ============ DSH @ 引用候选（backlog #310⑤/#321） ============
 
     /**

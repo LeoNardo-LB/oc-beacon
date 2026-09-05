@@ -106,4 +106,31 @@ class EventDispatcherWorkspace311Test {
         assertEquals(listOf("s-2", "s-9"), store.snapshotFor("srv-1").archivedSessionIds)
         assertEquals(listOf("ws-1"), store.snapshotFor("srv-1").workspaces.map { it.workspaceId })
     }
+
+    /** #311 Task3：upsert 增量路由折叠——漏 bind 即静默丢弃（goal 前车之鉴同款纪律）。 */
+    @Test
+    fun `workspace upsert event routed to handler and folded into store`() = runTest {
+        dispatcher.processEvent(
+            SseEvent.WorkspaceSnapshotChanged(
+                workspaces = listOf(
+                    Workspace(workspaceId = "ws-1", path = "/w", title = "W", sessionIds = listOf("s-1")),
+                    Workspace(workspaceId = "ws-2", path = "/w2", title = "W2"),
+                ),
+                archivedSessionIds = listOf("s-9"),
+            ),
+            "srv-1",
+        )
+        dispatcher.processEvent(
+            SseEvent.WorkspaceUpserted(
+                workspace = Workspace(workspaceId = "ws-1", path = "/w", title = "Renamed", sessionIds = listOf("s-1", "s-2")),
+            ),
+            "srv-1",
+        )
+        val snapshot = store.snapshotFor("srv-1")
+        // 原位替换 + 未知 workspace 追加语义由 DshWorkspaceStoreTest 覆盖；此处钉 bind 链
+        assertEquals(listOf("ws-1", "ws-2"), snapshot.workspaces.map { it.workspaceId })
+        assertEquals("Renamed", snapshot.workspaces[0].title)
+        assertEquals(listOf("s-1", "s-2"), snapshot.workspaces[0].sessionIds)
+        assertEquals(listOf("s-9"), snapshot.archivedSessionIds)
+    }
 }

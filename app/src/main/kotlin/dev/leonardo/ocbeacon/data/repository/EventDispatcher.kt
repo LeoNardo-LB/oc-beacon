@@ -164,7 +164,8 @@ class EventDispatcher @Inject constructor(
         //（#311 Task1；EventDispatcherWorkspace311Test 钉死）
         bind(
             dshWorkspaceHandler,
-            SseEvent.WorkspaceSnapshotChanged::class, SseEvent.WorkspaceArchivedChanged::class
+            SseEvent.WorkspaceSnapshotChanged::class, SseEvent.WorkspaceArchivedChanged::class,
+            SseEvent.WorkspaceUpserted::class,
         )
         return map
     }
@@ -475,6 +476,7 @@ class EventDispatcher @Inject constructor(
             // #311 Task1：workspace 域事件（服务器级注册表/归档集合——无单一会话归属）
             is SseEvent.WorkspaceSnapshotChanged -> null
             is SseEvent.WorkspaceArchivedChanged -> null
+            is SseEvent.WorkspaceUpserted -> null
         }
     }
 

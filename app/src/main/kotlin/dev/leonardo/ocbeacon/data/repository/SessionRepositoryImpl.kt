@@ -203,7 +203,9 @@ class SessionRepositoryImpl @Inject constructor(
             conn = conn,
             title = opts.title,
             parentId = opts.parentId,
-            directory = opts.directory
+            directory = opts.directory,
+            // #311 ①-d：入组 workspace（DSH V012 专属；其余后端忽略）
+            workspaceId = opts.workspaceId,
         )
     }
 

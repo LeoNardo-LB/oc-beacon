@@ -49,6 +49,21 @@ class DshEventMapperWorkspace311Test {
         assertEquals(listOf("s-2", "s-9"), event.archivedSessionIds)
     }
 
+    /** #311 Task3：workspace/upsert（engine 合成帧）→ WorkspaceUpserted——
+     * 对话框消费 title/sessionIds 实时性的单一事件载体。 */
+    @Test
+    fun `workspace upsert frame maps to WorkspaceUpserted`() {
+        val events = frame(
+            "workspace/upsert",
+            """{"workspace":{"workspaceId":"ws-1","path":"/home/leo/proj","title":"Renamed","sessionIds":["s-1","s-2","s-3"]}}""",
+        )
+        assertEquals(1, events.size)
+        val event = (events[0] as DshMappedEvent.Sse).event as SseEvent.WorkspaceUpserted
+        assertEquals("ws-1", event.workspace.workspaceId)
+        assertEquals("Renamed", event.workspace.title)
+        assertEquals(listOf("s-1", "s-2", "s-3"), event.workspace.sessionIds)
+    }
+
     @Test
     fun `workspace frames with malformed payload are ignored`() {
         // baseline 缺 items/archivedSessionIds 键 → MALFORMED
@@ -57,6 +72,11 @@ class DshEventMapperWorkspace311Test {
         // archived 缺 archivedSessionIds → MALFORMED
         val archived = frame("workspace/archived", """{"other":1}""")
         assertTrue(archived.single() is DshMappedEvent.Ignored)
+        // upsert 缺 workspace 键 / 非对象 → MALFORMED（#311 Task3）
+        assertTrue(frame("workspace/upsert", """{}""").single() is DshMappedEvent.Ignored)
+        assertTrue(
+            frame("workspace/upsert", """{"workspace":"not-an-object"}""").single() is DshMappedEvent.Ignored,
+        )
     }
 
     /** 畸形 item 行（缺 workspaceId）丢弃不崩——行级容错（对齐 jobs/queue mapper）。 */

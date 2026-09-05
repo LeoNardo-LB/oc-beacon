@@ -366,6 +366,18 @@ object DshEventMapper {
             )
         }
 
+        // workspace/follow 注册表行增量（{type:'upsert'} 合成帧；#311 Task3）——
+        // workspace 携带整行 WorkspaceView（title/sessionIds 实时消费面）。
+        "workspace/upsert" -> {
+            val ws = payload["workspace"]
+            if (ws !is JsonObject) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+            else listOfNotNull(
+                mapWorkspaceView(ws)?.let { mapped ->
+                    DshMappedEvent.Sse(SseEvent.WorkspaceUpserted(workspace = mapped))
+                } ?: DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED),
+            )
+        }
+
         "stream/error" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.STREAM_ERROR))
 
         "host/session-added" -> {

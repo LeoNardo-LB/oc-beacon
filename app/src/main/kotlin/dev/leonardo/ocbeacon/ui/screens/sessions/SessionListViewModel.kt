@@ -40,6 +40,12 @@ import dev.leonardo.ocbeacon.domain.usecase.ManageSessionUseCase
 import dev.leonardo.ocbeacon.domain.usecase.ProbeDirectoryUseCase
 import dev.leonardo.ocbeacon.domain.usecase.SearchDirectoriesUseCase
 import dev.leonardo.ocbeacon.logging.AppLogger
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.WorkspaceDialogEntry
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.findReusableBlankSession
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.projectDialogEntries
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.recentSessionDirectories
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.toDialogEntry
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.workspaceDialogEntries
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -186,6 +192,21 @@ class SessionListViewModel @Inject constructor(
     val serverCapabilities: StateFlow<dev.leonardo.ocbeacon.domain.model.ServerCapabilities> =
         _serverCapabilities.asStateFlow()
 
+    /** #311 Task3：本服务器是否 DSH（空 workspace 快照的回退分支判定——
+     * DSH=listProjects 投影（V011 workspace.list / V012 session.list distinct
+     * cwd），非 DSH=既有最近目录行为零回归）。 */
+    private val _serverIsDsh = MutableStateFlow(false)
+
+    // 以下五个可变状态**必须声明在 init 块之前**：init 的配置加载协程
+    // （Main.immediate——测试 Main=Unconfined 时 eager 执行）会触达
+    // loadPermissionDefault/loadAgentPresets，若声明在后则字段尚未初始化
+    // （构造序 = 声明序）→ NPE。公开投影仍在原分区（DSH 权限档/Agent 预设）。
+    private val _permissionDefault = MutableStateFlow<dev.leonardo.ocbeacon.domain.model.DshPermissionDefault?>(null)
+    private val _permissionDefaultBlocked = MutableStateFlow(false)
+    private val _agentPresets = MutableStateFlow<List<AgentPreset>>(emptyList())
+    private val _agentPresetDefault = MutableStateFlow<dev.leonardo.ocbeacon.domain.model.DshAgentPresetDefault?>(null)
+    private val _agentPresetDefaultBlocked = MutableStateFlow(false)
+
     private val directoryManager = DirectoryManager(
         serverId = serverId,
         getServerPathsUseCase = getServerPathsUseCase,
@@ -217,6 +238,9 @@ class SessionListViewModel @Inject constructor(
             mcpRepository.setConnection(conn)
             // #276：能力位投影（DSH 删除动作等 UI 门控依据）
             _serverCapabilities.value = conn.capabilities
+            // #311 Task3：DSH 判定（对话框回退分支）
+            _serverIsDsh.value =
+                conn.serverType == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh
             // 权限预设切换器门控：DSH-only 读默认档（能力位内才发 settings.describe）
             loadPermissionDefault()
             // UI-B/UI-C：DSH-only 读 Agent 预设 roster + 默认档（能力位内才发请求）
@@ -340,11 +364,9 @@ class SessionListViewModel @Inject constructor(
     val mcpError: SharedFlow<String> = _mcpError.asSharedFlow()
 
     // ============ DSH 新会话默认权限档 ============
-    private val _permissionDefault = MutableStateFlow<dev.leonardo.ocbeacon.domain.model.DshPermissionDefault?>(null)
     val permissionDefault: StateFlow<dev.leonardo.ocbeacon.domain.model.DshPermissionDefault?> = _permissionDefault.asStateFlow()
 
     /** #298：非 loopback 连接（Host 栅栏 403）——行保留但标注需 adb reverse。 */
-    private val _permissionDefaultBlocked = MutableStateFlow(false)
     val permissionDefaultBlocked: StateFlow<Boolean> = _permissionDefaultBlocked.asStateFlow()
 
     /** 读 settings.describe ns=permission 默认档（DSH-only；能力位外 no-op）。 */
@@ -381,7 +403,6 @@ class SessionListViewModel @Inject constructor(
     // ============ DSH Agent 预设（设置页默认档 UI-C + 详情标签 UI-B） ============
 
     /** Agent 预设 roster（设置页默认档选项 + 详情标签 id→name 解析）。 */
-    private val _agentPresets = MutableStateFlow<List<AgentPreset>>(emptyList())
     val agentPresetsList: StateFlow<List<AgentPreset>> = _agentPresets.asStateFlow()
 
     /** preset id → roster name（详情标签 id 解析用）。 */
@@ -390,11 +411,9 @@ class SessionListViewModel @Inject constructor(
         .stateIn(viewModelScope, WhileSubscribed5s, emptyMap())
 
     /** 新会话默认 Agent 预设（settings ns=agent-presets default）。 */
-    private val _agentPresetDefault = MutableStateFlow<dev.leonardo.ocbeacon.domain.model.DshAgentPresetDefault?>(null)
     val agentPresetDefault: StateFlow<dev.leonardo.ocbeacon.domain.model.DshAgentPresetDefault?> = _agentPresetDefault.asStateFlow()
 
     /** #298：非 loopback 连接（Host 栅栏 403）——行保留但标注需 adb reverse。 */
-    private val _agentPresetDefaultBlocked = MutableStateFlow(false)
     val agentPresetDefaultBlocked: StateFlow<Boolean> = _agentPresetDefaultBlocked.asStateFlow()
 
     /** 读 roster + 默认档（DSH-only；能力位外 no-op；roster 失败软降级空列表）。 */
@@ -588,6 +607,29 @@ class SessionListViewModel @Inject constructor(
     val recentDirectoryCount: StateFlow<Int> = getSettingsFlowUseCase()
         .map { it.recentDirectoryCount }
         .stateIn(viewModelScope, WhileSubscribed5s, 20)
+
+    /**
+     * #311 Task3：新建会话对话框条目（快照→对话框状态映射，单源三态）：
+     * - V012（快照 workspaces 非空）：workspace 真建模条目（title + 在组未归档
+     *   计数 + stray 目录兜底，[workspaceDialogEntries]）；
+     * - 空快照 + DSH：listProjects 投影回退（V011 workspace.list / V012 空注册表
+     *   时 session.list distinct cwd——Task1 改造链）；
+     * - 空快照 + 非 DSH：既有最近目录行为（零回归裁决——不切 project.list）。
+     * 行序冻结在对话框组合时（NewSessionQuickDialog remember），此处随数据流更新。
+     */
+    val newSessionDialogEntries: StateFlow<List<WorkspaceDialogEntry>> = combine(
+        chatRepository.getWorkspaceSnapshotFlow(serverId),
+        sessionRepository.getSessionsFlow(serverId).distinctUntilChanged(),
+        _projects,
+        _serverIsDsh,
+        recentDirectoryCount,
+    ) { snapshot, sessions, projects, isDsh, limit ->
+        when {
+            snapshot.workspaces.isNotEmpty() -> workspaceDialogEntries(snapshot, sessions, limit)
+            isDsh -> projectDialogEntries(projects, sessions, limit)
+            else -> recentSessionDirectories(sessions, limit).map { it.toDialogEntry() }
+        }
+    }.stateIn(viewModelScope, WhileSubscribed5s, emptyList())
 
     init {
         loadSessions()
@@ -963,6 +1005,77 @@ class SessionListViewModel @Inject constructor(
                     if (e is CancellationException) throw e
                     AppLogger.e(TAG_SESSION_LIST_VM, "Failed to archive session " + sessionId, e)
                     _error.value = ERROR_ARCHIVE_FAILED
+                }
+        }
+    }
+
+    // ============ #311 Task3：新建会话对话框连接语义（web connectWorkspace 对齐） ============
+
+    /** 对话框选择后的导航指令（Screen 收集执行——复用跳转/新建跳转/目录懒建三态）。 */
+    sealed interface NewSessionNavigation {
+        /** 复用既有会话或 workspace 连接新建成功——跳转会话。 */
+        data class ToSession(val sessionId: String) : NewSessionNavigation
+        /** stray/回退目录条目——沿既有目录导航（ChatScreen 懒建）。 */
+        data class ToDirectory(val directory: String) : NewSessionNavigation
+    }
+
+    private val _newSessionNavigation =
+        MutableSharedFlow<NewSessionNavigation>(extraBufferCapacity = 4)
+    val newSessionNavigation: SharedFlow<NewSessionNavigation> = _newSessionNavigation.asSharedFlow()
+
+    /**
+     * 对话框条目连接动作（web uiWorkspace.connectWorkspace mod29:46-58 逐字对齐）：
+     * - workspace 条目：优先复用组内 blank ∧ cwd===path ∧ 未归档会话（跳转不新建），
+     *   无则 createSession(workspaceId=…)（不传 cwd——服务器按 workspaceId 归属）；
+     * - workspace 已从快照消失（remove 未消费/竞态）：目录回退不阻断入口；
+     * - stray/回退条目（workspaceId=null）：目录导航懒建（现行为）。
+     * 复用候选来自 [ChatRepository.listSessionsIncludingBlank]（列表流滤除 blank）。
+     */
+    fun connectWorkspaceEntry(entry: WorkspaceDialogEntry) {
+        val workspaceId = entry.workspaceId
+        if (workspaceId == null) {
+            _newSessionNavigation.tryEmit(NewSessionNavigation.ToDirectory(entry.path))
+            return
+        }
+        if (fastFailIfLinkBlocked()) return  // #267
+        viewModelScope.launch {
+            val snapshot = chatRepository.getWorkspaceSnapshotFlow(serverId).first()
+            val workspace = snapshot.workspaces.firstOrNull { it.workspaceId == workspaceId }
+            if (workspace == null) {
+                AppLogger.w(TAG_SESSION_LIST_VM, "workspace vanished before connect, fallback to directory nav: " + workspaceId)
+                _newSessionNavigation.tryEmit(NewSessionNavigation.ToDirectory(entry.path))
+                return@launch
+            }
+            val candidates = chatRepository.listSessionsIncludingBlank(serverId)
+                .getOrElse { e ->
+                    if (e is CancellationException) throw e
+                    AppLogger.w(TAG_SESSION_LIST_VM, "listSessionsIncludingBlank failed, fallback to create: " + e.message)
+                    emptyList()
+                }
+            val reuse = findReusableBlankSession(workspace, candidates, snapshot.archivedSessionIds.toSet())
+            if (reuse != null) {
+                AppLogger.i(TAG_SESSION_LIST_VM, "connectWorkspace reused blank session " + reuse.id + " for " + workspaceId)
+                _newSessionNavigation.tryEmit(NewSessionNavigation.ToSession(reuse.id))
+                return@launch
+            }
+            val created = try {
+                Result.success(
+                    manageSessionUseCase.createSession(serverId, directory = null, workspaceId = workspaceId),
+                )
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                Result.failure<Session>(e)
+            }
+            created
+                .onSuccess { session ->
+                    // 注入仓库：列表立即可见（注册表 sessionIds 由 upsert 增量帧补真）
+                    sessionRepository.setSessions(serverId, listOf(session))
+                    AppLogger.i(TAG_SESSION_LIST_VM, "connectWorkspace created session " + session.id + " in " + workspaceId)
+                    _newSessionNavigation.tryEmit(NewSessionNavigation.ToSession(session.id))
+                }
+                .onFailure { e ->
+                    AppLogger.e(TAG_SESSION_LIST_VM, "connectWorkspace create failed for " + workspaceId, e)
+                    _error.value = e.message ?: "Failed to create session"
                 }
         }
     }

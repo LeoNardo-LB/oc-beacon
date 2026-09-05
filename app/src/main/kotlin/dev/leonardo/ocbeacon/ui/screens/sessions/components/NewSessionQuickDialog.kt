@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Workspaces
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -45,7 +46,8 @@ internal data class RecentSessionDirectory(
 
 /**
  * 将 [sessions] 按目录分组并返回最近使用的目录，最多 [limit] 个。
- * 用于填充快速新建会话对话框。
+ * 用于填充快速新建会话对话框（#311 Task3 起为非 DSH 回退分支——
+ * DSH 走 [workspaceDialogEntries] / [projectDialogEntries] 真建模条目）。
  */
 internal fun recentSessionDirectories(
     sessions: List<Session>,
@@ -73,18 +75,22 @@ internal fun recentSessionDirectories(
     .take(limit)
 
 /**
- * 创建新会话的快速启动对话框。
- * 显示从已有会话聚合出的唯一项目目录，按最近使用排序 —
- * 一键即可在那里启动会话。底部的"浏览…"行打开完整目录选择器（[onBrowse]）。
+ * 创建新会话的快速启动对话框（#311 Task3 多 workspace 真建模）。
+ *
+ * 条目单源三态（[WorkspaceDialogEntry]，VM newSessionDialogEntries）：
+ * - V012 快照：workspace 条目（Workspaces 图标——title + 在组未归档计数）+
+ *   stray 目录兜底（Folder 图标，cwd/recency）；
+ * - 空快照回退：DSH=listProjects 投影 / 非 DSH=最近目录（现行为）。
+ * 选择动作统一走 onSelectEntry（连接语义见 SessionListViewModel.connectWorkspaceEntry）。
  *
  * 移植自上游 oc-remote v1.7.0，适配 AMOLED 对话框令牌系统。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun NewSessionQuickDialog(
-    sessions: List<Session>,
+    entries: List<WorkspaceDialogEntry>,
     limit: Int,
-    onSelectDirectory: (String) -> Unit,
+    onSelectEntry: (WorkspaceDialogEntry) -> Unit,
     onBrowse: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -93,7 +99,7 @@ internal fun NewSessionQuickDialog(
     // 消除点选时目标行漂移导致的落位错行（DSH E2E 发现，人类用户同样可命中邻行）。
     // 关闭后重新打开会重新组合，自然取到最新列表。手验：打开对话框 → 后台触发
     // 列表变化（如另一端新建会话）→ 行序应保持不变。
-    val dirEntries = remember(limit) { recentSessionDirectories(sessions, limit) }
+    val rows = remember { entries.take(limit) }
     val params = amoledDialogParams(shape = ShapeTokens.largeMedium)
 
     BasicAlertDialog(
@@ -119,24 +125,25 @@ internal fun NewSessionQuickDialog(
                         .fillMaxWidth()
                         .heightIn(max = 360.dp),
                 ) {
-                    items(dirEntries, key = { it.directory }) { entry ->
+                    items(rows, key = { (it.workspaceId ?: "") + "|" + it.path }) { entry ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onSelectDirectory(entry.directory) }
+                                .clickable { onSelectEntry(entry) }
                                 .padding(horizontal = 20.dp, vertical = SpacingTokens.MD.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp),
                         ) {
                             Icon(
-                                Icons.Default.Folder,
+                                // workspace 真建模条目=Workspaces；stray/回退目录=Folder
+                                if (entry.workspaceId != null) Icons.Default.Workspaces else Icons.Default.Folder,
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp),
                                 tint = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.HIGH),
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = entry.name,
+                                    text = entry.title,
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Medium,
                                     color = MaterialTheme.colorScheme.onSurface,
@@ -144,7 +151,7 @@ internal fun NewSessionQuickDialog(
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
-                                    text = entry.directory.trimEnd('/'),
+                                    text = entry.path.trimEnd('/'),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
                                     maxLines = 1,
@@ -152,7 +159,7 @@ internal fun NewSessionQuickDialog(
                                 )
                             }
                             Text(
-                                text = "${entry.count}",
+                                text = "${entry.sessionCount}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
                             )

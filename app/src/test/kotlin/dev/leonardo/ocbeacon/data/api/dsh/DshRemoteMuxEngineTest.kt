@@ -420,21 +420,39 @@ class DshRemoteMuxEngineTest {
         assertEquals(2, ids?.size)
     }
 
-    /** upsert/remove/order 增量属 #311 Task2（多 workspace UI）——到达不合成帧。 */
+    /** #311 Task3：upsert 增量（{type:'upsert', workspace:WorkspaceView}）→ 合成帧
+     * workspace/upsert——title 重命名/新会话入组等注册表行变更的实时载体（对话框
+     * title/sessionIds 消费面）。remove/order 仍留痕不合成（本任务无消费面）。 */
     @Test
-    fun workspaceIncrementalUpsert_ignoredWithoutFrame() {
+    fun workspaceIncrementalUpsert_synthesizesWorkspaceUpsertFrame() {
         val frames = mutableListOf<SynthFrame>()
         val syn = synthesizer(frames, mutableListOf())
         syn.onItem(
             "wsp",
             Json.parseToJsonElement(
-                """{"type":"upsert","workspace":{"workspaceId":"ws-1","path":"/w","title":"W","sessionIds":[]}}""",
+                """{"type":"upsert","workspace":{"workspaceId":"ws-1","path":"/w","title":"Renamed","sessionIds":["s-1","s-2"]}}""",
             ) as JsonObject,
+            ConcurrentHashMap(),
+        )
+        assertEquals(1, frames.size)
+        assertEquals("workspace/upsert", frames[0].method)
+        val workspace = frames[0].payload["workspace"] as? JsonObject
+        assertEquals("ws-1", workspace?.strField("workspaceId"))
+        assertEquals("Renamed", workspace?.strField("title"))
+    }
+
+    @Test
+    fun workspaceIncrementalOrderAndRemove_stillIgnoredWithoutFrame() {
+        val frames = mutableListOf<SynthFrame>()
+        val syn = synthesizer(frames, mutableListOf())
+        syn.onItem(
+            "wsp",
+            Json.parseToJsonElement("""{"type":"order","workspaceIds":["ws-1"]}""") as JsonObject,
             ConcurrentHashMap(),
         )
         syn.onItem(
             "wsp",
-            Json.parseToJsonElement("""{"type":"order","workspaceIds":["ws-1"]}""") as JsonObject,
+            Json.parseToJsonElement("""{"type":"remove","workspaceId":"ws-1"}""") as JsonObject,
             ConcurrentHashMap(),
         )
         assertTrue(frames.isEmpty())

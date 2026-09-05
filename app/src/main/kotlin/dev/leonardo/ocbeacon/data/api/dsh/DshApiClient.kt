@@ -137,6 +137,22 @@ class DshApiClient @Inject constructor(
         limit: Int,
     ): SessionPage = SessionPage(items = listSessions(conn, directory, search, cursor, limit), nextCursor = null)
 
+    /**
+     * session.list 全量映射（含 blank 空壳）——#311 Task3 连接复用判定候选源。
+     * 与 [listSessions] 差异：不经 [DshSessionMapper.filterByDirectory]（blank
+     * 滤除面）——web connectWorkspace 复用判定在含 blank 的会话集上进行
+     * （mod29:46-58）。
+     */
+    suspend fun listSessionsIncludingBlank(conn: ServerConnection): List<Session> {
+        val value = rpc.call(conn, "session.list", buildJsonObject {}) { it }.getOrElse { e ->
+            AppLogger.w(TAG, "session.list failed: " + e.message)
+            throw e
+        }
+        return (value.dshArr("items") ?: emptyList())
+            .filterIsInstance<JsonObject>()
+            .map { DshSessionMapper.toSession(it) }
+    }
+
     /** 无 session.get——session.list 全量取回后本地查找（52 方法面终局）。 */
     override suspend fun getSession(conn: ServerConnection, sessionId: String): Session =
         listSessions(conn).firstOrNull { it.id == sessionId }

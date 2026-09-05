@@ -199,13 +199,26 @@ sealed class SseEvent {
      *
      * wire = WorkspaceBaseline {items:[WorkspaceView], archivedSessionIds}——每代
      * 重连恰一帧（集合替换式）。瞬态语义（不入历史/不重放）；由 DshWorkspaceHandler
-     * 写入 DshWorkspaceStore；OpenCode 无此帧。upsert/remove/order 增量属 #311 Task2
-     * （多 workspace UI），到达即忽略留痕。
+     * 写入 DshWorkspaceStore；OpenCode 无此帧。remove/order 增量无消费面，到达即
+     * 忽略留痕（upsert 见 [WorkspaceUpserted]）。
      */
     @Serializable
     data class WorkspaceSnapshotChanged(
         val workspaces: List<Workspace>,
         val archivedSessionIds: List<String>,
+    ) : SseEvent()
+
+    /**
+     * DSH workspace 注册表行变更（workspace/follow 增量 {type:'upsert',
+     * workspace:WorkspaceView} → 合成帧 workspace/upsert；#311 Task3）。
+     *
+     * [workspace] 携带整行（title + sessionIds 显式数组 + path）——title 重命名、
+     * 新会话入组均走此帧；由 DshWorkspaceHandler 按 workspaceId 原位替换写入
+     * DshWorkspaceStore（archived 集合保持）。OpenCode 无此帧。
+     */
+    @Serializable
+    data class WorkspaceUpserted(
+        val workspace: Workspace,
     ) : SseEvent()
 
     /**

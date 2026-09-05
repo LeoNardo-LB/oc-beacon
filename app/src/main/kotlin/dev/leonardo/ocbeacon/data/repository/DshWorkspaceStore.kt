@@ -16,7 +16,8 @@ import javax.inject.Singleton
  * - baseline（每代重连恰一帧）：workspaces + archivedSessionIds 整替换（按 serverId 键）；
  * - 增量 {type:'archived'}：只替换归档集合（**集合替换式**——帧即新集合，非合并），
  *   workspaces 保持；
- * - upsert/remove/order 增量属 #311 Task2（多 workspace UI），暂不消费。
+ * - 增量 {type:'upsert'}（#311 Task3）：注册表行按 workspaceId 原位替换（title/
+ *   sessionIds 实时消费面）；remove/order 仍不消费（无消费面，留痕）。
  *
  * 瞬态数据：不入 Room/历史、不重放（防替换/历史折叠语义与 DshQueueStore 同款）。
  */
@@ -44,6 +45,24 @@ class DshWorkspaceStore @Inject constructor() {
         _snapshots.update { all ->
             val current = all[serverId] ?: WorkspaceSnapshot()
             all + (serverId to current.copy(archivedSessionIds = archivedSessionIds))
+        }
+    }
+
+    /**
+     * 注册表行替换（#311 Task3；wire {type:'upsert', workspace:WorkspaceView} 整行）：
+     * 按 workspaceId 原位替换（序稳定——服务器 order 增量未消费，保持 baseline 序），
+     * 未知 id 追加尾部；archived 集合保持（upsert 帧不携带）。
+     */
+    fun applyUpsert(serverId: String, workspace: Workspace) {
+        _snapshots.update { all ->
+            val current = all[serverId] ?: WorkspaceSnapshot()
+            val existing = current.workspaces.indexOfFirst { it.workspaceId == workspace.workspaceId }
+            val merged = if (existing >= 0) {
+                current.workspaces.toMutableList().also { it[existing] = workspace }
+            } else {
+                current.workspaces + workspace
+            }
+            all + (serverId to current.copy(workspaces = merged))
         }
     }
 

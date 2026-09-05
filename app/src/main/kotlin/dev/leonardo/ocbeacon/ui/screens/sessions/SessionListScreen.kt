@@ -87,6 +87,8 @@ fun SessionListScreen(
     val content by viewModel.contentState.collectAsStateWithLifecycle()
     val shell by viewModel.shellState.collectAsStateWithLifecycle()
     val recentDirectoryCount by viewModel.recentDirectoryCount.collectAsStateWithLifecycle()
+    // #311 Task3：新建会话对话框条目（快照→对话框状态映射，VM 单源三态）
+    val newSessionDialogEntries by viewModel.newSessionDialogEntries.collectAsStateWithLifecycle()
     val isAmoled = isAmoledTheme()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -556,14 +558,15 @@ viewModel.consumePendingReadSessionId()
         )
     }
 
-    // 快速新建会话对话框（最近目录）
+    // 快速新建会话对话框（#311 Task3：workspace 真建模条目——V012 快照 /
+    // V011 listProjects 回退 / 非 DSH 最近目录；连接语义在 VM）
     if (showQuickNewSession) {
         NewSessionQuickDialog(
-            sessions = content.sessions,
+            entries = newSessionDialogEntries,
             limit = recentDirectoryCount,
-            onSelectDirectory = { directory ->
+            onSelectEntry = { entry ->
                 showQuickNewSession = false
-                onNavigateToNewChat(directory)
+                viewModel.connectWorkspaceEntry(entry)
             },
             onBrowse = {
                 showQuickNewSession = false
@@ -571,6 +574,21 @@ viewModel.consumePendingReadSessionId()
             },
             onDismiss = { showQuickNewSession = false }
         )
+    }
+
+    // #311 Task3：对话框连接语义导航事件（复用/新建跳转 + 目录懒建）
+    LaunchedEffect(Unit) {
+        viewModel.newSessionNavigation.collect { nav ->
+            when (nav) {
+                is SessionListViewModel.NewSessionNavigation.ToSession -> {
+                    // 与 SessionTreeList 行点击同款：先记已读水位，再跳转
+                    viewModel.onSessionOpened(nav.sessionId)
+                    onNavigateToChat(nav.sessionId, false, null)
+                }
+                is SessionListViewModel.NewSessionNavigation.ToDirectory ->
+                    onNavigateToNewChat(nav.directory)
+            }
+        }
     }
 
     // 重命名对话框
