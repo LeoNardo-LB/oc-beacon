@@ -706,6 +706,44 @@ class ChatViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, WhileSubscribed5s, null)
 
+    // ============ 消息反馈 👍/👎（#310②；DSH 服务器门控） ============
+
+    private val messageFeedbackDelegate = MessageFeedbackDelegate(chatRepository, serverId)
+
+    /**
+     * 当前会话消息反馈快照（键 = 服务器规范消息 id，即
+     * Message.Assistant.wireId）。会话进入时 list 拉种子；非 DSH 清空
+     * （消息卡脚部动作位按 serverType 门控隐藏）。
+     */
+    val messageFeedbackItems: StateFlow<Map<String, dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem>> =
+        messageFeedbackDelegate.items
+
+    init {
+        // sid+serverType 变化即重拉种子（进入/切换会话、探测落定后）；
+        // 失败告警保留旧值。
+        viewModelScope.launch {
+            combine(sessionLifecycle.sessionIdFlow, serverType) { sid, type -> sid to type }
+                .distinctUntilChanged()
+                .collect { (sid, type) ->
+                    if (type == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
+                        messageFeedbackDelegate.seed(sid)
+                    } else {
+                        messageFeedbackDelegate.reset()
+                    }
+                }
+        }
+    }
+
+    /**
+     * 点击 👍/👎（未评→评／同向→撤销／换向→换向；冲突重同步
+     * 重试一次）。结果交 ChatMessageList 映射 snackbar（Removed/Conflict/Failed）。
+     */
+    suspend fun toggleMessageFeedback(
+        messageId: String,
+        rating: dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating,
+    ): MessageFeedbackOutcome =
+        messageFeedbackDelegate.toggle(sessionLifecycle.sessionId, messageId, rating)
+
     // ============ 子会话续聊 mode（#310① composer 门控数据源） ============
 
     /**

@@ -424,6 +424,57 @@ class ChatRepositoryImpl @Inject constructor(
         dshApiClient.subagentCatalog(conn, parentSessionId)
     }
 
+    // ============ DSH 消息反馈（backlog #310②） ============
+
+    /**
+     * messageFeedback/put：非 DSH 显式 unsupported（写操作假成功会误导）；
+     * DSH V011 由 DshApiClient 同判。业务结果密封于成功值（CAS 冲突不算传输失败）。
+     */
+    override suspend fun messageFeedbackPut(
+        serverId: String,
+        sessionId: String,
+        messageId: String,
+        rating: dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating,
+        note: String?,
+        ifVersion: String?,
+    ): Result<dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult> = runCatchingCancellable {
+        val conn = resolveConnection(serverId)
+        if (conn.serverType != dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
+            throw dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability(
+                "messageFeedback.put", conn.serverType.name,
+            )
+        }
+        dshApiClient.messageFeedbackPut(conn, sessionId, messageId, rating, note, ifVersion)
+    }
+
+    /** messageFeedback/delete：非 DSH 显式 unsupported（同 put → 撤销不可假成功）。 */
+    override suspend fun messageFeedbackDelete(
+        serverId: String,
+        sessionId: String,
+        messageId: String,
+        ifVersion: String,
+    ): Result<dev.leonardo.ocbeacon.domain.model.MessageFeedbackDeleteResult> = runCatchingCancellable {
+        val conn = resolveConnection(serverId)
+        if (conn.serverType != dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
+            throw dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability(
+                "messageFeedback.delete", conn.serverType.name,
+            )
+        }
+        dshApiClient.messageFeedbackDelete(conn, sessionId, messageId, ifVersion)
+    }
+
+    /** messageFeedback/list：非 DSH → null（端点缺席语义，#314 先例）。 */
+    override suspend fun messageFeedbackList(
+        serverId: String,
+        sessionId: String,
+    ): Result<List<dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem>?> = runCatchingCancellable {
+        val conn = resolveConnection(serverId)
+        if (conn.serverType != dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
+            return@runCatchingCancellable null
+        }
+        dshApiClient.messageFeedbackList(conn, sessionId)
+    }
+
     // ============ DSH goal mutation（backlog #286） ============
 
     override suspend fun createGoal(

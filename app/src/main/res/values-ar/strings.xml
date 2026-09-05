@@ -166,6 +166,11 @@
     <string name="chat_share_url_copied">تم نسخ رابط المشاركة</string>
     <string name="chat_share_failed">فشل في مشاركة الجلسة</string>
     <string name="chat_copied_clipboard">تم النسخ إلى الحافظة</string>
+    <string name="chat_feedback_positive">تقييم كمفيد</string>
+    <string name="chat_feedback_negative">تقييم كغير مفيد</string>
+    <string name="chat_feedback_removed">تمت إزالة التقييم</string>
+    <string name="chat_feedback_conflict">تم تغيير التقييم في مكان آخر، حاول مرة أخرى</string>
+    <string name="chat_feedback_failed">فشل حفظ التقييم</string>
     <string name="image_count_single">صورة واحدة</string>
     <string name="image_count_multiple">%1$d صور</string>
     <string name="sessions_new_dialog_title">جلسة جديدة</string>

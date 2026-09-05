@@ -91,6 +91,12 @@ sealed class Message {
         val error: ErrorInfo? = null,
         val structured: JsonElement? = null,
         val variant: String? = null,
+        /**
+         * #310②：服务器规范消息 id（DSH assistant/message 帧的
+         * data.message.id——消息反馈 CAS 地址；OpenCode/V1 恒 null。
+         * 转录本地 id 仍是 [id]（seq-N 派生）——两址域经此桥接。
+         */
+        val wireId: String? = null,
         val summary: Boolean? = null
     ) : Message() {
         @Serializable

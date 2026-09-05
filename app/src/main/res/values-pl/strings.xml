@@ -166,6 +166,11 @@
     <string name="chat_share_url_copied">Skopiowano link do udostępnienia</string>
     <string name="chat_share_failed">Nie udało się udostępnić sesji</string>
     <string name="chat_copied_clipboard">Skopiowano do schowka</string>
+    <string name="chat_feedback_positive">Oceń jako pomocne</string>
+    <string name="chat_feedback_negative">Oceń jako niepomocne</string>
+    <string name="chat_feedback_removed">Ocena usunięta</string>
+    <string name="chat_feedback_conflict">Ocena została zmieniona gdzie indziej, spróbuj ponownie</string>
+    <string name="chat_feedback_failed">Nie udało się zapisać oceny</string>
     <string name="image_count_single">1 obraz</string>
     <string name="image_count_multiple">%1$d obrazów</string>
     <string name="sessions_new_dialog_title">Nowa sesja</string>

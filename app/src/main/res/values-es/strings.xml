@@ -166,6 +166,11 @@
     <string name="chat_share_url_copied">URL de compartir copiada</string>
     <string name="chat_share_failed">No se pudo compartir la sesión</string>
     <string name="chat_copied_clipboard">Copiado al portapapeles</string>
+    <string name="chat_feedback_positive">Valorar como útil</string>
+    <string name="chat_feedback_negative">Valorar como no útil</string>
+    <string name="chat_feedback_removed">Valoración eliminada</string>
+    <string name="chat_feedback_conflict">La valoración cambió en otro lugar, inténtalo de nuevo</string>
+    <string name="chat_feedback_failed">No se pudo guardar la valoración</string>
     <string name="image_count_single">1 imagen</string>
     <string name="image_count_multiple">%1$d imágenes</string>
     <string name="sessions_new_dialog_title">Nueva sesión</string>

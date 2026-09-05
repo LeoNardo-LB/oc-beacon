@@ -166,6 +166,11 @@
     <string name="chat_share_url_copied">공유 URL 복사됨</string>
     <string name="chat_share_failed">세션 공유 실패</string>
     <string name="chat_copied_clipboard">클립보드에 복사됨</string>
+    <string name="chat_feedback_positive">도움이 됨으로 평가</string>
+    <string name="chat_feedback_negative">도움이 안 됨으로 평가</string>
+    <string name="chat_feedback_removed">평가를 취소했습니다</string>
+    <string name="chat_feedback_conflict">평가가 다른 곳에서 변경되었습니다. 다시 시도하세요</string>
+    <string name="chat_feedback_failed">평가 저장에 실패했습니다</string>
     <string name="image_count_single">이미지 1개</string>
     <string name="image_count_multiple">%1$d개의 이미지</string>
     <string name="sessions_new_dialog_title">새 세션</string>

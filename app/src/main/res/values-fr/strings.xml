@@ -166,6 +166,11 @@
     <string name="chat_share_url_copied">URL de partage copiée</string>
     <string name="chat_share_failed">Échec du partage de la session</string>
     <string name="chat_copied_clipboard">Copié dans le presse-papiers</string>
+    <string name="chat_feedback_positive">Évaluer comme utile</string>
+    <string name="chat_feedback_negative">Évaluer comme inutile</string>
+    <string name="chat_feedback_removed">Évaluation retirée</string>
+    <string name="chat_feedback_conflict">L’évaluation a été modifiée ailleurs, réessayez</string>
+    <string name="chat_feedback_failed">Échec de l’enregistrement de l’évaluation</string>
     <string name="image_count_single">1 image</string>
     <string name="image_count_multiple">%1$d images</string>
     <string name="sessions_new_dialog_title">Nouvelle session</string>

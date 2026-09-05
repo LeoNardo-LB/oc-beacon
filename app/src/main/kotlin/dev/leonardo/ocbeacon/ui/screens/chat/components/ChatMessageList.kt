@@ -243,6 +243,36 @@ fun ChatMessageList(
     // 撤销、压缩分割线撤销、RevertBanner 重做）按能力位整体隐藏。
     val serverCapabilities by viewModel.serverCapabilities.collectAsStateWithLifecycle()
     val revertSupported = serverCapabilities.revertSupported
+    // ============ #310② 消息反馈 👍/👎（DSH serverType 门控） ============
+    val feedbackServerType by viewModel.serverType.collectAsStateWithLifecycle()
+    val messageFeedbackMap by viewModel.messageFeedbackItems.collectAsStateWithLifecycle()
+    val feedbackEnabled = feedbackServerType == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh
+
+    /**
+     * 点击动作：toggle（裁决+冲突重试在委托内建）→ outcome 映射
+     * snackbar（撤销/冲突/失败三态有提示，评价成功静默）。
+     */
+    fun rateMessage(messageId: String, rating: dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating) {
+        coroutineScope.launch {
+            when (viewModel.toggleMessageFeedback(messageId, rating)) {
+                dev.leonardo.ocbeacon.ui.screens.chat.MessageFeedbackOutcome.Done -> Unit
+                dev.leonardo.ocbeacon.ui.screens.chat.MessageFeedbackOutcome.Removed ->
+                    snackbarHostState.showSnackbar(context.getString(R.string.chat_feedback_removed))
+                dev.leonardo.ocbeacon.ui.screens.chat.MessageFeedbackOutcome.Conflict ->
+                    snackbarHostState.showSnackbar(context.getString(R.string.chat_feedback_conflict))
+                dev.leonardo.ocbeacon.ui.screens.chat.MessageFeedbackOutcome.Failed ->
+                    snackbarHostState.showSnackbar(context.getString(R.string.chat_feedback_failed))
+            }
+        }
+    }
+
+    /** 本消息的反馈动作位数据（wireId 桥接转录 id → 服务器规范 id）。 */
+    fun feedbackFor(message: dev.leonardo.ocbeacon.domain.model.Message):
+        Pair<dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem?, ((dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating) -> Unit)?> {
+        val wireId = (message as? dev.leonardo.ocbeacon.domain.model.Message.Assistant)?.wireId
+        if (!feedbackEnabled || wireId == null) return null to null
+        return messageFeedbackMap[wireId] to { rating -> rateMessage(wireId, rating) }
+    }
     val toolProgress by viewModel.chatRepositoryExposed.getActiveToolProgressForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
     val stepProgress by viewModel.chatRepositoryExposed.getStepProgressForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
     val compactionState by viewModel.chatRepositoryExposed.getCompactionStateForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
@@ -1281,6 +1311,7 @@ fun ChatMessageList(
                                     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                                         android.os.Trace.beginSection("flng:it:chunk")
                                     }
+                                    val (chunkFeedback, chunkOnRate) = feedbackFor(msg.message)
                                     ChunkedAssistantMessage(
                                         renderableTurn = chunkTurn,
                                         currentMessage = msg,
@@ -1289,6 +1320,8 @@ fun ChatMessageList(
                                         isTurnLast = isTurnLast,
                                         agents = agents,
                                         onAgentClick = onAgentClick,
+                                        messageFeedback = chunkFeedback,
+                                        onRateMessage = chunkOnRate,
                                         onCopy = {
                                             coroutineScope.launch {
                                                 snackbarHostState.showSnackbar(context.getString(R.string.chat_copied_clipboard))
@@ -1330,6 +1363,7 @@ fun ChatMessageList(
                                     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                                         android.os.Trace.beginSection("flng:it:seg")
                                     }
+                                    val (segFeedback, segOnRate) = feedbackFor(msg.message)
                                     SegmentedAssistantMessage(
                                         renderableTurn = segTurn,
                                         currentMessage = msg,
@@ -1338,6 +1372,8 @@ fun ChatMessageList(
                                         isTurnLast = isTurnLast,
                                         agents = agents,
                                         onAgentClick = onAgentClick,
+                                        messageFeedback = segFeedback,
+                                        onRateMessage = segOnRate,
                                         onCopy = {
                                             coroutineScope.launch {
                                                 snackbarHostState.showSnackbar(context.getString(R.string.chat_copied_clipboard))
@@ -1532,6 +1568,7 @@ fun ChatMessageList(
                                 if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                                     android.os.Trace.beginSection("flng:it:turn-a")
                                 }
+                                val (msgFeedback, msgOnRate) = feedbackFor(msg.message)
                                 MessageCard(
                                     role = MessageCardRole.ASSISTANT,
                                     renderableTurn = renderableTurns[displayItemIndex],
@@ -1543,6 +1580,8 @@ fun ChatMessageList(
                                     isStreamingTurn = isStreamingMsg,
                                     agents = agents,
                                     onAgentClick = onAgentClick,
+                                    messageFeedback = msgFeedback,
+                                    onRateMessage = msgOnRate,
                                     onCopy = {
                                         coroutineScope.launch {
                                             snackbarHostState.showSnackbar(context.getString(R.string.chat_copied_clipboard))

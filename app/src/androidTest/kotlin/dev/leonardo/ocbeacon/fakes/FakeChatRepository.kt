@@ -403,6 +403,59 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         parentSessionId: String,
     ): Result<SubagentCatalog?> = subagentCatalogResult
 
+    // ============ #310② 消息反馈 ============
+
+    val messageFeedbackPutCalls = mutableListOf<Triple<String, String, dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating>>()
+
+    var messageFeedbackPutResult: Result<dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult> =
+        Result.success(
+            dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult.Success(
+                dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem(
+                    messageId = "msg-fake",
+                    rating = dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating.Positive,
+                    note = null,
+                    version = "v-fake",
+                    createdAt = 0L,
+                    updatedAt = 0L,
+                ),
+            ),
+        )
+
+    override suspend fun messageFeedbackPut(
+        serverId: String,
+        sessionId: String,
+        messageId: String,
+        rating: dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating,
+        note: String?,
+        ifVersion: String?,
+    ): Result<dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult> {
+        messageFeedbackPutCalls.add(Triple(sessionId, messageId, rating))
+        return messageFeedbackPutResult
+    }
+
+    val messageFeedbackDeleteCalls = mutableListOf<Pair<String, String>>()
+
+    var messageFeedbackDeleteResult: Result<dev.leonardo.ocbeacon.domain.model.MessageFeedbackDeleteResult> =
+        Result.success(dev.leonardo.ocbeacon.domain.model.MessageFeedbackDeleteResult.Absent)
+
+    override suspend fun messageFeedbackDelete(
+        serverId: String,
+        sessionId: String,
+        messageId: String,
+        ifVersion: String,
+    ): Result<dev.leonardo.ocbeacon.domain.model.MessageFeedbackDeleteResult> {
+        messageFeedbackDeleteCalls.add(sessionId to messageId)
+        return messageFeedbackDeleteResult
+    }
+
+    var messageFeedbackListResult: Result<List<dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem>?> =
+        Result.success(emptyList())
+
+    override suspend fun messageFeedbackList(
+        serverId: String,
+        sessionId: String,
+    ): Result<List<dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem>?> = messageFeedbackListResult
+
     var createGoalResult: Result<dev.leonardo.ocbeacon.domain.model.DshGoalRef?> = Result.success(null)
 
     override suspend fun createGoal(

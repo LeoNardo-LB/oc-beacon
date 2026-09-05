@@ -166,6 +166,11 @@
     <string name="chat_share_url_copied">URL для спільного доступу скопійовано</string>
     <string name="chat_share_failed">Не вдалося поділитися сесією</string>
     <string name="chat_copied_clipboard">Скопійовано в буфер обміну</string>
+    <string name="chat_feedback_positive">Оцінити як корисне</string>
+    <string name="chat_feedback_negative">Оцінити як некорисне</string>
+    <string name="chat_feedback_removed">Оцінку прибрано</string>
+    <string name="chat_feedback_conflict">Оцінку змінено в іншому місці, спробуйте ще раз</string>
+    <string name="chat_feedback_failed">Не вдалося зберегти оцінку</string>
     <string name="image_count_single">1 зображення</string>
     <string name="image_count_multiple">%1$d зображень</string>
     <string name="sessions_new_dialog_title">Нова сесія</string>

@@ -705,6 +705,7 @@ object DshEventMapper {
             val output = u.long("outputTokens")?.toInt() ?: 0
             Message.Assistant.Tokens(input = input, output = output, total = input + output)
         }
+        val message = data.obj("message")
         events += DshMappedEvent.Sse(
             SseEvent.MessageUpdated(
                 Message.Assistant(
@@ -715,10 +716,12 @@ object DshEventMapper {
                     tokens = tokens,
                     // DSH interrupted 前缀标记（§1.5）→ finish 语义对位；缺席为 null
                     finish = if (data.bool("interrupted") == true) "interrupted" else null,
+                    // #310②：服务器规范消息 id（消息反馈 CAS 地址——deriveEventMessage
+                    // 投影的 data.message.id；缺席容错为 null）
+                    wireId = message?.str("id"),
                 )
             )
         )
-        val message = data.obj("message")
         val content = message?.arr("content") ?: emptyList()
         content.forEachIndexed { i, el ->
             val block = el as? JsonObject ?: return@forEachIndexed

@@ -63,6 +63,7 @@ import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.utils.io.readAvailable
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -621,6 +622,155 @@ class DshApiClient @Inject constructor(
             put("mode", "continuable")
         }
         return rpc.call(conn, "subagent.interruptByParent", payload) { Unit }.isSuccess
+    }
+
+    // ============ #310② 消息反馈（messageFeedback/put·delete·list） ============
+
+    /**
+     * #310② messageFeedback/put（wire 契约钉死 2026-09-05 §②）：载荷
+     * {sessionId,messageId,rating,note?,ifVersion:version|null}（未评断言 ifVersion=null，
+     * 与键缺席不同）。**业务结果驱 RPC value**：成功 value={ok:true,
+     * value:整项}，拒绝 value={ok:false,error:{code,…}}（web mod37 put:188 先例——
+     * 不走信封 error）。version-conflict 携带服务器权威 current（整项或
+     * null）供重同步；信封级/传输失败收编进 Failure（DshAuthRequired
+     * 与取消例外上抛——连接层 TokenNeeded 语义不可被吞）。
+     * 保守 V011：messageFeedback 域不在 0.1.1 方法面（#310 审计裁决）。
+     */
+    suspend fun messageFeedbackPut(
+        conn: ServerConnection,
+        sessionId: String,
+        messageId: String,
+        rating: dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating,
+        note: String? = null,
+        ifVersion: String?,
+    ): dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult {
+        if (protocolOf(conn) != DshWireProtocol.V012) unsupported("messageFeedback.put")
+        val payload = buildJsonObject {
+            put("sessionId", sessionId)
+            put("messageId", messageId)
+            put("rating", rating.wire)
+            note?.takeIf { it.isNotBlank() }?.let { put("note", it) }
+            put("ifVersion", ifVersion?.let { JsonPrimitive(it) } ?: JsonNull)
+        }
+        return rpc.call(conn, "messageFeedback.put", payload) { value ->
+            when (value.dshBool("ok")) {
+                true -> {
+                    val item = value.dshObj("value")?.let(::messageFeedbackItem)
+                        ?: return@call dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult.Failure(
+                            null, "messageFeedback.put ok without item",
+                        )
+                    dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult.Success(item)
+                }
+                false -> {
+                    val error = value.dshObj("error")
+                    val code = error?.dshStr("code")
+                    if (code == "version-conflict") {
+                        dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult.VersionConflict(
+                            error?.dshObj("current")?.let(::messageFeedbackItem),
+                        )
+                    } else {
+                        dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult.Failure(
+                            code, error?.dshStr("message") ?: "messageFeedback.put rejected",
+                        )
+                    }
+                }
+                null -> dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult.Failure(
+                    null, "malformed messageFeedback.put value",
+                )
+            }
+        }.getOrElse { e ->
+            if (e is DshAuthRequiredException || e is kotlin.coroutines.cancellation.CancellationException) throw e
+            val dsh = e as? DshApiError
+            dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult.Failure(
+                dsh?.code?.wire, dsh?.message ?: (e.message ?: "messageFeedback.put failed"),
+            )
+        }
+    }
+
+    /**
+     * #310② messageFeedback/delete：{sessionId,messageId,ifVersion} → {absent:true}
+     * 幂等（项不存在时恒成功；版本不匹配时拒绝带 current）。
+     * 业务结果驱 value 同 [messageFeedbackPut]；保守 V011 unsupported。
+     */
+    suspend fun messageFeedbackDelete(
+        conn: ServerConnection,
+        sessionId: String,
+        messageId: String,
+        ifVersion: String,
+    ): dev.leonardo.ocbeacon.domain.model.MessageFeedbackDeleteResult {
+        if (protocolOf(conn) != DshWireProtocol.V012) unsupported("messageFeedback.delete")
+        val payload = buildJsonObject {
+            put("sessionId", sessionId)
+            put("messageId", messageId)
+            put("ifVersion", ifVersion)
+        }
+        return rpc.call(conn, "messageFeedback.delete", payload) { value ->
+            when (value.dshBool("ok")) {
+                true -> dev.leonardo.ocbeacon.domain.model.MessageFeedbackDeleteResult.Absent
+                false -> {
+                    val error = value.dshObj("error")
+                    val code = error?.dshStr("code")
+                    if (code == "version-conflict") {
+                        dev.leonardo.ocbeacon.domain.model.MessageFeedbackDeleteResult.VersionConflict(
+                            error?.dshObj("current")?.let(::messageFeedbackItem),
+                        )
+                    } else {
+                        dev.leonardo.ocbeacon.domain.model.MessageFeedbackDeleteResult.Failure(
+                            code, error?.dshStr("message") ?: "messageFeedback.delete rejected",
+                        )
+                    }
+                }
+                null -> dev.leonardo.ocbeacon.domain.model.MessageFeedbackDeleteResult.Failure(
+                    null, "malformed messageFeedback.delete value",
+                )
+            }
+        }.getOrElse { e ->
+            if (e is DshAuthRequiredException || e is kotlin.coroutines.cancellation.CancellationException) throw e
+            val dsh = e as? DshApiError
+            dev.leonardo.ocbeacon.domain.model.MessageFeedbackDeleteResult.Failure(
+                dsh?.code?.wire, dsh?.message ?: (e.message ?: "messageFeedback.delete failed"),
+            )
+        }
+    }
+
+    /**
+     * #310② messageFeedback/list：{sessionId} → {items:[整项]}（会话进入时拉种子）。
+     * 业务/信封/传输失败一律上抛 DshApiError（repository Result 收编）。
+     */
+    suspend fun messageFeedbackList(
+        conn: ServerConnection,
+        sessionId: String,
+    ): List<dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem> {
+        if (protocolOf(conn) != DshWireProtocol.V012) unsupported("messageFeedback.list")
+        val payload = buildJsonObject { put("sessionId", sessionId) }
+        return rpc.call(conn, "messageFeedback.list", payload) { value ->
+            if (value.dshBool("ok") != true) {
+                val error = value.dshObj("error")
+                throw DshApiError(
+                    DshRpcErrorCode(error?.dshStr("code") ?: "internal"),
+                    error?.dshStr("message") ?: "messageFeedback.list rejected",
+                    null, 200,
+                )
+            }
+            (value.dshObj("value")?.dshArr("items") ?: emptyList()).mapNotNull { el ->
+                (el as? JsonObject)?.let(::messageFeedbackItem)
+            }
+        }.getOrElse { e -> throw e }
+    }
+
+    /** 整项容错映射：缺征意义字段（messageId/rating/version）丢弃该行。 */
+    private fun messageFeedbackItem(obj: JsonObject): dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem? {
+        val id = obj.dshStr("messageId") ?: return null
+        val rating = dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating.fromWire(obj.dshStr("rating")) ?: return null
+        val version = obj.dshStr("version") ?: return null
+        return dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem(
+            messageId = id,
+            rating = rating,
+            note = obj.dshStr("note"),
+            version = version,
+            createdAt = obj.dshLong("createdAt") ?: 0L,
+            updatedAt = obj.dshLong("updatedAt") ?: 0L,
+        )
     }
 
     override suspend fun getSessionTodos(conn: ServerConnection, sessionId: String): List<TodoItem> = emptyList()

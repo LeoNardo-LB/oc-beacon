@@ -100,6 +100,11 @@
     <string name="chat_share_url_copied">URL share disalin</string>
     <string name="chat_share_failed">Gagal membagikan sesi</string>
     <string name="chat_copied_clipboard">Disalin ke clipboard</string>
+    <string name="chat_feedback_positive">Nilai sebagai membantu</string>
+    <string name="chat_feedback_negative">Nilai sebagai tidak membantu</string>
+    <string name="chat_feedback_removed">Penilaian dihapus</string>
+    <string name="chat_feedback_conflict">Penilaian diubah di tempat lain, coba lagi</string>
+    <string name="chat_feedback_failed">Gagal menyimpan penilaian</string>
     <string name="chat_session_compacted">Sesi dikompak</string>
     <string name="chat_session_compact_failed">Gagal mengompak sesi</string>
     <string name="chat_session_unshared">Sesi tidak dibagikan</string>

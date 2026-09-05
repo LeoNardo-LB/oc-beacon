@@ -166,6 +166,11 @@
     <string name="chat_share_url_copied">共有URLをコピーしました</string>
     <string name="chat_share_failed">セッションの共有に失敗しました</string>
     <string name="chat_copied_clipboard">クリップボードにコピーしました</string>
+    <string name="chat_feedback_positive">役に立つと評価</string>
+    <string name="chat_feedback_negative">役に立たないと評価</string>
+    <string name="chat_feedback_removed">評価を取り消しました</string>
+    <string name="chat_feedback_conflict">評価が他の場所で変更されました。もう一度お試しください</string>
+    <string name="chat_feedback_failed">評価を保存できませんでした</string>
     <string name="image_count_single">画像1枚</string>
     <string name="image_count_multiple">%1$d枚の画像</string>
     <string name="sessions_new_dialog_title">新規セッション</string>

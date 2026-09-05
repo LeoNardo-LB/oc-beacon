@@ -39,6 +39,12 @@ internal fun MessageCard(
     eventExpandedStates: MutableMap<String, Boolean>,
     /** #243 连续同内容去重：本卡代表的被抑制重复数（0=无）。 */
     eventDupCount: Int = 0,
+    /**
+     * #310②：本消息当前反馈快照（null = 未评）。仅 DSH 且已完结
+     * 时非 null 回调伴随出现脚部 👍/👎 动作位。
+     */
+    messageFeedback: dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem? = null,
+    onRateMessage: ((dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating) -> Unit)? = null,
 ) {
     when (role) {
         MessageCardRole.USER -> MessageCardUser(
@@ -72,6 +78,8 @@ internal fun MessageCard(
             onQuestionReject = onQuestionReject,
             questionAnswersCache = questionAnswersCache,
             eventExpandedStates = eventExpandedStates,
+            messageFeedback = messageFeedback,
+            onRateMessage = onRateMessage,
         )
     }
 }

@@ -948,6 +948,202 @@ class DshApiClientTest {
         assertEquals(0, captureRequests(engine).size)
     }
 
+    // ============ #310② 消息反馈（messageFeedback/put·delete·list） ============
+
+    /**
+     * V012 messageFeedback/put（#310② wire 契约钉死 2026-09-05 §②）：URL/信封
+     * 方法名 messageFeedback/put；载荷
+     * {args:{request:{sessionId,messageId,rating,note?,ifVersion:version|null}}}（单 request
+     * 对象参 → WRAPPED 包装）。**业务结果驱 RPC value**（web mod37
+     * put:188 先例：carried.value 才是 {ok,value|error} 二态）——
+     * 成功 value=整项，业务拒绝 value={ok:false,error} 不走信封 error。
+     */
+    @Test
+    fun `v012 messageFeedbackPut posts null ifVersion and maps committed item`() = runTest {
+        val engine = MockEngine {
+            respond(
+                ok("""{"ok":true,"value":{"messageId":"msg_1","rating":"positive","note":"good","version":"11111111-111-4111-8111-111111111111","createdAt":1000,"updatedAt":2000}}"""),
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        val result = client(engine, DshWireProtocol.V012).messageFeedbackPut(
+            conn, "s-1", "msg_1", dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating.Positive,
+            note = "good", ifVersion = null,
+        )
+        val item = (result as dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult.Success).item
+        assertEquals("msg_1", item.messageId)
+        assertEquals(dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating.Positive, item.rating)
+        assertEquals("good", item.note)
+        assertEquals("11111111-111-4111-8111-111111111111", item.version)
+        assertEquals(1000L, item.createdAt)
+        assertEquals(2000L, item.updatedAt)
+        val req = captureRequests(engine).single()
+        assertEquals("/api/messageFeedback/put", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("messageFeedback/put", body["method"]!!.jsonPrimitive.content)
+        val request = body["payload"]!!.jsonObject["args"]!!.jsonObject["request"]!!.jsonObject
+        assertEquals("s-1", request["sessionId"]!!.jsonPrimitive.content)
+        assertEquals("msg_1", request["messageId"]!!.jsonPrimitive.content)
+        assertEquals("positive", request["rating"]!!.jsonPrimitive.content)
+        assertEquals("good", request["note"]!!.jsonPrimitive.content)
+        // 未评断言：ifVersion 必须是 JSON null（而非缺席——zod 区分 null 与 undefined）
+        assertTrue(request["ifVersion"] is kotlinx.serialization.json.JsonNull)
+    }
+
+    /** 已观察到的项换向：ifVersion 携带 CAS token；note 缺席不发键。 */
+    @Test
+    fun `v012 messageFeedbackPut carries observed version and omits blank note`() = runTest {
+        val engine = MockEngine {
+            respond(
+                ok("""{"ok":true,"value":{"messageId":"msg_1","rating":"negative","version":"22222222-2222-4222-8222-222222222222","createdAt":1,"updatedAt":2}}"""),
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        val result = client(engine, DshWireProtocol.V012).messageFeedbackPut(
+            conn, "s-1", "msg_1", dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating.Negative,
+            note = null, ifVersion = "22222222-2222-4222-8222-222222222222",
+        )
+        assertTrue(result is dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult.Success)
+        val request = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single()))
+            .jsonObject["payload"]!!.jsonObject["args"]!!.jsonObject["request"]!!.jsonObject
+        assertEquals("22222222-2222-4222-8222-222222222222", request["ifVersion"]!!.jsonPrimitive.content)
+        assertNull(request["note"])
+    }
+
+    /**
+     * version-conflict 判别（CAS 核心）：业务拒绝码 + 服务器权威 current
+     * （整项或 null）供重同步——web 先例以 error.current 覆盖本地观察后重试。
+     */
+    @Test
+    fun `v012 messageFeedbackPut conflict surfaces authoritative current item or absence`() = runTest {
+        val withCurrent = ok(
+            """{"ok":false,"error":{"code":"version-conflict","current":{"messageId":"msg_1","rating":"negative","version":"v-2","createdAt":1,"updatedAt":2} }}""",
+        )
+        val engine = MockEngine { respond(withCurrent, HttpStatusCode.OK, jsonHeaders()) }
+        val conflicted = client(engine, DshWireProtocol.V012).messageFeedbackPut(
+            conn, "s-1", "msg_1", dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating.Positive,
+            ifVersion = "v-1",
+        )
+        val conflict = conflicted as dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult.VersionConflict
+        assertEquals(dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating.Negative, conflict.current!!.rating)
+        assertEquals("v-2", conflict.current.version)
+
+        val absentCurrent = ok("""{"ok":false,"error":{"code":"version-conflict","current":null}}""")
+        val engine2 = MockEngine { respond(absentCurrent, HttpStatusCode.OK, jsonHeaders()) }
+        val conflicted2 = client(engine2, DshWireProtocol.V012).messageFeedbackPut(
+            conn, "s-1", "msg_1", dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating.Positive,
+            ifVersion = "v-1",
+        )
+        assertNull(
+            (conflicted2 as dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult.VersionConflict).current,
+        )
+    }
+
+    /** 其他业务失败码（target-not-found 实服务器硬校验码）→ Failure 分支保留原串码。 */
+    @Test
+    fun `v012 messageFeedbackPut business rejection maps to failure branch`() = runTest {
+        val engine = MockEngine {
+            respond(
+                ok("""{"ok":false,"error":{"code":"target-not-found","sessionId":"s-1","messageId":"msg_x"}}"""),
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        val result = client(engine, DshWireProtocol.V012).messageFeedbackPut(
+            conn, "s-1", "msg_x", dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating.Positive,
+            ifVersion = null,
+        )
+        val failure = result as dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult.Failure
+        assertEquals("target-not-found", failure.code)
+    }
+
+    /** 信封级错误（搬运层，如 bad-request）同样收编进 Failure——不向 UI 上抛。 */
+    @Test
+    fun `v012 messageFeedbackPut envelope error folds into failure branch`() = runTest {
+        val engine = MockEngine { respond(err("bad-request", "arguments invalid"), HttpStatusCode.OK, jsonHeaders()) }
+        val result = client(engine, DshWireProtocol.V012).messageFeedbackPut(
+            conn, "s-1", "msg_1", dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating.Positive,
+            ifVersion = null,
+        )
+        assertEquals("bad-request", (result as dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult.Failure).code)
+    }
+
+    /** V012 messageFeedback/delete：载荷 {args:{request:{sessionId,messageId,ifVersion}}}；幂等回执 {absent:true}。 */
+    @Test
+    fun `v012 messageFeedbackDelete posts observed version and maps idempotent absent`() = runTest {
+        val engine = MockEngine {
+            respond(ok("""{"ok":true,"value":{"absent":true}}"""), HttpStatusCode.OK, jsonHeaders())
+        }
+        val result = client(engine, DshWireProtocol.V012).messageFeedbackDelete(
+            conn, "s-1", "msg_1", ifVersion = "v-9",
+        )
+        assertTrue(result is dev.leonardo.ocbeacon.domain.model.MessageFeedbackDeleteResult.Absent)
+        val req = captureRequests(engine).single()
+        assertEquals("/api/messageFeedback/delete", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("messageFeedback/delete", body["method"]!!.jsonPrimitive.content)
+        assertEquals(
+            """{"sessionId":"s-1","messageId":"msg_1","ifVersion":"v-9"}""",
+            body["payload"]!!.jsonObject["args"]!!.jsonObject["request"].toString(),
+        )
+    }
+
+    /** delete 同样可 version-conflict（既存项版本不匹配）——判别并携带 current。 */
+    @Test
+    fun `v012 messageFeedbackDelete conflict surfaces current`() = runTest {
+        val engine = MockEngine {
+            respond(
+                ok("""{"ok":false,"error":{"code":"version-conflict","current":{"messageId":"msg_1","rating":"positive","version":"v-3","createdAt":1,"updatedAt":2}}}"""),
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        val result = client(engine, DshWireProtocol.V012).messageFeedbackDelete(
+            conn, "s-1", "msg_1", ifVersion = "v-stale",
+        )
+        val conflict = result as dev.leonardo.ocbeacon.domain.model.MessageFeedbackDeleteResult.VersionConflict
+        assertEquals("v-3", conflict.current!!.version)
+    }
+
+    /** V012 messageFeedback/list：载荷 {args:{request:{sessionId}}}；回执 {items:[...]} 逐项映射。 */
+    @Test
+    fun `v012 messageFeedbackList posts sessionId and maps items`() = runTest {
+        val engine = MockEngine {
+            respond(
+                ok("""{"ok":true,"value":{"items":[
+                    {"messageId":"msg_1","rating":"positive","note":"helpful","version":"v-1","createdAt":10,"updatedAt":20},
+                    {"messageId":"msg_2","rating":"negative","version":"v-2","createdAt":30,"updatedAt":40}
+                ]}}"""),
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        val items = client(engine, DshWireProtocol.V012).messageFeedbackList(conn, "s-1")
+        assertEquals(listOf("msg_1", "msg_2"), items.map { it.messageId })
+        assertEquals("helpful", items[0].note)
+        assertNull(items[1].note)
+        assertEquals(dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating.Negative, items[1].rating)
+        val req = captureRequests(engine).single()
+        assertEquals("/api/messageFeedback/list", req.url.encodedPath)
+        assertEquals(
+            """{"sessionId":"s-1"}""",
+            json.parseToJsonElement(bodyTextOf(req)).jsonObject["payload"]!!.jsonObject["args"]!!.jsonObject["request"].toString(),
+        )
+    }
+
+    /** 保守 V011：messageFeedback 域不在 0.1.1 方法面（#310 审计裁决）——三方法 unsupported 且零 HTTP。 */
+    @Test
+    fun `message feedback methods throw unsupported on v011`() = runTest {
+        val engine = MockEngine { respond(ok("{}"), HttpStatusCode.OK, jsonHeaders()) }
+        val c = client(engine) // 未探测 → 保守 V011
+        val put = runCatching {
+            c.messageFeedbackPut(conn, "s-1", "msg_1", dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating.Positive, ifVersion = null)
+        }
+        assertTrue(put.exceptionOrNull() is UnsupportedServerCapability)
+        val delete = runCatching { c.messageFeedbackDelete(conn, "s-1", "msg_1", ifVersion = "v-1") }
+        assertTrue(delete.exceptionOrNull() is UnsupportedServerCapability)
+        val list = runCatching { c.messageFeedbackList(conn, "s-1") }
+        assertTrue(list.exceptionOrNull() is UnsupportedServerCapability)
+        assertEquals(0, captureRequests(engine).size)
+    }
+
     // ============ SystemApi / FileApi / TerminalApi / ShellApi / ProviderApi ============
 
     @Test

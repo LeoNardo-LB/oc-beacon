@@ -12,7 +12,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.ThumbDown
+import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
@@ -96,6 +99,14 @@ internal fun MessageCardAssistant(
     questionAnswersCache: dev.leonardo.ocbeacon.ui.screens.chat.QuestionAnswerStore? = null,
     /** #234：事件卡统一展开表——本函数仅在防御性 SyntheticNotice 分支使用。 */
     eventExpandedStates: MutableMap<String, Boolean>,
+    /**
+     * #310② 消息反馈：脚部 👍/👎 动作位。仅 **已完结** assistant
+     * 消息（!isStreaming）且 onRateMessage 非 null（DSH serverType 门）
+     * 时渲染——SSE 流式铁律：流式 turn 的高度补偿不受
+     * 脚部内容变化影响（图标随完结态一次性出现，与复制键同一时刻）。
+     */
+    messageFeedback: dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem? = null,
+    onRateMessage: ((dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating) -> Unit)? = null,
 ) {
     // D2-L22：原 if(isAmoled) 两分支相同（死条件）——直接取 onSurface
     val textColor = MaterialTheme.colorScheme.onSurface
@@ -173,8 +184,11 @@ internal fun MessageCardAssistant(
     // 流式：显示实时耗时（ticker 每秒刷新）；完成：显示固定时长 + 复制按钮。
     // 显示条件：流式必有；完成态有统计内容（时长/模型/agent）或仅需复制按钮时显示。
     val durationMs = renderableTurn.durationMs
+    // #310②：反馈动作位仅已完结消息且服务器门控通过（onRateMessage 非 null）——
+    // 流式 turn 脚部恒为耗时 ticker，不受反馈图标影响（SSE 高度补偿铁律）。
+    val showFeedbackActions = !isStreaming && onRateMessage != null
     val hasFooter = (durationMs ?: 0) > 0 || !modelId.isNullOrBlank() || !agentName.isNullOrBlank()
-    val showStatsBar = isStreaming || hasFooter || (copyText != null && isTurnLast)
+    val showStatsBar = isStreaming || hasFooter || (copyText != null && isTurnLast) || showFeedbackActions
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -247,6 +261,13 @@ internal fun MessageCardAssistant(
                         )
                     }
                     Spacer(modifier = Modifier.weight(1f))
+                    // #310② 消息反馈 👍/👎（仅完结态；点击 = 评价／同向撤销／换向）
+                    if (showFeedbackActions && onRateMessage != null) {
+                        MessageFeedbackButtons(
+                            current = messageFeedback,
+                            onRate = onRateMessage,
+                        )
+                    }
                     // 复制按钮（仅完成态）
                     if (!isStreaming && copyText != null) {
                         CopyButton(
@@ -474,6 +495,56 @@ private fun StreamingElapsedText(startMs: Long) {
 }
 
 /**
+ * #310② 消息反馈 👍/👎 轻量图标钮对（统计栏尾部动作位）。
+ *
+ * 已评态（current.rating 匹配）图标亮起（primary）；点击统一走
+ * onRate（未评→评／同向→撤销／换向→换向的裁决在
+ * [dev.leonardo.ocbeacon.ui.screens.chat.MessageFeedbackDelegate]）。仅已完结
+ * assistant 消息渲染（调用方门控）——不进入流式 turn 高度补偿。
+ */
+@Composable
+internal fun MessageFeedbackButtons(
+    current: dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem?,
+    onRate: (dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating) -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(0.dp),
+    ) {
+        IconButton(
+            onClick = { onRate(dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating.Positive) },
+            modifier = Modifier.size(18.dp),
+        ) {
+            androidx.compose.material3.Icon(
+                imageVector = androidx.compose.material.icons.Icons.Filled.ThumbUp,
+                contentDescription = stringResource(R.string.chat_feedback_positive),
+                modifier = Modifier.size(14.dp),
+                tint = if (current?.rating == dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating.Positive) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
+                },
+            )
+        }
+        IconButton(
+            onClick = { onRate(dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating.Negative) },
+            modifier = Modifier.size(18.dp),
+        ) {
+            androidx.compose.material3.Icon(
+                imageVector = androidx.compose.material.icons.Icons.Filled.ThumbDown,
+                contentDescription = stringResource(R.string.chat_feedback_negative),
+                modifier = Modifier.size(14.dp),
+                tint = if (current?.rating == dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating.Negative) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED)
+                },
+            )
+        }
+    }
+}
+
+/**
  * 2026-08-20 fling 巨帧根治：超长 assistant turn 的块级分片渲染。
  *
  * 根因：一条长消息 = 一个 LazyItem；LazyColumn 子项滚动方向无限高约束 →
@@ -503,6 +574,9 @@ internal fun ChunkedAssistantMessage(
     onLocateTask: ((String) -> Unit)?,
     /** #234：事件卡统一展开表。 */
     eventExpandedStates: MutableMap<String, Boolean>,
+    /** #310②：分片 turn 恒已完结——反馈动作位直接门控于回调非 null。 */
+    messageFeedback: dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem? = null,
+    onRateMessage: ((dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating) -> Unit)? = null,
 ) {
     if (renderableTurn.isEmpty) return
     val compact = LocalChatDensity.current == ChatDensity.Compact
@@ -639,6 +713,8 @@ internal fun ChunkedAssistantMessage(
                     agents = agents,
                     onAgentClick = onAgentClick,
                     onCopy = onCopy,
+                    messageFeedback = messageFeedback,
+                    onRateMessage = onRateMessage,
                 )
             }
         }
@@ -769,6 +845,9 @@ internal fun SegmentedAssistantMessage(
     onLocateTask: ((String) -> Unit)?,
     /** #234：事件卡统一展开表。 */
     eventExpandedStates: MutableMap<String, Boolean>,
+    /** #310②：分段 turn 恒已完结——反馈动作位直接门控于回调非 null。 */
+    messageFeedback: dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem? = null,
+    onRateMessage: ((dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating) -> Unit)? = null,
 ) {
     if (renderableTurn.isEmpty) return
     val compact = LocalChatDensity.current == ChatDensity.Compact
@@ -894,6 +973,8 @@ internal fun SegmentedAssistantMessage(
                     agents = agents,
                     onAgentClick = onAgentClick,
                     onCopy = onCopy,
+                    messageFeedback = messageFeedback,
+                    onRateMessage = onRateMessage,
                 )
             }
         }
@@ -909,13 +990,16 @@ private fun ChunkStatsBar(
     agents: List<AgentInfo>,
     onAgentClick: ((String) -> Unit)?,
     onCopy: (() -> Unit)?,
+    messageFeedback: dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem? = null,
+    onRateMessage: ((dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating) -> Unit)? = null,
 ) {
     val agentName = renderableTurn.agentName
     val copyText = renderableTurn.copyText
     val modelId = renderableTurn.modelId
     val durationMs = renderableTurn.durationMs
     val hasFooter = (durationMs ?: 0) > 0 || !modelId.isNullOrBlank() || !agentName.isNullOrBlank()
-    if (!hasFooter && !(copyText != null && isTurnLast)) return
+    // #310②：反馈动作位存在时统计栏也要渲染（否则无脚部可落）
+    if (!hasFooter && !(copyText != null && isTurnLast) && onRateMessage == null) return
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -958,6 +1042,10 @@ private fun ChunkStatsBar(
             )
         }
         Spacer(modifier = Modifier.weight(1f))
+        // #310② 消息反馈（分片 turn 恒已完结——无流式门控）
+        if (onRateMessage != null) {
+            MessageFeedbackButtons(current = messageFeedback, onRate = onRateMessage)
+        }
         if (copyText != null) {
             CopyButton(text = copyText, modifier = Modifier.size(14.dp), onCopied = onCopy)
         }

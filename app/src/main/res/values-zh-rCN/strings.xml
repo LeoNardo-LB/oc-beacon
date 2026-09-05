@@ -168,6 +168,11 @@
     <string name="chat_share_url_copied">分享链接已复制</string>
     <string name="chat_share_failed">会话分享失败</string>
     <string name="chat_copied_clipboard">已复制到剪贴板</string>
+    <string name="chat_feedback_positive">评价为有帮助</string>
+    <string name="chat_feedback_negative">评价为没帮助</string>
+    <string name="chat_feedback_removed">已撤销评价</string>
+    <string name="chat_feedback_conflict">评价已在别处更新，请重试</string>
+    <string name="chat_feedback_failed">评价保存失败</string>
     <string name="image_count_single">1 张图片</string>
     <string name="image_count_multiple">%1$d 张图片</string>
     <string name="sessions_new_dialog_title">新会话</string>

@@ -151,6 +151,11 @@
     <string name="chat_share_url_copied">Share URL copied</string>
     <string name="chat_share_failed">Failed to share session</string>
     <string name="chat_copied_clipboard">Copied to clipboard</string>
+    <string name="chat_feedback_positive">Rate as helpful</string>
+    <string name="chat_feedback_negative">Rate as unhelpful</string>
+    <string name="chat_feedback_removed">Rating removed</string>
+    <string name="chat_feedback_conflict">Rating changed elsewhere, try again</string>
+    <string name="chat_feedback_failed">Failed to save rating</string>
     <string name="chat_session_compacted">Session compacted</string>
     <string name="chat_session_compact_failed">Failed to compact session</string>
     <string name="chat_session_unshared">Session unshared</string>

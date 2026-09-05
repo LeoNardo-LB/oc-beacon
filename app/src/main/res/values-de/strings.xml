@@ -166,6 +166,11 @@
     <string name="chat_share_url_copied">Freigabe-URL kopiert</string>
     <string name="chat_share_failed">Sitzung konnte nicht geteilt werden</string>
     <string name="chat_copied_clipboard">In Zwischenablage kopiert</string>
+    <string name="chat_feedback_positive">Als hilfreich bewerten</string>
+    <string name="chat_feedback_negative">Als nicht hilfreich bewerten</string>
+    <string name="chat_feedback_removed">Bewertung entfernt</string>
+    <string name="chat_feedback_conflict">Bewertung wurde anderswo geändert, bitte erneut versuchen</string>
+    <string name="chat_feedback_failed">Bewertung konnte nicht gespeichert werden</string>
     <string name="image_count_single">1 Bild</string>
     <string name="image_count_multiple">%1$d Bilder</string>
     <string name="sessions_new_dialog_title">Neue Sitzung</string>

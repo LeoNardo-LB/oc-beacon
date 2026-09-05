@@ -261,6 +261,45 @@ interface ChatRepository {
     ): Result<SubagentCatalog?>
 
 
+    // ============ DSH 消息反馈（backlog #310②；OpenCode V1/V2 不支持） ============
+
+    /**
+     * DSH messageFeedback/put（消息 👍/👎 CAS 写）。业务结果经
+     * [dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult] 区分 Success /
+     * VersionConflict(current) / Failure；传输/unsupported 走 Result.failure。
+     * 非 DSH 后端 / DSH V011 → Result.failure(UnsupportedServerCapability)
+     * （同 [subagentPrompt]——写操作假成功会误导，不走常量降级）。
+     */
+    suspend fun messageFeedbackPut(
+        serverId: String,
+        sessionId: String,
+        messageId: String,
+        rating: dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating,
+        note: String? = null,
+        ifVersion: String?,
+    ): Result<dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult>
+
+    /**
+     * DSH messageFeedback/delete（撤销反馈；幂等——项不存在恒成功）。
+     * 非 DSH 后端 → Result.failure(UnsupportedServerCapability)（同上）。
+     */
+    suspend fun messageFeedbackDelete(
+        serverId: String,
+        sessionId: String,
+        messageId: String,
+        ifVersion: String,
+    ): Result<dev.leonardo.ocbeacon.domain.model.MessageFeedbackDeleteResult>
+
+    /**
+     * DSH messageFeedback/list（会话进入时拉种子）。非 DSH 后端 →
+     * Result.success(null)（端点缺席语义，同 [subagentCatalog] #314 先例）。
+     */
+    suspend fun messageFeedbackList(
+        serverId: String,
+        sessionId: String,
+    ): Result<List<dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem>?>
+
+
     // ============ DSH goal 六 mutation（backlog #286；OpenCode V1/V2 返回 null/false） ============
 
     /** DSH goal.create（创建并 arm 目标）。回执新 CAS ref；失败经 Result 上抛（DshApiError）。 */

@@ -166,6 +166,11 @@
     <string name="chat_share_url_copied">Paylaşım URL\'si kopyalandı</string>
     <string name="chat_share_failed">Oturum paylaşımı başarısız</string>
     <string name="chat_copied_clipboard">Panoya kopyalandı</string>
+    <string name="chat_feedback_positive">Faydalı olarak değerlendir</string>
+    <string name="chat_feedback_negative">Faydasız olarak değerlendir</string>
+    <string name="chat_feedback_removed">Değerlendirme kaldırıldı</string>
+    <string name="chat_feedback_conflict">Değerlendirme başka yerde değişti, tekrar deneyin</string>
+    <string name="chat_feedback_failed">Değerlendirme kaydedilemedi</string>
     <string name="image_count_single">1 görsel</string>
     <string name="image_count_multiple">%1$d görsel</string>
     <string name="sessions_new_dialog_title">Yeni oturum</string>
