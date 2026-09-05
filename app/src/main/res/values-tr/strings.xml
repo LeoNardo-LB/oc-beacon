@@ -124,6 +124,9 @@
     <string name="session_rename_button">Yeniden Adlandır</string>
     <string name="session_delete">Oturumu Sil</string>
     <string name="session_delete_confirm">"%1$s" silinsin mi? Bu işlem geri alınamaz.</string>
+    <string name="session_menu_archive">Arşivle</string>
+    <string name="session_archived_section_title">Arşivlenenler (%1$d)</string>
+    <string name="session_archive_failed">Oturum arşivlenemedi</string>
     <string name="chat_stop">Dur</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->

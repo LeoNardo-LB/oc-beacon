@@ -70,6 +70,9 @@
     <string name="session_rename_button">Rename</string>
     <string name="session_delete">Delete Session</string>
     <string name="session_delete_confirm">Delete \"%1$s\"? This cannot be undone.</string>
+    <string name="session_menu_archive">Archive</string>
+    <string name="session_archived_section_title">Archived (%1$d)</string>
+    <string name="session_archive_failed">Failed to archive session</string>
     <string name="session_changes_additions">+%1$d</string>
     <string name="session_changes_deletions">-%1$d</string>
     <string name="session_directory_details">Directory Details</string>

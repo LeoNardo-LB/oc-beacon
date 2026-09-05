@@ -33,6 +33,8 @@ data class SessionListDataInputs(
     val allReadAt: Long,
     /** 有待回答问题（agent 提问等待回答）的会话 id 集合。 */
     val pendingQuestionIds: Set<String> = emptySet(),
+    /** #311：workspace 快照归档集合（V012 follow baseline+增量单源；非 DSH 恒空）。 */
+    val archivedSessionIds: Set<String> = emptySet(),
 )
 
 // 高频 UI 输入（用户交互）
@@ -55,6 +57,8 @@ data class SessionListContentState(
     val baseDirectory: String? = null,
     val searchQuery: String? = null,
     val prefillDirectory: String? = null,
+    /** #311：已归档会话行（缓存 ∩ 归档集合，recency 排序）——列表底部折叠区消费。 */
+    val archivedSessions: List<SessionItem> = emptyList(),
 )
 
 // 外壳簇（状态簇·框架）：顶栏/框架相关（本任务定义，Task 2 使用）

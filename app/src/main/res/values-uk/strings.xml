@@ -124,6 +124,9 @@
     <string name="session_rename_button">Перейменувати</string>
     <string name="session_delete">Видалити сесію</string>
     <string name="session_delete_confirm">Видалити "%1$s"? Це неможливо скасувати.</string>
+    <string name="session_menu_archive">Архівувати</string>
+    <string name="session_archived_section_title">Архівовані (%1$d)</string>
+    <string name="session_archive_failed">Не вдалося архівувати сесію</string>
     <string name="chat_stop">Зупинити</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->

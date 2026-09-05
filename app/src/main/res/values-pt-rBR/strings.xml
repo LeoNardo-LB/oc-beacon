@@ -124,6 +124,9 @@
     <string name="session_rename_button">Renomear</string>
     <string name="session_delete">Excluir sessão</string>
     <string name="session_delete_confirm">Excluir "%1$s"? Isso não pode ser desfeito.</string>
+    <string name="session_menu_archive">Arquivar</string>
+    <string name="session_archived_section_title">Arquivadas (%1$d)</string>
+    <string name="session_archive_failed">Falha ao arquivar a sessão</string>
     <string name="chat_stop">Parar</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->

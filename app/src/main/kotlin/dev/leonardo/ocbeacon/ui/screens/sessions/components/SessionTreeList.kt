@@ -1,24 +1,38 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -28,6 +42,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.ui.screens.sessions.SessionItem
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionListViewModel
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionViewMode
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
@@ -55,6 +70,9 @@ internal fun SessionTreeList(
     syncStates: Map<String, dev.leonardo.ocbeacon.data.local.SessionSyncEntity> = emptyMap(),
     onRequestSync: (String) -> Unit = {},
     onCancelSync: (String) -> Unit = {},
+    // #311 归档：已归档行（workspace 快照集合 ∩ 会话缓存）+ 归档动作
+    archivedSessions: List<SessionItem> = emptyList(),
+    onArchive: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     // #106 lint 清偿：复制提示 hoist（两处 lambda 共用；context 仍供剪贴板）
@@ -151,6 +169,10 @@ internal fun SessionTreeList(
                             viewModel.toggleFavorite(node.session.session)
                         },
                         deleteSupported = serverCapabilities.sessionDeleteSupported,
+                        // #311：主列表行经 builder 已滤除归档集合——isArchived 恒 false；
+                        // 能力位门控（非 DSH 无归档项/不可左滑）
+                        archiveSupported = serverCapabilities.archiveSupported,
+                        onArchive = { onArchive(node.id) },
                         agentPresetSupported = serverCapabilities.agentPresetSupported,
                         agentPresetNames = agentPresetNames,
                         syncState = syncStates[node.id],
@@ -179,6 +201,95 @@ internal fun SessionTreeList(
                         modifier = Modifier.size(24.dp),
                         strokeWidth = 2.dp
                     )
+                }
+            }
+        }
+
+        // #311 已归档折叠区（列表底部入口，自有形态）。仅能力位内（DSH）且存在
+        // 归档会话时呈现；非 DSH 后端归档面整体隐藏（workspace 快照恒空 + 能力位
+        // false）。
+        //
+        // 契约事实（2026-09-05 四重取证，详见 SessionRowMenu.kt）：DSH
+        // workspace/archiveSession 为幂等 add-only——服务端 archivedSessionIds 无
+        // 任何移除路径（全包 grep 无 unarchive，官方 web 客户端同无恢复入口），
+        // 归档单向。故本区行菜单只留「详情」，无「取消归档」入口——后续勿在
+        // 无 wire 动词时误加恢复入口。
+        val archiveSupported = serverCapabilities.archiveSupported
+        if (archiveSupported && archivedSessions.isNotEmpty()) {
+            item(key = "archived_sessions_section") {
+                var expanded by rememberSaveable { mutableStateOf(false) }
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // 区头（可折叠）：归档图标 + 已归档 (N) + 展开箭头
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { expanded = !expanded }
+                            .padding(start = 28.dp, end = SpacingTokens.SM.dp, top = SpacingTokens.SM.dp, bottom = SpacingTokens.SM.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Archive,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.session_archived_section_title, archivedSessions.size),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        Icon(
+                            imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (expanded) {
+                        archivedSessions.forEach { archivedItem ->
+                            SessionRow(
+                                item = archivedItem,
+                                showDirectory = true,
+                                onClick = {
+                                    viewModel.requestScrollToTopOnReturn()
+                                    viewModel.onSessionOpened(archivedItem.session.id)
+                                    onNavigateToChat(archivedItem.session.id)
+                                },
+                                onRename = {
+                                    val title = archivedItem.session.title ?: ""
+                                    onRename(archivedItem.session.id, title)
+                                },
+                                onDelete = {
+                                    onDelete(archivedItem.session.id, archivedItem.session.title ?: untitledLabel)
+                                },
+                                onCopyId = { id ->
+                                    viewModel.copyToClipboard(id, context)
+                                    scope.launch { snackbarHostState.showSnackbar(copiedToClipboardMsg) }
+                                },
+                                onAssignCategory = {
+                                    onAssignTags(archivedItem.session.id, archivedItem.tags.map { it.id }.toSet())
+                                },
+                                isFavorite = archivedItem.session.id in favoriteSessionIds,
+                                onToggleFavorite = {
+                                    viewModel.toggleFavorite(archivedItem.session)
+                                },
+                                deleteSupported = serverCapabilities.sessionDeleteSupported,
+                                isArchived = true,
+                                archiveSupported = archiveSupported,
+                                agentPresetSupported = serverCapabilities.agentPresetSupported,
+                                agentPresetNames = agentPresetNames,
+                                syncState = syncStates[archivedItem.session.id],
+                                onRequestSync = { onRequestSync(archivedItem.session.id) },
+                                onCancelSync = { onCancelSync(archivedItem.session.id) },
+                            )
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(
+                                    alpha = AlphaTokens.FAINT
+                                )
+                            )
+                        }
+                    }
                 }
             }
         }

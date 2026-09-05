@@ -54,6 +54,9 @@
     <string name="session_rename_button">Ganti Nama</string>
     <string name="session_delete">Hapus Sesi</string>
     <string name="session_delete_confirm">Hapus "%1$s"? Tindakan ini tidak dapat dibatalkan.</string>
+    <string name="session_menu_archive">Arsipkan</string>
+    <string name="session_archived_section_title">Diarsipkan (%1$d)</string>
+    <string name="session_archive_failed">Gagal mengarsipkan sesi</string>
     <string name="session_pending_question">Menunggu jawaban</string>
     <string name="session_changes_additions">+%1$d</string>
     <string name="session_changes_deletions">-%1$d</string>

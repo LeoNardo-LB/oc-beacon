@@ -124,6 +124,9 @@
     <string name="session_rename_button">Zmień nazwę</string>
     <string name="session_delete">Usuń sesję</string>
     <string name="session_delete_confirm">Usunąć "%1$s"? Tego nie można cofnąć.</string>
+    <string name="session_menu_archive">Archiwizuj</string>
+    <string name="session_archived_section_title">Zarchiwizowane (%1$d)</string>
+    <string name="session_archive_failed">Nie udało się zarchiwizować sesji</string>
     <string name="chat_stop">Zatrzymaj</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->

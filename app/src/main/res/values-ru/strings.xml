@@ -43,6 +43,9 @@
     <string name="session_rename_button">Переименовать</string>
     <string name="session_delete">Удалить сессию</string>
     <string name="session_delete_confirm">Удалить «%1$s»? Это действие нельзя отменить.</string>
+    <string name="session_menu_archive">В архив</string>
+    <string name="session_archived_section_title">В архиве (%1$d)</string>
+    <string name="session_archive_failed">Не удалось отправить сессию в архив</string>
     <!-- Chat Screen -->
     <string name="chat_mention_session_a11y">Сессия %1$s</string>
     <string name="chat_mention_same_workspace">Тот же воркспейс</string>

@@ -40,8 +40,18 @@ internal suspend fun buildContentState(
     // 原硬交集会把兜底数据全部过滤掉（白屏根因②）。映射存在（含空集）语义不变。
     val serverSessionIds = data.serverSessionMap[serverId]
 
-    val filteredSessions = data.sessions
+    // #311：按 workspace 快照归档集合分流（官方 web sessionVisible 同形——主列表/
+    // 搜索/快照一律排除；集合引用未入缓存的会话（分页窗口外）只呈现已知会话）。
+    val archivedIds = data.archivedSessionIds
+    val serverScopedSessions = data.sessions
         .filter { (serverSessionIds == null || it.id in serverSessionIds) && it.parentId == null }
+    val filteredSessions = serverScopedSessions
+        .filter { it.id !in archivedIds }
+        .sortedByDescending { session ->
+            data.lastUserMessageTime[session.id] ?: session.time.updated
+        }
+    val archivedList = serverScopedSessions
+        .filter { it.id in archivedIds }
         .sortedByDescending { session ->
             data.lastUserMessageTime[session.id] ?: session.time.updated
         }
@@ -98,17 +108,22 @@ internal suspend fun buildContentState(
     val mergedStatuses: Map<String, SessionStatus> =
         data.statuses + data.pendingQuestionIds.associateWith { SessionStatus.Asking }
 
+    // #311：SessionItem 构建（RECENT 主列表与已归档列表共用形状）
+    val toSessionItem: (dev.leonardo.ocbeacon.domain.model.Session) -> SessionItem = { session ->
+        SessionItem(
+            session = session,
+            status = mergedStatuses[session.id] ?: SessionStatus.Idle,
+            hasDraft = session.id in draftSessionIds,
+            tags = resolvedTags[session.id].orEmpty(),
+            hasUnread = isUnread(session.id, data.lastReplyTime, readTimes, data.allReadAt, mergedStatuses[session.id] ?: SessionStatus.Idle),
+        )
+    }
+
     val treeNodes = if (ui.viewMode == SessionViewMode.RECENT) {
         favoritesFilteredSessions.map { session ->
             TreeNode.Session(
                 id = session.id,
-                session = SessionItem(
-                    session = session,
-                    status = mergedStatuses[session.id] ?: SessionStatus.Idle,
-                    hasDraft = session.id in draftSessionIds,
-                    tags = resolvedTags[session.id].orEmpty(),
-                    hasUnread = isUnread(session.id, data.lastReplyTime, readTimes, data.allReadAt, mergedStatuses[session.id] ?: SessionStatus.Idle),
-                )
+                session = toSessionItem(session),
             )
         }
     } else {
@@ -128,5 +143,6 @@ internal suspend fun buildContentState(
         baseDirectory = ui.baseDirectory,
         searchQuery = ui.searchQuery,
         prefillDirectory = prefillDirectory,
+        archivedSessions = archivedList.map(toSessionItem),
     )
 }

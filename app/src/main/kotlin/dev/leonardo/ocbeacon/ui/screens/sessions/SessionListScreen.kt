@@ -148,13 +148,15 @@ viewModel.consumePendingReadSessionId()
 
     // #267：写操作错误 snackbar 面（原非空列表下 _error 无可视面）——哨兵映射本地化
     val disconnectedMsg = stringResource(R.string.server_link_disconnected_message)
+    // #311：归档失败哨兵同款映射
+    val archiveFailedMsg = stringResource(R.string.session_archive_failed)
     LaunchedEffect(Unit) {
         viewModel.error.collect { msg ->
             if (!msg.isNullOrBlank()) {
-                val text = if (msg == SessionListViewModel.ERROR_SERVER_DISCONNECTED) {
-                    disconnectedMsg
-                } else {
-                    msg
+                val text = when (msg) {
+                    SessionListViewModel.ERROR_SERVER_DISCONNECTED -> disconnectedMsg
+                    SessionListViewModel.ERROR_ARCHIVE_FAILED -> archiveFailedMsg
+                    else -> msg
                 }
                 snackbarHostState.showSnackbar(text)
                 viewModel.consumeError()
@@ -476,6 +478,9 @@ viewModel.consumePendingReadSessionId()
                                         syncStates = syncStates,
                                         onRequestSync = { sessionId -> viewModel.requestHistorySync(sessionId) },
                                         onCancelSync = { sessionId -> viewModel.cancelHistorySync(sessionId) },
+                                        // #311 归档：已归档折叠区数据（workspace 快照集合驱动）+ 归档动作
+                                        archivedSessions = content.archivedSessions,
+                                        onArchive = { sessionId -> viewModel.archiveSession(sessionId) },
                                     )
                                 }
                             }

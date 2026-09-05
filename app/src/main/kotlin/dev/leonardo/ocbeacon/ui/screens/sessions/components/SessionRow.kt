@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -24,6 +25,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.EditNote
@@ -31,6 +35,8 @@ import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +62,9 @@ import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -72,7 +81,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 internal fun SessionRow(
     item: SessionItem,
@@ -94,20 +103,46 @@ internal fun SessionRow(
     syncState: dev.leonardo.ocbeacon.data.local.SessionSyncEntity? = null,
     onRequestSync: () -> Unit = {},
     onCancelSync: () -> Unit = {},
+    // #311 归档：归档集合成员位 + 能力位门控 + 归档动作（行菜单项/左滑共用）
+    isArchived: Boolean = false,
+    archiveSupported: Boolean = false,
+    onArchive: () -> Unit = {},
 ) {
     val dateFormat = remember { SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()) }
     val addColor = DiffAdded
     val delColor = DiffRemoved
 
     var showDetailsDialog by remember { mutableStateOf(false) }
+    var showRowMenu by remember { mutableStateOf(false) }
+    val menuActions = remember(archiveSupported, isArchived) {
+        sessionRowMenuActions(archiveSupported, isArchived)
+    }
 
+    // #311 左滑归档：仅未归档行 + 能力位内可滑；右滑不动作。confirmValueChange
+    // 恒 false（否决回弹）——行去留以服务器回执（workspace/follow 增量 → 快照流）
+    // 响应式为准，不做乐观移除；失败行保持原位（snackbar 提示）。
+    val canSwipeToArchive = archiveSupported && !isArchived
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart && canSwipeToArchive) onArchive()
+            false
+        },
+    )
+
+    Box(modifier = modifier.fillMaxWidth()) {
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = canSwipeToArchive,
+        backgroundContent = { SwipeToArchiveBackground() },
+    ) {
     Row(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = 64.dp)
             .combinedClickable(
                 onClick = onClick,
-                onLongClick = { showDetailsDialog = true },
+                onLongClick = { showRowMenu = true },
             )
             .padding(start = if (showDirectory) SpacingTokens.MD.dp else 28.dp, end = SpacingTokens.SM.dp)
             .padding(vertical = 5.dp),
@@ -277,6 +312,35 @@ internal fun SessionRow(
             )
         }
     }
+    }
+
+    // #311 长按行菜单（详情/重命名/归档——显隐纯函数见 SessionRowMenu.kt；
+    // 已归档行只留详情：归档单向契约，无 wire 级恢复动词）
+    DropdownMenu(
+        expanded = showRowMenu,
+        onDismissRequest = { showRowMenu = false },
+    ) {
+        menuActions.forEach { action ->
+            val (labelRes, icon) = when (action) {
+                SessionRowMenuAction.DETAILS -> R.string.session_session_details to Icons.Outlined.Info
+                SessionRowMenuAction.RENAME -> R.string.session_rename to Icons.Outlined.Edit
+                SessionRowMenuAction.ARCHIVE -> R.string.session_menu_archive to Icons.Outlined.Archive
+            }
+            DropdownMenuItem(
+                text = { Text(stringResource(labelRes)) },
+                leadingIcon = { Icon(icon, contentDescription = null) },
+                onClick = {
+                    showRowMenu = false
+                    when (action) {
+                        SessionRowMenuAction.DETAILS -> showDetailsDialog = true
+                        SessionRowMenuAction.RENAME -> onRename()
+                        SessionRowMenuAction.ARCHIVE -> onArchive()
+                    }
+                },
+            )
+        }
+    }
+    }
 
     // 带操作按钮的详情对话框
     if (showDetailsDialog) {
@@ -306,6 +370,34 @@ internal fun SessionRow(
             onRequestSync = onRequestSync,
             onCancelSync = onCancelSync,
             isAmoled = isAmoled,
+        )
+    }
+}
+
+/**
+ * #311 左滑归档背景（M3 errorContainer 形态）——左滑过程中从右侧揭示。
+ */
+@Composable
+private fun SwipeToArchiveBackground(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.errorContainer)
+            .padding(end = SpacingTokens.LG.dp),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Archive,
+            contentDescription = stringResource(R.string.session_menu_archive),
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.onErrorContainer,
+        )
+        Spacer(modifier = Modifier.width(SpacingTokens.SM.dp))
+        Text(
+            text = stringResource(R.string.session_menu_archive),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onErrorContainer,
         )
     }
 }

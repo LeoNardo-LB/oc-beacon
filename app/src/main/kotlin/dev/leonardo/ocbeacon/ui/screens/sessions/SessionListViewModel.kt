@@ -113,6 +113,8 @@ class SessionListViewModel @Inject constructor(
 
         /** #267：写操作快速失败哨兵（error 通道复用；UI 映射本地化文案）。 */
         const val ERROR_SERVER_DISCONNECTED = "__server_disconnected__"
+        /** #311：归档失败哨兵（error 通道复用；UI 映射本地化文案）。 */
+        const val ERROR_ARCHIVE_FAILED = "__archive_failed__"
     }
 
     val serverId: String = safeDecodeParam(savedStateHandle.get<String>("serverId") ?: "")
@@ -269,6 +271,13 @@ class SessionListViewModel @Inject constructor(
     private val serverSessionIds = sessionRepository.getServerSessionsFlow()
         .map { it[serverId].orEmpty() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    /** #311：workspace 快照归档集合（V012 follow baseline+增量单源，DshWorkspaceStore
+     * 直读投影；非 DSH 无 workspace 帧恒空集）。行去留以服务器回执为准的响应式源。 */
+    private val workspaceArchivedIds: StateFlow<Set<String>> = chatRepository
+        .getWorkspaceSnapshotFlow(serverId)
+        .map { it.archivedSessionIds.toSet() }
+        .stateIn(viewModelScope, WhileSubscribed5s, emptySet())
 
     /** 点击会话进入时记录——返回列表时立即标记已读（消除 popBackStack 1 帧红点）。 */
     fun onSessionOpened(sessionId: String) {
@@ -491,10 +500,10 @@ class SessionListViewModel @Inject constructor(
         MiscDataPart(favoritesOnly, allReadAt)
     }
 
-    // 数据流：3 组合并（3 源具名）
+    // 数据流：3 组合并 + #311 workspace 归档集合（4 源具名）
     private val dataFlow = combine(
-        sessionDataFlow, settingDataFlow, miscDataFlow,
-    ) { sessionData, settingData, miscData ->
+        sessionDataFlow, settingDataFlow, miscDataFlow, workspaceArchivedIds,
+    ) { sessionData, settingData, miscData, archivedIds ->
         SessionListDataInputs(
             sessions = sessionData.sessions,
             statuses = sessionData.statuses,
@@ -511,6 +520,7 @@ class SessionListViewModel @Inject constructor(
                 .filterValues { it.isNotEmpty() }
                 .keys
                 .toSet(),
+            archivedSessionIds = archivedIds,
         )
     }
 
@@ -932,6 +942,28 @@ class SessionListViewModel @Inject constructor(
                 AppLogger.e(TAG_SESSION_LIST_VM, "Failed to delete session", e)
                 _error.value = e.message ?: "Failed to delete session"
             }
+        }
+    }
+
+    /**
+     * #311 归档动作：workspace/archiveSession RPC（DSH V012；回执=完整新归档集合）。
+     *
+     * 裁决记录：**不做乐观更新**——行去留以服务器回执为准（workspace/follow 增量
+     * → DshWorkspaceStore → 快照流 → dataFlow → contentState 响应式驱动），失败
+     * 仅 snackbar（行保持原位，重试无副作用——RPC 幂等 add-only）。
+     */
+    fun archiveSession(sessionId: String) {
+        if (fastFailIfLinkBlocked()) return  // #267
+        viewModelScope.launch {
+            chatRepository.archiveSession(serverId, sessionId)
+                .onSuccess { receipt ->
+                    AppLogger.i(TAG_SESSION_LIST_VM, "Archived session " + sessionId + " (server receipt: " + receipt.size + " archived)")
+                }
+                .onFailure { e ->
+                    if (e is CancellationException) throw e
+                    AppLogger.e(TAG_SESSION_LIST_VM, "Failed to archive session " + sessionId, e)
+                    _error.value = ERROR_ARCHIVE_FAILED
+                }
         }
     }
 

@@ -95,6 +95,13 @@ data class ServerCapabilities(
      * （{"info","messages"} 流式拼接）→ false（维持 .json）。
      */
     val exportIsArchive: Boolean,
+    /**
+     * 会话归档（#311）：DSH V012 workspace/archiveSession + follow 流
+     * archivedSessionIds（OpenCode V1/V2 无对应域 → false，归档面整体隐藏）。
+     * 注：位为 serverType 维度投影——DSH V011 线面无该动词，动作失败走
+     * snackbar 哨兵（同写操作先例，不假成功）。
+     */
+    val archiveSupported: Boolean,
 ) {
     companion object {
         /**
@@ -126,6 +133,7 @@ data class ServerCapabilities(
                     messageDeleteSupported = false,
                     shellCommandSupported = false,
                     exportIsArchive = true,
+                    archiveSupported = true,
                 )
                 ServerType.OpenCode -> ofOpenCode(apiVersion)
             }
@@ -155,6 +163,7 @@ data class ServerCapabilities(
                 messageDeleteSupported = true,
                 shellCommandSupported = true,
                 exportIsArchive = false,
+                archiveSupported = false,
             )
             else -> ServerCapabilities( /* V1 / UNKNOWN / null：全开放 */
                 shareSupported = true,
@@ -177,6 +186,7 @@ data class ServerCapabilities(
                 messageDeleteSupported = true,
                 shellCommandSupported = true,
                 exportIsArchive = false,
+                archiveSupported = false,
             )
         }
     }

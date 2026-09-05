@@ -126,6 +126,9 @@
     <string name="session_rename_button">重命名</string>
     <string name="session_delete">删除会话</string>
     <string name="session_delete_confirm">确定要删除“%1$s”？此操作无法撤销。</string>
+    <string name="session_menu_archive">归档</string>
+    <string name="session_archived_section_title">已归档（%1$d）</string>
+    <string name="session_archive_failed">归档会话失败</string>
     <string name="chat_stop">停止</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->
