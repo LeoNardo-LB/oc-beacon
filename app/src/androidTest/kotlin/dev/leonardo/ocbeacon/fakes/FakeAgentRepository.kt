@@ -28,6 +28,12 @@ class FakeAgentRepository @Inject constructor() : AgentRepository {
     // #285 基线对齐：loadCommands 增 sessionId（懒建会话补全命令列表）
     override suspend fun loadCommands(serverId: String, sessionId: String?): Result<List<CommandInfo>> = commandsResult
 
+    // #324④ 基线对齐：会话技能（fake 恒空——skills 触发组不参与既有 UI 断言）
+    override suspend fun listSessionSkills(
+        serverId: String,
+        sessionId: String,
+    ): Result<List<dev.leonardo.ocbeacon.domain.model.DshSkillInfo>> = Result.success(emptyList())
+
     override suspend fun searchFiles(
         serverId: String,
         query: String,
