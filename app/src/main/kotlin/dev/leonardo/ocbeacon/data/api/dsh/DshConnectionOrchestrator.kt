@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.data.api.dsh
 
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.Session
+import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.CoroutineScope
@@ -307,7 +308,10 @@ class DshConnectionOrchestrator @Inject constructor() {
                 for (mapped in DshEventMapper.mapFrame(frame.method, frame.payload, frame.rpcId)) {
                     when (mapped) {
                         is DshMappedEvent.Sse -> {
-                            val defended = defendSessionReplacement(mapped.event, sessionLookup)
+                            val defended = defendDurableSubagentRemoval(
+                                defendSessionReplacement(mapped.event, sessionLookup),
+                                sessionLookup,
+                            )
                             dispatch(defended)
                             onEvent(defended)
                         }
@@ -459,6 +463,43 @@ class DshConnectionOrchestrator @Inject constructor() {
             is SseEvent.SessionCreated -> event.copy(info = merged)
             else -> event
         }
+    }
+
+    // ============ durable 子会话 removal 降级（#310① A8轮3） ============
+
+    /**
+     * host/session-removed 的 durable 子会话防御：DSH 对 continuable 子会话在每个
+     * 轮次落定时处置**激活**（进程内 Agent 驻留期）并广播 host/session-removed——
+     * 其 durable Session 在服务器持久保留、可续聊（A8 轮2 父转录 wrap-up "is now
+     * idle and available for follow-ups" 实证；官方 client
+     * SessionManager.handleSessionRemoved 对 origin=subagent 行记
+     * `{kind:'status', running:false}` 而非 `{kind:'remove'}`）。
+     *
+     * app 此前无差别映射 [SseEvent.SessionDeleted]，级联（EventDispatcher
+     * SessionDeleted 分支 clearForSession + handleSessionDeleted 删行）在完结回复
+     * 到达 ~10ms 内抹掉整个子会话转录与会话行（a8r2.log 17:28:04.803→.814）——
+     * ①完结回复永不呈现（缺陷C①）、②会话行消失使 sessionMeta 断流、消息清空触发
+     * ChatEmptyState（缺陷D 自发回空态 Chat）、③重入后仅剩本地残迹（缺陷C② 破坏腿）。
+     *
+     * 判定与官方同构：缓存行 parentId 非空 = subagent origin（host/session-added /
+     * session.list 投影两路都会带上父址；[defendSessionReplacement] 已钉缺席保留）。
+     * 降级产物 = [SseEvent.SessionStatus] Idle（对齐官方 running:false；removed 帧前
+     * 服务器已发 status/idle，此处幂等强化）。普通会话与未知行原样透传真删除语义。
+     * 对账腿（SessionVanished）不经此处——不在 session.list 基线的行才是真消失。
+     */
+    internal fun defendDurableSubagentRemoval(
+        event: SseEvent,
+        sessionLookup: (String) -> Session?,
+    ): SseEvent {
+        if (event !is SseEvent.SessionDeleted) return event
+        val existing = sessionLookup(event.info.id) ?: return event
+        if (existing.parentId == null) return event
+        AppLogger.i(
+            TAG,
+            "host/session-removed for durable subagent ${event.info.id} downgraded to idle " +
+                "(activation disposal; session row and transcript retained)",
+        )
+        return SseEvent.SessionStatus(event.info.id, SessionStatus.Idle)
     }
 
     private data class DshIncomingFrame(val method: String, val payload: JsonObject, val rpcId: String)

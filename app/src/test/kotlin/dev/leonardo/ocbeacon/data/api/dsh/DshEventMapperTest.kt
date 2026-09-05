@@ -898,6 +898,24 @@ class DshEventMapperTest {
         }
     }
 
+    /**
+     * #310① A8轮3（2026-09-05）：model/selection 与 subagent/model-selection-policy
+     * 是服务器 known-event-types 词汇内的 log-only 事件（dts 原话 "Log-only: it never
+     * enters derived model history"），子会话 journal 首个模型请求前必写后者——缺席
+     * 折叠词汇曾使子会话 history fold 全量拒绝重建（a8r2.log "history fold refused
+     * rebuild … [subagent/model-selection-policy]"），重入转录恒空。
+     */
+    @Test
+    fun `model selection journal types are log-only ignorable`() {
+        listOf("model/selection", "subagent/model-selection-policy").forEach { type ->
+            assertEquals(
+                "type=$type",
+                listOf(DshMappedEvent.Ignored(DshIgnoreReason.LOG_ONLY)),
+                DshEventMapper.mapSessionEvent("s9", sessionEvent(type)),
+            )
+        }
+    }
+
     @Test
     fun `protocol noise types are ignored without becoming unignorable`() {
         // 高频伴生事件（§1.7 实测分布）：不进目录会让几乎所有真实会话拒绝重建
@@ -912,6 +930,10 @@ class DshEventMapperTest {
             "schedule/change", "feedback/record",
             // E2E 回归（2026-08-31）：llm/failover 曾致整会话拒绝重建；known-49 插件域收尾
             "llm/failover", "session/title-llm-request",
+            // #310① A8轮3（2026-09-05）：model/selection（普通会话）与
+            // subagent/model-selection-policy（子会话）缺席曾致 fold 全量拒绝重建
+            // ——子会话 journal 必含后者，重入转录恒空（a8r2.log 135+451 次）。
+            "model/selection", "subagent/model-selection-policy",
             "hook/invoked", "hook/result",
             "team/task", "team/member", "team/message/delivered", "team/message/queued",
             "tool-workflow/run-start", "tool-workflow/agent-start",

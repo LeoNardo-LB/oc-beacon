@@ -196,6 +196,38 @@ class DshHistoryFolderTest {
         assertEquals(5L, result.lastSeq) // 帧型行无 seq，lastSeq 只由活事件推进
     }
 
+    /**
+     * #310① A8轮3（2026-09-05）：子会话 journal 必含 subagent/model-selection-policy
+     *（首个模型请求前写入），普通会话含 model/selection——两型缺席折叠词汇曾使
+     * session/page 返回整页后 fold 全量拒绝重建（listMessages msgs=0），重入子会话
+     * 转录恒空、status check 交换不持久。收编后整页照常折叠。
+     */
+    @Test
+    fun `subagent journal with model selection policy rows folds without refusing rebuild`() {
+        val rows = listOf(
+            json.parseToJsonElement("""{"type":"session","version":0,"id":"child-1","createdAt":1,"cwd":"/w"}""").jsonObject,
+            json.parseToJsonElement(
+                """{"type":"subagent/model-selection-policy","seq":2,"time":3,"data":{"allowedModels":[{"provider":"p","model":"m"}]}}"""
+            ).jsonObject,
+            json.parseToJsonElement(
+                """{"type":"model/selection","seq":3,"time":4,"data":{"provider":"p","model":"m"}}"""
+            ).jsonObject,
+            json.parseToJsonElement(
+                """{"type":"user/message","seq":5,"time":6,"data":{"content":[{"type":"text","text":"status check"}],"source":{"kind":"user"}}}"""
+            ).jsonObject,
+            json.parseToJsonElement("""{"type":"turn/end","seq":7,"time":8,"data":{"turn":2,"reason":{"kind":"completed"}}}""").jsonObject,
+        )
+        val result = DshHistoryFolder.fold(rows, sessionId = "child-1")
+        assertEquals(0, result.unknownUnignorable.size)
+        assertEquals(false, result.refusedRebuild)
+        // 交换本体照常折叠：用户消息 2 事件 + turn/end idle
+        assertEquals(3, result.sseEvents.size)
+        assertTrue(result.sseEvents[0] is SseEvent.MessageUpdated)
+        assertTrue(result.sseEvents[1] is SseEvent.MessagePartUpdated)
+        assertEquals(SseEvent.SessionIdle("child-1", 8), result.sseEvents[2])
+        assertEquals(7L, result.lastSeq)
+    }
+
     @Test
     fun `unknown unignorable accumulates distinct types in order`() {
         val rows = listOf(

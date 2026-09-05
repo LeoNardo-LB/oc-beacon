@@ -337,6 +337,121 @@ class DshConnectionOrchestratorTest {
         assertEquals("s-parent", defended.info.parentId)
     }
 
+    /**
+     * #310① A8轮3 根因钉（缺陷C①/C②/D 共根）：DSH host/session-removed 对 durable
+     * 子会话是**轮次落定时的激活处置**（continuable 会话的 Session 在服务器持久，
+     * 官方 client SessionManager.handleSessionRemoved 对 origin=subagent 行记
+     * {kind:'status', running:false} 而非 {kind:'remove'}）——app 无差别映射
+     * SessionDeleted 后级联清消息+删行，完结回复 seq-3502 在 9ms 内被
+     * clearForSession 抹掉（a8r2.log 17:28:04.812-.814）、会话行消失致 ChatRoute
+     * 落 ChatEmptyState（自发回空态 Chat）。
+     */
+    @Test
+    fun `defendDurableSubagentRemoval downgrades SessionDeleted to idle for cached subagent row`() {
+        val existing = Session(id = "s-child", directory = "/w", parentId = "s-parent", time = Session.Time(555L, 555L))
+        val deleted = SseEvent.SessionDeleted(Session(id = "s-child", time = Session.Time(0L, 0L)))
+        val defended = orchestrator().defendDurableSubagentRemoval(deleted) { existing }
+        assertEquals(SseEvent.SessionStatus("s-child", dev.leonardo.ocbeacon.domain.model.SessionStatus.Idle), defended)
+    }
+
+    /** 普通会话（无父址）的 session-removed 是真删除——原样透传。 */
+    @Test
+    fun `defendDurableSubagentRemoval passes SessionDeleted through for ordinary session`() {
+        val existing = Session(id = "s-top", directory = "/w", time = Session.Time(555L, 555L))
+        val deleted = SseEvent.SessionDeleted(Session(id = "s-top", time = Session.Time(0L, 0L)))
+        val defended = orchestrator().defendDurableSubagentRemoval(deleted) { existing }
+        assertEquals(deleted, defended)
+    }
+
+    /** 缓存无行（未见过的会话）——无从判定 durable，保守透传（删除对无行会话本近 no-op）。 */
+    @Test
+    fun `defendDurableSubagentRemoval passes SessionDeleted through for unknown session`() {
+        val deleted = SseEvent.SessionDeleted(Session(id = "s-ghost", time = Session.Time(0L, 0L)))
+        val defended = orchestrator().defendDurableSubagentRemoval(deleted) { null }
+        assertEquals(deleted, defended)
+    }
+
+    /** 非 SessionDeleted 事件不经本防御（防御域单职责）。 */
+    @Test
+    fun `defendDurableSubagentRemoval leaves non-deletion events untouched`() {
+        val status = SseEvent.SessionStatus("s-child", dev.leonardo.ocbeacon.domain.model.SessionStatus.Busy)
+        val defended = orchestrator().defendDurableSubagentRemoval(status) { null }
+        assertEquals(status, defended)
+    }
+
+    /**
+     * 帧级端到端：子会话轮次落定 → host/session-removed 到达时缓存行 parentId 非空
+     * → dispatch 收到 idle 状态帧而非 SessionDeleted（行/消息级联不触发——完结回复
+     * 留在转录、会话行保留、ChatRoute 不落空态）。
+     */
+    @Test
+    fun `host session-removed for cached subagent child dispatches idle not deletion`() = runTest {
+        val source = FakeFrameSource()
+        val rec = Recording()
+        rec.cache["s-child"] = Session(
+            id = "s-child",
+            directory = "/w",
+            parentId = "s-parent",
+            title = "Your task: count slowly",
+            time = Session.Time(created = 555L, updated = 556L),
+        )
+        val tracker = DshSessionSeqTracker()
+        val job = launch {
+            orchestrator().run(
+                "http://x", source, FakeHistorySource(emptyMap()), tracker,
+                dispatch = { rec.dispatched += it },
+                onEvent = { rec.notified += it },
+                sessionLookup = { rec.cache[it] },
+                onConnected = {},
+            )
+        }
+        runCurrent() // 让 launch 先执行到 start()（onFrame 就绪）
+        source.onFrame(
+            "host/session-removed",
+            obj("""{"type":"host/session-removed","sessionId":"s-child"}"""),
+            "r",
+        )
+        runCurrent()
+        assertTrue(rec.dispatched.none { it is SseEvent.SessionDeleted })
+        assertEquals(
+            listOf(dev.leonardo.ocbeacon.domain.model.SessionStatus.Idle),
+            rec.dispatched.filterIsInstance<SseEvent.SessionStatus>().map { it.status },
+        )
+        assertEquals(rec.dispatched, rec.notified) // onEvent 与 dispatch 同序同集
+        job.cancel()
+    }
+
+    /** 对照组：普通会话的 host/session-removed 仍走 SessionDeleted（真删除语义不变）。 */
+    @Test
+    fun `host session-removed for ordinary session still dispatches deletion`() = runTest {
+        val source = FakeFrameSource()
+        val rec = Recording()
+        rec.cache["s-top"] = Session(
+            id = "s-top",
+            directory = "/w",
+            time = Session.Time(created = 555L, updated = 556L),
+        )
+        val tracker = DshSessionSeqTracker()
+        val job = launch {
+            orchestrator().run(
+                "http://x", source, FakeHistorySource(emptyMap()), tracker,
+                dispatch = { rec.dispatched += it },
+                onEvent = { rec.notified += it },
+                sessionLookup = { rec.cache[it] },
+                onConnected = {},
+            )
+        }
+        runCurrent()
+        source.onFrame(
+            "host/session-removed",
+            obj("""{"type":"host/session-removed","sessionId":"s-top"}"""),
+            "r",
+        )
+        runCurrent()
+        assertEquals(listOf("s-top"), rec.dispatched.filterIsInstance<SseEvent.SessionDeleted>().map { it.info.id })
+        job.cancel()
+    }
+
     // ---- followTargets：follow 限界窗口（#319）+ durable 地址（#310① A8） --------
 
     private fun itemOf(sid: String?, running: Boolean, updatedAt: Long?): JsonObject =

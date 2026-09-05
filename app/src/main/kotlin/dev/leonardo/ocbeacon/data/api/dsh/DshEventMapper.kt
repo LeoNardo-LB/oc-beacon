@@ -625,6 +625,13 @@ object DshEventMapper {
             // log-only（设计 Tier3 明列）
             "request/header", "request/context", "session/end-seed",
             "web/deepseek-search-llm-request", "schedule/change", "feedback/record",
+            // #310① A8轮3（2026-09-05）：model/selection 与 subagent/model-selection-policy
+            // 是服务器 known-event-types 词汇内声明的 log-only 事件（"Log-only: it
+            // never enters derived model history"——子会话 journal 在首个模型请求前
+            // 必写后者，普通会话常见前者）。缺席折叠词汇曾使 session/page 整页返回后
+            // fold 全量拒绝重建（listMessages msgs=0）——重入子会话转录恒空、status
+            // check 交换不持久（a8r2.log "history fold refused rebuild …" 135+451 次）。
+            "model/selection", "subagent/model-selection-policy",
                 -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.LOG_ONLY))
             // 工具卡由 tool/call|result 承载；code-dispatch 是渲染伴生事件（实测 ~66,690 次）
             "tool/code-dispatch", "tool/code-dispatch-start" ->
