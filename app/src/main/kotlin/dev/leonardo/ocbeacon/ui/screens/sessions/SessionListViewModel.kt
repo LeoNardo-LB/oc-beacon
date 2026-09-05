@@ -765,6 +765,12 @@ class SessionListViewModel @Inject constructor(
     private val _searchTimeRange = MutableStateFlow<String?>(null)
     val searchTimeRange: StateFlow<String?> = _searchTimeRange.asStateFlow()
 
+    // #322：DSH 服务端内容搜索（session/search 全历史会话命中；非 DSH 恒 null 零外溢）。
+    // 服务器无消息级锚点——snippet 只做会话级呈现（与本地 FTS 消息级跳转分工）。
+    private val _serverSearch = MutableStateFlow<dev.leonardo.ocbeacon.domain.model.SessionSearchResult?>(null)
+    val serverSearch: StateFlow<dev.leonardo.ocbeacon.domain.model.SessionSearchResult?> = _serverSearch.asStateFlow()
+    private var serverSearchJob: kotlinx.coroutines.Job? = null
+
     fun setSearchRole(role: String?) {
         if (_searchRole.value == role) return
         _searchRole.value = role
@@ -812,16 +818,42 @@ class SessionListViewModel @Inject constructor(
         )
     }
 
+    /**
+     * #322：DSH 服务器历史搜索（session/search）。失败/V011 unsupported 软降级为
+     * null（本地 FTS 照常呈现）——服务器区静默缺席，不外溢错误面。
+     */
+    private suspend fun runServerSearch(query: String): dev.leonardo.ocbeacon.domain.model.SessionSearchResult? =
+        sessionRepository.searchSessions(serverId, query)
+            .onFailure { e ->
+                AppLogger.w(
+                    "SessionListVM",
+                    "server search failed for '" + query.take(40) + "': " + e.message,
+                )
+            }
+            .getOrNull()
+
     fun setSearchQuery(query: String) {
         _searchQuery.value = query.ifBlank { null }
         contentSearchJob?.cancel()
+        serverSearchJob?.cancel()
         if (query.isBlank()) {
             _contentHits.value = emptyList()
+            _serverSearch.value = null
             return
         }
         contentSearchJob = viewModelScope.launch {
             delay(SEARCH_DEBOUNCE_MS)
             _contentHits.value = runContentSearch(query)
+        }
+        // #322：DSH 专属服务器历史搜索（防抖同窗；角色/时间 chips 仅作用本地
+        // FTS——服务器无对应过滤参数，chips 变化不重发）
+        if (_serverIsDsh.value) {
+            serverSearchJob = viewModelScope.launch {
+                delay(SEARCH_DEBOUNCE_MS)
+                _serverSearch.value = runServerSearch(query)
+            }
+        } else {
+            _serverSearch.value = null
         }
     }
 
@@ -829,6 +861,9 @@ class SessionListViewModel @Inject constructor(
         _searchQuery.value = null
         contentSearchJob?.cancel()
         _contentHits.value = emptyList()
+        // #322：服务器命中区一并清空
+        serverSearchJob?.cancel()
+        _serverSearch.value = null
         // 过滤条件保留（下次搜索沿用上次角色/时间偏好；chip 态在结果区可见可改）
     }
 

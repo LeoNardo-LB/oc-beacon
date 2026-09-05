@@ -777,6 +777,9 @@
     <string name="settings_storage_clear_confirm">Очистити</string>
     <string name="settings_storage_cleared">Архів очищено</string>
     <string name="search_content_hits">Збіги в повідомленнях</string>
+    <!-- #322：DSH 服务器历史命中（session/search） -->
+    <string name="search_server_hits">Збіги в сесіях</string>
+    <string name="search_server_more">Показано лише перші 20 збігів</string>
     <string name="search_content_coverage_hint">Повна історія не синхронізована для цієї сесії</string>
     <string name="search_content_hit_count">Повідомлень: %1$d</string>
     <string name="search_filter_role_all">Усі ролі</string>

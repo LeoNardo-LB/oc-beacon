@@ -778,6 +778,9 @@
     <string name="settings_storage_clear_confirm">Очистить</string>
     <string name="settings_storage_cleared">Архив очищен</string>
     <string name="search_content_hits">Совпадения в сообщениях</string>
+    <!-- #322：DSH 服务器历史命中（session/search） -->
+    <string name="search_server_hits">Совпадения в сессиях</string>
+    <string name="search_server_more">Показаны только первые 20 совпадений</string>
     <string name="search_content_coverage_hint">Полная история не синхронизирована для этой сессии</string>
     <string name="search_content_hit_count">%1$d сообщений</string>
     <string name="search_filter_role_all">Все роли</string>

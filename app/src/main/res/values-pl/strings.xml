@@ -777,6 +777,9 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_storage_clear_confirm">Wyczyść</string>
     <string name="settings_storage_cleared">Archiwum wyczyszczone</string>
     <string name="search_content_hits">Dopasowania wiadomości</string>
+    <!-- #322：DSH 服务器历史命中（session/search） -->
+    <string name="search_server_hits">Dopasowania sesji</string>
+    <string name="search_server_more">Pokazano tylko pierwsze 20 dopasowań</string>
     <string name="search_content_coverage_hint">Pełna historia tej sesji nie została zsynchronizowana</string>
     <string name="search_content_hit_count">%1$d wiadomości</string>
     <string name="search_filter_role_all">Wszystkie role</string>

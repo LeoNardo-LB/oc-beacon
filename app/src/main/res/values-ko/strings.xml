@@ -769,6 +769,9 @@
     <string name="settings_storage_clear_confirm">삭제</string>
     <string name="settings_storage_cleared">아카이브가 삭제되었습니다</string>
     <string name="search_content_hits">메시지 일치 항목</string>
+    <!-- #322：DSH 服务器历史命中（session/search） -->
+    <string name="search_server_hits">세션 일치 항목</string>
+    <string name="search_server_more">처음 20개 일치만 표시</string>
     <string name="search_content_coverage_hint">이 세션의 전체 기록이 동기화되지 않았습니다</string>
     <string name="search_content_hit_count">메시지 %1$d개</string>
     <string name="search_filter_role_all">모든 역할</string>

@@ -124,6 +124,8 @@ var showMoreMenu by remember { mutableStateOf(false) }
     val favoritesOnly by viewModel.favoritesOnly.collectAsStateWithLifecycle()
     // #272：BM25 内容命中（FTS5 本地检索）——搜索词非空时聚合展示
     val contentHits by viewModel.contentHits.collectAsStateWithLifecycle()
+    // #322：DSH 服务器历史命中（session/search 全历史；非 DSH 恒 null）
+    val serverSearch by viewModel.serverSearch.collectAsStateWithLifecycle()
     // #272/Q6c：内容检索过滤（角色 + 时间范围，chip 单选）
     val searchRole by viewModel.searchRole.collectAsStateWithLifecycle()
     val searchTimeRange by viewModel.searchTimeRange.collectAsStateWithLifecycle()
@@ -354,12 +356,64 @@ viewModel.consumePendingReadSessionId()
                                 },
                             )
 
+                            val titles = content.sessions.associate { it.id to (it.title ?: it.id) }
+
+                            // #322：DSH 服务器历史命中区（session/search 全历史会话命中）。
+                            // 呈现裁决：本地 FTS 已覆盖的会话不在此重复（本地行有消息级跳转，
+                            // 服务器行只有会话级跳转——wire 无 messageId 锚点，如实呈现不伪造跳转）。
+                            val serverRows = SessionSearchMerge.serverRows(serverSearch, contentHits)
+                            if (!content.searchQuery.isNullOrBlank() && serverRows.isNotEmpty()) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 240.dp)
+                                        .verticalScroll(rememberScrollState())
+                                        .padding(bottom = SpacingTokens.SM.dp),
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.search_server_hits),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(vertical = 4.dp),
+                                    )
+                                    serverRows.forEach { hit ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable { onNavigateToChat(hit.sessionId, false, null) }
+                                                .padding(vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = titles[hit.sessionId] ?: ("…" + hit.sessionId.takeLast(10)),
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    maxLines = 1,
+                                                )
+                                                Text(
+                                                    text = hit.snippet,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 2,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    if (serverSearch?.hasMore == true) {
+                                        Text(
+                                            text = stringResource(R.string.search_server_more),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
+
                             // #272：内容命中聚合区（FTS5 BM25 本地检索，纯本地）。
                             // Q6c：过滤激活（角色/时间任一非空）时即使 0 命中也保留本区——
                             // 否则过滤后无结果会把过滤 chips 一并藏掉，用户无法切回「全部」。
                             val searchFiltersActive = searchRole != null || searchTimeRange != null
                             if (!content.searchQuery.isNullOrBlank() && (contentHits.isNotEmpty() || searchFiltersActive)) {
-                                val titles = content.sessions.associate { it.id to (it.title ?: it.id) }
                                 // B1 链：命中组携带跳转目标 messageId（rank 最优）——点击即定位该消息
                                 val groups: List<Triple<String, Int, Pair<String?, String>>> =
                                     contentHits.groupBy { it.sessionId }

@@ -769,6 +769,9 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_storage_clear_confirm">Limpar</string>
     <string name="settings_storage_cleared">Arquivo limpo</string>
     <string name="search_content_hits">Correspondências de mensagens</string>
+    <!-- #322：DSH 服务器历史命中（session/search） -->
+    <string name="search_server_hits">Correspondências de sessões</string>
+    <string name="search_server_more">Apenas as primeiras 20 correspondências são exibidas</string>
     <string name="search_content_coverage_hint">Histórico completo não sincronizado para esta sessão</string>
     <string name="search_content_hit_count">%1$d mensagens</string>
     <string name="search_filter_role_all">Todas as funções</string>

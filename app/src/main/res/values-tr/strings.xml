@@ -769,6 +769,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_storage_clear_confirm">Temizle</string>
     <string name="settings_storage_cleared">Arşiv temizlendi</string>
     <string name="search_content_hits">Mesaj eşleşmeleri</string>
+    <!-- #322：DSH 服务器历史命中（session/search） -->
+    <string name="search_server_hits">Oturum eşleşmeleri</string>
+    <string name="search_server_more">Yalnızca ilk 20 eşleşme gösteriliyor</string>
     <string name="search_content_coverage_hint">Bu oturum için tüm geçmiş eşitlenmedi</string>
     <string name="search_content_hit_count">%1$d mesaj</string>
     <string name="search_filter_role_all">Tüm roller</string>

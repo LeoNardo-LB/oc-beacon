@@ -51,6 +51,8 @@ import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.ServerHealth
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionPage
+import dev.leonardo.ocbeacon.domain.model.SessionSearchHit
+import dev.leonardo.ocbeacon.domain.model.SessionSearchResult
 import dev.leonardo.ocbeacon.domain.model.ShellJob
 import dev.leonardo.ocbeacon.domain.model.ShellOutput
 import dev.leonardo.ocbeacon.domain.model.SseEvent
@@ -73,6 +75,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "DshApi"
+
+/** #322：session/search 契约 snippet 上限（Unicode 码点；服务器侧同值保证）。 */
+private const val SNIPPET_MAX_CODE_POINTS = 240
 
 /**
  * DSH 七域 API 实现（backlog #276 步骤③；设计 §2.6 方法面 → 域接口映射表）。
@@ -157,6 +162,42 @@ class DshApiClient @Inject constructor(
     override suspend fun getSession(conn: ServerConnection, sessionId: String): Session =
         listSessions(conn).firstOrNull { it.id == sessionId }
             ?: throw IllegalStateException("DSH session not found: $sessionId")
+
+    /**
+     * #322：session/search 服务端内容搜索（按名字+内容搜全部历史会话，上限 20）。
+     *
+     * wire（0.1.2）：{args:{request:{query}}}（typert parameter wire="request"）→
+     * 回 {items:[{sessionId,snippet}],hasMore}；snippet ≤240 码点（服务器
+     * SESSION_SEARCH_SNIPPET_MAX_CODE_POINTS 保证——客户端防御性同限截断，不劈代理对）。
+     * 畸形行容错：非对象行 / sessionId 缺席或空白 / snippet 缺席——逐行跳过不整批失败；
+     * hasMore 缺席按 false。命中无消息级锚点（wire 无 messageId）——UI 只做会话级跳转。
+     * 保守 V011：session.search 不在 0.1.1 方法面（#322 裁决）——unsupported。
+     */
+    override suspend fun searchSessions(conn: ServerConnection, query: String): SessionSearchResult {
+        if (protocolOf(conn) != DshWireProtocol.V012) unsupported("session.search")
+        val value = rpc.call(conn, "session.search", buildJsonObject {
+            put("query", query)
+        }) { it }.getOrElse { e -> throw e }
+        val items = (value.dshArr("items") ?: emptyList()).mapNotNull { el ->
+            val row = el as? JsonObject ?: return@mapNotNull null
+            val sessionId = row.dshStr("sessionId")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val snippet = row.dshStr("snippet") ?: return@mapNotNull null
+            dev.leonardo.ocbeacon.domain.model.SessionSearchHit(
+                sessionId = sessionId,
+                snippet = truncateSnippetCodePoints(snippet),
+            )
+        }
+        return dev.leonardo.ocbeacon.domain.model.SessionSearchResult(
+            items = items,
+            hasMore = value.dshBool("hasMore") ?: false,
+        )
+    }
+
+    /** snippet 防御性截断（≤240 码点；offsetByCodePoints 保证不劈代理对）。 */
+    private fun truncateSnippetCodePoints(snippet: String): String {
+        if (snippet.codePointCount(0, snippet.length) <= SNIPPET_MAX_CODE_POINTS) return snippet
+        return snippet.substring(0, snippet.offsetByCodePoints(0, SNIPPET_MAX_CODE_POINTS))
+    }
 
     override suspend fun getSessionRaw(conn: ServerConnection, sessionId: String): String {
         val value = rpc.call(conn, "session.list", buildJsonObject {}) { it }.getOrElse { e -> throw e }
@@ -1466,6 +1507,9 @@ class DshApiClient @Inject constructor(
     override suspend fun readFile(conn: ServerConnection, path: String, directory: String?): FileContentDto =
         unsupported("file.read")
 
+    /** 文件内容搜索无对应方法（find 域缺失）——空表降级。
+     *  #322 裁决：session/search 是**会话**内容搜索（SessionSearchHit），语义与
+     *  本方法（文件 path/line 匹配，SearchMatchDto）不同域——不共用通道，见 [searchSessions]。 */
     override suspend fun searchText(conn: ServerConnection, pattern: String): List<SearchMatchDto> = emptyList()
 
     override suspend fun probeDirectory(conn: ServerConnection, directory: String): Boolean =

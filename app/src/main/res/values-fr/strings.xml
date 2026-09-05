@@ -767,6 +767,9 @@
     <string name="settings_storage_clear_confirm">Effacer</string>
     <string name="settings_storage_cleared">Archives effacées</string>
     <string name="search_content_hits">Correspondances de messages</string>
+    <!-- #322：DSH 服务器历史命中（session/search） -->
+    <string name="search_server_hits">Correspondances de sessions</string>
+    <string name="search_server_more">Seules les 20 premières correspondances sont affichées</string>
     <string name="search_content_coverage_hint">Historique complet non synchronisé pour cette session</string>
     <string name="search_content_hit_count">%1$d messages</string>
     <string name="search_filter_role_all">Tous les rôles</string>

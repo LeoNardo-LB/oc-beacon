@@ -785,6 +785,9 @@
     <string name="settings_storage_clear_confirm">مسح</string>
     <string name="settings_storage_cleared">تم مسح الأرشيف</string>
     <string name="search_content_hits">مطابقات الرسائل</string>
+    <!-- #322：DSH 服务器历史命中（session/search） -->
+    <string name="search_server_hits">مطابقات الجلسات</string>
+    <string name="search_server_more">يتم عرض أول 20 مطابقة فقط</string>
     <string name="search_content_coverage_hint">لم تتم مزامنة السجل الكامل لهذه الجلسة</string>
     <string name="search_content_hit_count">%1$d من الرسائل</string>
     <string name="search_filter_role_all">كل الأدوار</string>

@@ -769,6 +769,9 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_storage_clear_confirm">Borrar</string>
     <string name="settings_storage_cleared">Archivo borrado</string>
     <string name="search_content_hits">Coincidencias de mensajes</string>
+    <!-- #322：DSH 服务器历史命中（session/search） -->
+    <string name="search_server_hits">Coincidencias de sesiones</string>
+    <string name="search_server_more">Solo se muestran las primeras 20 coincidencias</string>
     <string name="search_content_coverage_hint">Historial completo no sincronizado para esta sesión</string>
     <string name="search_content_hit_count">%1$d mensajes</string>
     <string name="search_filter_role_all">Todos los roles</string>

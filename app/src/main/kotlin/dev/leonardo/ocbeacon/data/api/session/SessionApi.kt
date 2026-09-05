@@ -13,6 +13,7 @@ import dev.leonardo.ocbeacon.domain.model.DshGoalRef
 import dev.leonardo.ocbeacon.domain.model.FileDiff
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.Session
+import dev.leonardo.ocbeacon.domain.model.SessionSearchResult
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -174,6 +175,12 @@ interface SessionApi {
         conn: ServerConnection,
         parentSessionId: String,
     ): List<dev.leonardo.ocbeacon.data.dto.response.SubagentListEntryDto>? = null
+
+    /**
+     * DSH 服务端内容搜索（session/search，backlog #322）：按名字+内容搜全部历史会话。
+     * OpenCode V1/V2 无对应域 → 默认 null（端点缺席语义，#314 先例——UI 走本地 FTS 零外溢）。
+     */
+    suspend fun searchSessions(conn: ServerConnection, query: String): SessionSearchResult? = null
 
     suspend fun getSessionTodos(conn: ServerConnection, sessionId: String): List<TodoItem>
 
@@ -359,6 +366,10 @@ class SessionApiImpl @Inject constructor(
         parentSessionId: String,
     ): List<dev.leonardo.ocbeacon.data.dto.response.SubagentListEntryDto>? =
         pick(conn).listSubagentCatalog(conn, parentSessionId)
+
+    /** #322 三分路由同款：DSH V012 → session/search；OpenCode V1/V2 / DSH V011 → null/unsupported 上抛。 */
+    override suspend fun searchSessions(conn: ServerConnection, query: String): SessionSearchResult? =
+        pick(conn).searchSessions(conn, query)
 
     override suspend fun getSessionTodos(conn: ServerConnection, sessionId: String): List<TodoItem> =
         pick(conn).getSessionTodos(conn, sessionId)

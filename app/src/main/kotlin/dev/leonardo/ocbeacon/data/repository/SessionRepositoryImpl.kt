@@ -89,6 +89,17 @@ class SessionRepositoryImpl @Inject constructor(
         }
     }
 
+    // ============ 服务端内容搜索（#322） ============
+
+    /** DSH session/search（null = 非 DSH 端点缺席；失败上抛供调用方软降级）。 */
+    override suspend fun searchSessions(
+        serverId: String,
+        query: String,
+    ): Result<dev.leonardo.ocbeacon.domain.model.SessionSearchResult?> = runCatchingCancellable {
+        val conn = resolveConnection(serverId)
+        sessionApi.searchSessions(conn, query)
+    }
+
     // ============ 状态观察 ============
 
     /**

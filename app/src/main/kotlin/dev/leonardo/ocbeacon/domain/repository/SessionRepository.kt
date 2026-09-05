@@ -228,6 +228,17 @@ interface SessionRepository {
         parentSessionId: String,
     ): Result<List<dev.leonardo.ocbeacon.domain.model.SubagentChild>?> = Result.success(null)
 
+    // ============ 服务端内容搜索（#322） ============
+
+    /**
+     * DSH 服务端内容搜索（session/search：按名字+内容搜全部历史会话，上限 20）。
+     * - 成功(null)：非 DSH（OpenCode V1/V2 无该域——UI 走本地 FTS 零外溢）；
+     * - 成功(结果)：DSH V012 命中（items + hasMore）；
+     * - 失败：DSH 域故障（V011 unsupported / 网络）——调用方按无服务器命中软降级。
+     */
+    suspend fun searchSessions(serverId: String, query: String): Result<dev.leonardo.ocbeacon.domain.model.SessionSearchResult?> =
+        Result.success(null)
+
     // ============ 会话状态同步 ============
 
     /**

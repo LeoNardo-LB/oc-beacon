@@ -769,6 +769,9 @@
     <string name="settings_storage_clear_confirm">削除</string>
     <string name="settings_storage_cleared">アーカイブを削除しました</string>
     <string name="search_content_hits">メッセージの一致</string>
+    <!-- #322：DSH 服务器历史命中（session/search） -->
+    <string name="search_server_hits">セッションの一致</string>
+    <string name="search_server_more">先頭の20件のみ表示</string>
     <string name="search_content_coverage_hint">このセッションの全履歴は未同期です</string>
     <string name="search_content_hit_count">%1$d 件のメッセージ</string>
     <string name="search_filter_role_all">すべてのロール</string>

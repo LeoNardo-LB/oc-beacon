@@ -769,6 +769,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_storage_clear_confirm">Cancella</string>
     <string name="settings_storage_cleared">Archivio cancellato</string>
     <string name="search_content_hits">Corrispondenze nei messaggi</string>
+    <!-- #322：DSH 服务器历史命中（session/search） -->
+    <string name="search_server_hits">Corrispondenze nelle sessioni</string>
+    <string name="search_server_more">Vengono mostrate solo le prime 20 corrispondenze</string>
     <string name="search_content_coverage_hint">Cronologia completa non sincronizzata per questa sessione</string>
     <string name="search_content_hit_count">%1$d messaggi</string>
     <string name="search_filter_role_all">Tutti i ruoli</string>

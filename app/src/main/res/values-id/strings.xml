@@ -775,6 +775,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_storage_clear_confirm">Hapus</string>
     <string name="settings_storage_cleared">Arsip dihapus</string>
     <string name="search_content_hits">Kecocokan pesan</string>
+    <!-- #322：DSH 服务器历史命中（session/search） -->
+    <string name="search_server_hits">Kecocokan sesi</string>
+    <string name="search_server_more">Hanya 20 kecocokan pertama yang ditampilkan</string>
     <string name="search_content_coverage_hint">Riwayat lengkap belum disinkronkan untuk sesi ini</string>
     <string name="search_content_hit_count">%1$d pesan</string>
     <string name="search_filter_role_all">Semua peran</string>

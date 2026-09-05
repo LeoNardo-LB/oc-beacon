@@ -769,6 +769,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_storage_clear_confirm">Löschen</string>
     <string name="settings_storage_cleared">Archiv gelöscht</string>
     <string name="search_content_hits">Nachrichten-Treffer</string>
+    <!-- #322：DSH 服务器历史命中（session/search） -->
+    <string name="search_server_hits">Sitzungs-Treffer</string>
+    <string name="search_server_more">Nur die ersten 20 Treffer werden angezeigt</string>
     <string name="search_content_coverage_hint">Vollständiger Verlauf für diese Sitzung nicht synchronisiert</string>
     <string name="search_content_hit_count">%1$d Nachrichten</string>
     <string name="search_filter_role_all">Alle Rollen</string>
