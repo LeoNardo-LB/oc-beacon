@@ -320,7 +320,24 @@ class DshConnectionOrchestratorTest {
         job.cancel()
     }
 
-    // ---- filterFollowableSessionIds：follow 限界窗口（#319） ------------------
+    /**
+     * #310① A8 缺陷B根因钉（第二层防线）：最小 SessionCreated/SessionUpdated
+     * （host/session-added、session/title 产物）不携 parentId 时，防御合并必须保留
+     * 缓存父址——否则子会话条目被整对象替换抹掉 parentId，ChatSendDelegate 续聊
+     * 分流（parentId 非空）在两次发送之间失效（A8：首 发 subagents/prompt 为正 /
+     * 次 发 session/prompt 被服务器拒 "owned by subagent routing"）。
+     */
+    @Test
+    fun `defendSessionReplacement preserves cached parentId when minimal event omits it`() {
+        val existing = Session(id = "s-child", directory = "/w", parentId = "s-parent", time = Session.Time(555L, 555L))
+        val incoming = SseEvent.SessionUpdated(
+            Session(id = "s-child", title = "t", time = Session.Time(created = 0L, updated = 9L)),
+        )
+        val defended = orchestrator().defendSessionReplacement(incoming) { existing } as SseEvent.SessionUpdated
+        assertEquals("s-parent", defended.info.parentId)
+    }
+
+    // ---- followTargets：follow 限界窗口（#319）+ durable 地址（#310① A8） --------
 
     private fun itemOf(sid: String?, running: Boolean, updatedAt: Long?): JsonObject =
         buildJsonObject {
@@ -329,59 +346,114 @@ class DshConnectionOrchestratorTest {
             updatedAt?.let { put("updatedAt", it) }
         }
 
+    /** 子会话行：parentSessionId + origin + subagent 投影身份（mode）。 */
+    private fun subagentItem(sid: String, mode: String?): JsonObject =
+        buildJsonObject {
+            put("sessionId", sid)
+            put("running", true)
+            put("updatedAt", 1_000_000_000_000L)
+            put("parentSessionId", "s-parent")
+            put("origin", "subagent")
+            mode?.let {
+                put("projections", buildJsonObject {
+                    put("values", buildJsonObject {
+                        put("subagent", buildJsonObject { put("mode", it) })
+                    })
+                })
+            }
+        }
+
     private val dayMs = 24L * 60 * 60 * 1000
 
     @Test
-    fun followFilter_keepsRunningRegardlessOfAge() {
+    fun followTargets_keepsRunningRegardlessOfAge() {
         val now = 1_000_000_000_000L
         val items = listOf(itemOf("s-run", running = true, updatedAt = now - 90 * dayMs))
-        assertEquals(listOf("s-run"), filterFollowableSessionIds(items, now))
+        val targets = followTargets(items, now)
+        assertEquals(listOf("s-run"), targets.map { it.sessionId })
+        assertEquals("session", targets[0].address.strOfKey("kind"))
     }
 
     @Test
-    fun followFilter_keepsRecentWithinWindow() {
+    fun followTargets_keepsRecentWithinWindow() {
         val now = 1_000_000_000_000L
         val items = listOf(
             itemOf("s-fresh", running = false, updatedAt = now - 12 * 60 * 60 * 1000), // 12h 前，窗口内
             itemOf("s-stale", running = false, updatedAt = now - 2 * dayMs), // 48h 前，窗外
         )
-        assertEquals(listOf("s-fresh"), filterFollowableSessionIds(items, now))
+        assertEquals(listOf("s-fresh"), followTargets(items, now).map { it.sessionId })
     }
 
     @Test
-    fun followFilter_skipsStaleBeyondWindowEvenWithSkewTolerance() {
+    fun followTargets_skipsStaleBeyondWindowEvenWithSkewTolerance() {
         val now = 1_000_000_000_000L
         // 距窗口边界 +31min：超出 30min 容差不 follow；窗口内（24h-29min）follow
         val items = listOf(
             itemOf("s-edge-out", running = false, updatedAt = now - dayMs - 31 * 60 * 1000),
             itemOf("s-edge-in", running = false, updatedAt = now - dayMs + 29 * 60 * 1000),
         )
-        assertEquals(listOf("s-edge-in"), filterFollowableSessionIds(items, now))
+        assertEquals(listOf("s-edge-in"), followTargets(items, now).map { it.sessionId })
     }
 
+    /**
+     * #310① A8 缺陷A根因钉（follow 腿）：子会话按 durable subagent 地址开流——
+     * 旧实现整体跳过（#319 时代 session/follow 恒 {kind:session} 必被服务器拒，
+     * A7 logcat 6385 动态补开同样被拒），子会话转录增量 3min 恒空。
+     */
     @Test
-    fun followFilter_skipsSubagentSessions() {
-        // #319 生产实证：subagent 直连 follow 被拒（需 subagent 地址形态）
+    fun followTargets_subagentChildWithMode_followsViaSubagentAddress() {
         val now = 1_000_000_000_000L
         val items = listOf(
-            itemOf("s-sub", running = true, updatedAt = now).let { item ->
-                buildJsonObject {
-                    for ((k, v) in item) put(k, v)
-                    put("parentSessionId", "s-parent")
-                    put("origin", "subagent")
-                }
-            },
+            subagentItem("s-child", mode = "continuable"),
             itemOf("s-normal", running = true, updatedAt = now),
         )
-        assertEquals(listOf("s-normal"), filterFollowableSessionIds(items, now))
+        val targets = followTargets(items, now)
+        assertEquals(listOf("s-child", "s-normal"), targets.map { it.sessionId })
+        val childAddress = targets[0].address
+        assertEquals("subagent", childAddress.strOfKey("kind"))
+        assertEquals("s-parent", childAddress.strOfKey("parentSessionId"))
+        assertEquals("s-child", childAddress.strOfKey("childSessionId"))
+        assertEquals("continuable", childAddress.strOfKey("mode"))
+    }
+
+    /** subagent 投影缺席（无 mode）无法构成合法地址（validateAddress 强校验）——保守跳过。 */
+    @Test
+    fun followTargets_subagentChildWithoutModeProjection_skipped() {
+        val items = listOf(subagentItem("s-child", mode = null))
+        assertTrue(followTargets(items, 1_000_000_000_000L).isEmpty())
+    }
+
+    /** origin=subagent 却无父址的孤儿行无法 durable 寻址——跳过。 */
+    @Test
+    fun followTargets_subagentOrphanWithoutParent_skipped() {
+        val orphan = buildJsonObject {
+            put("sessionId", "s-orphan")
+            put("running", true)
+            put("updatedAt", 1_000_000_000_000L)
+            put("origin", "subagent")
+        }
+        assertTrue(followTargets(listOf(orphan), 1_000_000_000_000L).isEmpty())
     }
 
     @Test
-    fun followFilter_missingUpdatedAtTreatedAsAncient_skipped() {
+    fun followTargets_missingUpdatedAtTreatedAsAncient_skipped() {
         val items = listOf(
             itemOf("s-no-ts", running = false, updatedAt = null),
             itemOf(null, running = true, updatedAt = 1L), // 无 sessionId 丢弃
         )
-        assertTrue(filterFollowableSessionIds(items, 1_000_000_000_000L).isEmpty())
+        assertTrue(followTargets(items, 1_000_000_000_000L).isEmpty())
     }
+
+    /** open 帧 args wire 形状钉：{request:{address}}（SessionFollowRequest）。 */
+    @Test
+    fun followTarget_followArgsWrapAddressInRequest() {
+        val target = followTargets(listOf(subagentItem("s-child", mode = "continuable")), 1_000_000_000_000L).single()
+        val args = target.followArgs()
+        val request = args["request"] as? JsonObject
+        val address = request?.get("address") as? JsonObject
+        assertEquals("subagent", address?.strOfKey("kind"))
+    }
+
+    private fun JsonObject.strOfKey(key: String): String? =
+        (this[key] as? kotlinx.serialization.json.JsonPrimitive)?.content
 }

@@ -56,7 +56,11 @@ class DshRemoteMuxEngine(
     private val scope: CoroutineScope,
     private val baseUrl: String,
     private val registry: DshMuxAuth,
-    private val listSessionIds: suspend () -> List<String>,
+    /** 连接期批量 follow 目标（sessionId + wire 地址——子会话为 durable subagent 形态）。 */
+    private val listFollowTargets: suspend () -> List<DshFollowTarget>,
+    /** 动态补开时按 sessionId 解析目标（added/status/activity 只带 id，地址由
+     *  调用方从 session.list 缓存/刷新解析）；null = 无法寻址，放弃补开。 */
+    private val resolveFollowTarget: suspend (String) -> DshFollowTarget? = { null },
     private val backoff: DshBackoff = DshBackoff(),
     private val opener: DshWebSocketOpener = DshWebSocketOpener { client, request, listener ->
         client.newWebSocket(request, listener)
@@ -106,17 +110,19 @@ class DshRemoteMuxEngine(
     ) {
         val attempts = AtomicInteger(0)
         val followed = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
-        // 动态 follow 补开：followed 去重 + 发送失败回滚名额（重连后全量兜底不漏）
-        fun openFollow(sid: String) {
+        // 动态 follow 补开：followed 去重 + 发送失败回滚名额（重连后全量兜底不漏）。
+        // #310①：目标携带 wire 地址（子会话 = durable subagent 形态）——旧实现
+        // 此处恒 {kind:session}，子会话补开必被服务器拒（A7 logcat 实证）。
+        fun openFollow(target: DshFollowTarget) {
             val ws = activeSocket ?: return
-            if (!followed.add(sid)) return
+            if (!followed.add(target.sessionId)) return
             val sent = runCatching {
-                ws.send(openFrame(followStreamId(sid), "session/follow", followArgs(sid)))
+                ws.send(openFrame(followStreamId(target.sessionId), "session/follow", target.followArgs()))
             }.getOrDefault(false)
             if (!sent) {
-                followed.remove(sid)
+                followed.remove(target.sessionId)
                 if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
-                    AppLogger.d(TAG, "动态 follow 发送失败（连接已断？）: " + sid)
+                    AppLogger.d(TAG, "动态 follow 发送失败（连接已断？）: " + target.sessionId)
                 }
             }
         }
@@ -130,8 +136,13 @@ class DshRemoteMuxEngine(
                 onReady = { clientId -> registry.setClientId(baseUrl, clientId) },
                 // #319（双轴审查补全）：added / status(running=true) / activity
                 // 三事件动态补开——新建会话与 >24h 老会话再激活都不丢流
-                // （限界窗口外的会话事件唯一入口）。
-                onSessionActive = { sid -> openFollow(sid) },
+                // （限界窗口外的会话事件唯一入口）。#310①：回调只带 id，地址
+                // 经 resolveFollowTarget 异步解析（session.list 缓存/刷新）。
+                onSessionActive = { sid ->
+                    scope.launch {
+                        resolveFollowTarget(sid)?.let { openFollow(it) }
+                    }
+                },
             )
             val listener = object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -144,10 +155,10 @@ class DshRemoteMuxEngine(
                     webSocket.send(openFrame(CONTROL_STREAM, "session/control"))
                     // 会话 follow：限界集全量（running 或 24h 内活跃；后续新增/激活走 onSessionActive）
                     scope.launch {
-                        val ids = runCatching { listSessionIds() }.onFailure {
+                        val targets = runCatching { listFollowTargets() }.onFailure {
                             AppLogger.w(TAG, "session.list 拉取失败——本轮零 follow，重连重试: " + it.message)
                         }.getOrElse { emptyList() }
-                        for (sid in ids) openFollow(sid)
+                        for (target in targets) openFollow(target)
                     }
                 }
 
@@ -219,15 +230,6 @@ class DshRemoteMuxEngine(
             put("endpoint", endpoint)
             put("payload", buildJsonObject { put("args", payloadArgs ?: buildJsonObject {}) })
         }.toString()
-
-    private fun followArgs(sessionId: String): JsonObject = buildJsonObject {
-        put("request", buildJsonObject {
-            put("address", buildJsonObject {
-                put("kind", "session")
-                put("sessionId", sessionId)
-            })
-        })
-    }
 
     private fun followStreamId(sessionId: String): String = FOLLOW_PREFIX + sessionId
 
@@ -336,7 +338,12 @@ class DshMuxSynthesizer(
                     buildJsonObject {
                         put("sessionId", sid)
                         (summary["cwd"] as? JsonPrimitive)?.let { put("cwd", it) }
-                        (summary["parentSession"] as? JsonPrimitive)?.let { put("parentSessionId", it) }
+                        // #310① A8 缺陷B修复：added 摘要是 SessionSummary——wire 键是
+                        // parentSessionId（服务器 listFields 摊 header.parentSession）；
+                        // parentSession 是 SessionWireHeader（follow snapshot 头）键。
+                        // 旧实现误读该键 → 帧恒丢父址 → SessionCreated 整替换抹掉
+                        // 子会话 parentId → 续聊发送分流失效误走 session/prompt 被拒。
+                        (summary["parentSessionId"] as? JsonPrimitive)?.let { put("parentSessionId", it) }
                     },
                 )
             }

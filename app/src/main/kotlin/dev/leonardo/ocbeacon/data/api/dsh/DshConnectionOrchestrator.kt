@@ -69,25 +69,39 @@ private const val FOLLOW_RECENCY_MS = 24L * 60 * 60 * 1000
  */
 internal const val FOLLOW_CLOCK_SKEW_MS = 30L * 60 * 1000
 
+/** follow 开流目标：会话 id + 已装配的 SessionAddress wire 参数（#310①）。 */
+data class DshFollowTarget(val sessionId: String, val address: JsonObject) {
+    /** session/follow open 帧 args：{request:{address}}（SessionFollowRequest）。 */
+    internal fun followArgs(): JsonObject = buildJsonObject {
+        put("request", buildJsonObject { put("address", address) })
+    }
+}
+
 /**
- * session.list 条目 → 动态 follow 候选（#319 生产实证：2026-09-04 生产 440 会话
+ * session.list 条目 → 动态 follow 目标（#319 生产实证：2026-09-04 生产 440 会话
  * 全量 follow 拖垮服务端，RPC 全线超时）。窗口 = running || 24h 内活跃（带
  * [FOLLOW_CLOCK_SKEW_MS] 容差）；updatedAt 缺席按 0 = 判远古不 follow（保守）。
  * 窗口外的会话不丢事件：引擎 added/status(running)/activity 三事件动态补开。
+ *
+ * #310① A8 缺陷A修复：子会话不再整体跳过——#319 全跳过的根因是彼时
+ * session/follow 恒 {kind:session} 地址、必被服务器拒（"subagent Sessions
+ * require their durable parent address"，A7 logcat 实证动态补开也被拒）；现按
+ * [DshSessionAddress.fromListItem] 装配 durable subagent 地址开流（子会话转录
+ * 增量自此可达）。mode 投影缺席或 origin=subagent 却无父址的孤儿行无法寻址，
+ * 仍保守跳过。
  */
-internal fun filterFollowableSessionIds(items: List<JsonObject>, nowMs: Long): List<String> =
+internal fun followTargets(items: List<JsonObject>, nowMs: Long): List<DshFollowTarget> =
     items.mapNotNull { item ->
         val sid = item.dshStr("sessionId") ?: return@mapNotNull null
-        // #319 生产实证：subagent 会话（parentSessionId/origin 标识）直连 follow 被
-        // 服务端拒（session/agent-busy："require their durable parent address"——需
-        // {kind:subagent} 地址形态）；其事件经父会话与 control 流覆盖，跳过。
-        if (item.dshStr("parentSessionId") != null || item.dshStr("origin") == "subagent") {
-            return@mapNotNull null
-        }
         val running = item.dshBool("running") == true
         val updatedAt = item.dshLong("updatedAt") ?: 0L
         val recent = nowMs - updatedAt < FOLLOW_RECENCY_MS + FOLLOW_CLOCK_SKEW_MS
-        if (running || recent) sid else null
+        if (!running && !recent) return@mapNotNull null
+        if (item.dshStr("origin") == "subagent" && item.dshStr("parentSessionId") == null) {
+            return@mapNotNull null
+        }
+        val address = DshSessionAddress.fromListItem(item) ?: return@mapNotNull null
+        DshFollowTarget(sid, address)
     }
 
 /** 协议路由帧源：start 时按 [DshConnectionRegistry.protocolOf] 选引擎。 */
@@ -109,20 +123,29 @@ private class DshProtocolRoutingFrameSource(
         stop()
         if (registry.protocolOf(baseUrl) == DshWireProtocol.V012) {
             val conn = ServerConnection.from(baseUrl)
+            // #310①：follow 目标缓存（sessionId → wire 地址）——动态补开
+            // （added/status/activity）时解析；未命中（连接后才创建/激活的会话）
+            // 单次 session.list 刷新（#319 语义：follow 流才是服务端负载，
+            // session.list 单 RPC 便宜）。
+            val targetCache = java.util.concurrent.ConcurrentHashMap<String, JsonObject>()
+            suspend fun refreshTargets(): List<DshFollowTarget> =
+                rpc.call(conn, "session.list", buildJsonObject {}) { value ->
+                    followTargets(
+                        (value.dshArr("items") ?: emptyList()).filterIsInstance<JsonObject>(),
+                        nowMs = System.currentTimeMillis(),
+                    )
+                }.getOrElse { e ->
+                    AppLogger.w(TAG, "session.list 拉取失败——本轮零 follow，重连重试: " + e.message)
+                    emptyList()
+                }.also { targets -> targets.forEach { targetCache[it.sessionId] = it.address } }
             mux = DshRemoteMuxEngine(
                 scope = scope,
                 baseUrl = baseUrl,
                 registry = registry,
-                listSessionIds = {
-                    rpc.call(conn, "session.list", buildJsonObject {}) { value ->
-                        filterFollowableSessionIds(
-                            (value.dshArr("items") ?: emptyList()).filterIsInstance<JsonObject>(),
-                            nowMs = System.currentTimeMillis(),
-                        )
-                    }.getOrElse { e ->
-                        AppLogger.w(TAG, "session.list 拉取失败——本轮零 follow，重连重试: " + e.message)
-                        emptyList()
-                    }
+                listFollowTargets = { refreshTargets() },
+                resolveFollowTarget = { sid ->
+                    targetCache[sid]?.let { DshFollowTarget(sid, it) }
+                        ?: refreshTargets().firstOrNull { it.sessionId == sid }
                 },
             ).also {
                 scope.launch { it.connectionState.collect { s -> state.value = s } }
@@ -162,10 +185,15 @@ class DshRpcHistorySource(
     override suspend fun fetchPage(sessionId: String, beforeSeq: Long?, maxMessages: Int): DshHistoryPage {
         val protocol = registryOf(conn)
         val payload = if (protocol == DshWireProtocol.V012) {
-            val asOfSeq = currentAsOfSeq(sessionId)
+            val item = currentListItem(sessionId)
                 ?: throw IllegalStateException("session not found for page fetch: $sessionId")
+            val asOfSeq = item.dshObj("projections")?.dshLong("asOfSeq")
+                ?: throw IllegalStateException("session $sessionId has no projections.asOfSeq for page fetch")
             buildJsonObject {
-                put("address", buildJsonObject {
+                // #310① A8 缺陷A修复：子会话按 durable subagent 地址寻页（旧恒
+                // {kind:session} 被服务器拒——"subagent Sessions require their
+                // durable parent address"）；投影缺席回退 session 形态。
+                put("address", DshSessionAddress.fromListItem(item) ?: buildJsonObject {
                     put("kind", "session")
                     put("sessionId", sessionId)
                 })
@@ -195,12 +223,11 @@ class DshRpcHistorySource(
 
     private fun registryOf(conn: ServerConnection): DshWireProtocol = protocolOf()
 
-    private suspend fun currentAsOfSeq(sessionId: String): Long? {
+    private suspend fun currentListItem(sessionId: String): JsonObject? {
         val list = rpc.call(conn, "session.list", buildJsonObject {}) { it }.getOrElse { return null }
-        val item = (list.dshArr("items") ?: emptyList())
+        return (list.dshArr("items") ?: emptyList())
             .filterIsInstance<JsonObject>()
-            .firstOrNull { it.dshStr("sessionId") == sessionId } ?: return null
-        return item.dshObj("projections")?.dshLong("asOfSeq")
+            .firstOrNull { it.dshStr("sessionId") == sessionId }
     }
 }
 
@@ -421,6 +448,11 @@ class DshConnectionOrchestrator @Inject constructor() {
             // 从不携带真实 blank；全量会话走 list/投影路径不经此处），故此处
             // 无条件保留缓存值。
             blank = existing.blank,
+            // #310① A8 缺陷B修复：parentId 同为 handler 折叠态字段——added 摘要可
+            // 缺 parentSessionId、session/title 恒不携——缺席保留缓存值，防最小
+            // 事件整对象替换抹掉子会话父址致续聊分流失效（a16ee74b 同族防线
+            // 补全：ChatSendDelegate 分流条件 = 快照 parentId 非空）。
+            parentId = incoming.parentId ?: existing.parentId,
         )
         return when (event) {
             is SseEvent.SessionUpdated -> event.copy(info = merged)

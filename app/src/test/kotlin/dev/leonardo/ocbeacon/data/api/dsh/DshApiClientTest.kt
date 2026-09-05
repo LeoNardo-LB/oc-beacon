@@ -1780,6 +1780,35 @@ class DshApiClientTest {
             pageReq["payload"].toString(),
         )
     }
+    /**
+     * #310① A8 缺陷A根因钉：origin=subagent 子会话的 page/follow 恒 {kind:session}
+     * 地址被服务器拒（"subagent Sessions require their durable parent address"——
+     * A8 logcat 5454：session.history failed for 4ca8416a，子会话转录 3min 恒空的
+     * history 腿）。V012 须按 session.list 行装配 {kind:subagent,parentSessionId,
+     * childSessionId,mode} durable 地址（mode 与 subagent 投影身份严格一致——
+     * 服务器 validateAddress 强校验）。
+     */
+    @Test
+    fun `v012 listMessages subagent child pages via durable subagent address`() = runTest {
+        val engine = MockEngine { req ->
+            when (req.url.encodedPath) {
+                "/api/session/list" -> respond(
+                    ok(
+                        """{"items":[{"sessionId":"s-child","cwd":"/w","parentSessionId":"s-parent","origin":"subagent","projections":{"asOfSeq":9,"values":{"subagent":{"mode":"continuable","label":"counter"}}}}]}""",
+                    ),
+                    HttpStatusCode.OK, jsonHeaders(),
+                )
+                "/api/session/page" -> respond(ok("""{"records":[],"hasMore":false}"""), HttpStatusCode.OK, jsonHeaders())
+                else -> respond(ok("{}"), HttpStatusCode.OK, jsonHeaders())
+            }
+        }
+        client(engine, DshWireProtocol.V012).listMessages(conn, "s-child", limit = 30, before = null)
+        val pageReq = json.parseToJsonElement(bodyTextOf(captureRequests(engine)[1])).jsonObject
+        assertEquals(
+            """{"args":{"request":{"address":{"kind":"subagent","parentSessionId":"s-parent","childSessionId":"s-child","mode":"continuable"},"throughSeq":9,"maxMessages":30}}}""",
+            pageReq["payload"].toString(),
+        )
+    }
 
     /** V012 throughSeq 解析：session.list 无该会话条目 → IllegalStateException。 */
     @Test

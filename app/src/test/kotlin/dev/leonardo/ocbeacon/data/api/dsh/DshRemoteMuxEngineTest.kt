@@ -81,6 +81,28 @@ class DshRemoteMuxEngineTest {
         assertEquals("/tmp", frames[0].payload.strField("cwd"))
     }
 
+    /**
+     * #310① A8 缺陷B根因钉：api-session/added 摘要是 SessionSummary（服务器
+     * listFields 摊 header.parentSession 为 **parentSessionId** 键——index.js:1919）；
+     * 旧实现误读 SessionWireHeader（follow snapshot 头）的 parentSession 键 →
+     * added 帧恒丢父址 → SessionCreated 整替换抹掉子会话 parentId → 第二次发送
+     * 分流条件失效误走 session/prompt 被拒（wire=session/agent-busy）。
+     */
+    @Test
+    fun emit_apiSessionAdded_carriesParentSessionIdForSubagentChild() {
+        val frames = mutableListOf<SynthFrame>()
+        val syn = synthesizer(frames, mutableListOf())
+        syn.onItem(
+            "evt",
+            Json.parseToJsonElement(
+                """{"type":"emit","event":"api-session/added","args":[{"sessionId":"s-child","updatedAt":1,"running":true,"cwd":"/w","parentSessionId":"s-parent","origin":"subagent"}]}""",
+            ) as JsonObject,
+            ConcurrentHashMap(),
+        )
+        assertEquals("host/session-added", frames[0].method)
+        assertEquals("s-parent", frames[0].payload.strField("parentSessionId"))
+    }
+
     @Test
     fun emit_apiSessionStatus_synthesizesHostSessionStatus() {
         val frames = mutableListOf<SynthFrame>()

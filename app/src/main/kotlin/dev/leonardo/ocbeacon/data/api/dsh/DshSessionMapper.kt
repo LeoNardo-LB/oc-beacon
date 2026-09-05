@@ -6,7 +6,9 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.put
 
 /**
  * DSH session.list 条目 → 域模型 [Session] 映射器（backlog #276 步骤③；V2SessionMapper 先例）。
@@ -182,6 +184,39 @@ object DshSessionMapper {
         }
 }
 
+
+/**
+ * session.list 行 → SessionAddress wire 装配（#310① A8 缺陷A修复）。
+ *
+ * 服务器契约（session-controller index.js validateAddress）：origin=subagent
+ * 会话拒收 {kind:session} 地址（"subagent Sessions require their durable parent
+ * address"——A7/A8 实测 follow 与 page 双腿同拒）；须 {kind:subagent,
+ * parentSessionId, childSessionId, mode}，且 mode 与行内 subagent 投影身份严格
+ * 一致（validateAddress 强校验 identity.mode）。
+ */
+object DshSessionAddress {
+    /**
+     * 普通会话 → {kind:session,sessionId}；子会话（带 parentSessionId）→ durable
+     * subagent 地址。subagent 投影缺席（无 mode）无法构成合法地址——返回 null，
+     * 调用方保守跳过/回退 session 形态（不劣于修复前行为）。
+     */
+    fun fromListItem(item: JsonObject): JsonObject? {
+        val sid = item.dshStr("sessionId") ?: return null
+        val parent = item.dshStr("parentSessionId")
+            ?: return buildJsonObject {
+                put("kind", "session")
+                put("sessionId", sid)
+            }
+        val mode = item.dshObj("projections")?.dshObj("values")?.dshObj("subagent")?.dshStr("mode")
+            ?: return null
+        return buildJsonObject {
+            put("kind", "subagent")
+            put("parentSessionId", parent)
+            put("childSessionId", sid)
+            put("mode", mode)
+        }
+    }
+}
 // ============ JsonObject/JsonArray 安全取值（包内复用；畸形输入 null 容错） ============
 
 internal fun JsonObject.dshStr(key: String): String? =

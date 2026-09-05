@@ -949,10 +949,15 @@ class DshApiClient @Inject constructor(
 
     /**
      * session.history 载荷双版本构造：V011 裸 {sessionId,beforeSeq?,maxMessages}；
-     * V012 语义替换 session/page——{address:{kind:session,sessionId},throughSeq,
-     * beforeSeq?,maxMessages?}（方法名仍传 session.history，adapter RENAMES 翻成
-     * session/page + request 包装；throughSeq 先行 session.list 读该会话
-     * projections.asOfSeq）。
+     * V012 语义替换 session/page——{address,throughSeq,beforeSeq?,maxMessages?}
+     * （方法名仍传 session.history，adapter RENAMES 翻成 session/page + request
+     * 包装；throughSeq 先行 session.list 读该会话 projections.asOfSeq）。
+     *
+     * #310① A8 缺陷A修复：地址不再恒 {kind:session}——origin=subagent 会话拒收
+     * 该形态（"subagent Sessions require their durable parent address"，A8 logcat
+     * 5454 实测转录恒空的 history 腿），按 [DshSessionAddress.fromListItem] 从
+     * session.list 行装配 durable subagent 地址；投影缺席（无 mode）回退
+     * session 形态（服务器侧明确报错，不劣于修复前）。
      */
     private suspend fun historyPayload(
         conn: ServerConnection,
@@ -967,9 +972,11 @@ class DshApiClient @Inject constructor(
                 limit?.let { put("maxMessages", it) }
             }
         }
-        val throughSeq = throughSeqOf(conn, sessionId)
+        val item = sessionListItemOf(conn, sessionId)
+        val throughSeq = item.dshObj("projections")?.dshLong("asOfSeq")
+            ?: throw IllegalStateException("DSH session $sessionId has no projections.asOfSeq")
         return buildJsonObject {
-            put("address", buildJsonObject {
+            put("address", DshSessionAddress.fromListItem(item) ?: buildJsonObject {
                 put("kind", "session")
                 put("sessionId", sessionId)
             })
@@ -980,18 +987,15 @@ class DshApiClient @Inject constructor(
     }
 
     /**
-     * V012 throughSeq（page 读上界）：session.list 找该 sessionId 条目读
-     * projections.asOfSeq；会话缺席/无投影 → IllegalStateException（0.1.2 无
-     * session.get，list 是唯一权威源）。
+     * V012 session.list 行查找（page 读上界 + 地址装配共源）：0.1.2 无
+     * session.get，list 是唯一权威源。会话缺席 → IllegalStateException。
      */
-    private suspend fun throughSeqOf(conn: ServerConnection, sessionId: String): Long {
+    private suspend fun sessionListItemOf(conn: ServerConnection, sessionId: String): JsonObject {
         val value = rpc.call(conn, "session.list", buildJsonObject {}) { it }.getOrElse { e -> throw e }
-        val item = (value.dshArr("items") ?: emptyList())
+        return (value.dshArr("items") ?: emptyList())
             .filterIsInstance<JsonObject>()
             .firstOrNull { it.dshStr("sessionId") == sessionId }
             ?: throw IllegalStateException("DSH session not found: $sessionId")
-        return item.dshObj("projections")?.dshLong("asOfSeq")
-            ?: throw IllegalStateException("DSH session $sessionId has no projections.asOfSeq")
     }
 
     /**
