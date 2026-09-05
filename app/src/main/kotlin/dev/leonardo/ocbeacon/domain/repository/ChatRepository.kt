@@ -19,6 +19,7 @@ import dev.leonardo.ocbeacon.domain.model.ShellJob
 import dev.leonardo.ocbeacon.domain.model.ShellOutput
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.StepProgressInfo
+import dev.leonardo.ocbeacon.domain.model.SubagentCatalog
 import dev.leonardo.ocbeacon.domain.model.ToolProgressInfo
 import kotlinx.coroutines.flow.Flow
 
@@ -222,6 +223,42 @@ interface ChatRepository {
         action: dev.leonardo.ocbeacon.domain.model.QueueActionKind,
         editText: String? = null,
     ): dev.leonardo.ocbeacon.domain.model.QueueMutationResult
+
+
+    // ============ DSH 子智能体续聊（backlog #310①；OpenCode V1/V2 不支持） ============
+
+    /**
+     * DSH subagents/prompt（子智能体续聊，mode=continuable 固定）→ 受理 messageId。
+     * 发送分流入口：当前会话 parentSessionId 非空且 DSH 线面时由发送路径路由至此
+     * （无 queue/steer 档位、无模型参数——与主会话 promptAsync 的差异）。
+     * 非 DSH 后端 / DSH V011 → Result.failure(UnsupportedServerCapability)。
+     */
+    suspend fun subagentPrompt(
+        serverId: String,
+        parentSessionId: String,
+        childSessionId: String,
+        parts: List<PromptPart>,
+    ): Result<String?>
+
+    /**
+     * DSH subagents/interruptByParent（子会话停止 = durable 父址中断——父 Agent
+     * 不在线也能中断）。非 DSH 后端 → Result.success(false)（常量降级先例）。
+     */
+    suspend fun subagentInterrupt(
+        serverId: String,
+        parentSessionId: String,
+        childSessionId: String,
+    ): Result<Boolean>
+
+    /**
+     * DSH subagents/list 目录整帧（entries 含 mode/activity + parentAvailable——
+     * AgentSheet 刷新迭代接线）。非 DSH 后端 → Result.success(null)
+     * （端点缺席语义，同 [listPendingPermissions] #314）。
+     */
+    suspend fun subagentCatalog(
+        serverId: String,
+        parentSessionId: String,
+    ): Result<SubagentCatalog?>
 
 
     // ============ DSH goal 六 mutation（backlog #286；OpenCode V1/V2 返回 null/false） ============

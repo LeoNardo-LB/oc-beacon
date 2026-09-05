@@ -169,8 +169,10 @@ object DshWireAdapter {
     private val RENAMES = mapOf(
         // session 域：history 语义替换为 page（载荷适配在调用点）
         "session.history" to "session/page",
-        // 复数命名空间
+        // 复数命名空间（#310①：subagents 域 prompt/interruptByParent 续聊双方法）
         "subagent.list" to "subagents/list",
+        "subagent.prompt" to "subagents/prompt",
+        "subagent.interruptByParent" to "subagents/interruptByParent",
         "agentPreset.list" to "agentPresets/list",
         "agentPreset.select" to "agentPresets/select",
         "goal.create" to "goals/create",
@@ -216,6 +218,8 @@ object DshWireAdapter {
      */
     private val FLAT_METHODS = setOf(
         "subagents/list",
+        // #310①：三平铺参 {childSessionId,parentSessionId,mode}（typert 参数名即 wire 键）
+        "subagents/interruptByParent",
         "agentPresets/select",
         "directoryPicker/list",
         "settings/mutate",

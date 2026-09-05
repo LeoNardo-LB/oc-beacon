@@ -31,6 +31,7 @@ import dev.leonardo.ocbeacon.domain.model.ShellJob
 import dev.leonardo.ocbeacon.domain.model.ShellOutput
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.StepProgressInfo
+import dev.leonardo.ocbeacon.domain.model.SubagentCatalog
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.model.ToolProgressInfo
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
@@ -370,6 +371,58 @@ class ChatRepositoryImpl @Inject constructor(
         return sessionApi.updateQueue(conn, sessionId, itemId, action, editText)
     }
 
+    // ============ DSH 子智能体续聊（backlog #310①） ============
+
+    /**
+     * subagents/prompt（mode=continuable）：仅 DSH 线面——非 DSH 显式 unsupported
+     * （续聊静默假成功会误导用户，不走常量降级）；DSH V011 由 DshApiClient 同判。
+     * clientTimeZone 填设备 IANA 时区（服务端 canonicalClientTimeZone 校验通过）。
+     */
+    override suspend fun subagentPrompt(
+        serverId: String,
+        parentSessionId: String,
+        childSessionId: String,
+        parts: List<PromptPart>,
+    ): Result<String?> = runCatchingCancellable {
+        val conn = resolveConnection(serverId)
+        if (conn.serverType != dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
+            throw dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability(
+                "subagent.prompt", conn.serverType.name,
+            )
+        }
+        dshApiClient.subagentPrompt(
+            conn,
+            parentSessionId,
+            childSessionId,
+            parts.map { it.toData() },
+            clientTimeZone = java.util.TimeZone.getDefault().id,
+        )
+    }
+
+    /** subagents/interruptByParent：非 DSH → false（布尔常量降级先例）。 */
+    override suspend fun subagentInterrupt(
+        serverId: String,
+        parentSessionId: String,
+        childSessionId: String,
+    ): Result<Boolean> = runCatchingCancellable {
+        val conn = resolveConnection(serverId)
+        if (conn.serverType != dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
+            return@runCatchingCancellable false
+        }
+        dshApiClient.subagentInterrupt(conn, parentSessionId, childSessionId)
+    }
+
+    /** subagents/list 整帧：非 DSH → null（端点缺席语义，#314 先例）。 */
+    override suspend fun subagentCatalog(
+        serverId: String,
+        parentSessionId: String,
+    ): Result<SubagentCatalog?> = runCatchingCancellable {
+        val conn = resolveConnection(serverId)
+        if (conn.serverType != dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
+            return@runCatchingCancellable null
+        }
+        dshApiClient.subagentCatalog(conn, parentSessionId)
+    }
 
     // ============ DSH goal mutation（backlog #286） ============
 

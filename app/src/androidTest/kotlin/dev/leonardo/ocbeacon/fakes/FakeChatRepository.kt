@@ -18,6 +18,7 @@ import dev.leonardo.ocbeacon.domain.model.QuestionState
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.StepProgressInfo
+import dev.leonardo.ocbeacon.domain.model.SubagentCatalog
 import dev.leonardo.ocbeacon.domain.model.ToolProgressInfo
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import kotlinx.coroutines.flow.Flow
@@ -367,6 +368,40 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         updateQueueItemCalls.add(itemId to action)
         return updateQueueItemResult
     }
+
+    // ============ #310① 子智能体续聊（DSH） ============
+
+    val subagentPromptCalls = mutableListOf<Triple<String, String, List<PromptPart>>>()
+    var subagentPromptResult: Result<String?> = Result.success("msg-sub-fake")
+
+    override suspend fun subagentPrompt(
+        serverId: String,
+        parentSessionId: String,
+        childSessionId: String,
+        parts: List<PromptPart>,
+    ): Result<String?> {
+        subagentPromptCalls.add(Triple(parentSessionId, childSessionId, parts))
+        return subagentPromptResult
+    }
+
+    val subagentInterruptCalls = mutableListOf<Pair<String, String>>()
+    var subagentInterruptResult: Result<Boolean> = Result.success(true)
+
+    override suspend fun subagentInterrupt(
+        serverId: String,
+        parentSessionId: String,
+        childSessionId: String,
+    ): Result<Boolean> {
+        subagentInterruptCalls.add(parentSessionId to childSessionId)
+        return subagentInterruptResult
+    }
+
+    var subagentCatalogResult: Result<SubagentCatalog?> = Result.success(null)
+
+    override suspend fun subagentCatalog(
+        serverId: String,
+        parentSessionId: String,
+    ): Result<SubagentCatalog?> = subagentCatalogResult
 
     var createGoalResult: Result<dev.leonardo.ocbeacon.domain.model.DshGoalRef?> = Result.success(null)
 

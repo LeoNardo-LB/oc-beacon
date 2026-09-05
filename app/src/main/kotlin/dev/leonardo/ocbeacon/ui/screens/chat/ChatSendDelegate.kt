@@ -52,6 +52,10 @@ internal class ChatSendDelegate(
     /** 发送成功信号（驱动输入框清空——失败时输入框消息保留，用户要求）。 */
     private val onSendSuccess: (String) -> Unit,
     private val draftDelegate: DraftInputDelegate,
+    /** #310①：DSH 判定——子会话续聊（subagents/prompt）仅 DSH 线面；OpenCode
+     * 子会话维持既有只读镜像（默认 OpenCode 与未加载态兼容）。 */
+    private val serverTypeProvider: () -> dev.leonardo.ocbeacon.domain.model.ServerType =
+        { dev.leonardo.ocbeacon.domain.model.ServerType.OpenCode },
 ) {
     fun sendMessage(text: String, attachments: List<PromptPart> = emptyList(), steer: Boolean = false) {
         if (text.isBlank() && attachments.isEmpty()) return
@@ -131,21 +135,36 @@ internal class ChatSendDelegate(
                 // 清理旧消息，因此不会闪烁。
                 chatRepository.clearRevert(currentSessionId)
 
-                // 悲观消息：POST 受理后不显示任何占位，等待服务器 SSE
-                // 回显 MessageUpdated 时消息出现在列表（opencode 官方行为）。
-                // 发送期间 UI 由 isSending 驱动发送按钮转圈（SendStopButton）；
-                // 失败 → 草稿退回输入框 + AlertDialog（sendFailureSink）。
-                sendMessageUseCase.sendPrompt(
-                    serverId = serverId,
-                    sessionId = currentSessionId,
-                    parts = parts,
-                    model = model,
-                    agent = modelCfg.selectedAgent,
-                    variant = selectedVariantProvider(),
-                    directory = sessionDirectoryProvider(),
-                    steer = steer
-                )
-                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Sent prompt to session $currentSessionId (${parts.size} parts)")
+                // #310① 发送分流：DSH 子会话（parentSessionId 非空）走
+                // subagents/prompt（mode=continuable 续聊）——无 queue/steer 档位、
+                // 无模型参数（steer 长按语义仅主会话）；主会话路径零改动。
+                val parentSessionId = chatRepository.getSessionsSnapshot()
+                    .firstOrNull { it.id == currentSessionId }?.parentId
+                if (parentSessionId != null &&
+                    serverTypeProvider() == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh
+                ) {
+                    chatRepository.subagentPrompt(serverId, parentSessionId, currentSessionId, parts)
+                        .getOrThrow()
+                    if (BuildConfig.DEBUG) {
+                        AppLogger.d(TAG, "Sent continuable prompt to subagent $currentSessionId (parent $parentSessionId, ${parts.size} parts)")
+                    }
+                } else {
+                    // 悲观消息：POST 受理后不显示任何占位，等待服务器 SSE
+                    // 回显 MessageUpdated 时消息出现在列表（opencode 官方行为）。
+                    // 发送期间 UI 由 isSending 驱动发送按钮转圈（SendStopButton）；
+                    // 失败 → 草稿退回输入框 + AlertDialog（sendFailureSink）。
+                    sendMessageUseCase.sendPrompt(
+                        serverId = serverId,
+                        sessionId = currentSessionId,
+                        parts = parts,
+                        model = model,
+                        agent = modelCfg.selectedAgent,
+                        variant = selectedVariantProvider(),
+                        directory = sessionDirectoryProvider(),
+                        steer = steer
+                    )
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "Sent prompt to session $currentSessionId (${parts.size} parts)")
+                }
                 // 2026-08-16 修复（进行中图标过早）：置 Busy 从"POST 发出前"移到
                 // "POST 成功后"——用户期望：发送按钮转圈（本地 isSending）表示
                 // 上传中；消息实际到达服务器（POST 2xx）后才显示输入栏"会话

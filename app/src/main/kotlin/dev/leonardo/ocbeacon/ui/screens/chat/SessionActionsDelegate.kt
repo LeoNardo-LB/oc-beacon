@@ -83,6 +83,10 @@ internal class SessionActionsDelegate(
     /** #276 终验 V6：导出载荷是 ZIP 归档（DSH session.export）——true 时写盘前把
      *  SAF 文档显示名规范成 .zip；OpenCode 导出是 JSON 文档，默认 false 维持 .json。 */
     private val exportIsArchiveProvider: () -> Boolean = { false },
+    /** #310①：DSH 判定——子会话停止（subagents/interruptByParent 父址中断）仅
+     *  DSH 线面；OpenCode 子会话维持 session.cancel 自址中断（默认与未加载态兼容）。 */
+    private val serverTypeProvider: () -> dev.leonardo.ocbeacon.domain.model.ServerType =
+        { dev.leonardo.ocbeacon.domain.model.ServerType.OpenCode },
 
 ) {
     private val sessionId: String get() = sessionIdProvider()
@@ -675,10 +679,25 @@ internal class SessionActionsDelegate(
      * Abort REST 调用 —— 在服务器上取消会话并通过
      * FSM（ClientAbort → Idle + forceComplete 消息）标记为 idle。
      * SSE job 的取消/重启由 [ChatViewModel.interruptSession] 协调器处理。
+     *
+     * #310① 停止分流：DSH 子会话（parentSessionId 非空）走
+     * subagents/interruptByParent——durable 父址中断（父 Agent 不在线也能中断，
+     * 与 session.cancel 会话自址的差异）；主会话路径零改动。
      */
     suspend fun interruptSession() {
-        sessionRepository.interrupt(serverId, sessionId, sessionDirectoryProvider())
-        if (BuildConfig.DEBUG) AppLogger.d(TAG, "Aborted session $sessionId")
+        val parentSessionId = chatRepository.getSessionsSnapshot()
+            .firstOrNull { it.id == sessionId }?.parentId
+        if (parentSessionId != null &&
+            serverTypeProvider() == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh
+        ) {
+            chatRepository.subagentInterrupt(serverId, parentSessionId, sessionId).getOrThrow()
+            if (BuildConfig.DEBUG) {
+                AppLogger.d(TAG, "Interrupted subagent session $sessionId via parent $parentSessionId")
+            }
+        } else {
+            sessionRepository.interrupt(serverId, sessionId, sessionDirectoryProvider())
+            if (BuildConfig.DEBUG) AppLogger.d(TAG, "Aborted session $sessionId")
+        }
         sessionStateRepository.onClientAbort(sessionId)
     }
 

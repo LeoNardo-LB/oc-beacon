@@ -512,9 +512,45 @@ class DshApiClient @Inject constructor(
         conn: ServerConnection,
         parentSessionId: String,
     ): List<SubagentListEntryDto> {
-        val value = rpc.call(conn, "subagent.list", buildJsonObject {
+        val value = subagentListValue(conn, parentSessionId)
+        return subagentEntryDtos(value)
+    }
+
+    /**
+     * #310①（wire 契约钉死 2026-09-05 §①）：subagents/list 整帧域投影——
+     * entries（复用 [subagentEntryDtos] 容错映射）+ parentAvailable（父 Agent
+     * 不在线时 subagents/prompt 将拒 subagent/parent-unavailable——UI 禁发依据；
+     * AgentSheet 刷新迭代接线）。保守 V011：subagents 域不在 0.1.1 方法面。
+     */
+    suspend fun subagentCatalog(
+        conn: ServerConnection,
+        parentSessionId: String,
+    ): dev.leonardo.ocbeacon.domain.model.SubagentCatalog {
+        if (protocolOf(conn) != DshWireProtocol.V012) unsupported("subagent.list")
+        val value = subagentListValue(conn, parentSessionId)
+        return dev.leonardo.ocbeacon.domain.model.SubagentCatalog(
+            entries = subagentEntryDtos(value).map { dto ->
+                dev.leonardo.ocbeacon.domain.model.SubagentCatalogEntry(
+                    kind = dto.kind,
+                    id = dto.id,
+                    activity = dto.activity,
+                    hasChildren = dto.hasChildren,
+                    mode = dto.mode,
+                    label = dto.label,
+                    reason = dto.reason,
+                )
+            },
+            parentAvailable = value.dshBool("parentAvailable") ?: false,
+        )
+    }
+
+    private suspend fun subagentListValue(conn: ServerConnection, parentSessionId: String): JsonObject {
+        return rpc.call(conn, "subagent.list", buildJsonObject {
             put("parentSessionId", parentSessionId)
         }) { it }.getOrElse { e -> throw e }
+    }
+
+    private fun subagentEntryDtos(value: JsonObject): List<SubagentListEntryDto> {
         val entries = value.dshArr("entries") ?: emptyList()
         return entries.mapNotNull { el ->
             val entry = el as? JsonObject ?: return@mapNotNull null
@@ -529,6 +565,62 @@ class DshApiClient @Inject constructor(
                 reason = entry.dshStr("reason"),
             )
         }
+    }
+
+    /**
+     * #310① subagents/prompt（子智能体续聊）：SubagentPromptRequest =
+     * {requestId(randomUUID), parentSessionId, childSessionId, mode:"continuable"
+     * 固定, content:PromptContentPart[], clientTimeZone?}（zod literal
+     * "continuable"——无 queue/steer 档位、无模型参数，与主会话 session/prompt
+     * 的差异即双会话地址 + 恒定 mode）。回执 {messageId}；用户消息经 WS
+     * session/event 回显（V1 先例——受理回执只作日志锚点，不本地播种）。
+     *
+     * 保守 V011：subagents 域不在 0.1.1 方法面（#310 审计裁决）——unsupported。
+     */
+    suspend fun subagentPrompt(
+        conn: ServerConnection,
+        parentSessionId: String,
+        childSessionId: String,
+        parts: List<PromptPart>,
+        clientTimeZone: String? = null,
+    ): String? {
+        if (protocolOf(conn) != DshWireProtocol.V012) unsupported("subagent.prompt")
+        val content = parts.mapNotNull { part -> promptContentPart(part, v012 = true) }
+        if (content.isEmpty()) {
+            AppLogger.w(TAG, "subagents/prompt skipped: no mappable content parts for $childSessionId")
+            return null
+        }
+        val payload = buildJsonObject {
+            put("requestId", java.util.UUID.randomUUID().toString())
+            put("parentSessionId", parentSessionId)
+            put("childSessionId", childSessionId)
+            put("mode", "continuable")
+            put("content", JsonArray(content))
+            // 可选（zod optional）：UTC 或 IANA Area/Location——缺失交服务器本地时区
+            clientTimeZone?.takeIf { it.isNotBlank() }?.let { put("clientTimeZone", it) }
+        }
+        val value = rpc.call(conn, "subagent.prompt", payload) { it }.getOrElse { e -> throw e }
+        return value.dshStr("messageId")
+    }
+
+    /**
+     * #310① subagents/interruptByParent（子会话停止）：durable 父址中断——父
+     * Agent 不在线也能中断（与 session.cancel 会话自址的差异）。载荷三平铺参
+     * {childSessionId, parentSessionId, mode:"continuable"}；回执 {accepted:true}。
+     * 保守 V011 unsupported（同 [subagentPrompt]）。
+     */
+    suspend fun subagentInterrupt(
+        conn: ServerConnection,
+        parentSessionId: String,
+        childSessionId: String,
+    ): Boolean {
+        if (protocolOf(conn) != DshWireProtocol.V012) unsupported("subagent.interruptByParent")
+        val payload = buildJsonObject {
+            put("childSessionId", childSessionId)
+            put("parentSessionId", parentSessionId)
+            put("mode", "continuable")
+        }
+        return rpc.call(conn, "subagent.interruptByParent", payload) { Unit }.isSuccess
     }
 
     override suspend fun getSessionTodos(conn: ServerConnection, sessionId: String): List<TodoItem> = emptyList()

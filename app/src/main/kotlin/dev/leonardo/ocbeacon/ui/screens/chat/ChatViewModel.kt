@@ -610,6 +610,8 @@ class ChatViewModel @Inject constructor(
                 serverId,
             )
         },
+        // #310①：子会话停止（subagents/interruptByParent 父址中断）仅 DSH 线面分流
+        serverTypeProvider = { serverType.value },
     )
 
     // ============ 设置 StateFlow Delegate ============
@@ -1168,6 +1170,8 @@ class ChatViewModel @Inject constructor(
             eventDispatcher.clearSessionErrors(sessionId)
         },
         draftDelegate = draftDelegate,
+        // #310①：子会话续聊（subagents/prompt）仅 DSH 线面分流
+        serverTypeProvider = { serverType.value },
     )
 
     // #267：断连快速失败——不发请求（OkHttp retryOnConnectionFailure 会悬挂

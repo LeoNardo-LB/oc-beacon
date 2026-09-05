@@ -848,6 +848,106 @@ class DshApiClientTest {
         assertEquals("subagent-not-found", (outcome.exceptionOrNull() as DshApiError).code?.wire)
     }
 
+    // ============ #310① 子智能体续聊（subagents/prompt·interruptByParent·list 整帧） ============
+
+    /**
+     * V012 subagents/prompt（#310① wire 契约钉死 2026-09-05）：URL/信封方法名
+     * subagents/prompt；载荷 {args:{request:{requestId(UUID),parentSessionId,
+     * childSessionId,mode:"continuable" 固定,content:[PromptContentPart],
+     * clientTimeZone?}}}——与主会话 session/prompt 的差异即双会话地址 + 恒定
+     * mode（zod literal("continuable")，无 queue/steer 档位）。回执 {messageId}。
+     */
+    @Test
+    fun `v012 subagentPrompt posts continuable mode with parent and child ids`() = runTest {
+        val engine = MockEngine { respond(ok("""{"messageId":"msg-sub-1"}"""), HttpStatusCode.OK, jsonHeaders()) }
+        val messageId = client(engine, DshWireProtocol.V012).subagentPrompt(
+            conn, "parent-1", "child-1",
+            listOf(dev.leonardo.ocbeacon.data.dto.request.PromptPart(type = "text", text = "继续")),
+            clientTimeZone = "Asia/Shanghai",
+        )
+        assertEquals("msg-sub-1", messageId)
+        val req = captureRequests(engine).single()
+        assertEquals("/api/subagents/prompt", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("subagents/prompt", body["method"]!!.jsonPrimitive.content)
+        val request = body["payload"]!!.jsonObject["args"]!!.jsonObject["request"]!!.jsonObject
+        // 双会话地址：parent + child（与 session.prompt 单 sessionId 的差异）
+        assertEquals("parent-1", request["parentSessionId"]!!.jsonPrimitive.content)
+        assertEquals("child-1", request["childSessionId"]!!.jsonPrimitive.content)
+        // mode 恒 continuable（服务端 zod literal——无 queue/steer 档位）
+        assertEquals("continuable", request["mode"]!!.jsonPrimitive.content)
+        assertEquals("Asia/Shanghai", request["clientTimeZone"]!!.jsonPrimitive.content)
+        val requestId = request["requestId"]!!.jsonPrimitive.content
+        assertEquals(36, requestId.length)
+        assertTrue("requestId 必须可解析为 UUID", runCatching { java.util.UUID.fromString(requestId) }.isSuccess)
+        val text = request["content"]!!.jsonArray[0].jsonObject
+        assertEquals("text", text["type"]!!.jsonPrimitive.content)
+        assertEquals("继续", text["text"]!!.jsonPrimitive.content)
+    }
+
+    /**
+     * V012 subagents/interruptByParent：三平铺参
+     * {args:{childSessionId,parentSessionId,mode:"continuable"}}（FLAT 端点）；
+     * 回执 {accepted:true}。durable 父址中断——父 Agent 不在线也能中断。
+     */
+    @Test
+    fun `v012 subagentInterrupt posts interruptByParent flat args`() = runTest {
+        val engine = MockEngine { respond(ok("""{"accepted":true}"""), HttpStatusCode.OK, jsonHeaders()) }
+        assertTrue(client(engine, DshWireProtocol.V012).subagentInterrupt(conn, "parent-1", "child-1"))
+        val req = captureRequests(engine).single()
+        assertEquals("/api/subagents/interruptByParent", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("subagents/interruptByParent", body["method"]!!.jsonPrimitive.content)
+        assertEquals(
+            """{"args":{"childSessionId":"child-1","parentSessionId":"parent-1","mode":"continuable"}}""",
+            body["payload"].toString(),
+        )
+    }
+
+    /**
+     * subagentCatalog 域投影（#310①）：subagents/list 整帧——entries 逐行映射
+     * （含 mode/activity/hasChildren/diagnostic reason）+ parentAvailable
+     * （父 Agent 不在线时续聊 prompt 将拒 subagent/parent-unavailable）。
+     */
+    @Test
+    fun `v012 subagentCatalog maps entries with mode and parentAvailable`() = runTest {
+        val engine = MockEngine { respond(ok(subagentCatalogValue), HttpStatusCode.OK, jsonHeaders()) }
+        val catalog = client(engine, DshWireProtocol.V012).subagentCatalog(conn, "session-root-1")
+        assertFalse(catalog.parentAvailable)
+        assertEquals(3, catalog.entries.size)
+        // child 行：mode/activity/hasChildren 全保真（one-shot 禁 composer 留给 AgentSheet 刷新迭代）
+        assertEquals("continuable", catalog.entries[0].mode)
+        assertEquals("child", catalog.entries[0].kind)
+        assertEquals("running", catalog.entries[0].activity)
+        assertTrue(catalog.entries[0].hasChildren)
+        assertEquals("one-shot", catalog.entries[1].mode)
+        assertEquals("inactive", catalog.entries[1].activity)
+        // diagnostic 行：kind 判别 + reason 保留
+        assertTrue(catalog.entries[2].isDiagnostic)
+        assertEquals("corrupt", catalog.entries[2].reason)
+        val req = captureRequests(engine).single()
+        assertEquals("/api/subagents/list", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("subagents/list", body["method"]!!.jsonPrimitive.content)
+        assertEquals("""{"args":{"parentSessionId":"session-root-1"}}""", body["payload"].toString())
+    }
+
+    /** 保守 V011：subagents 域不在 0.1.1 方法面（#310 审计裁决）——双方法 unsupported 且零 HTTP。 */
+    @Test
+    fun `subagent prompt and interrupt throw unsupported on v011`() = runTest {
+        val engine = MockEngine { respond(ok("{}"), HttpStatusCode.OK, jsonHeaders()) }
+        val c = client(engine) // 未探测 → 保守 V011
+        val prompt = runCatching {
+            c.subagentPrompt(conn, "parent-1", "child-1", listOf(dev.leonardo.ocbeacon.data.dto.request.PromptPart(type = "text", text = "x")))
+        }
+        assertTrue(prompt.isFailure)
+        assertTrue(prompt.exceptionOrNull() is UnsupportedServerCapability)
+        val interrupt = runCatching { c.subagentInterrupt(conn, "parent-1", "child-1") }
+        assertTrue(interrupt.isFailure)
+        assertTrue(interrupt.exceptionOrNull() is UnsupportedServerCapability)
+        assertEquals(0, captureRequests(engine).size)
+    }
+
     // ============ SystemApi / FileApi / TerminalApi / ShellApi / ProviderApi ============
 
     @Test
