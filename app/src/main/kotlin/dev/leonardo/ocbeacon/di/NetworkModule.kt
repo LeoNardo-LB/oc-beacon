@@ -2,8 +2,10 @@ package dev.leonardo.ocbeacon.di
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.preferencesDataStore
+import androidx.datastore.preferences.preferencesDataStoreFile
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -23,7 +25,8 @@ import dev.leonardo.ocbeacon.data.api.installTransportFailureTap
 import kotlinx.serialization.json.Json
 import javax.inject.Singleton
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "opencode_prefs")
+/** DataStore 文件名常量（#335：损坏处置接线见 [NetworkModule.provideDataStore]）。 */
+private const val PREFS_NAME = "opencode_prefs"
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -86,9 +89,23 @@ object NetworkModule {
         it.installTransportFailureTap(transportFailureTap)
     }
     
+    /**
+     * 损坏处置（#335）：默认委托的损坏路径 = 静默 emptyPreferences（2026-09-06
+     * 真机事故：force-stop 打断写事务 → servers key 全丢且无痕迹）。改
+     * [PreferenceDataStoreFactory.create] + [ReplaceFileCorruptionHandler]：
+     * 损坏仍重置（防崩溃循环）但 AppLogger.e 可观测 + 损坏文件 .corrupt-<ts>
+     * 留档取证（[PreferencesCorruptionRecovery]，纯逻辑单测钉死）。
+     * 单实例由 @Singleton 保证（等价旧顶层委托的 once 语义）。
+     */
     @Provides
     @Singleton
     fun provideDataStore(@ApplicationContext context: Context): DataStore<Preferences> {
-        return context.dataStore
+        val prefsFile = context.preferencesDataStoreFile(PREFS_NAME)
+        return PreferenceDataStoreFactory.create(
+            produceFile = { prefsFile },
+            corruptionHandler = ReplaceFileCorruptionHandler { error ->
+                PreferencesCorruptionRecovery.recover(prefsFile, error)
+            },
+        )
     }
 }
