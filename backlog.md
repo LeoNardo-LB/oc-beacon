@@ -59,16 +59,12 @@
   - 已实现（commit 555c2ba4）：单键状态机 idle→SEND / 忙+空→STOP / 忙+文本→SEND 排队（长按=steer #309④ 保留）/ inputBlocked（等待提问/权限）→STOP，对齐 web primaryStops；红→绿 12 用例
   - AI 真机验收全绿 10✔/0✘（四态全验/排队 vs steer wire 时序可分/blocked 恢复链/V2 回归/0 FATAL）：`docs/acceptance/2026-09-05-326-single-send-key.md`；**UIUX 卡待人工验收**（清单在该文档末节，与 #327 同域汇总提交）
 
-- [~] **#328 V012 提问拒绝 waterfall error 缺 name 网关拒收——代理冻结在提问等待** `dsh` `question` `data`
-  - 根因（网关源码+真机双证）：parseRemoteEventRejection 要求 error.name 非空；旧 {message} 单键 → invalid Remote event result → ok:false（app isSuccess=false）→ waterfall 永不解除。修复（已落）：error={name:UserQuestionError, code:ASK_CANCELLED}（web questionError 正字法），红→绿 1 用例；**待真机复验**（触发提问→拒绝→卡消+代理解冻转述取消）
-  - 发现链：#327 验收执行员环境事实②（turn83 冻结 + reject success=false）→ 主 agent 源码取证；→ `docs/journal/2026-09-04-fix-308-always-326-327.md` §十三
-
 - [ ] **#320 DSH 事件系统通知——turn 结束/问题到达/审批等待 → Android 通知+deep-link（web turn-notify 对位）** `dsh` `sse` `ui`
   - 非前台会话 turn 结束/question/approval → 系统通知点进会话；通知设置+deep-link+渠道基础设施全在（Settings→Notifications/host 事件流），纯接线；web 走 /turn-notify/focus-wait HTTP 长轮询，Android 用既有 WS 事件流即可
   - → `docs/research/2026-09-04-dsh-web-parity-round2.md` #320
 
-- [ ] **#309 DSH 面对齐批 1·快速胜利：goal 完成/压缩呈现/Full access 确认/插话长按直发/重试 continue** `dsh` `ui` `sse`
-  - 五项全第一档（UI 已就绪纯接线，≈3 人日，不动 ChatScreen 协议文件或只轻触）：goal.complete 第四钮（API 全链在位）·压缩事件接线（CompactionCard 双态 UI 完整，DshEventMapper Ignored 未接）·Full access 二次确认（PermissionPresetSelector+现成 ConfirmDialog）·steer 长按直发（wire mode 已在）·重试倒计时+max-tokens continue 钮
+- [~] **#309 DSH 面对齐批 1·快速胜利：goal 完成/压缩呈现/Full access 确认/插话长按直发/重试 continue** `dsh` `ui` `sse`
+  - 五子项代码全落地（审计 `docs/research/2026-09-05-audit-309-313.md`：①-④+⑤-b 既有,⑤-a 倒计时 148c0644）·**AI 真机验收 10✔+2BLOCKED**（A5 预设降级：max-tokens 未触达/重试不可确定性触发,单测作结）：`docs/acceptance/2026-09-05-309-batch1-and-328.md`——**UIUX 卡待人工验收**（与 #326/#313 同域汇总）
   - 横切铁律：新 SseEvent 三步全走（DEM 分支+EventDispatcher bind+handler 折叠，漏 bind 即静默丢弃，goal/change 曾中招）；触 composer 按 ChatScreen 编辑协议串行
   - → `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md` §四 · `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §11.4 批 1 · `docs/research/dsh-gap-2026-09-01/implementability-ui.md`（挂点明细）
 
