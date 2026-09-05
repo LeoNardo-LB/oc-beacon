@@ -109,8 +109,9 @@ object DshUnprobedProtocolSource : DshProtocolSource {
  * - **EMPTY_ARGS**：无参端点，payload 丢弃 → {args:{}}——settings/describe、
  *   session/modelCatalog、agentPresets/list、llm/listProviders；
  * - **FLAT**：{args:{…}} 直包裸 payload（sessionId→agentId 改名 + 丢弃 JsonNull 值）
- *   ——subagents/list（键是 parentSessionId，无需改名）、agentPresets/select、
- *   directoryPicker/list、settings/mutate；
+ *   ——subagents/list（键是 parentSessionId，无需改名）、#310⑤/#321 两引用端点
+ *   （键是 agentId+query，无需改名）、agentPresets/select、directoryPicker/list、
+ *   settings/mutate；
  * - **WRAPPED**：{args:{key:payload}}（key 默认 request；session/list = _request）
  *   ——其余全部（session 域）。
  */
@@ -220,6 +221,9 @@ object DshWireAdapter {
         "subagents/list",
         // #310①：三平铺参 {childSessionId,parentSessionId,mode}（typert 参数名即 wire 键）
         "subagents/interruptByParent",
+        // #310⑤/#321：两平铺参 {agentId,query}（typert 参数名即 wire 键）
+        "fileReferences/list",
+        "sessionReferenceResolver/candidates",
         "agentPresets/select",
         "directoryPicker/list",
         "settings/mutate",

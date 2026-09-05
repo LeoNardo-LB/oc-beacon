@@ -300,6 +300,25 @@ interface ChatRepository {
     ): Result<List<dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem>?>
 
 
+    // ============ DSH @ 引用候选（backlog #310⑤/#321；非 DSH 走 findFiles 现路径） ============
+
+    /**
+     * DSH @ 补全统一候选源：并行 fileReferences/list + sessionReferenceResolver/
+     * candidates 后纯合并（[dev.leonardo.ocbeacon.domain.model.mergeMentionCandidates]
+     * ——quoted=true 只文件，web mod34 `@"` 引号形态先例；agentId == sessionId）。
+     * 任一域失败整体 Result.failure（同 [messageFeedbackList] 收编语义）。
+     * 非 DSH 后端 → findFiles 现路径结果包装 [dev.leonardo.ocbeacon.domain.model.MentionCandidate.FileMention]
+     * （不回归既有 @ 文件补全；directory 传会话 cwd 保持现搜索范围，缺省 null）。
+     */
+    suspend fun mentionCandidates(
+        serverId: String,
+        sessionId: String,
+        query: String,
+        directory: String? = null,
+        quoted: Boolean = false,
+    ): Result<List<dev.leonardo.ocbeacon.domain.model.MentionCandidate>>
+
+
     // ============ DSH goal 六 mutation（backlog #286；OpenCode V1/V2 返回 null/false） ============
 
     /** DSH goal.create（创建并 arm 目标）。回执新 CAS ref；失败经 Result 上抛（DshApiError）。 */

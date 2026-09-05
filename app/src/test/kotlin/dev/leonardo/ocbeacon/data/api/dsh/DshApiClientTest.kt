@@ -1144,6 +1144,85 @@ class DshApiClientTest {
         assertEquals(0, captureRequests(engine).size)
     }
 
+    // ============ #310⑤/#321 @ 引用候选（fileReferences/list · sessionReferenceResolver/candidates） ============
+
+    /**
+     * V012 fileReferences/list（#321 wire 契约钉死 2026-09-05 §⑤）：两平铺参
+     * {args:{agentId,query}}（typert 参数名即 wire 键，FLAT——无 request 包装）；
+     * value = FileReferenceCandidate[] [{path,kind:'file'|'directory'}] 直返数组
+     * （callJson 语义，commands/list 先例）。kind 现阶段丢弃（UI 以尾 / 约定区分
+     * 目录，FileMentionSuggestions 现状）；缺 path 行丢弃（容错先例）。
+     */
+    @Test
+    fun `v012 fileReferencesList posts flat agentId and query and maps paths`() = runTest {
+        val engine = MockEngine {
+            respond(
+                ok("""[{"path":"docs/a.md","kind":"file"},{"path":"docs/sub","kind":"directory"},{"kind":"file"}]"""),
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        val paths = client(engine, DshWireProtocol.V012).fileReferencesList(conn, "s-1", "docs")
+        assertEquals(listOf("docs/a.md", "docs/sub"), paths)
+        val req = captureRequests(engine).single()
+        assertEquals("/api/fileReferences/list", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("fileReferences/list", body["method"]!!.jsonPrimitive.content)
+        assertEquals(
+            """{"args":{"agentId":"s-1","query":"docs"}}""",
+            body["payload"].toString(),
+        )
+    }
+
+    /**
+     * V012 sessionReferenceResolver/candidates（#310⑤）：同两平铺参
+     * {args:{agentId,query}}（FLAT）；value = SessionReferenceMentionCandidate[]
+     * 直返数组 [{sessionId,label,cwd?,sameWorkspace,createdAt,mention}]——
+     * mention 为服务器权威规范串 @[label](dsh-session:…)（客户端不重组）；
+     * createdAt 现阶段丢弃（合并排序按 sameWorkspace）；缺征意义字段
+     * （sessionId/label/mention）行丢弃。
+     */
+    @Test
+    fun `v012 sessionReferenceCandidates posts flat args and maps mention rows`() = runTest {
+        val engine = MockEngine {
+            respond(
+                ok("""[
+                    {"mention":"@[修复 X](dsh-session:s-9)","sessionId":"s-9","label":"修复 X","cwd":"/w","sameWorkspace":true,"createdAt":1788109000023},
+                    {"sessionId":"s-8","label":"别区会话","sameWorkspace":false,"createdAt":2,"mention":"@[别区会话](dsh-session:s-8)"},
+                    {"label":"缺 id","sameWorkspace":false,"mention":"m"}
+                ]"""),
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        val sessions = client(engine, DshWireProtocol.V012).sessionReferenceCandidates(conn, "s-1", "fix")
+        assertEquals(listOf("s-9", "s-8"), sessions.map { it.sessionId })
+        assertEquals("修复 X", sessions[0].label)
+        assertEquals("/w", sessions[0].cwd)
+        assertTrue(sessions[0].sameWorkspace)
+        assertEquals("@[修复 X](dsh-session:s-9)", sessions[0].mention)
+        assertNull(sessions[1].cwd)
+        assertFalse(sessions[1].sameWorkspace)
+        val req = captureRequests(engine).single()
+        assertEquals("/api/sessionReferenceResolver/candidates", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("sessionReferenceResolver/candidates", body["method"]!!.jsonPrimitive.content)
+        assertEquals(
+            """{"args":{"agentId":"s-1","query":"fix"}}""",
+            body["payload"].toString(),
+        )
+    }
+
+    /** 保守 V011：两引用端点不在 0.1.1 方法面（#310 审计裁决）——unsupported 且零 HTTP。 */
+    @Test
+    fun `mention reference endpoints throw unsupported on v011`() = runTest {
+        val engine = MockEngine { respond(ok("[]"), HttpStatusCode.OK, jsonHeaders()) }
+        val c = client(engine) // 未探测 → 保守 V011
+        val files = runCatching { c.fileReferencesList(conn, "s-1", "q") }
+        assertTrue(files.exceptionOrNull() is UnsupportedServerCapability)
+        val sessions = runCatching { c.sessionReferenceCandidates(conn, "s-1", "q") }
+        assertTrue(sessions.exceptionOrNull() is UnsupportedServerCapability)
+        assertEquals(0, captureRequests(engine).size)
+    }
+
     // ============ SystemApi / FileApi / TerminalApi / ShellApi / ProviderApi ============
 
     @Test

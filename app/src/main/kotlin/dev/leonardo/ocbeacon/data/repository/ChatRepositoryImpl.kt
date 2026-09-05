@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.data.repository
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.logging.AppLogger
 
+import dev.leonardo.ocbeacon.data.api.file.FileApi
 import dev.leonardo.ocbeacon.data.api.message.MessageApi
 import dev.leonardo.ocbeacon.data.api.provider.ProviderApi
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
@@ -18,6 +19,7 @@ import dev.leonardo.ocbeacon.domain.model.AgentPreset
 import dev.leonardo.ocbeacon.domain.model.DshGoalRef
 import dev.leonardo.ocbeacon.domain.model.CompactionStateInfo
 import dev.leonardo.ocbeacon.domain.model.FileDiff
+import dev.leonardo.ocbeacon.domain.model.MentionCandidate
 import dev.leonardo.ocbeacon.domain.model.MergeStrategy
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
@@ -34,10 +36,13 @@ import dev.leonardo.ocbeacon.domain.model.StepProgressInfo
 import dev.leonardo.ocbeacon.domain.model.SubagentCatalog
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.model.ToolProgressInfo
+import dev.leonardo.ocbeacon.domain.model.mergeMentionCandidates
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -71,6 +76,8 @@ class ChatRepositoryImpl @Inject constructor(
     // #287：DSH 附件字节拉取（session.attachment → data URL）。
     // DshApiClient @Singleton 可注入；非 DSH 服务器由 readAttachment 失败自然降级 null。
     private val dshApiClient: dev.leonardo.ocbeacon.data.api.dsh.DshApiClient,
+    // #310⑤/#321：非 DSH @ 文件补全回落 findFiles（FileApiImpl 三分路由现路径）。
+    private val fileApi: FileApi,
 ) : ChatRepository {
 
     // ============ 状态观察 ============
@@ -473,6 +480,47 @@ class ChatRepositoryImpl @Inject constructor(
             return@runCatchingCancellable null
         }
         dshApiClient.messageFeedbackList(conn, sessionId)
+    }
+
+    // ============ DSH @ 引用候选（backlog #310⑤/#321） ============
+
+    /**
+     * DSH：并行两域（fileReferences/list + sessionReferenceResolver/candidates——
+     * web mod34:113-114 先例；quoted=true 跳过会话域省一次 RPC）后纯合并
+     * [mergeMentionCandidates]；任一域失败整体 failure（Result 收编，同
+     * messageFeedbackList 语义）。非 DSH：findFiles 现参数形（type=null/dirs=true/
+     * limit=15，DraftInputDelegate.searchFilesForMention 同形）包装 FileMention
+     * ——既有 @ 文件补全零回归（DSH 侧此前为 findFiles stub 空列表，无回归面）。
+     */
+    override suspend fun mentionCandidates(
+        serverId: String,
+        sessionId: String,
+        query: String,
+        directory: String?,
+        quoted: Boolean,
+    ): Result<List<MentionCandidate>> = runCatchingCancellable {
+        val conn = resolveConnection(serverId)
+        if (conn.serverType != dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
+            val paths = fileApi.findFiles(
+                conn, query,
+                directory = directory,
+                limit = 15,
+                dirs = "true",
+            )
+            return@runCatchingCancellable paths.map { MentionCandidate.FileMention(it) }
+        }
+        coroutineScope {
+            val files = async { dshApiClient.fileReferencesList(conn, sessionId, query) }
+            val sessions = async {
+                if (quoted) emptyList<MentionCandidate.SessionMention>()
+                else dshApiClient.sessionReferenceCandidates(conn, sessionId, query)
+            }
+            mergeMentionCandidates(
+                files.await().map { MentionCandidate.FileMention(it) },
+                sessions.await(),
+                quoted,
+            )
+        }
     }
 
     // ============ DSH goal mutation（backlog #286） ============

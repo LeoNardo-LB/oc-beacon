@@ -773,6 +773,74 @@ class DshApiClient @Inject constructor(
         )
     }
 
+    // ============ #310⑤/#321 @ 引用候选（fileReferences/list · sessionReferenceResolver/candidates） ============
+
+    /**
+     * #321 fileReferences/list（wire 契约钉死 2026-09-05 §⑤）：两平铺参
+     * {args:{agentId,query}}（typert 参数名即 wire 键，FLAT——无 request 包装）；
+     * value = FileReferenceCandidate[] [{path,kind:'file'|'directory'}] 直返数组
+     * （callJson 语义，commands/list 先例）；agentId == sessionId（DSH 单 agent
+     * 每会话，listCommands 先例）。kind 现阶段丢弃（UI 以尾 / 约定区分目录，
+     * FileMentionSuggestions 现状）；缺 path 行丢弃（容错先例）。
+     * 业务/信封/传输失败一律上抛 DshApiError（repository Result 收编）。
+     * 保守 V011：fileReferences 域不在 0.1.1 方法面（#310 审计裁决）。
+     */
+    suspend fun fileReferencesList(
+        conn: ServerConnection,
+        agentId: String,
+        query: String,
+    ): List<String> {
+        if (protocolOf(conn) != DshWireProtocol.V012) unsupported("fileReferences.list")
+        val payload = buildJsonObject {
+            put("agentId", agentId)
+            put("query", query)
+        }
+        return rpc.callJson(conn, "fileReferences/list", payload) { value ->
+            (value as? JsonArray ?: emptyList()).mapNotNull { el ->
+                (el as? JsonObject)?.dshStr("path")
+            }
+        }.getOrElse { e -> throw e }
+    }
+
+    /**
+     * #310⑤ sessionReferenceResolver/candidates：同两平铺参 {args:{agentId,query}}
+     * （FLAT）；value = SessionReferenceMentionCandidate[] 直返数组
+     * [{sessionId,label,cwd?,sameWorkspace,createdAt,mention}]。mention 为服务器
+     * 权威规范串 @[label](dsh-session:…)（客户端不重组）；createdAt 现阶段丢弃
+     * （合并排序按 sameWorkspace，见 [dev.leonardo.ocbeacon.domain.model.mergeMentionCandidates]）。
+     * 业务/信封/传输失败一律上抛（同 [fileReferencesList]）；保守 V011 unsupported。
+     */
+    suspend fun sessionReferenceCandidates(
+        conn: ServerConnection,
+        agentId: String,
+        query: String,
+    ): List<dev.leonardo.ocbeacon.domain.model.MentionCandidate.SessionMention> {
+        if (protocolOf(conn) != DshWireProtocol.V012) unsupported("sessionReferenceResolver.candidates")
+        val payload = buildJsonObject {
+            put("agentId", agentId)
+            put("query", query)
+        }
+        return rpc.callJson(conn, "sessionReferenceResolver/candidates", payload) { value ->
+            (value as? JsonArray ?: emptyList()).mapNotNull { el ->
+                (el as? JsonObject)?.let(::sessionMentionOf)
+            }
+        }.getOrElse { e -> throw e }
+    }
+
+    /** 会话候选容错映射：缺征意义字段（sessionId/label/mention）丢弃该行。 */
+    private fun sessionMentionOf(obj: JsonObject): dev.leonardo.ocbeacon.domain.model.MentionCandidate.SessionMention? {
+        val sessionId = obj.dshStr("sessionId") ?: return null
+        val label = obj.dshStr("label") ?: return null
+        val mention = obj.dshStr("mention") ?: return null
+        return dev.leonardo.ocbeacon.domain.model.MentionCandidate.SessionMention(
+            sessionId = sessionId,
+            label = label,
+            cwd = obj.dshStr("cwd"),
+            sameWorkspace = obj.dshBool("sameWorkspace") == true,
+            mention = mention,
+        )
+    }
+
     override suspend fun getSessionTodos(conn: ServerConnection, sessionId: String): List<TodoItem> = emptyList()
 
     override suspend fun backgroundSession(conn: ServerConnection, sessionId: String): Boolean = false
