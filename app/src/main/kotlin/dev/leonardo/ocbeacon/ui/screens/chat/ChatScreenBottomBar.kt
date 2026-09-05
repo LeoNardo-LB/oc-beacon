@@ -33,6 +33,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.input.BusyIndicatorSmoother
 import dev.leonardo.ocbeacon.ui.screens.chat.input.ChatAttachmentsHandler
 import dev.leonardo.ocbeacon.ui.screens.chat.input.ChatInputBar
 import dev.leonardo.ocbeacon.ui.screens.chat.input.ChatInputMode
+import dev.leonardo.ocbeacon.ui.screens.chat.input.isQuotedMentionQuery
 import dev.leonardo.ocbeacon.ui.screens.chat.input.PlanChipGate
 import dev.leonardo.ocbeacon.ui.screens.chat.util.ImageAttachment
 import dev.leonardo.ocbeacon.ui.screens.chat.util.PromptBuilder
@@ -42,6 +43,8 @@ import kotlinx.coroutines.launch
 
 /** @file 提及正则：光标前最后一个 @query（onValueChange / 文件选择共用，L-7 预编译）。 */
 private val AT_MENTION_REGEX = Regex("@(\\S*)$")
+
+// #310⑤ @" 引号形态判定（input 包纯函数,单测 MentionQueryTest）
 
 /** 斜杠命令参数分割（发送时解析 /cmd args）。 */
 private val WHITESPACE_SPLIT_REGEX = Regex("\\s+")
@@ -97,6 +100,8 @@ internal fun ChatScreenBottomBar(
     // #310① 子会话续聊门控：DSH 子会话 mode=continuable → 解禁 composer
     //（one-shot 只读提示行）；加载中/失败保守隐藏——防 one-shot 误发。
     val serverType by viewModel.serverType.collectAsStateWithLifecycle()
+    // #310⑤ 会话源候选（与 fileSearchResults 同源同清,composer 统一状态）
+    val sessionMentionResults by viewModel.composer.sessionSearchResults.collectAsStateWithLifecycle()
     val subagentMode by viewModel.subagentModeState.collectAsStateWithLifecycle()
     val subagentComposerVisible = SubagentComposerGate.composerVisible(
         sessionMeta.sessionParentId, serverType, subagentMode,
@@ -326,7 +331,8 @@ internal fun ChatScreenBottomBar(
                     val atMatch = AT_MENTION_REGEX.find(textBefore)
                     if (atMatch != null) {
                         val query = atMatch.groupValues[1]
-                        viewModel.composer.searchFilesForMention(query)
+                        // #310⑤：@" 引号形态只拉文件候选（web mod34 先例）
+                        viewModel.composer.searchFilesForMention(query, quoted = isQuotedMentionQuery(query))
                     } else {
                         viewModel.composer.clearFileSearch()
                     }
@@ -379,6 +385,7 @@ internal fun ChatScreenBottomBar(
                 commands = modelConfig.commands,
                 slashCommandsSupported = slashCommandsSupported,
                 fileSearchResults = fileSearchResults,
+                sessionSearchResults = sessionMentionResults,
                 confirmedFilePaths = confirmedFilePaths,
                 onFileSelected = { path ->
                     // 用 @path 替换文本中的 @query
@@ -397,6 +404,25 @@ internal fun ChatScreenBottomBar(
                         ))
                     }
                     viewModel.composer.confirmFilePath(path)
+                    viewModel.composer.clearFileSearch()
+                },
+                onSessionSelected = { session ->
+                    // #310⑤：以服务器权威 mention 串 @[label](dsh-session:id) 替换 trigger 词
+                    // （确认态视觉高亮同文件路径的后续迭代项,见 FileMentionTransformation 注记）
+                    val cursorPos = inputText.selection.start
+                    val textBefore = inputText.text.substring(0, cursorPos)
+                    val atMatch = AT_MENTION_REGEX.find(textBefore)
+                    if (atMatch != null) {
+                        val matchStart = atMatch.range.first
+                        val replacement = session.mention + " "
+                        val newText = inputText.text.substring(0, matchStart) + replacement +
+                                inputText.text.substring(cursorPos)
+                        val newCursor = matchStart + replacement.length
+                        onInputTextChange(TextFieldValue(
+                            text = newText,
+                            selection = TextRange(newCursor)
+                        ))
+                    }
                     viewModel.composer.clearFileSearch()
                 },
                 onSlashCommand = { cmd ->

@@ -107,6 +107,8 @@
     <string name="session_sync_hint_partial">Only recent messages are stored on this device</string>
 
     <!-- Chat Screen -->
+    <string name="chat_mention_session_a11y">Session %1$s</string>
+    <string name="chat_mention_same_workspace">Same workspace</string>
     <string name="chat_send">Send</string>
     <string name="chat_send_queued">Send (queued)</string>
     <string name="chat_send_shell">Send shell command</string>

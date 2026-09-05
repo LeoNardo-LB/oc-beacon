@@ -60,6 +60,8 @@
     <string name="session_untitled">Sesi tanpa judul</string>
     <string name="session_unknown_error">Kesalahan tidak diketahui</string>
     <!-- Chat Screen -->
+    <string name="chat_mention_session_a11y">Sesi %1$s</string>
+    <string name="chat_mention_same_workspace">Ruang kerja sama</string>
     <string name="chat_send">Kirim</string>
     <string name="chat_send_queued">Kirim (antrian)</string>
     <string name="chat_stop">Stop</string>

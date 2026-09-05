@@ -25,6 +25,8 @@
     <string name="turn_max_tokens_title">Досягнуто ліміту виводу</string>
     <string name="turn_max_tokens_continue">Продовжити</string>
     <!-- Chat Screen -->
+    <string name="chat_mention_session_a11y">Сесія %1$s</string>
+    <string name="chat_mention_same_workspace">Той самий робочий простір</string>
     <string name="chat_send">Надіслати</string>
     <string name="chat_send_queued">Надіслати (у черзі)</string>
     <string name="chat_empty">Почніть сесію</string>

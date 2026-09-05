@@ -25,6 +25,8 @@
     <string name="turn_max_tokens_title">Çıktı sınırına ulaşıldı</string>
     <string name="turn_max_tokens_continue">Devam et</string>
     <!-- Chat Screen -->
+    <string name="chat_mention_session_a11y">Oturum %1$s</string>
+    <string name="chat_mention_same_workspace">Aynı çalışma alanı</string>
     <string name="chat_send">Gönder</string>
     <string name="chat_send_queued">Gönder (sırada)</string>
     <string name="chat_empty">Bir oturum başlat</string>

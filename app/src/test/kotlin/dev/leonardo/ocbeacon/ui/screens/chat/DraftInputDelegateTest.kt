@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
 import dev.leonardo.ocbeacon.domain.model.Draft
+import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.usecase.ManageAgentUseCase
 import io.mockk.coEvery
@@ -22,6 +23,7 @@ class DraftInputDelegateTest {
 
     private val draftRepository = mockk<DraftRepository>(relaxed = true)
     private val manageAgentUseCase = mockk<ManageAgentUseCase>(relaxed = true)
+    private val chatRepository = mockk<ChatRepository>(relaxed = true)
 
     private fun delegate(
         scope: kotlinx.coroutines.CoroutineScope,
@@ -29,6 +31,7 @@ class DraftInputDelegateTest {
     ) = DraftInputDelegate(
         draftRepository = draftRepository,
         manageAgentUseCase = manageAgentUseCase,
+        chatRepository = chatRepository,
         scope = scope,
         serverId = "srv_1",
         sessionIdProvider = { sessionId },

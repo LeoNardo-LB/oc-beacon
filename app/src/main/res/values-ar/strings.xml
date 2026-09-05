@@ -25,6 +25,8 @@
     <string name="turn_max_tokens_title">تم الوصول إلى حد الإخراج</string>
     <string name="turn_max_tokens_continue">متابعة</string>
     <!-- Chat Screen -->
+    <string name="chat_mention_session_a11y">الجلسة %1$s</string>
+    <string name="chat_mention_same_workspace">نفس مساحة العمل</string>
     <string name="chat_send">إرسال</string>
     <string name="chat_send_queued">إرسال (في الانتظار)</string>
     <string name="chat_empty">ابدأ جلسة</string>

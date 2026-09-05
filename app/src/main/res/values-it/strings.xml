@@ -25,6 +25,8 @@
     <string name="turn_max_tokens_title">Limite di output raggiunto</string>
     <string name="turn_max_tokens_continue">Continua</string>
     <!-- Chat Screen -->
+    <string name="chat_mention_session_a11y">Sessione %1$s</string>
+    <string name="chat_mention_same_workspace">Stesso spazio di lavoro</string>
     <string name="chat_send">Invia</string>
     <string name="chat_send_queued">Invia (in coda)</string>
     <string name="chat_empty">Inizia una sessione</string>

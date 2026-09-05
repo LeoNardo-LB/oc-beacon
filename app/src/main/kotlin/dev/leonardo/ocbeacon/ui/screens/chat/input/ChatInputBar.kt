@@ -85,8 +85,12 @@ internal fun ChatInputBar(
     /** #276 能力位门控：false（DSH）时斜杠命令建议面板不出现。 */
     slashCommandsSupported: Boolean = true,
     fileSearchResults: List<String> = emptyList(),
+    /** #310⑤ 会话源候选（DSH;与文件候选同弹窗,会话行在前）。 */
+    sessionSearchResults: List<dev.leonardo.ocbeacon.domain.model.MentionCandidate.SessionMention> = emptyList(),
     confirmedFilePaths: Set<String> = emptySet(),
     onFileSelected: (String) -> Unit = {},
+    /** #310⑤ 点选会话源——以 mention 规范串替换 trigger 词。 */
+    onSessionSelected: (dev.leonardo.ocbeacon.domain.model.MentionCandidate.SessionMention) -> Unit = {},
     onSlashCommand: (SlashCommand) -> Unit = {},
     inputMode: ChatInputMode = ChatInputMode.NORMAL,
     onInputModeChange: (ChatInputMode) -> Unit = {},
@@ -194,11 +198,13 @@ internal fun ChatInputBar(
             )
         }
 
-        // @ 文件提及建议弹窗
+        // @ 文件/会话提及建议弹窗（#310⑤ 会话源候选同弹窗）
         if (!isShellMode) {
             FileMentionSuggestions(
                 results = fileSearchResults,
-                onFileSelected = onFileSelected
+                sessions = sessionSearchResults,
+                onFileSelected = onFileSelected,
+                onSessionSelected = onSessionSelected
             )
         }
 

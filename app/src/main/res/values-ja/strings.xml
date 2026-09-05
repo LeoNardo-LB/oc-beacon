@@ -25,6 +25,8 @@
     <string name="turn_max_tokens_title">出力の上限に達しました</string>
     <string name="turn_max_tokens_continue">続ける</string>
     <!-- Chat Screen -->
+    <string name="chat_mention_session_a11y">セッション %1$s</string>
+    <string name="chat_mention_same_workspace">同じワークスペース</string>
     <string name="chat_send">送信</string>
     <string name="chat_send_queued">送信（キュー中）</string>
     <string name="chat_empty">セッションを開始</string>

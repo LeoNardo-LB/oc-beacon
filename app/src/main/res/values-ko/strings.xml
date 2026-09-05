@@ -25,6 +25,8 @@
     <string name="turn_max_tokens_title">출력 한도에 도달했습니다</string>
     <string name="turn_max_tokens_continue">계속</string>
     <!-- Chat Screen -->
+    <string name="chat_mention_session_a11y">세션 %1$s</string>
+    <string name="chat_mention_same_workspace">같은 워크스페이스</string>
     <string name="chat_send">보내기</string>
     <string name="chat_send_queued">보내기(대기중)</string>
     <string name="chat_empty">세션을 시작하세요</string>

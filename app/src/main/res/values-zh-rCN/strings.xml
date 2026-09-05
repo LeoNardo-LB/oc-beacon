@@ -25,6 +25,8 @@
     <string name="turn_max_tokens_title">输出达到上限</string>
     <string name="turn_max_tokens_continue">继续</string>
     <!-- Chat Screen -->
+    <string name="chat_mention_session_a11y">会话 %1$s</string>
+    <string name="chat_mention_same_workspace">同工作区</string>
     <string name="chat_send">发送</string>
     <string name="chat_send_queued">发送（排队）</string>
     <string name="chat_empty">开始会话</string>

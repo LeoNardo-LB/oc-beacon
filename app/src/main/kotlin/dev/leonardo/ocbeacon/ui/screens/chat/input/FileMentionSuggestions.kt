@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.Icon
@@ -35,14 +37,20 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 
 /**
  * File mention suggestion popup shown when user types "@<query>".
+ *
+ * #310⑤：DSH 下同时呈现会话源候选（sessionReferenceResolver 域,会话行在前——
+ * 与 [dev.leonardo.ocbeacon.domain.model.mergeMentionCandidates] 排序语义一致）；
+ * 点选会话行以服务器权威 mention 串 @[label](dsh-session:id) 替换 trigger 词。
  */
 @Composable
 internal fun FileMentionSuggestions(
     results: List<String>,
-    onFileSelected: (String) -> Unit
+    sessions: List<dev.leonardo.ocbeacon.domain.model.MentionCandidate.SessionMention> = emptyList(),
+    onFileSelected: (String) -> Unit,
+    onSessionSelected: (dev.leonardo.ocbeacon.domain.model.MentionCandidate.SessionMention) -> Unit = {},
 ) {
     AnimatedVisibility(
-        visible = results.isNotEmpty(),
+        visible = results.isNotEmpty() || sessions.isNotEmpty(),
         enter = fadeIn(),
         exit = fadeOut()
     ) {
@@ -56,6 +64,13 @@ internal fun FileMentionSuggestions(
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 .padding(vertical = 4.dp)
         ) {
+            // #310⑤ 会话源候选行（在前——merge 排序语义；quoted 形态下恒空）
+            items(
+                sessions.take(5),
+                key = { "session-" + it.sessionId }
+            ) { session ->
+                SessionMentionRow(session = session, onClick = { onSessionSelected(session) })
+            }
             items(
                 results.take(10),
                 key = { it }
@@ -106,6 +121,65 @@ internal fun FileMentionSuggestions(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * #310⑤ 会话源候选行（自有形态,#313 原则）：会话图标 + label（+同工作区徽标）
+ * + cwd 次行小字；点击以服务器权威 mention 串插入草稿。
+ */
+@Composable
+private fun SessionMentionRow(
+    session: dev.leonardo.ocbeacon.domain.model.MentionCandidate.SessionMention,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.Chat,
+            contentDescription = stringResource(R.string.chat_mention_session_a11y, session.label),
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp)
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = session.label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (session.sameWorkspace) {
+                    Text(
+                        text = stringResource(R.string.chat_mention_same_workspace),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .background(
+                                MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.FAINT),
+                                MaterialTheme.shapes.extraSmall
+                            )
+                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                    )
+                }
+            }
+            if (!session.cwd.isNullOrBlank()) {
+                Text(
+                    text = session.cwd,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }

@@ -44,6 +44,8 @@
     <string name="session_delete">Удалить сессию</string>
     <string name="session_delete_confirm">Удалить «%1$s»? Это действие нельзя отменить.</string>
     <!-- Chat Screen -->
+    <string name="chat_mention_session_a11y">Сессия %1$s</string>
+    <string name="chat_mention_same_workspace">Тот же воркспейс</string>
     <string name="chat_send">Отправить</string>
     <string name="chat_send_queued">Отправить (в очереди)</string>
     <string name="chat_stop">Остановить</string>

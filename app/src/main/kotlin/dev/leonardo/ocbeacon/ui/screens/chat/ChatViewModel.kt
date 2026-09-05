@@ -519,6 +519,7 @@ class ChatViewModel @Inject constructor(
     private val draftDelegate = DraftInputDelegate(
         draftRepository = draftRepository,
         manageAgentUseCase = manageAgentUseCase,
+        chatRepository = chatRepository,
         scope = viewModelScope,
         serverId = serverId,
         sessionIdProvider = { sessionLifecycle.sessionId },
