@@ -10,17 +10,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.screens.chat.util.SlashCommand
 
@@ -52,6 +58,18 @@ internal fun SlashCommandSuggestions(
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 .padding(vertical = 4.dp)
         ) {
+            // #324④：skills 触发组头（skills 存在时命令与技能间可见分组界）
+            val hasSkills = commands.any { it.type == "skill" }
+            if (hasSkills) {
+                item(key = "skills-group-header") {
+                    Text(
+                        text = stringResource(R.string.slash_skills_group),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.tertiary.copy(alpha = AlphaTokens.MEDIUM),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                    )
+                }
+            }
             items(commands, key = { it.name }) { cmd ->
                 Row(
                     modifier = Modifier
@@ -80,6 +98,17 @@ internal fun SlashCommandSuggestions(
                             color = MaterialTheme.colorScheme.tertiary.copy(alpha = AlphaTokens.MEDIUM),
                             modifier = Modifier.padding(end = 4.dp)
                         )
+                        // #324④：modelInvocable 标识（模型可自主调用——skills/list 契约字段）
+                        if (cmd.modelInvocable) {
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.AutoAwesome,
+                                contentDescription = stringResource(R.string.slash_skill_model_invocable),
+                                tint = MaterialTheme.colorScheme.tertiary.copy(alpha = AlphaTokens.MEDIUM),
+                                modifier = Modifier
+                                    .padding(end = 4.dp)
+                                    .size(14.dp),
+                            )
+                        }
                     }
                     if (cmd.description != null) {
                         Text(

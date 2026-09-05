@@ -908,4 +908,8 @@
     <string name="dsh_config_applies_live">Appliqué immédiatement</string>
     <string name="dsh_config_applies_restart">Nécessite un redémarrage</string>
     <string name="dsh_secret_no_ref">Géré hors de cette application (aucune référence d\'identifiant déclarée).</string>
+
+    <!-- #324④ skills 触发组 -->
+    <string name="slash_skills_group">Compétences</string>
+    <string name="slash_skill_model_invocable">Compétence invocable par le modèle</string>
 </resources>

@@ -1107,6 +1107,8 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             sessionLifecycle.sessionIdFlow.collect { sid ->
                 if (sid.isNotBlank()) modelConfig.loadCommands(sid)
+                // #324⑤：会话技能触发组（会话维度；缓存命中即回放）
+                modelConfig.loadSkills(sid)
             }
         }
         // #285：DSH 命令注册表全局帧（commands/change）——命令注册/注销即重载
@@ -1114,6 +1116,11 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             eventDispatcher.commandsChanged.collect {
                 modelConfig.loadCommands(sessionLifecycle.sessionId.ifBlank { null })
+                // #324⑤：命令注册表变更同步技能面（服务器插件加载/卸载可能改变技能集；缓存失效需重拉）
+                sessionLifecycle.sessionId.takeIf { it.isNotBlank() }?.let {
+                    modelConfig.invalidateSkillsCache(it)
+                    modelConfig.loadSkills(it)
+                }
             }
         }
         // #287：DSH 附件字节拉取驱动——url 缺席的附件 Part.File 即拉取回填

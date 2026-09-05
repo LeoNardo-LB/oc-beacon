@@ -913,4 +913,8 @@
     <string name="dsh_config_applies_live">立即生效</string>
     <string name="dsh_config_applies_restart">需重启</string>
     <string name="dsh_secret_no_ref">在本应用之外管理（未声明凭据引用）。</string>
+
+    <!-- #324④ skills 触发组 -->
+    <string name="slash_skills_group">技能</string>
+    <string name="slash_skill_model_invocable">模型可自主调用的技能</string>
 </resources>

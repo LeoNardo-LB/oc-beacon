@@ -910,4 +910,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="dsh_config_applies_live">Anında uygulanır</string>
     <string name="dsh_config_applies_restart">Yeniden başlatma gerekir</string>
     <string name="dsh_secret_no_ref">Bu uygulamanın dışında yönetiliyor (bildirilmiş bir kimlik bilgisi referansı yok).</string>
+
+    <!-- #324④ skills 触发组 -->
+    <string name="slash_skills_group">Yetenekler</string>
+    <string name="slash_skill_model_invocable">Model tarafından çağrılabilir yetenek</string>
 </resources>

@@ -42,6 +42,13 @@ interface SystemApi {
      */
     suspend fun listSkills(conn: ServerConnection, directory: String? = null): List<SkillInfo>
 
+    /**
+     * #324④：列出会话维度技能（DSH skills/list {sessionId} → 触发组；
+     * V1/V2 无该面 → 空）。
+     */
+    suspend fun listSessionSkills(conn: ServerConnection, sessionId: String): List<dev.leonardo.ocbeacon.domain.model.DshSkillInfo> =
+        emptyList()
+
     suspend fun getMcpStatus(conn: ServerConnection): Map<String, McpStatusEntry>
 
     suspend fun connectMcpServer(conn: ServerConnection, name: String): Boolean
@@ -84,6 +91,9 @@ class SystemApiImpl @Inject constructor(
 
     override suspend fun listSkills(conn: ServerConnection, directory: String?): List<SkillInfo> =
         pick(conn).listSkills(conn, directory)
+
+    override suspend fun listSessionSkills(conn: ServerConnection, sessionId: String): List<dev.leonardo.ocbeacon.domain.model.DshSkillInfo> =
+        pick(conn).listSessionSkills(conn, sessionId)
 
     override suspend fun getMcpStatus(conn: ServerConnection): Map<String, McpStatusEntry> =
         pick(conn).getMcpStatus(conn)

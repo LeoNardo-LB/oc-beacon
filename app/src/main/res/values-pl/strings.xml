@@ -918,4 +918,8 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="dsh_config_applies_live">Działa natychmiast</string>
     <string name="dsh_config_applies_restart">Wymaga restartu</string>
     <string name="dsh_secret_no_ref">Zarządzane poza tę aplikację (brak zadeklarowanej referencji poświadczenia).</string>
+
+    <!-- #324④ skills 触发组 -->
+    <string name="slash_skills_group">Umiejętności</string>
+    <string name="slash_skill_model_invocable">Umiejętność wywoływalna przez model</string>
 </resources>

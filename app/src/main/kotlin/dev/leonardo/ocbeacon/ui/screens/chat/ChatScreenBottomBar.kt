@@ -401,6 +401,7 @@ internal fun ChatScreenBottomBar(
                 variantNames = modelConfig.variantNames,
                 selectedVariant = modelConfig.selectedVariant,
                 commands = modelConfig.commands,
+                skills = modelConfig.skills,  // #324⑤ 技能触发组
                 slashCommandsSupported = slashCommandsSupported,
                 fileSearchResults = fileSearchResults,
                 sessionSearchResults = sessionMentionResults,

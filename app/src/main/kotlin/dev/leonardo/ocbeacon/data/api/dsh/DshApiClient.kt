@@ -58,6 +58,7 @@ import dev.leonardo.ocbeacon.domain.model.DshPluginInventoryPreset
 import dev.leonardo.ocbeacon.domain.model.DshPluginInventoryPresetRow
 import dev.leonardo.ocbeacon.domain.model.DshSettingsOp
 import dev.leonardo.ocbeacon.domain.model.DshSettingsSnapshot
+import dev.leonardo.ocbeacon.domain.model.DshSkillInfo
 import dev.leonardo.ocbeacon.domain.model.FileDiff
 import dev.leonardo.ocbeacon.domain.model.MessagePage
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
@@ -1548,6 +1549,29 @@ class DshApiClient @Inject constructor(
 
     /** skill.list 需 attached 会话（§5 坑位：冷会话→session-not-found）——空列表降级。 */
     override suspend fun listSkills(conn: ServerConnection, directory: String?): List<SkillInfo> = emptyList()
+
+    /**
+     * #324④：skills/list {sessionId}（WRAPPED request）→ 触发组
+     * {skills:[{name,description,whenToUse?,modelInvocable}]}。失败/冷会话 →
+     * 空列表（面板组隐藏）。
+     */
+    override suspend fun listSessionSkills(conn: ServerConnection, sessionId: String): List<DshSkillInfo> {
+        val value = rpc.call(conn, "skills.list", buildJsonObject { put("sessionId", sessionId) }) { it }
+            .getOrElse { e ->
+                AppLogger.w(TAG, "skills/list failed for session: " + e.message)
+                return emptyList()
+            }
+        return (value.dshArr("skills") ?: emptyList()).mapNotNull { el ->
+            val entry = el as? JsonObject ?: return@mapNotNull null
+            val name = entry.dshStr("name") ?: return@mapNotNull null
+            DshSkillInfo(
+                name = name,
+                description = entry.dshStr("description") ?: "",
+                whenToUse = entry.dshStr("whenToUse"),
+                modelInvocable = entry.dshBool("modelInvocable") ?: false,
+            )
+        }
+    }
 
     override suspend fun getMcpStatus(conn: ServerConnection): Map<String, McpStatusEntry> = emptyMap()
 

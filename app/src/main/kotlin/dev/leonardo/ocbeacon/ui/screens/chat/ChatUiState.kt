@@ -109,6 +109,8 @@ data class ModelConfigState(
     val variantNames: List<String> = emptyList(),
     val selectedVariant: String? = null,
     val commands: List<CommandInfo> = emptyList(),
+    /** #324⑤：会话技能（skills/list 触发组；斜杠面板 skills 分组数据源）。 */
+    val skills: List<dev.leonardo.ocbeacon.domain.model.DshSkillInfo> = emptyList(),
     /** 上下文窗口大小 —— 从 token 统计解析，带 provider 回退。 */
     val contextWindow: Int = 0,
 )

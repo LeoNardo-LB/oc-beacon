@@ -82,6 +82,8 @@ internal fun ChatInputBar(
     variantNames: List<String> = emptyList(),
     selectedVariant: String? = null,
     commands: List<CommandInfo> = emptyList(),
+    // #324⑤：会话技能（DSH skills/list 触发组；非 DSH 恒空）
+    skills: List<dev.leonardo.ocbeacon.domain.model.DshSkillInfo> = emptyList(),
     /** #276 能力位门控：false（DSH）时斜杠命令建议面板不出现。 */
     slashCommandsSupported: Boolean = true,
     fileSearchResults: List<String> = emptyList(),
@@ -146,11 +148,22 @@ internal fun ChatInputBar(
     // 面为准，静态表仅作未加载前的兜底。此前静态表恒并入导致 DSH 显示
     // fork/new/redo 等 DSH 不存在的命令、淹没 /goal /permission /plan。
     val clientCmds = SlashCommandRegistry.clientCommands()
-    val allCommands = remember(commands, clientCmds) {
+    // #324⑤：skills 触发组（whenToUse 优先作描述行；modelInvocable 标识到建议行渲染）
+    val skillCmds = remember(skills) {
+        skills.map { skill ->
+            SlashCommand(
+                name = skill.name,
+                description = skill.whenToUse ?: skill.description.ifBlank { null },
+                type = "skill",
+                modelInvocable = skill.modelInvocable,
+            )
+        }
+    }
+    val allCommands = remember(commands, clientCmds, skillCmds) {
         if (commands.isNotEmpty()) {
-            commands.map { SlashCommand(it.name, it.description, it.source ?: "server", requiresInput = it.hints.isNotEmpty()) }
+            commands.map { SlashCommand(it.name, it.description, it.source ?: "server", requiresInput = it.hints.isNotEmpty()) } + skillCmds
         } else {
-            clientCmds
+            clientCmds + skillCmds
         }
     }
 

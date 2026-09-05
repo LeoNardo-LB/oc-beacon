@@ -27,6 +27,11 @@ class AgentRepositoryImpl @Inject constructor(
         systemApi.listCommands(conn, sessionId).map { it.toDomain() }
     }
 
+    override suspend fun listSessionSkills(serverId: String, sessionId: String): Result<List<dev.leonardo.ocbeacon.domain.model.DshSkillInfo>> = runCatchingCancellable {
+        val conn = resolveConnection(serverId)
+        systemApi.listSessionSkills(conn, sessionId)
+    }
+
     override suspend fun searchFiles(
         serverId: String,
         query: String,

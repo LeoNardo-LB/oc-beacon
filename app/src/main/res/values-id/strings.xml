@@ -916,4 +916,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="dsh_config_applies_live">Berlaku segera</string>
     <string name="dsh_config_applies_restart">Perlu mulai ulang</string>
     <string name="dsh_secret_no_ref">Dikelola di luar aplikasi ini (tidak ada referensi kredensial yang dinyatakan).</string>
+
+    <!-- #324④ skills 触发组 -->
+    <string name="slash_skills_group">Skill</string>
+    <string name="slash_skill_model_invocable">Skill yang dapat dipanggil model</string>
 </resources>

@@ -71,6 +71,9 @@ internal class ModelConfigDelegate(
     private val _selectedAgent = MutableStateFlow("build" to false)
     private val _selectedVariant = MutableStateFlow<String?>(null)
     private val _commands = MutableStateFlow<List<CommandInfo>>(emptyList())
+    // #324⑤：会话技能（skills/list 触发组；会话维度缓存）
+    private val _skills = MutableStateFlow<List<dev.leonardo.ocbeacon.domain.model.DshSkillInfo>>(emptyList())
+    private val skillsCache = mutableMapOf<String, List<dev.leonardo.ocbeacon.domain.model.DshSkillInfo>>()
 
     /** 当前 agent 选择的快照 —— 供 [DraftInputDelegate] 草稿持久化消费。 */
     val selectedAgentValue: Pair<String, Boolean> get() = _selectedAgent.value
@@ -102,6 +105,7 @@ internal class ModelConfigDelegate(
             // 2026-08-16（方案 A·默认模型）：作为 combine 源（缺位会重蹈任务面板
             // R1 覆辙——状态在 lambda 内读但非源，变化不触发重算）
             _localDefaultModel,
+            _skills,
         ) { args ->
             @Suppress("UNCHECKED_CAST")
             val allProviders = args[0] as List<ProviderCatalog>
@@ -120,6 +124,8 @@ internal class ModelConfigDelegate(
             val selectedVariant = args[7] as String?
             @Suppress("UNCHECKED_CAST")
             val commands = args[8] as List<CommandInfo>
+            @Suppress("UNCHECKED_CAST")
+            val skills = args[13] as List<dev.leonardo.ocbeacon.domain.model.DshSkillInfo>
             @Suppress("UNCHECKED_CAST")
             val sessionMessages = args[9] as List<Message>
             @Suppress("UNCHECKED_CAST")
@@ -233,6 +239,7 @@ internal class ModelConfigDelegate(
                 variantNames = availableVariants,
                 selectedVariant = if (selectedVariant != null && selectedVariant in availableVariants) selectedVariant else null,
                 commands = commands,
+                skills = skills,
                 contextWindow = contextWindow,
             )
         }
@@ -302,6 +309,35 @@ internal class ModelConfigDelegate(
     }
 
     /** 观察隐藏模型设置并在变更时重新过滤 providers。 */
+    /**
+     * #324\u2464\uff1a\u4f1a\u8bdd\u6280\u80fd\u52a0\u8f7d\uff08skills/list \u4f1a\u8bdd\u7ef4\u5ea6\uff1b\u7f13\u5b58\u547d\u4e2d\u5373\u56de\u653e\u4e0d\u91cd\u53d1\uff09\u3002
+     * \u7a7a/blank sessionId\uff08\u61d2\u5efa\u524d\uff09\u2192 \u7a7a\u5217\u8868\uff08\u9762\u677f\u7ec4\u9690\u85cf\uff09\u3002
+     */
+    fun loadSkills(sessionId: String?) {
+        if (sessionId.isNullOrBlank()) {
+            _skills.value = emptyList()
+            return
+        }
+        skillsCache[sessionId]?.let {
+            _skills.value = it
+            return
+        }
+        scope.launch {
+            try {
+                val skills = manageAgentUseCase.loadSessionSkills(serverId, sessionId)
+                skillsCache[sessionId] = skills
+                _skills.value = skills
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                dev.leonardo.ocbeacon.logging.AppLogger.w("ModelConfig", "loadSkills failed: " + e.message)
+            }
+        }
+    }
+    /** #324④：失效单会话技能缓存（commands/change 类服务器面变更后重拉用）。 */
+    fun invalidateSkillsCache(sessionId: String) {
+        skillsCache.remove(sessionId)
+    }
+
     fun observeHiddenModels() {
         scope.launch {
             settingsRepository.hiddenModels(serverId).collect { hidden ->

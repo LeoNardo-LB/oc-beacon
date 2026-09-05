@@ -910,4 +910,8 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="dsh_config_applies_live">Aplica imediatamente</string>
     <string name="dsh_config_applies_restart">Requer reinício</string>
     <string name="dsh_secret_no_ref">Gerenciado fora deste app (nenhuma referência de credencial declarada).</string>
+
+    <!-- #324④ skills 触发组 -->
+    <string name="slash_skills_group">Skills</string>
+    <string name="slash_skill_model_invocable">Skill invocável pelo modelo</string>
 </resources>

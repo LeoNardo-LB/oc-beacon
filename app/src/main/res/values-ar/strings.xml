@@ -926,4 +926,8 @@
     <string name="dsh_config_applies_live">يسري فورًا</string>
     <string name="dsh_config_applies_restart">يتطلب إعادة التشغيل</string>
     <string name="dsh_secret_no_ref">يُدار خارج هذا التطبيق (لا يوجد مرجع اعتماد معلن).</string>
+
+    <!-- #324④ skills 触发组 -->
+    <string name="slash_skills_group">المهارات</string>
+    <string name="slash_skill_model_invocable">مهارة يستدعيها النموذج</string>
 </resources>

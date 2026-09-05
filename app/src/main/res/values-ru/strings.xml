@@ -919,4 +919,8 @@
     <string name="dsh_config_applies_live">Применяется сразу</string>
     <string name="dsh_config_applies_restart">Требуется перезапуск</string>
     <string name="dsh_secret_no_ref">Управляется вне этого приложения (ссылка на учётные данные не объявлена).</string>
+
+    <!-- #324④ skills 触发组 -->
+    <string name="slash_skills_group">Навыки</string>
+    <string name="slash_skill_model_invocable">Навык, вызываемый моделью</string>
 </resources>

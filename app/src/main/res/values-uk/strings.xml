@@ -918,4 +918,8 @@
     <string name="dsh_config_applies_live">Застосовується одразу</string>
     <string name="dsh_config_applies_restart">Потребує перезапуску</string>
     <string name="dsh_secret_no_ref">Керується поза цим застосунком (заявленої ссылки на облікові дані немає).</string>
+
+    <!-- #324④ skills 触发组 -->
+    <string name="slash_skills_group">Навички</string>
+    <string name="slash_skill_model_invocable">Навичка, яку може викликати модель</string>
 </resources>

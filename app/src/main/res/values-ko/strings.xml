@@ -910,4 +910,8 @@
     <string name="dsh_config_applies_live">즉시 적용</string>
     <string name="dsh_config_applies_restart">재시작 필요</string>
     <string name="dsh_secret_no_ref">이 앱 외부에서 관리됨(자격 증명 참조가 선언되지 않음).</string>
+
+    <!-- #324④ skills 触发组 -->
+    <string name="slash_skills_group">스킬</string>
+    <string name="slash_skill_model_invocable">모델이 호출 가능한 스킬</string>
 </resources>
