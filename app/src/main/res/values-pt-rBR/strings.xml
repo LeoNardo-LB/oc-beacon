@@ -220,6 +220,7 @@
     <string name="chat_turn_ledger_collapse">Ocultar detalhes do turno</string>
     <string name="chat_turn_ledger_tool_calls">Chamadas de ferramentas: %1$d</string>
     <string name="chat_turn_ledger_tokens">Tokens: %1$s</string>
+    <string name="chat_turn_fork_from_here">Criar ramificação a partir deste turno</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Produzido</string>
     <string name="chat_produced_files_more">+%1$d mais</string>
@@ -406,6 +407,7 @@
     <string name="chat_shell_empty">Digite primeiro um comando shell</string>
     <string name="chat_subagent_one_shot_read_only">Sessão de subagente de uso único: mensagens de acompanhamento não são suportadas</string>
     <string name="chat_shell_attachments_unsupported">O modo shell não suporta anexos</string>
+    <string name="chat_command_images_unsupported">Comandos de barra não suportam anexos de imagem</string>
     <string name="chat_terminal_connect_failed">Falha ao abrir o terminal</string>
     <string name="server_settings_providers">Provedores</string>
     <string name="server_settings_providers_desc">Ative ou desative provedores para este servidor</string>

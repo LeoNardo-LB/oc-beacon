@@ -132,7 +132,7 @@ class FakeSessionRepository @Inject constructor() : SessionRepository {
         return renameResult
     }
 
-    override suspend fun fork(serverId: String, sessionId: String): Result<Session> = forkResult
+    override suspend fun fork(serverId: String, sessionId: String, messageId: String?): Result<Session> = forkResult
 
     // ============ 归档 ============
 

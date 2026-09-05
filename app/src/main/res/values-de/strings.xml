@@ -220,6 +220,7 @@
     <string name="chat_turn_ledger_collapse">Rundendetails ausblenden</string>
     <string name="chat_turn_ledger_tool_calls">Werkzeugaufrufe: %1$d</string>
     <string name="chat_turn_ledger_tokens">Tokens: %1$s</string>
+    <string name="chat_turn_fork_from_here">Von dieser Runde abzweigen</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Erstellt</string>
     <string name="chat_produced_files_more">+%1$d weitere</string>
@@ -406,6 +407,7 @@
     <string name="chat_shell_empty">Bitte zuerst einen Shell-Befehl eingeben</string>
     <string name="chat_subagent_one_shot_read_only">Einmalige Subagent-Sitzung: Folgenachrichten werden nicht unterstützt</string>
     <string name="chat_shell_attachments_unsupported">Shell-Modus unterstützt keine Anhänge</string>
+    <string name="chat_command_images_unsupported">Slash-Befehle unterstützen keine Bildanlagen</string>
     <string name="chat_terminal_connect_failed">Terminal konnte nicht geöffnet werden</string>
     <string name="server_settings_providers">Provider</string>
     <string name="server_settings_providers_desc">Provider für diesen Server aktivieren oder deaktivieren</string>

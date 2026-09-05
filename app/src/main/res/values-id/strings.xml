@@ -156,6 +156,7 @@
     <string name="chat_turn_ledger_collapse">Sembunyikan detail putaran</string>
     <string name="chat_turn_ledger_tool_calls">Panggilan alat: %1$d</string>
     <string name="chat_turn_ledger_tokens">Token: %1$s</string>
+    <string name="chat_turn_fork_from_here">Cabangkan dari giliran ini</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Dihasilkan</string>
     <string name="chat_produced_files_more">+%1$d lagi</string>
@@ -412,6 +413,7 @@
     <string name="chat_shell_empty">Masukkan perintah shell terlebih dahulu</string>
     <string name="chat_subagent_one_shot_read_only">Sesi subagen sekali pakai: pesan lanjutan tidak didukung</string>
     <string name="chat_shell_attachments_unsupported">Mode shell tidak mendukung lampiran</string>
+    <string name="chat_command_images_unsupported">Perintah slash tidak mendukung lampiran gambar</string>
     <string name="chat_terminal_connect_failed">Gagal membuka terminal</string>
     <string name="server_settings_providers">Penyedia</string>
     <string name="server_settings_providers_desc">Aktifkan atau nonaktifkan penyedia untuk server ini</string>

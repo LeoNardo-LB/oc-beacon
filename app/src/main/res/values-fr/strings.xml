@@ -220,6 +220,7 @@
     <string name="chat_turn_ledger_collapse">Masquer les détails du tour</string>
     <string name="chat_turn_ledger_tool_calls">Appels d\'outils : %1$d</string>
     <string name="chat_turn_ledger_tokens">Tokens : %1$s</string>
+    <string name="chat_turn_fork_from_here">Créer une branche depuis ce tour</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Produit</string>
     <string name="chat_produced_files_more">+%1$d de plus</string>
@@ -406,6 +407,7 @@
     <string name="chat_shell_empty">Veuillez d’abord saisir une commande shell</string>
     <string name="chat_subagent_one_shot_read_only">Session de sous-agent à usage unique : les messages de suivi ne sont pas pris en charge</string>
     <string name="chat_shell_attachments_unsupported">Le mode shell ne prend pas en charge les pièces jointes</string>
+    <string name="chat_command_images_unsupported">Les commandes slash ne prennent pas en charge les pièces jointes d\'images</string>
     <string name="chat_terminal_connect_failed">Impossible d’ouvrir le terminal</string>
     <string name="server_settings_providers">Fournisseurs</string>
     <string name="server_settings_providers_desc">Activer ou désactiver les fournisseurs pour ce serveur</string>

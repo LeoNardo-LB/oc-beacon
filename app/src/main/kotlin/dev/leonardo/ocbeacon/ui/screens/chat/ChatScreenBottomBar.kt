@@ -126,6 +126,9 @@ internal fun ChatScreenBottomBar(
     val shellEmptyMsg = stringResource(R.string.chat_shell_empty)
     val shellAttachmentsUnsupportedMsg = stringResource(R.string.chat_shell_attachments_unsupported)
     val shellFailedMsg = stringResource(R.string.chat_shell_failed)
+    // #312④：命令带图拦截提示（服务器 commands/execute 图片按命令声明门控，
+    // app 命令链无图可传——统一发送前拦截）
+    val commandImagesUnsupportedMsg = stringResource(R.string.chat_command_images_unsupported)
     val cmdExecutedTpl = stringResource(R.string.chat_command_executed)
     val cmdFailedTpl = stringResource(R.string.chat_command_failed)
     val sessionCompactFailedMsg = stringResource(R.string.chat_session_compact_failed)
@@ -223,6 +226,21 @@ internal fun ChatScreenBottomBar(
                             viewModel.composer.clearFileSearch()
                             viewModel.composer.clearDraft()
                             onForceScroll()
+                            return@doSend
+                        }
+                        // #312④ 命令带图拦截：服务器命令通道仅 input.images 声明
+                        // 命令接受图片（dsh-commands 契约，"capable composers refuse
+                        // the submission before dispatch"）；app executeCommand 链
+                        // 无图可传——不拦则附件被静默丢弃（无 @file 时）或命令文本
+                        // 连图掉 prompt 通道直接喂模型（有 @file 时）。
+                        if (slashCommandsSupported &&
+                            dev.leonardo.ocbeacon.ui.screens.chat.input.SlashCommandGate.blocksImages(
+                                rawText, attachments.size,
+                            )
+                        ) {
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(commandImagesUnsupportedMsg)
+                            }
                             return@doSend
                         }
                         // 检测斜杠命令（例如 /skillname arguments）

@@ -99,8 +99,9 @@ interface SessionRepository {
 
     /**
      * 分叉会话，从某条消息处创建新会话。
+     * [messageId] = 锚点消息 id（#312⑤ 轮尾锚点；null = 末尾 fork，既有行为）。
      */
-    suspend fun fork(serverId: String, sessionId: String): Result<Session>
+    suspend fun fork(serverId: String, sessionId: String, messageId: String? = null): Result<Session>
 
     // ============ 归档 ============
 

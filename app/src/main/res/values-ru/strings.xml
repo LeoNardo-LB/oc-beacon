@@ -246,6 +246,7 @@
     <string name="chat_turn_ledger_collapse">Скрыть подробности раунда</string>
     <string name="chat_turn_ledger_tool_calls">Вызовы инструментов: %1$d</string>
     <string name="chat_turn_ledger_tokens">Токены: %1$s</string>
+    <string name="chat_turn_fork_from_here">Ответвить от этого хода</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Создано</string>
     <string name="chat_produced_files_more">ещё %1$d</string>
@@ -333,6 +334,7 @@
     <string name="chat_shell_empty">Сначала введите команду shell</string>
     <string name="chat_subagent_one_shot_read_only">Одноразовая сессия субагента: повторные сообщения не поддерживаются</string>
     <string name="chat_shell_attachments_unsupported">В режиме shell нельзя прикреплять файлы</string>
+    <string name="chat_command_images_unsupported">Команды со слэшем не поддерживают вложения изображений</string>
     <string name="chat_terminal_connect_failed">Не удалось открыть терминал</string>
     <string name="share_send_image_to">Отправить изображение…</string>
     <string name="share_no_connected_servers">Нет подключённых серверов</string>

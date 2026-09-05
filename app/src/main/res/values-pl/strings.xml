@@ -226,6 +226,7 @@
     <string name="chat_turn_ledger_collapse">Ukryj szczegóły tury</string>
     <string name="chat_turn_ledger_tool_calls">Wywołania narzędzi: %1$d</string>
     <string name="chat_turn_ledger_tokens">Tokeny: %1$s</string>
+    <string name="chat_turn_fork_from_here">Rozgałęź od tej tury</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Utworzone</string>
     <string name="chat_produced_files_more">+%1$d więcej</string>
@@ -414,6 +415,7 @@
     <string name="chat_shell_empty">Najpierw wpisz polecenie powłoki</string>
     <string name="chat_subagent_one_shot_read_only">Jednorazowa sesja podagenta: wiadomości następcze nie są obsługiwane</string>
     <string name="chat_shell_attachments_unsupported">Tryb powłoki nie obsługuje załączników</string>
+    <string name="chat_command_images_unsupported">Polecenia z ukośnikiem nie obsługują załączników graficznych</string>
     <string name="chat_terminal_connect_failed">Nie udało się otworzyć terminala</string>
     <string name="server_settings_providers">Dostawcy</string>
     <string name="server_settings_providers_desc">Włącz lub wyłącz dostawców dla tego serwera</string>

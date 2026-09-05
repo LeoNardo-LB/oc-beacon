@@ -30,8 +30,9 @@ class ManageSessionUseCase @Inject constructor(
         return sessionRepository.createSession(serverId, opts).getOrThrow()
     }
 
-    suspend fun forkSession(serverId: String, sessionId: String): Session =
-        sessionRepository.fork(serverId, sessionId).getOrThrow()
+    /** [messageId] = 锚点消息 id（#312⑤ 轮尾锚点；null = 末尾 fork，既有行为）。 */
+    suspend fun forkSession(serverId: String, sessionId: String, messageId: String? = null): Session =
+        sessionRepository.fork(serverId, sessionId, messageId).getOrThrow()
 
     suspend fun renameSession(serverId: String, sessionId: String, title: String) {
         sessionRepository.rename(serverId, sessionId, title).getOrThrow()

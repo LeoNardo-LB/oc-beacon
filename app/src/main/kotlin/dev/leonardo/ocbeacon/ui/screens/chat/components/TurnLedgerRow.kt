@@ -51,6 +51,8 @@ internal fun TurnLedgerRow(
     turnKey: String,
     summary: TurnLedgerSummary,
     expandedStates: MutableMap<String, Boolean>,
+    /** #312⑤ 轮尾锚点入口：「从此轮分支」（null = 不显示——后端无 fork 域时）。 */
+    onForkFromTurn: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val expanded = expandedStates[turnKey] == true
@@ -120,6 +122,21 @@ internal fun TurnLedgerRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
                     )
                 }
+                // #312⑤ 轮尾锚点：从此轮分支（展开区尾动作行——primary 色可点文本，
+                // 与台账弱化摘要形成主次；点击走 forkSession(锚点消息 id)）
+                if (onForkFromTurn != null) {
+                    Text(
+                        text = stringResource(R.string.chat_turn_fork_from_here),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clip(ShapeTokens.small)
+                            .clickable(
+                                onClickLabel = stringResource(R.string.chat_turn_fork_from_here),
+                            ) { onForkFromTurn() }
+                            .padding(horizontal = SpacingTokens.SM.dp, vertical = 2.dp),
+                    )
+                }
             }
         }
     }
@@ -155,6 +172,8 @@ internal fun MaybeTurnLedgerRow(
     anchorMsgId: String,
     turnNumber: Int?,
     expandedStates: MutableMap<String, Boolean>,
+    /** #312⑤ 「从此轮分支」（锚点 = anchorMsgId；null = 动作不显示）。 */
+    onForkFromTurn: ((String) -> Unit)? = null,
 ) {
     if (turn == null || turnNumber == null) return
     if (turn.durationMs == null) return
@@ -162,6 +181,7 @@ internal fun MaybeTurnLedgerRow(
         turnKey = "ledger_" + anchorMsgId,
         summary = turnLedgerSummary(turn, turnNumber),
         expandedStates = expandedStates,
+        onForkFromTurn = onForkFromTurn?.let { cb -> { cb(anchorMsgId) } },
         modifier = Modifier.padding(top = SpacingTokens.XS.dp),
     )
 }

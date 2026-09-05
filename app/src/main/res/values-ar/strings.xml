@@ -232,6 +232,7 @@
     <string name="chat_turn_ledger_collapse">إخفاء تفاصيل الدور</string>
     <string name="chat_turn_ledger_tool_calls">استدعاءات الأدوات: %1$d</string>
     <string name="chat_turn_ledger_tokens">الرموز: %1$s</string>
+    <string name="chat_turn_fork_from_here">تفرع من هذا الدور</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">النواتج</string>
     <string name="chat_produced_files_more">+%1$d أخرى</string>
@@ -422,6 +423,7 @@
     <string name="chat_shell_empty">يرجى إدخال أمر شل أولاً</string>
     <string name="chat_subagent_one_shot_read_only">جلسة وكيل فرعي للاستخدام مرة واحدة: لا يتم دعم الرسائل التابعة</string>
     <string name="chat_shell_attachments_unsupported">وضع الشل لا يدعم المرفقات</string>
+    <string name="chat_command_images_unsupported">أوامر الشرطة المائلة لا تدعم مرفقات الصور</string>
     <string name="chat_terminal_connect_failed">فشل فتح الطرفية</string>
     <string name="server_settings_providers">المزودون</string>
     <string name="server_settings_providers_desc">تفعيل أو تعطيل المزودين لهذا الخادم</string>

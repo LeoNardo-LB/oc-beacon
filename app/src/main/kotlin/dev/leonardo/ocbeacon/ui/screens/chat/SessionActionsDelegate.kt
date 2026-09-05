@@ -645,12 +645,17 @@ internal class SessionActionsDelegate(
         }
     }
 
-    /** Fork 当前会话。返回新会话或 null。 */
-    fun forkSession(onResult: (Session?) -> Unit) {
+    /**
+     * Fork 当前会话。返回新会话或 null。
+     * [anchorMessageId] = 轮尾锚点消息 id（#312⑤「从此轮分支」；null = 末尾
+     * fork 既有行为——锚点语义由各 ApiClient 解释：DSH 反解 "seq-{seq}" 上
+     * atSeq wire，V1/V2 messageID 字段）。
+     */
+    fun forkSession(anchorMessageId: String? = null, onResult: (Session?) -> Unit) {
         scope.launch {
             try {
-                val session = manageSessionUseCase.forkSession(serverId, sessionId)
-                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Forked session $sessionId -> ${session.id}")
+                val session = manageSessionUseCase.forkSession(serverId, sessionId, anchorMessageId)
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Forked session $sessionId@${anchorMessageId ?: "tail"} -> ${session.id}")
                 onResult(session)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e

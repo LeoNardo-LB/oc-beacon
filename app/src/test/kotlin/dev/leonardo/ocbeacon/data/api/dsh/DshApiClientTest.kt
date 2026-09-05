@@ -20,6 +20,7 @@ import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -2218,5 +2219,43 @@ class DshApiClientTest {
             .get("payload")!!.jsonObject["args"]!!.jsonObject["request"]!!.jsonObject
         assertFalse(request.containsKey("workspaceId"))
         assertEquals("/tmp", request["cwd"]!!.jsonPrimitive.content)
+    }
+
+    // ============ #312⑤ fork 锚点（session.fork atSeq 上 wire）============
+
+    /** 服务器契约：SessionForkRequest { sessionId, atSeq? }——atSeq 为事件
+     * seq 锚点（fork 到包含该事件的已完成轮次边界；dsh-api-session-controller
+     * types.ts SessionForkRequest）。DSH 会话的消息 id 即 "seq-{seq}"（DshEventMapper
+     * messageId 契约）——轮尾锚点入口传入后反解上 wire。 */
+    @Test
+    fun `forkSession sends atSeq for seq anchor messageId`() = runTest {
+        val engine = MockEngine { respond(ok("""{"sessionId":"session-fork-1"}"""), HttpStatusCode.OK, jsonHeaders()) }
+        val session = client(engine).forkSession(conn, "s-1", "seq-42")
+        assertEquals("session-fork-1", session.id)
+        val req = captureRequests(engine).single()
+        assertEquals("/api/session.fork", req.url.encodedPath)
+        val payload = json.parseToJsonElement(bodyTextOf(req)).jsonObject["payload"]!!.jsonObject
+        assertEquals("s-1", payload["sessionId"]!!.jsonPrimitive.content)
+        assertEquals(42L, payload["atSeq"]!!.jsonPrimitive.long)
+    }
+
+    /** 无锚点（null）→ 载荷仅 sessionId（既有行为：fork 到最后完成轮次）。 */
+    @Test
+    fun `forkSession omits atSeq without messageId`() = runTest {
+        val engine = MockEngine { respond(ok("""{"sessionId":"session-fork-2"}"""), HttpStatusCode.OK, jsonHeaders()) }
+        client(engine).forkSession(conn, "s-1", null)
+        val payload = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single())).jsonObject["payload"]!!.jsonObject
+        assertEquals("s-1", payload["sessionId"]!!.jsonPrimitive.content)
+        assertFalse(payload.containsKey("atSeq"))
+    }
+
+    /** 非 seq 形态 id（V2 msg_* 等）→ 不上 atSeq（安全降级为无锚点 fork，不发噬变量）。 */
+    @Test
+    fun `forkSession omits atSeq for non-seq messageId`() = runTest {
+        val engine = MockEngine { respond(ok("""{"sessionId":"session-fork-3"}"""), HttpStatusCode.OK, jsonHeaders()) }
+        client(engine).forkSession(conn, "s-1", "msg_abc")
+        val payload = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single())).jsonObject["payload"]!!.jsonObject
+        assertEquals("s-1", payload["sessionId"]!!.jsonPrimitive.content)
+        assertFalse(payload.containsKey("atSeq"))
     }
 }

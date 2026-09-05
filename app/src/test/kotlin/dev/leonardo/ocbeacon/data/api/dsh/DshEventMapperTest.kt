@@ -1253,4 +1253,20 @@ class DshEventMapperTest {
             assertEquals("$type", listOf(DshMappedEvent.Ignored(DshIgnoreReason.WORKFLOW_AGENT)), mapped)
         }
     }
+
+    // ============ #312⑤ seq 锚点反解（messageId 契约双向）============
+
+    /** seqOf："seq-{seq}" → seq；其余（null/V2 msg_x 形态/流式宿主/残缺/非数/负数）→ null。 */
+    @Test
+    fun `seqOf parses seq message id and rejects others`() {
+        assertEquals(42L, DshEventMapper.seqOf("seq-42"))
+        assertEquals(0L, DshEventMapper.seqOf("seq-0"))
+        assertNull(DshEventMapper.seqOf(null))
+        assertNull(DshEventMapper.seqOf("msg_abc"))
+        assertNull(DshEventMapper.seqOf("dsh-t2s1"))
+        assertNull(DshEventMapper.seqOf("dsh-call-x"))
+        assertNull(DshEventMapper.seqOf("seq-"))
+        assertNull(DshEventMapper.seqOf("seq-abc"))
+        assertNull(DshEventMapper.seqOf("seq--5"))
+    }
 }

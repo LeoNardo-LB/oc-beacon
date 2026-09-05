@@ -293,7 +293,14 @@ class DshApiClient @Inject constructor(
         unsupported("session.unrevert")
 
     override suspend fun forkSession(conn: ServerConnection, sessionId: String, messageId: String?): Session {
-        val payload = buildJsonObject { put("sessionId", sessionId) }
+        val payload = buildJsonObject {
+            put("sessionId", sessionId)
+            // #312⑤ 轮尾锚点：DSH 消息 id = "seq-{seq}"（DshEventMapper
+            // messageId 契约）→ 服务器 atSeq 字段（SessionForkRequest
+            // {sessionId, atSeq?}——锚到包含该事件的已完成轮次边界；非 seq 形态
+            // （V2 msg_*/流式宿主）安全降级为无锚点（既有行为）。
+            DshEventMapper.seqOf(messageId)?.let { put("atSeq", it) }
+        }
         val value = rpc.call(conn, "session.fork", payload) { it }.getOrElse { e -> throw e }
         return mapSessionEcho(value, fallbackId = sessionId)
     }

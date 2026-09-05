@@ -220,6 +220,7 @@
     <string name="chat_turn_ledger_collapse">Nascondi dettagli del turno</string>
     <string name="chat_turn_ledger_tool_calls">Chiamate strumenti: %1$d</string>
     <string name="chat_turn_ledger_tokens">Token: %1$s</string>
+    <string name="chat_turn_fork_from_here">Crea un ramo da questo turno</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Prodotto</string>
     <string name="chat_produced_files_more">+%1$d altri</string>
@@ -406,6 +407,7 @@
     <string name="chat_shell_empty">Inserisci prima un comando shell</string>
     <string name="chat_subagent_one_shot_read_only">Sessione subagente monouso: i messaggi di follow-up non sono supportati</string>
     <string name="chat_shell_attachments_unsupported">La modalità shell non supporta gli allegati</string>
+    <string name="chat_command_images_unsupported">I comandi slash non supportano allegati di immagini</string>
     <string name="chat_terminal_connect_failed">Impossibile aprire il terminale</string>
     <string name="server_settings_providers">Provider</string>
     <string name="server_settings_providers_desc">Abilita o disabilita i provider per questo server</string>

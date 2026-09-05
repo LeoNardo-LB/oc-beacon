@@ -220,6 +220,7 @@
     <string name="chat_turn_ledger_collapse">Tur ayrıntılarını gizle</string>
     <string name="chat_turn_ledger_tool_calls">Araç çağrıları: %1$d</string>
     <string name="chat_turn_ledger_tokens">Token: %1$s</string>
+    <string name="chat_turn_fork_from_here">Bu turdan çatalla</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Üretilen</string>
     <string name="chat_produced_files_more">+%1$d daha</string>
@@ -406,6 +407,7 @@
     <string name="chat_shell_empty">Önce bir kabuk komutu girin</string>
     <string name="chat_subagent_one_shot_read_only">Tek kullanımlık alt ajan oturumu: sonraki mesajlar desteklenmez</string>
     <string name="chat_shell_attachments_unsupported">Kabuk modu ekleri desteklemiyor</string>
+    <string name="chat_command_images_unsupported">Eğik çizgi komutları resim eklerini desteklemez</string>
     <string name="chat_terminal_connect_failed">Terminal açılamadı</string>
     <string name="server_settings_providers">Sağlayıcılar</string>
     <string name="server_settings_providers_desc">Bu sunucu için sağlayıcıları etkinleştir veya devre dışı bırak</string>

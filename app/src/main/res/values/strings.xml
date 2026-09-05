@@ -207,6 +207,7 @@
     <string name="chat_turn_ledger_collapse">Hide turn details</string>
     <string name="chat_turn_ledger_tool_calls">Tool calls: %1$d</string>
     <string name="chat_turn_ledger_tokens">Tokens: %1$s</string>
+    <string name="chat_turn_fork_from_here">Fork from this turn</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Produced</string>
     <string name="chat_produced_files_more">+%1$d more</string>
@@ -348,6 +349,7 @@
     <string name="chat_shell_empty">Enter a shell command first</string>
     <string name="chat_subagent_one_shot_read_only">One-shot subagent session: follow-up messages are not supported</string>
     <string name="chat_shell_attachments_unsupported">Shell mode does not support attachments</string>
+    <string name="chat_command_images_unsupported">Slash commands do not support image attachments</string>
     <string name="chat_terminal_connect_failed">Failed to open terminal</string>
     
     <!-- Patch File Actions -->

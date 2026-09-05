@@ -1393,9 +1393,9 @@ class ChatViewModel @Inject constructor(
     fun onSessionUpdated(session: Session) =
         sessionActions.onSessionUpdated(session)
 
-    fun forkSession(onResult: (Session?) -> Unit) {
+    fun forkSession(anchorMessageId: String? = null, onResult: (Session?) -> Unit) {
         if (fastFailIfLinkBlocked()) return  // #267：断连快速失败（不回调——对话框已给反馈）
-        sessionActions.forkSession(onResult)
+        sessionActions.forkSession(anchorMessageId, onResult)
     }
 
     fun renameSession(title: String, onResult: (Boolean) -> Unit) =

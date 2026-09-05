@@ -220,6 +220,7 @@
     <string name="chat_turn_ledger_collapse">ターンの詳細を隠す</string>
     <string name="chat_turn_ledger_tool_calls">ツール呼び出し: %1$d</string>
     <string name="chat_turn_ledger_tokens">トークン: %1$s</string>
+    <string name="chat_turn_fork_from_here">このターンから分岐</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">成果物</string>
     <string name="chat_produced_files_more">他 %1$d 件</string>
@@ -406,6 +407,7 @@
     <string name="chat_shell_empty">先にシェルコマンドを入力してください</string>
     <string name="chat_subagent_one_shot_read_only">単発サブエージェントセッション：追加メッセージには対応していません</string>
     <string name="chat_shell_attachments_unsupported">シェルモードでは添付ファイルは利用できません</string>
+    <string name="chat_command_images_unsupported">スラッシュコマンドは画像添付に対応していません</string>
     <string name="chat_terminal_connect_failed">ターミナルの起動に失敗しました</string>
     <string name="server_settings_providers">プロバイダー</string>
     <string name="server_settings_providers_desc">このサーバーのプロバイダーを有効／無効にする</string>

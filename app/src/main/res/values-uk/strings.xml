@@ -226,6 +226,7 @@
     <string name="chat_turn_ledger_collapse">Сховати деталі раунду</string>
     <string name="chat_turn_ledger_tool_calls">Виклики інструментів: %1$d</string>
     <string name="chat_turn_ledger_tokens">Токени: %1$s</string>
+    <string name="chat_turn_fork_from_here">Відгалужити від цього ходу</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Створено</string>
     <string name="chat_produced_files_more">ще %1$d</string>
@@ -414,6 +415,7 @@
     <string name="chat_shell_empty">Спочатку введіть команду shell</string>
     <string name="chat_subagent_one_shot_read_only">Одноразова сесія субагента: повторні повідомлення не підтримуються</string>
     <string name="chat_shell_attachments_unsupported">У режимі shell вкладення не підтримуються</string>
+    <string name="chat_command_images_unsupported">Команди зі слешем не підтримують вкладення зображень</string>
     <string name="chat_terminal_connect_failed">Не вдалося відкрити термінал</string>
     <string name="server_settings_providers">Провайдери</string>
     <string name="server_settings_providers_desc">Увімкнути або вимкнути провайдери для цього сервера</string>

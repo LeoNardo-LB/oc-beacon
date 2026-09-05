@@ -31,4 +31,56 @@ class DateFormattersTest {
         assertEquals(format.format(java.util.Date(1788109999000L)), rendered)
         assertEquals(false, rendered == "—")
     }
+
+    // ============ #312① 相对时间戳（timeAgo）纯函数边界规格 ============
+
+    private val now = 1_788_109_999_000L
+
+    /** 秒级（<60s）→ "<1m"；含未来时间（时钟偏移宽容下限）。 */
+    @Test
+    fun `timeAgo under one minute renders lt-1m`() {
+        assertEquals("<1m", DateFormatters.timeAgo(now - 59_999L, now))
+        assertEquals("<1m", DateFormatters.timeAgo(now - 1L, now))
+        assertEquals("<1m", DateFormatters.timeAgo(now, now))
+    }
+
+    @Test
+    fun `timeAgo future timestamp falls back to lt-1m`() {
+        assertEquals("<1m", DateFormatters.timeAgo(now + 5_000L, now))
+    }
+
+    /** 分钟级 → "{n}m"（n 向下取整）；60_000ms 恰为 1m。 */
+    @Test
+    fun `timeAgo minute bucket boundaries`() {
+        assertEquals("1m", DateFormatters.timeAgo(now - 60_000L, now))
+        assertEquals("4m", DateFormatters.timeAgo(now - 299_999L, now))
+        assertEquals("5m", DateFormatters.timeAgo(now - 300_000L, now))
+        assertEquals("59m", DateFormatters.timeAgo(now - 3_599_999L, now))
+    }
+
+    /** 小时级（<24h）→ "{n}h"；3_600_000ms 恰为 1h。 */
+    @Test
+    fun `timeAgo hour bucket boundaries`() {
+        assertEquals("1h", DateFormatters.timeAgo(now - 3_600_000L, now))
+        assertEquals("1h", DateFormatters.timeAgo(now - 7_199_999L, now))
+        assertEquals("2h", DateFormatters.timeAgo(now - 7_200_000L, now))
+        assertEquals("23h", DateFormatters.timeAgo(now - 86_399_999L, now))
+    }
+
+    /** 天级（<7d）→ "{n}d"；86_400_000ms 恰为 1d。 */
+    @Test
+    fun `timeAgo day bucket boundaries`() {
+        assertEquals("1d", DateFormatters.timeAgo(now - 86_400_000L, now))
+        assertEquals("3d", DateFormatters.timeAgo(now - 3 * 86_400_000L, now))
+        assertEquals("6d", DateFormatters.timeAgo(now - 7 * 86_400_000L + 1L, now))
+    }
+
+    /** ≥7d 回退绝对格式（跨周相对天数失去读价值——messageTimestamp）。 */
+    @Test
+    fun `timeAgo beyond seven days falls back to absolute format`() {
+        val old = now - 7 * 86_400_000L
+        assertEquals(DateFormatters.messageTimestamp(old, now), DateFormatters.timeAgo(old, now))
+        val muchOlder = now - 30 * 86_400_000L
+        assertEquals(DateFormatters.messageTimestamp(muchOlder, now), DateFormatters.timeAgo(muchOlder, now))
+    }
 }

@@ -618,7 +618,7 @@ internal fun ChunkedAssistantMessage(
                 ) {
                     Text(
                         text = remember(currentMessage.message.time.created) {
-                            dev.leonardo.ocbeacon.util.DateFormatters.messageTimestamp(currentMessage.message.time.created)
+                            dev.leonardo.ocbeacon.util.DateFormatters.timeAgo(currentMessage.message.time.created)
                         },
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
@@ -893,7 +893,7 @@ internal fun SegmentedAssistantMessage(
                 ) {
                     Text(
                         text = remember(currentMessage.message.time.created) {
-                            dev.leonardo.ocbeacon.util.DateFormatters.messageTimestamp(currentMessage.message.time.created)
+                            dev.leonardo.ocbeacon.util.DateFormatters.timeAgo(currentMessage.message.time.created)
                         },
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),

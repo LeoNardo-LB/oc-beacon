@@ -274,6 +274,24 @@ fun ChatMessageList(
         if (!feedbackEnabled || wireId == null) return null to null
         return messageFeedbackMap[wireId] to { rating -> rateMessage(wireId, rating) }
     }
+
+    /**
+     * #312⑤ 轮尾锚点：「从此轮分支」（台账行动作）→ forkSession(锚点消息 id)。
+     * 成功导航到 fork 会话（navigateToChildSession 对合法会话 id 形态放行——
+     * 与 ChatScreen onForkSession 成功路径同语义）；失败 snackbar（静默失败
+     * 不可接受，chat_fork_failed 既有文案）。
+     */
+    val forkFromTurn: (String) -> Unit = { anchorMsgId ->
+        viewModel.forkSession(anchorMsgId) { session ->
+            if (session != null) {
+                navigateToChildSession(session.id)
+            } else {
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(context.getString(R.string.chat_fork_failed))
+                }
+            }
+        }
+    }
     val toolProgress by viewModel.chatRepositoryExposed.getActiveToolProgressForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
     val stepProgress by viewModel.chatRepositoryExposed.getStepProgressForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
     val compactionState by viewModel.chatRepositoryExposed.getCompactionStateForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
@@ -1357,6 +1375,7 @@ fun ChatMessageList(
                                             anchorMsgId = turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id,
                                             turnNumber = turnOrdinalByMsgId[msg.message.id],
                                             expandedStates = turnLedgerExpandedStates,
+                                            onForkFromTurn = forkFromTurn,
                                         )
                                         // #311 Task4 产出文件行：台账行之后（气泡下方），
                                         // 空产出/流式进行中不挂载（Maybe 内部以
@@ -1425,6 +1444,7 @@ fun ChatMessageList(
                                             anchorMsgId = turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id,
                                             turnNumber = turnOrdinalByMsgId[msg.message.id],
                                             expandedStates = turnLedgerExpandedStates,
+                                            onForkFromTurn = forkFromTurn,
                                         )
                                         // #311 Task4 产出文件行（同上：台账行之后，空/流式不挂载）
                                         MaybeProducedFilesRow(
@@ -1653,6 +1673,7 @@ fun ChatMessageList(
                                         anchorMsgId = turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id,
                                         turnNumber = turnOrdinalByMsgId[msg.message.id],
                                         expandedStates = turnLedgerExpandedStates,
+                                        onForkFromTurn = forkFromTurn,
                                     )
                                     // #311 Task4 产出文件行（台账行之后；空产出/
                                     // 流式进行中不挂载——durationMs 完结判定同台账）

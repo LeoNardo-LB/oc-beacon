@@ -220,6 +220,7 @@
     <string name="chat_turn_ledger_collapse">턴 세부정보 숨기기</string>
     <string name="chat_turn_ledger_tool_calls">도구 호출: %1$d</string>
     <string name="chat_turn_ledger_tokens">토큰: %1$s</string>
+    <string name="chat_turn_fork_from_here">이 턴에서 분기</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">산출물</string>
     <string name="chat_produced_files_more">외 %1$d개</string>
@@ -406,6 +407,7 @@
     <string name="chat_shell_empty">먼저 쉘 명령어를 입력하세요</string>
     <string name="chat_subagent_one_shot_read_only">원샷 서브에이전트 세션: 후속 메시지는 지원되지 않습니다</string>
     <string name="chat_shell_attachments_unsupported">쉘 모드에서는 첨부 파일을 지원하지 않습니다</string>
+    <string name="chat_command_images_unsupported">슬래시 명령은 이미지 첨부를 지원하지 않습니다</string>
     <string name="chat_terminal_connect_failed">터미널 열기 실패</string>
     <string name="server_settings_providers">프로바이더</string>
     <string name="server_settings_providers_desc">이 서버의 프로바이더를 활성화 또는 비활성화하세요</string>

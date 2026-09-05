@@ -57,6 +57,30 @@ object DateFormatters {
     fun formatEpochOrDash(format: SimpleDateFormat, epochMs: Long): String =
         if (epochMs > 0) format.format(java.util.Date(epochMs)) else "—"
 
+    /**
+     * #312① 相对时间戳（纯函数，通用 <1m/5m/2h/3d 符号形态——语言无关，
+     * 与 git/Telegram 同族的国际惯例缩写；消息卡 meta 区轻量显示）：
+     *
+     * - <60s（含未来——时钟偏移宽容下限）→ "<1m"
+     * - <60m → "{n}m"（n 向下取整）
+     * - <24h → "{n}h"
+     * - <7d → "{n}d"
+     * - ≥7d → 回退 [messageTimestamp] 绝对格式（跨周相对天数失去读价值）
+     *
+     * 阈值边界由 DateFormattersTest 钉死。调用方 remember(timeMs) 缓存
+     * （相对值不随时间自动刷新——重进组合时重算，陈旧窗口可接受）。
+     */
+    fun timeAgo(timeMs: Long, nowMs: Long = System.currentTimeMillis()): String {
+        val delta = nowMs - timeMs
+        return when {
+            delta < 60_000L -> "<1m"
+            delta < 60 * 60_000L -> (delta / 60_000L).toString() + "m"
+            delta < 24 * 60 * 60_000L -> (delta / (60 * 60_000L)).toString() + "h"
+            delta < 7 * 24 * 60 * 60_000L -> (delta / (24 * 60 * 60_000L)).toString() + "d"
+            else -> messageTimestamp(timeMs, nowMs)
+        }
+    }
+
     /** "yyyyMMdd_HHmmss"（Locale.US）——崩溃日志文件名解析。 */
     fun crashFileNameParse(): SimpleDateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
 }

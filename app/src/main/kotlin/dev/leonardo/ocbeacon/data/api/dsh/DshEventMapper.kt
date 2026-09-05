@@ -54,8 +54,21 @@ private const val TAG = "DshEventMapper"
  */
 object DshEventMapper {
 
+    /** 整装消息 id 前缀（user/message、assistant/message；反解见 [seqOf]）。 */
+    private const val SEQ_ID_PREFIX = "seq-"
+
     /** 整装消息 id（user/message、assistant/message）。 */
-    fun messageId(seq: Long): String = "seq-" + seq
+    fun messageId(seq: Long): String = SEQ_ID_PREFIX + seq
+
+    /**
+     * #312⑤ 反解：整装消息 id "seq-{seq}" → seq（fork 轮尾锚点上
+     * wire ——session.fork atSeq 契约）；其余形态（null/V2 msg_x/流式宿主/
+     * 工具宿主/残缺/非数/负数）→ null（调用方安全降级为无锚点）。
+     * 与 [messageId] 构成双向契约（同一前缀常量）。
+     */
+    fun seqOf(messageId: String?): Long? =
+        messageId?.takeIf { it.startsWith(SEQ_ID_PREFIX) }
+            ?.removePrefix(SEQ_ID_PREFIX)?.toLongOrNull()?.takeIf { it >= 0 }
 
     /** 实况流式宿主消息 id（assistant/chunk 族）。 */
     fun streamingMessageId(turn: Long, step: Long): String = "dsh-t" + turn + "s" + step

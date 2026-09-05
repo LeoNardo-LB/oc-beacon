@@ -95,10 +95,10 @@ internal fun MessageBubble(
                 // 拆开的目的是让标签行可独立收窄内边距（标题行贴边，#234 V6 反馈）。
                 val contentHPad = if (compact) 10.dp else SpacingTokens.LG.dp
                 // ① 标签栏（统一）：[时间] [前导图标?] [类型标签] [Spacer] [右侧操作]
-                // 2026-08-16（标题栏规范）：条件时间戳——当天 HH:mm:ss，
-                // 非当天 yyyy-MM-dd HH:mm:ss（DateFormatters.messageTimestamp）
+                // #312① 相对时间戳：当天 <1m/5m/2h 形态，≥7d 回退绝对格式
+                // （DateFormatters.timeAgo——阈值边界见 DateFormattersTest）
                 val timeText = remember(timeMs) {
-                    DateFormatters.messageTimestamp(timeMs)
+                    DateFormatters.timeAgo(timeMs)
                 }
                 Row(
                     modifier = Modifier

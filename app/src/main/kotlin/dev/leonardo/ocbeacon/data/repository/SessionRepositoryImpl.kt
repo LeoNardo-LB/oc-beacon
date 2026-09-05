@@ -248,9 +248,9 @@ class SessionRepositoryImpl @Inject constructor(
         sessionApi.renameSession(conn, sessionId, title)
     }
 
-    override suspend fun fork(serverId: String, sessionId: String): Result<Session> = runCatchingCancellable {
+    override suspend fun fork(serverId: String, sessionId: String, messageId: String?): Result<Session> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        sessionApi.forkSession(conn, sessionId)
+        sessionApi.forkSession(conn, sessionId, messageId)
     }
 
     // ============ 归档 ============
