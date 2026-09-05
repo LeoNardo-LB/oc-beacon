@@ -998,11 +998,20 @@ class DshApiClient @Inject constructor(
         directory: String?,
         sessionId: String?,
     ): Boolean {
-        // #318 V012：取消 = waterfall rejected（error 形态待 E2E 校准——先 message 单键）
+        // #328（2026-09-05 网关源码定音）：rejected 的 error 必须含 name（非空）+
+        // message,可选 code/details——parseRemoteEventRejection(gateway index.js
+        // L158-159)对缺 name 形态抛 invalid Remote event result → rpcFailure →
+        // ok:false → waterfall 永不解除（#327 验收真机实测代理冻结根因）。
+        // 正字法=web 端 questionError:name=UserQuestionError + code=ASK_CANCELLED
+        // （服务器 restoreUserQuestionError 按 name 复原类型,工具层收规范错误）。
         if (protocolOf(conn) == DshWireProtocol.V012) {
             val outcome = buildJsonObject {
                 put("kind", "rejected")
-                put("error", buildJsonObject { put("message", "user cancelled ask_user_question") })
+                put("error", buildJsonObject {
+                    put("name", "UserQuestionError")
+                    put("message", "the user cancelled ask_user_question")
+                    put("code", "ASK_CANCELLED")
+                })
             }
             return rpc.eventsResult(conn, requestId, outcome).isSuccess
         }

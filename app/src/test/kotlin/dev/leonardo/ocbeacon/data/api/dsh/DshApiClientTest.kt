@@ -1316,6 +1316,45 @@ class DshApiClientTest {
         assertEquals("allowed-once", (valueEl as kotlinx.serialization.json.JsonPrimitive).content)
     }
 
+    /**
+     * #328(2026-09-05 网关源码+真机定音):V012 提问拒绝 waterfall 的 error 必须
+     * name 非空+message,可选 code/details——网关 parseRemoteEventRejection
+     * (gateway index.js L158-159)对缺 name 的 error 抛 invalid Remote event
+     * result → dispatchRpc rpcFailure → ok:false(app isSuccess=false,
+     * #327 验收执行员真机实测)→ waterfall 永不解除 → 代理冻结在提问等待。
+     * 正字法=web 端 questionError:{name:"UserQuestionError",code:"ASK_CANCELLED"}
+     * (user-questions restoreUserQuestionError 按 name 复原类型,工具层收规范错误)。
+     */
+    @Test
+    fun `v012 rejectQuestion error envelope carries name and code`() = runTest {
+        val engine = MockEngine {
+            respond(
+                """{"type":"server-response","rpcId":"r","result":{"ok":true,"value":null}}""",
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        val registry = mockk<DshConnectionRegistry>(relaxed = true)
+        every { registry.protocolOf(any()) } returns DshWireProtocol.V012
+        every { registry.cookieHeader(any()) } returns null
+        every { registry.clientId(any()) } returns "client-1"
+        val c = DshApiClient(
+            DshRpcClient(ApiClient(HttpClient(engine), json), registry),
+            FixedProtocolSource(DshWireProtocol.V012),
+        )
+        assertTrue(c.rejectQuestion(conn, "frame-q", null, "ses-2"))
+        val req = captureRequests(engine).single()
+        assertEquals("/api/\$events/result", req.url.encodedPath)
+        val args = json.parseToJsonElement(bodyTextOf(req)).jsonObject["payload"]!!.jsonObject["args"]!!.jsonObject
+        assertEquals("frame-q", args["eventId"]!!.jsonPrimitive.content)
+        assertEquals("client-1", args["clientId"]!!.jsonPrimitive.content)
+        val outcome = args["outcome"]!!.jsonObject
+        assertEquals("rejected", outcome["kind"]!!.jsonPrimitive.content)
+        val error = outcome["error"]!!.jsonObject
+        assertEquals("UserQuestionError", error["name"]!!.jsonPrimitive.content)
+        assertEquals("ASK_CANCELLED", error["code"]!!.jsonPrimitive.content)
+        assertTrue(error["message"]!!.jsonPrimitive.content.isNotBlank())
+    }
+
     /** V012 rename 追加失败仅告警——会话创建结果不受影响(本地 title 回退保真)。 */
     @Test
     fun `v012 createSession tolerates rename failure with warning only`() = runTest {
