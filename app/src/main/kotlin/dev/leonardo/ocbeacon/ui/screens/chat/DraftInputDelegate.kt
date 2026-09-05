@@ -83,6 +83,16 @@ internal class DraftInputDelegate(
      */
     fun searchFilesForMention(query: String, quoted: Boolean = false) {
         fileSearchJob?.cancel()
+        // #310⑤ 验收簇1修复：懒创建会话在首条消息前 sessionId 为空串——DSH 候选 RPC
+        // (fileReferences/sessionReferenceResolver 均需 agentId)空串必致 URL 编码失败
+        // (真机铁证:cannot encode an empty path segment)。静默清空+debug 日志,不发必败请求;
+        // 首条消息发出后 session 建立,@ 补全自然可用(web 语义对位:web 会话在进入时即存在)。
+        if (sessionIdProvider().isBlank()) {
+            AppLogger.d(TAG, "Mention search skipped: session not created yet (blank sessionId)")
+            _fileSearchResults.value = emptyList()
+            _sessionSearchResults.value = emptyList()
+            return
+        }
         fileSearchJob = scope.launch {
             if (query.isNotEmpty()) delay(150) // debounce
             try {
