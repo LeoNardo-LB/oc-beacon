@@ -858,4 +858,8 @@
     <string name="dsh_token_dialog_hint">トークンまたは URL</string>
     <string name="dsh_token_dialog_connect">接続</string>
     <string name="dsh_token_dialog_rejected">トークンがサーバーに拒否されました。確認してもう一度お試しください。</string>
+    <string name="server_pair_help_title">初回ペアリング</string>
+    <string name="server_pair_help_manual">手動：このサーバーを保存して接続し、上部バナーの「トークンを入力」をタップしてサーバー起動行のトークンを貼り付けてください</string>
+    <string name="server_pair_help_adb">USB（dev ビルド）：ホストで ./scripts/dsh-pair.sh を実行するとトークンが自動注入されます</string>
+    <string name="server_pair_help_deeplink">またはホストで ./scripts/dsh-pair.sh --lan を実行し、ocbeacon:// リンクをスキャンまたはタップしてこのフォームを自動入力できます</string>
 </resources>

@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.service
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
+import dev.leonardo.ocbeacon.domain.model.ServerType
 import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -89,7 +90,11 @@ class ConnectionLifecycleCoordinator @Inject constructor(
         // 按后端签名去重（host 大小写/默认端口/尾斜杠归一化——#34）：
         // "看起来不同但实际相同"的 URL 不得绕过。
         val existingBackend = servers.values.firstOrNull { state ->
-            ServerConfig.sameBackend(state.url, state.username, server.url, server.username)
+            // #325④：类型化判定——DSH↔DSH 忽略 username（DSH 鉴权无 username 语义）
+            ServerConfig.sameBackend(
+                state.serverType, state.url, state.username,
+                server.serverType, server.url, server.username,
+            )
         }
         if (existingBackend != null) {
             AppLogger.w(
@@ -148,13 +153,23 @@ class ConnectionLifecycleCoordinator @Inject constructor(
     fun isManaged(serverId: String): Boolean = servers.containsKey(serverId)
 
     /**
-     * 查找与给定 (url, username) 指向同一后端的已管理服务器配置。
+     * 查找与给定 (url, username[, serverType]) 指向同一后端的已管理服务器配置。
      * 供 UI 在发起连接前预检：非 null 表示该后端已连接，应拒绝新连接并
      * 提示用户（避免 Service 静默拒绝导致 UI 永久显示 "Connecting"）。
+     *
+     * #325④：候选类型传 [ServerType.Dsh] 时 username 不参与判定（默认参数
+     * 保持历史调用点双 OpenCode 语义）。
      */
-    fun findDuplicateBackend(url: String, username: String?): ServerConfig? =
+    fun findDuplicateBackend(
+        url: String,
+        username: String?,
+        serverType: ServerType = ServerType.OpenCode,
+    ): ServerConfig? =
         servers.values.firstOrNull { state ->
-            ServerConfig.sameBackend(state.url, state.username, url, username)
+            ServerConfig.sameBackend(
+                state.serverType, state.url, state.username,
+                serverType, url, username,
+            )
         }
 
     /** 活跃服务器配置视图（FGS 持久通知内容用）。 */

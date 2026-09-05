@@ -856,4 +856,8 @@
     <string name="dsh_token_dialog_hint">Jeton ou URL</string>
     <string name="dsh_token_dialog_connect">Connecter</string>
     <string name="dsh_token_dialog_rejected">Jeton rejeté par le serveur. Vérifiez-le et réessayez.</string>
+    <string name="server_pair_help_title">Premier jumelage</string>
+    <string name="server_pair_help_manual">Manuel : enregistrez et connectez ce serveur, puis touchez « Saisir le jeton » sur la bannière et collez le jeton de la ligne de démarrage du serveur</string>
+    <string name="server_pair_help_adb">USB (versions dev) : exécutez ./scripts/dsh-pair.sh sur l\'hôte — le jeton est injecté automatiquement</string>
+    <string name="server_pair_help_deeplink">Ou exécutez ./scripts/dsh-pair.sh --lan sur l\'hôte et scannez ou touchez le lien ocbeacon:// pour préremplir ce formulaire</string>
 </resources>

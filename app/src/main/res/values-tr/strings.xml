@@ -858,4 +858,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="dsh_token_dialog_hint">Belirteç veya URL</string>
     <string name="dsh_token_dialog_connect">Bağlan</string>
     <string name="dsh_token_dialog_rejected">Belirteç sunucu tarafından reddedildi. Kontrol edip tekrar deneyin.</string>
+    <string name="server_pair_help_title">İlk eşleştirme</string>
+    <string name="server_pair_help_manual">Manuel: bu sunucuyu kaydedip bağlayın, ardından bannerdaki "Token gir"e dokunun ve sunucu başlatma satırındaki tokeni yapıştırın</string>
+    <string name="server_pair_help_adb">USB (dev sürümleri): ana makinede ./scripts/dsh-pair.sh çalıştırın — token otomatik olarak enjekte edilir</string>
+    <string name="server_pair_help_deeplink">Veya ana makinede ./scripts/dsh-pair.sh --lan çalıştırın ve bu formu doldurmak için ocbeacon:// bağlantısını tarayın veya dokunun</string>
 </resources>

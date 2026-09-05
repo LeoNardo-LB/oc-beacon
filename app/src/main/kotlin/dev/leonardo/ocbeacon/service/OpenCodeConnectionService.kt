@@ -19,6 +19,7 @@ import dev.leonardo.ocbeacon.data.repository.EventDispatcher
 import dev.leonardo.ocbeacon.data.repository.ServerDataStore
 import dev.leonardo.ocbeacon.domain.model.QuestionState
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
+import dev.leonardo.ocbeacon.domain.model.ServerType
 import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.usecase.ManagePermissionUseCase
@@ -406,8 +407,12 @@ class OpenCodeConnectionService : Service() {
      * 供 UI 在发起连接前预检：若返回非 null，说明该后端已通过另一个服务器条目连接，
      * 应拒绝新连接并提示用户，避免 Service 静默拒绝导致 UI 永久显示 "Connecting"。
      */
-    fun findDuplicateBackend(url: String, username: String?): ServerConfig? =
-        lifecycleCoordinator.findDuplicateBackend(url, username)
+    fun findDuplicateBackend(
+        url: String,
+        username: String?,
+        serverType: ServerType = ServerType.OpenCode,
+    ): ServerConfig? =
+        lifecycleCoordinator.findDuplicateBackend(url, username, serverType)
 
     // ============ 内部 ============
 

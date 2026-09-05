@@ -51,12 +51,24 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToAbout: () -> Unit = {},
     onNavigateToDiagnostics: () -> Unit = {},
+    // #325②：DSH 配对深链预填载荷（NavGraph 传入；消费后回调置空防重放）
+    pendingPairRequest: dev.leonardo.ocbeacon.data.api.dsh.DshPairPayload? = null,
+    onPairRequestConsumed: () -> Unit = {},
     viewModel: HomeViewModel
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     // #154a：崩溃启动提示（未确认 FATAL → Home 顶部横幅）
     val crashNotice by viewModel.crashNotice.collectAsStateWithLifecycle()
+
+    // #325②：配对深链到达——打开添加服务器对话框并预填 URL/DSH 类型
+    //（token 已在 MainActivity 深链处理时后台交换；此处只填表）
+    androidx.compose.runtime.LaunchedEffect(pendingPairRequest) {
+        pendingPairRequest?.let { payload ->
+            viewModel.prefillAddServerDialog(payload.baseUrl)
+            onPairRequestConsumed()
+        }
+    }
 
     // 跟踪电池优化状态，应用恢复时重新检查
     var isBatteryOptimized by remember { mutableStateOf(false) }
@@ -285,6 +297,8 @@ fun HomeScreen(
         if (uiState.showAddServerDialog) {
             ServerDialog(
                 server = uiState.editingServer,
+                // #325②：配对深链预填（仅新建对话框生效；编辑沿用条目现值）
+                prefillUrl = uiState.editingServer?.let { null } ?: uiState.pairPrefillUrl,
                 onDismiss = { viewModel.hideServerDialog() },
                 onSave = { name, url, username, password, autoConnect, serverType ->
                     viewModel.saveServer(name, url, username, password, autoConnect, serverType)

@@ -864,4 +864,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="dsh_token_dialog_hint">Token atau URL</string>
     <string name="dsh_token_dialog_connect">Hubungkan</string>
     <string name="dsh_token_dialog_rejected">Token ditolak oleh server. Periksa dan coba lagi.</string>
+    <string name="server_pair_help_title">Pemasangan pertama</string>
+    <string name="server_pair_help_manual">Manual: simpan dan sambungkan server ini, lalu ketuk "Masukkan token" pada banner dan tempel token dari baris mulai server</string>
+    <string name="server_pair_help_adb">USB (build dev): jalankan ./scripts/dsh-pair.sh di host — token disuntikkan otomatis</string>
+    <string name="server_pair_help_deeplink">Atau jalankan ./scripts/dsh-pair.sh --lan di host lalu pindai atau ketuk tautan ocbeacon:// untuk mengisi formulir ini</string>
 </resources>

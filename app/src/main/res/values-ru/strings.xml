@@ -867,4 +867,8 @@
     <string name="dsh_token_dialog_hint">Токен или URL</string>
     <string name="dsh_token_dialog_connect">Подключиться</string>
     <string name="dsh_token_dialog_rejected">Сервер отклонил токен. Проверьте его и попробуйте снова.</string>
+    <string name="server_pair_help_title">Первое сопряжение</string>
+    <string name="server_pair_help_manual">Вручную: сохраните и подключите этот сервер, затем нажмите «Ввести токен» на баннере и вставьте токен из строки запуска сервера</string>
+    <string name="server_pair_help_adb">По USB (dev-сборки): выполните ./scripts/dsh-pair.sh на хосте — токен будет введён автоматически</string>
+    <string name="server_pair_help_deeplink">Или выполните ./scripts/dsh-pair.sh --lan на хосте и отсканируйте или нажмите ссылку ocbeacon://, чтобы заполнить эту форму</string>
 </resources>

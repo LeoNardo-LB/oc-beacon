@@ -874,4 +874,8 @@
     <string name="dsh_token_dialog_hint">الرمز أو عنوان URL</string>
     <string name="dsh_token_dialog_connect">اتصال</string>
     <string name="dsh_token_dialog_rejected">رفض الخادم الرمز. تحقق منه وحاول مجددًا.</string>
+    <string name="server_pair_help_title">الإقران الأول</string>
+    <string name="server_pair_help_manual">يدويًا: احفظ هذا الخادم واتصل به، ثم انقر على "إدخال الرمز" في الشريط العلوي والصق الرمز من سطر بدء تشغيل الخادم</string>
+    <string name="server_pair_help_adb">عبر USB (إصدارات التطوير): شغّل ./scripts/dsh-pair.sh على المضيف — يتم إدخال الرمز تلقائيًا</string>
+    <string name="server_pair_help_deeplink">أو شغّل ./scripts/dsh-pair.sh --lan على المضيف وامسح رابط ocbeacon:// أو انقر عليه لتعبئة هذا النموذج تلقائيًا</string>
 </resources>

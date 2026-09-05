@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.service
 import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
 import dev.leonardo.ocbeacon.domain.model.ApiVersion
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
+import dev.leonardo.ocbeacon.domain.model.ServerType
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import io.mockk.Runs
 import io.mockk.every
@@ -48,9 +49,14 @@ class ConnectionLifecycleCoordinatorTest {
     private val pollingJobs = mutableMapOf<String, Job>()
     private val pollScope = CoroutineScope(Dispatchers.Unconfined)
 
-    private fun config(id: String, url: String = "http://192.168.1.10:4199") = ServerConfig(
-        id = id, url = url, username = "opencode",
-        password = "x", apiVersion = ApiVersion.V1,
+    private fun config(
+        id: String,
+        url: String = "http://192.168.1.10:4199",
+        type: ServerType = ServerType.OpenCode,
+        user: String = "opencode",
+    ) = ServerConfig(
+        id = id, url = url, username = user,
+        password = "x", apiVersion = ApiVersion.V1, serverType = type,
     )
 
     @Before
@@ -167,6 +173,19 @@ class ConnectionLifecycleCoordinatorTest {
         job.cancel()
         assertTrue(collected.any { it == setOf("s1", "s2") })
         assertTrue(collected.any { it.isEmpty() })
+    }
+
+    @Test
+    fun `C11_connect同DSH后端不同username去重_325`() {
+        // #325④：DSH 鉴权无 username 语义——同 url 的两条 DSH 条目不得各自建连
+        coordinator.connect(config("s1", url = "http://10.0.0.5:3080", type = ServerType.Dsh, user = "dsh"))
+        coordinator.connect(config("s2", url = "http://10.0.0.5:3080/", type = ServerType.Dsh, user = "opencode"))
+        verify(exactly = 1) { manager.startConnection(any(), any()) }
+        assertEquals(setOf("s1"), coordinator.activeServerIds.value)
+        // UI 预检同规：DSH 候选任意 username 都命中已连后端
+        assertNotNull(
+            coordinator.findDuplicateBackend("http://10.0.0.5:3080", "whoever", ServerType.Dsh),
+        )
     }
 
     @Test

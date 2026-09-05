@@ -95,9 +95,34 @@ data class ServerConfig(
          *
          * 归一化：协议 + host 小写、端口显式化（默认端口补全）、路径去尾斜杠。
          * 用于防止到同一后端的两条 SSE 连接投递重复事件（backlog #34）。
+         *
+         * 等价于 [sameBackend] 类型化重载的双 OpenCode 形态（#325④收口后保留
+         * 供类型未知的历史调用点；新调用点应传类型）。
          */
         fun sameBackend(urlA: String, userA: String?, urlB: String, userB: String?): Boolean {
-            return normalizeBackendKey(urlA, userA) == normalizeBackendKey(urlB, userB)
+            return sameBackend(ServerType.OpenCode, urlA, userA, ServerType.OpenCode, urlB, userB)
+        }
+
+        /**
+         * #325④：类型化后端同一性判定——**双侧均为 Dsh 时 username 不参与键**。
+         *
+         * 根因（调研 2026-09-04 §5④）：DSH 鉴权是 token→cookie（authority 绑定），
+         * username 对 DSH 条目无语义；旧键把 username 混入 → 同一 DSH 后端因
+         * username 不同（debug 通道 "dsh" vs 手动 "opencode"）裂成两条条目/连接。
+         *
+         * 保守收窄：仅 DSH↔DSH 忽略 username；其余组合（含跨类型）维持旧键——
+         * #319 类型错配修正通道（debug_server_type 覆写既有条目）依赖跨类型
+         * 命中，不得收窄。
+         */
+        fun sameBackend(
+            typeA: ServerType, urlA: String, userA: String?,
+            typeB: ServerType, urlB: String, userB: String?,
+        ): Boolean {
+            return if (typeA == ServerType.Dsh && typeB == ServerType.Dsh) {
+                normalizeBackendKey(urlA, null) == normalizeBackendKey(urlB, null)
+            } else {
+                normalizeBackendKey(urlA, userA) == normalizeBackendKey(urlB, userB)
+            }
         }
 
         private fun normalizeBackendKey(url: String, username: String?): String {

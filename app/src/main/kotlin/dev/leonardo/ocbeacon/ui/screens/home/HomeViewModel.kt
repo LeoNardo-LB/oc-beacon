@@ -46,6 +46,8 @@ data class HomeUiState(
     val connectionErrors: Map<String, String> = emptyMap(),
     val showAddServerDialog: Boolean = false,
     val editingServer: ServerConfig? = null,
+    /** #325②：配对深链预填的 DSH 服务器地址（null = 无预填）。 */
+    val pairPrefillUrl: String? = null,
     val isLoading: Boolean = true,
 )
 
@@ -258,12 +260,20 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(showAddServerDialog = true, editingServer = null) }
     }
 
+    /**
+     * #325②：配对深链预填——打开添加对话框并预填 DSH 地址（token 已在
+     * 深链到达时后台交换；此处只填表，保存仍由用户确认）。
+     */
+    fun prefillAddServerDialog(url: String) {
+        _uiState.update { it.copy(showAddServerDialog = true, editingServer = null, pairPrefillUrl = url) }
+    }
+
     fun showEditServerDialog(server: ServerConfig) {
         _uiState.update { it.copy(showAddServerDialog = true, editingServer = server) }
     }
 
     fun hideServerDialog() {
-        _uiState.update { it.copy(showAddServerDialog = false, editingServer = null) }
+        _uiState.update { it.copy(showAddServerDialog = false, editingServer = null, pairPrefillUrl = null) }
     }
 
     fun saveServer(
@@ -329,7 +339,7 @@ class HomeViewModel @Inject constructor(
 
         // backlog #34：同后端第二连接预检 —— 若该后端已通过另一服务器条目连接，
         // 直接拒绝并提示，避免 Service 静默拒绝导致 UI 永久显示 "Connecting"。
-        val duplicate = serviceBinder?.getService()?.findDuplicateBackend(server.url, server.username)
+        val duplicate = serviceBinder?.getService()?.findDuplicateBackend(server.url, server.username, server.serverType)
         if (duplicate != null) {
             AppLogger.w(TAG, "Server '${server.displayName}' shares backend with already-connected '${duplicate.displayName}', rejecting duplicate connection")
             _uiState.update {

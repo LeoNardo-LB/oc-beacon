@@ -82,17 +82,23 @@ private fun deriveServerNameFromUrl(normalizedUrl: String): String {
 @Composable
 internal fun ServerDialog(
     server: ServerConfig?,
+    // #325②：配对深链预填（DSH 地址；非 null 时新建对话框默认选中 DSH 类型）
+    prefillUrl: String? = null,
     onDismiss: () -> Unit,
     onSave: (name: String, url: String, username: String, password: String, autoConnect: Boolean, serverType: ServerType) -> Unit
 ) {
     // #115（D2-L25）：服务器名输入 saveable
     var name by rememberSaveable { mutableStateOf(server?.name ?: "") }
-    var url by remember { mutableStateOf(server?.url ?: "http://") }
+    // #325②：深链预填优先于 "http://" 占位（编辑态沿用条目现值）
+    var url by remember { mutableStateOf(server?.url ?: prefillUrl ?: "http://") }
     var username by remember { mutableStateOf(server?.username ?: "opencode") }
     var password by remember { mutableStateOf(server?.password ?: "") }
     var autoConnect by remember { mutableStateOf(server?.autoConnect ?: false) }
-    // #276：服务器类型（enum 是 Serializable，rememberSaveable 原生支持）
-    var serverType by rememberSaveable { mutableStateOf(server?.serverType ?: ServerType.OpenCode) }
+    // #276：服务器类型（enum 是 Serializable，rememberSaveable 原生支持）；
+    // #325②：配对深链预填 → 默认 DSH
+    var serverType by rememberSaveable {
+        mutableStateOf(server?.serverType ?: if (prefillUrl != null) ServerType.Dsh else ServerType.OpenCode)
+    }
     val isDsh = serverType == ServerType.Dsh
 
     var urlError by remember { mutableStateOf<String?>(null) }
@@ -199,6 +205,44 @@ internal fun ServerDialog(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    // #325：DSH 首次配对辅助区（三通道指引——粘贴手动[现状]/
+                    // adb 注入[dev]/深链填表；轻量自有形态，无新增依赖）
+                    if (isDsh) {
+                        Surface(
+                            shape = ShapeTokens.medium,
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = AlphaTokens.FAINT),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.server_pair_help_title),
+                                    style = MaterialTheme.typography.titleSmall,
+                                )
+                                Text(
+                                    text = stringResource(R.string.server_pair_help_manual),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = stringResource(R.string.server_pair_help_adb),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = stringResource(R.string.server_pair_help_deeplink),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
 
                     // #276：DSH 无鉴权（§2.1）——用户名/密码字段隐藏
                     if (!isDsh) {

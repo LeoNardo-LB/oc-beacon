@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import dev.leonardo.ocbeacon.BuildConfig
+import dev.leonardo.ocbeacon.data.api.dsh.DshPairPayload
 import dev.leonardo.ocbeacon.ui.theme.AppMotion
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
@@ -78,6 +79,8 @@ fun NavGraph(
     deepLinkFlow: MutableSharedFlow<SessionDeepLink>,
     debugChannelFlow: MutableSharedFlow<String>,
     sharedImagesFlow: SharedFlow<List<Uri>>,
+    // #325②：DSH 配对深链（ocbeacon://pair）——预填服务器添加对话框
+    pairRequestFlow: MutableSharedFlow<DshPairPayload>,
     settingsRepository: SettingsRepository,
     serverRepository: ServerRepository,
     sessionRepository: SessionRepository,
@@ -185,6 +188,19 @@ fun NavGraph(
         }
     }
 
+    // #325②：DSH 配对深链——回到 Home 并预填服务器添加对话框（token 已在
+    // MainActivity 后台交换；深链只填表，保存仍需用户确认）
+    var pendingPairRequest by remember { mutableStateOf<DshPairPayload?>(null) }
+    LaunchedEffect(Unit) {
+        pairRequestFlow.collect { payload ->
+            // 消费事件，避免重组时重放（debugChannelFlow 同款）
+            pairRequestFlow.resetReplayCache()
+            AppLogger.i(TAG, "Pair deep-link → Home prefill: " + payload.baseUrl)
+            navController.popBackStack(HomeNav.route, inclusive = false)
+            pendingPairRequest = payload
+        }
+    }
+
     // 监听来自通知点击的深度链接事件
     LaunchedEffect(Unit) {
         deepLinkFlow.collect { deepLink ->
@@ -269,7 +285,10 @@ fun NavGraph(
                 },
                 onNavigateToAbout = {
                     navController.navigate(AboutNav.route)
-                }
+                },
+                // #325②：配对深链预填载荷（Home 消费后置 null 防重放）
+                pendingPairRequest = pendingPairRequest,
+                onPairRequestConsumed = { pendingPairRequest = null },
             )
         }
 

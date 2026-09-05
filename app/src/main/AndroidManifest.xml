@@ -52,6 +52,16 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="image/*" />
             </intent-filter>
+
+            <!-- #325②：DSH 首次配对深链（ocbeacon://pair?url=…&token=…，宿主
+                 scripts/dsh-pair.sh 产出）——自动填表 + 后台 token 交换，
+                 保存仍需用户确认（预填不自动连接）。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="ocbeacon" android:host="pair" />
+            </intent-filter>
         </activity>
 
         <!-- #305：dataSync|specialUse 双声明——Android 14+（API 34）运行时用

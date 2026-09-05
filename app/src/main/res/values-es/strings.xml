@@ -858,4 +858,8 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="dsh_token_dialog_hint">Token o URL</string>
     <string name="dsh_token_dialog_connect">Conectar</string>
     <string name="dsh_token_dialog_rejected">El servidor rechazó el token. Compruébalo e inténtalo de nuevo.</string>
+    <string name="server_pair_help_title">Emparejamiento inicial</string>
+    <string name="server_pair_help_manual">Manual: guarde y conecte este servidor, luego toque «Introducir token» en el banner y pegue el token de la línea de inicio del servidor</string>
+    <string name="server_pair_help_adb">USB (versiones dev): ejecute ./scripts/dsh-pair.sh en el host; el token se inyecta automáticamente</string>
+    <string name="server_pair_help_deeplink">O ejecute ./scripts/dsh-pair.sh --lan en el host y escanee o toque el enlace ocbeacon:// para rellenar este formulario</string>
 </resources>

@@ -106,6 +106,14 @@ class MainActivity : ComponentActivity() {
     private val _sharedImagesFlow = MutableSharedFlow<List<Uri>>(replay = 1)
     val sharedImagesFlow = _sharedImagesFlow.asSharedFlow()
 
+    /**
+     * #325②：DSH 配对深链事件（ocbeacon://pair）——NavGraph 订阅并预填
+     * 服务器添加对话框（token 已在此后台交换，见 [handlePairDeepLink]）。
+     * replay=1 保证冷启动（NavGraph 尚未收集）时不丢失。
+     */
+    private val _pairRequestFlow = MutableSharedFlow<dev.leonardo.ocbeacon.data.api.dsh.DshPairPayload>(replay = 1)
+    val pairRequestFlow = _pairRequestFlow.asSharedFlow()
+
     /** 通过 attachBaseContext 为本 Activity 实例应用的语言代码。 */
     private var appliedLanguage: String = ""
 
@@ -166,6 +174,8 @@ class MainActivity : ComponentActivity() {
         handleShareIntent(intent)
         // #132 调试通道：外部参数直达（debug 构建专用）
         handleDebugProfileIntent(intent)
+        // #325②：DSH 配对深链（ocbeacon://pair）——全 flavor 可用
+        handlePairDeepLink(intent)
 
         // 2026-08-20 竞态取证埋点（debug_race extra；release 也生效——概率 bug
         // 需在用户日常环境复现取证，故不设 BuildConfig.DEBUG 门）
@@ -237,6 +247,7 @@ class MainActivity : ComponentActivity() {
                             deepLinkFlow = _deepLinkFlow,
                             debugChannelFlow = _debugChannelNavFlow,
                             sharedImagesFlow = sharedImagesFlow,
+                            pairRequestFlow = _pairRequestFlow,
                             settingsRepository = settingsRepository,
                             serverRepository = serverRepository,
                             sessionRepository = sessionRepository,
@@ -273,6 +284,8 @@ class MainActivity : ComponentActivity() {
         handleShareIntent(intent)
         // #132 调试通道：外部参数直达（debug 构建专用）
         handleDebugProfileIntent(intent)
+        // #325②：DSH 配对深链（ocbeacon://pair）
+        handlePairDeepLink(intent)
     }
     
     private fun handleSessionIntent(intent: Intent?) {
@@ -344,6 +357,31 @@ class MainActivity : ComponentActivity() {
             }
             AppLogger.i(TAG, "Received ${uris.size} shared image(s)")
             _sharedImagesFlow.tryEmit(uris)
+        }
+    }
+
+    /**
+     * #325②：DSH 首次配对深链（ACTION_VIEW，ocbeacon://pair?url=…&token=…）。
+     *
+     * 全 flavor 可用（beta/stable 无调试通道，这是普通用户的首次配对路径）。
+     * 解析经 [dev.leonardo.ocbeacon.data.api.dsh.DshPairingParser]（纯函数，
+     * 单测覆盖）；命中后：① 发射 [pairRequestFlow] 供 UI 预填添加对话框；
+     * ② 后台 token 交换（cookie 落 registry——DataStore 持久化、authority
+     * 绑定），用户保存条目并连接时探测直接命中 cookie。交换失败或用户改了
+     * URL → TokenNeeded 横幅手动粘贴（#317 现状通道）兜底。
+     *
+     * 安全边界：深链只**预填表单**，不自动保存/连接——保存仍需用户点确认；
+     * 恶意深链最多把对话框填成攻击者地址，与用户手输同面。
+     */
+    private fun handlePairDeepLink(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_VIEW) return
+        val data = intent.dataString ?: return
+        val payload = dev.leonardo.ocbeacon.data.api.dsh.DshPairingParser.parsePairUri(data) ?: return
+        AppLogger.i(TAG, "Pair deep-link received: " + payload.baseUrl)
+        _pairRequestFlow.tryEmit(payload)
+        lifecycleScope.launch {
+            val ok = dshConnectionRegistry.exchangeToken(payload.baseUrl, payload.token)
+            AppLogger.i(TAG, "pair token exchange for " + payload.baseUrl + ": " + if (ok) "ok" else "rejected")
         }
     }
 
@@ -426,7 +464,14 @@ class MainActivity : ComponentActivity() {
             try {
                 val existing = serverRepository.getServersFlow().first()
                     .firstOrNull {
-                        ServerConfig.sameBackend(it.url, it.username, profile.url, profile.username)
+                        // #325④：类型化判定——DSH↔DSH 忽略 username（配对/调试通道
+                        // username 漂移不再裂条目）；profile 类型未指定时按既有条目
+                        // 类型解析（幂等复用语义不变）。
+                        val resolvedType = profile.serverType ?: it.serverType
+                        ServerConfig.sameBackend(
+                            it.serverType, it.url, it.username,
+                            resolvedType, profile.url, profile.username,
+                        )
                     }
                 val serverId: String
                 if (existing != null) {

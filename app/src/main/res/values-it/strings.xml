@@ -858,4 +858,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="dsh_token_dialog_hint">Token o URL</string>
     <string name="dsh_token_dialog_connect">Connetti</string>
     <string name="dsh_token_dialog_rejected">Token rifiutato dal server. Controllalo e riprova.</string>
+    <string name="server_pair_help_title">Prima associazione</string>
+    <string name="server_pair_help_manual">Manuale: salva e connetti questo server, poi tocca "Inserisci token" nel banner e incolla il token dalla riga di avvio del server</string>
+    <string name="server_pair_help_adb">USB (build dev): esegui ./scripts/dsh-pair.sh sull\'host — il token viene iniettato automaticamente</string>
+    <string name="server_pair_help_deeplink">Oppure esegui ./scripts/dsh-pair.sh --lan sull\'host e scansiona o tocca il link ocbeacon:// per precompilare questo modulo</string>
 </resources>
