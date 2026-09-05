@@ -1,6 +1,6 @@
 # dsh-align-batch1（2026-09-03）
 
-> 状态：进行中（项①② 已实现+单测绿；项③④⑤ 待做）
+> 状态：五子项已全部实现+AI 真机验收 10✔/2BLOCKED（2026-09-05 收尾,详见 `2026-09-04-fix-308-always-326-327.md` §十四 与 `docs/acceptance/2026-09-05-309-batch1-and-328.md`;项③④⑤ 由后续提交补齐——审计 `docs/research/2026-09-05-audit-309-313.md`）
 > 关联：backlog **#309** · 路线 `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §11.4 批 1 · 挂点 `docs/research/dsh-gap-2026-09-01/implementability-ui.md`
 > 来源：用户「设置目标继续」→ 目标第二项
 
