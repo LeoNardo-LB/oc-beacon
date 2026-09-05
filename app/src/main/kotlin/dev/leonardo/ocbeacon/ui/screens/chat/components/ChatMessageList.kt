@@ -1358,6 +1358,13 @@ fun ChatMessageList(
                                             turnNumber = turnOrdinalByMsgId[msg.message.id],
                                             expandedStates = turnLedgerExpandedStates,
                                         )
+                                        // #311 Task4 产出文件行：台账行之后（气泡下方），
+                                        // 空产出/流式进行中不挂载（Maybe 内部以
+                                        // durationMs 判完结，SSE 铁律同台账）。
+                                        MaybeProducedFilesRow(
+                                            turn = chunkTurn,
+                                            onOpenFile = onOpenFile,
+                                        )
                                     }
                                     } // Column（#310④：气泡 + 台账行）
                                 }
@@ -1418,6 +1425,11 @@ fun ChatMessageList(
                                             anchorMsgId = turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id,
                                             turnNumber = turnOrdinalByMsgId[msg.message.id],
                                             expandedStates = turnLedgerExpandedStates,
+                                        )
+                                        // #311 Task4 产出文件行（同上：台账行之后，空/流式不挂载）
+                                        MaybeProducedFilesRow(
+                                            turn = segTurn,
+                                            onOpenFile = onOpenFile,
                                         )
                                     }
                                     } // Column（#310④：气泡 + 台账行）
@@ -1641,6 +1653,12 @@ fun ChatMessageList(
                                         anchorMsgId = turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id,
                                         turnNumber = turnOrdinalByMsgId[msg.message.id],
                                         expandedStates = turnLedgerExpandedStates,
+                                    )
+                                    // #311 Task4 产出文件行（台账行之后；空产出/
+                                    // 流式进行中不挂载——durationMs 完结判定同台账）
+                                    MaybeProducedFilesRow(
+                                        turn = renderableTurns[displayItemIndex],
+                                        onOpenFile = onOpenFile,
                                     )
                                 }
                                 if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {

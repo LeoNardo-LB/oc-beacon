@@ -28,11 +28,14 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import androidx.compose.foundation.text.selection.SelectionContainer
 import dev.leonardo.ocbeacon.ui.screens.chat.isReasoningStreaming
 import dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent
+import dev.leonardo.ocbeacon.ui.screens.chat.tools.SpecialToolCardKind
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.ToolCallCard
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.ViewToolRequest
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.cards.PatchCard
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.cards.ShellCard
+import dev.leonardo.ocbeacon.ui.screens.chat.tools.cards.SkillToolCard
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.cards.TodoListCard
+import dev.leonardo.ocbeacon.ui.screens.chat.tools.specialToolCardKind
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.cards.ToolCardScaffold
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalAutoExpandTools
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalExpandReasoning
@@ -218,9 +221,12 @@ private fun PartContentInner(
                     isExpanded = toolExpandedStates[part.id] ?: true,
                     onToggleExpand = { onToggleToolExpanded(part.id, true) }
                 )
-            } else if (part.tool == "question") {
+            } else if (specialToolCardKind(part.tool) == SpecialToolCardKind.Question) {
                 // 2026-08-14 根因修复：question 工具是内部提问机制（与 todoread
                 // 同模式按工具名分流），**不渲染通用工具卡片**——
+                // #311 Task5：DSH 同语义工具恒名 'ask_user_question'（契约 ③，
+                // dsh-tool-ask-user index.js:15-16）——双名同走本分支，
+                // 呈现复用既有 Asked 形态（下方 Completed/Error 两态）。
                 // 活跃（未完成）：不渲染任何内容（提问由嵌入的 QuestionCard 展示，
                 //   避免出现"Question loading 卡片"与提问卡片重复）；
                 // 完成（历史）：渲染答案视图（ToolCardScaffold "Asked" + 已选选项）。
@@ -282,6 +288,16 @@ private fun PartContentInner(
                     }
                     // 未完成（活跃）：不渲染——提问由 QuestionCard 展示
                 }
+            } else if (specialToolCardKind(part.tool) == SpecialToolCardKind.Skill) {
+                // #311 Task5 skill 行（契约 ③；web mod32:107 折叠卡语义）：
+                // args={name}、result=指令全文——名称 + 状态摘要 + 指令折叠卡
+                // （默认收起）；未结算（RUNNING）卡内不渲染（SSE 铁律同台账，
+                // question 分支「活跃不渲染」同哲学）。
+                SkillToolCard(
+                    part = part,
+                    isExpanded = toolExpandedStates[part.id] ?: false,
+                    onToggleExpand = { onToggleToolExpanded(part.id, false) },
+                )
             } else {
                 // 历史兼容：工具名非 "question" 但输出含问题数据的（旧服务器/旧数据）
                 val completedState = part.state as? ToolState.Completed

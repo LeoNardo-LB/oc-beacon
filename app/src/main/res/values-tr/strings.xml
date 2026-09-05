@@ -219,6 +219,12 @@
     <string name="chat_turn_ledger_collapse">Tur ayrıntılarını gizle</string>
     <string name="chat_turn_ledger_tool_calls">Araç çağrıları: %1$d</string>
     <string name="chat_turn_ledger_tokens">Token: %1$s</string>
+    <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
+    <string name="chat_produced_files_label">Üretilen</string>
+    <string name="chat_produced_files_more">+%1$d daha</string>
+    <string name="chat_produced_files_open">%1$s öğesini aç</string>
+    <string name="chat_skill_title">Skill</string>
+    <string name="chat_skill_instructions">Talimatlar</string>
     <string name="chat_event_generic">Olay</string>
     <string name="chat_event_locate_task">Görevi bul</string>
     <string name="task_sheet_subagent_completed">Tamamlandı</string>

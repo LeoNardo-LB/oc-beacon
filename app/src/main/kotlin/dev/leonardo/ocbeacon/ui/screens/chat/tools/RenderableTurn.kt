@@ -44,6 +44,13 @@ data class RenderableTurn(
      * 「全完结才给值」同哲学）。
      */
     val tokensTotal: Long? = null,
+    /**
+     * #311 Task4 deliverables：turn 内产出文件（成功写类工具调用 args 路径，
+     * 首见序去重；TurnDeliverables fold 契约 ②）。从**原始 parts** 折（非
+     * renderItems——#247 同键折叠会吞后续同键卡的 args）；空列表 = 该轮
+     * 无产出（尾部行不挂载）。
+     */
+    val deliverableFiles: List<String> = emptyList(),
 )
 
 @Immutable
@@ -72,7 +79,9 @@ sealed class RenderItem {
 // #247 回合内连续同键 tool 卡去重（2026-08-28 用户裁决：首张 + ×N，同 #243 先例）
 // ---------------------------------------------------------------------------
 
-private val NON_DEDUP_TOOLS = setOf("todoread", "todowrite", "question")
+// #311 Task5：ask_user_question（DSH 恒名，契约 ③）与 skill 每次调用
+// 各自成行（答案/指令全文不可被 ×N 折叠吞掉）——同 question 先例入集。
+private val NON_DEDUP_TOOLS = setOf("todoread", "todowrite", "question", "ask_user_question", "skill")
 
 private fun ToolState.displayTitle(): String? = when (this) {
     is ToolState.Running -> title
@@ -222,6 +231,10 @@ fun computeRenderableTurn(
         .takeIf { it.size == assistantsForMeta.size }
         ?.sumOf { t -> (t.total ?: (t.input + t.output)).toLong() }
 
+    // #311 Task4 deliverables 预计算：成功写类调用 args 路径（首见序去重）。
+    // 输入 = 原始 parts（ordered 消息视觉序，含 DSH 工具卡宿主消息）。
+    val deliverablePaths = turnProducedFiles(ordered)
+
     // 用于 token 统计的 StepFinish
     val stepFinishes = if (isTurnLast) {
         ordered.flatMap { msg -> msg.parts.filterIsInstance<Part.StepFinish>() }
@@ -257,5 +270,6 @@ fun computeRenderableTurn(
         copyText = copyText,
         stepCount = ledgerStepCount,
         tokensTotal = ledgerTokensTotal,
+        deliverableFiles = deliverablePaths,
     )
 }

@@ -155,6 +155,12 @@
     <string name="chat_turn_ledger_collapse">Sembunyikan detail putaran</string>
     <string name="chat_turn_ledger_tool_calls">Panggilan alat: %1$d</string>
     <string name="chat_turn_ledger_tokens">Token: %1$s</string>
+    <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
+    <string name="chat_produced_files_label">Dihasilkan</string>
+    <string name="chat_produced_files_more">+%1$d lagi</string>
+    <string name="chat_produced_files_open">Buka %1$s</string>
+    <string name="chat_skill_title">Skill</string>
+    <string name="chat_skill_instructions">Instruksi</string>
     <string name="chat_event_generic">Acara</string>
     <string name="chat_event_locate_task">Temukan tugas</string>
     <string name="task_sheet_subagent_completed">Selesai</string>

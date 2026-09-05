@@ -225,6 +225,12 @@
     <string name="chat_turn_ledger_collapse">Сховати деталі раунду</string>
     <string name="chat_turn_ledger_tool_calls">Виклики інструментів: %1$d</string>
     <string name="chat_turn_ledger_tokens">Токени: %1$s</string>
+    <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
+    <string name="chat_produced_files_label">Створено</string>
+    <string name="chat_produced_files_more">ще %1$d</string>
+    <string name="chat_produced_files_open">Відкрити %1$s</string>
+    <string name="chat_skill_title">Skill</string>
+    <string name="chat_skill_instructions">Інструкції</string>
     <string name="chat_event_generic">Подія</string>
     <string name="chat_event_locate_task">Знайти завдання</string>
     <string name="task_sheet_subagent_completed">Завершено</string>

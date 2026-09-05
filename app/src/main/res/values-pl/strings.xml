@@ -225,6 +225,12 @@
     <string name="chat_turn_ledger_collapse">Ukryj szczegóły tury</string>
     <string name="chat_turn_ledger_tool_calls">Wywołania narzędzi: %1$d</string>
     <string name="chat_turn_ledger_tokens">Tokeny: %1$s</string>
+    <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
+    <string name="chat_produced_files_label">Utworzone</string>
+    <string name="chat_produced_files_more">+%1$d więcej</string>
+    <string name="chat_produced_files_open">Otwórz %1$s</string>
+    <string name="chat_skill_title">Skill</string>
+    <string name="chat_skill_instructions">Instrukcje</string>
     <string name="chat_event_generic">Zdarzenie</string>
     <string name="chat_event_locate_task">Zlokalizuj zadanie</string>
     <string name="task_sheet_subagent_completed">Ukończono</string>

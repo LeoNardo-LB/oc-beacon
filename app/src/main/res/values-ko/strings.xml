@@ -219,6 +219,12 @@
     <string name="chat_turn_ledger_collapse">턴 세부정보 숨기기</string>
     <string name="chat_turn_ledger_tool_calls">도구 호출: %1$d</string>
     <string name="chat_turn_ledger_tokens">토큰: %1$s</string>
+    <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
+    <string name="chat_produced_files_label">산출물</string>
+    <string name="chat_produced_files_more">외 %1$d개</string>
+    <string name="chat_produced_files_open">%1$s 열기</string>
+    <string name="chat_skill_title">Skill</string>
+    <string name="chat_skill_instructions">지침</string>
     <string name="chat_event_generic">이벤트</string>
     <string name="chat_event_locate_task">작업 찾기</string>
     <string name="task_sheet_subagent_completed">완료</string>
