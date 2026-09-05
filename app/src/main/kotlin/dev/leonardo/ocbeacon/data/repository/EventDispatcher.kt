@@ -153,6 +153,9 @@ class EventDispatcher @Inject constructor(
         // goal/change 帧到达即弃「No handler registered」，Session.goal 恒空，
         // GoalSheet 不翻转/FAB 角标不亮——一修双愈）
         bind(sessionHandler, SseEvent.SessionGoalChanged::class)
+        // DSH plan 投影 → SessionEventHandler 折叠（#310③；漏 bind 即静默丢弃，
+        // goal 前车之鉴——EventDispatcherPlan310Test 钉死）
+        bind(sessionHandler, SseEvent.SessionPlanChanged::class)
         // DSH 排队收件箱整快照 → DshQueueHandler（2026-09-01 QueueDock）
         bind(dshQueueHandler, SseEvent.QueueSnapshot::class)
         return map
@@ -414,6 +417,7 @@ class EventDispatcher @Inject constructor(
             is SseEvent.SessionTokenUsageChanged -> event.sessionId
             is SseEvent.SessionSubagentTimingChanged -> event.sessionId
             is SseEvent.SessionGoalChanged -> event.sessionId
+            is SseEvent.SessionPlanChanged -> event.sessionId
             is SseEvent.SessionContextPressureChanged -> event.sessionId
             is SseEvent.SessionContextBreakdownChanged -> event.sessionId
             is SseEvent.SessionStatsChanged -> event.sessionId

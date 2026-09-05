@@ -225,6 +225,16 @@ sealed class SseEvent {
     ) : SseEvent()
 
     /**
+     * DSH plan 投影变更（session/projection 帧 key=plan，#310③）。
+     * 由 SessionEventHandler 折叠进 Session.plan（last-wins；[plan] null = tombstone）。
+     */
+    @Serializable
+    data class SessionPlanChanged(
+        val sessionId: String,
+        val plan: DshPlanProjection?,
+    ) : SseEvent()
+
+    /**
      * DSH contextPressure 投影变更（session/projection 帧 key=contextPressure）。
      * 由 SessionEventHandler 折叠进 Session.contextPressure（last-wins）。
      */
@@ -273,7 +283,23 @@ sealed class SseEvent {
             val custom: Boolean = true,
             val options: List<Option>,
             /** V2 form field key（q0/q1...）；V1 为 null。用于 form reply 构造 answer map。 */
-            val key: String? = null
+            val key: String? = null,
+            /** #310③：DSH 问题描述正文（user-questions detail）——plan-review 时为计划全文。 */
+            val detail: String? = null,
+            /** #310③：呈现意图（只改呈现不改协议；不认识 kind 的 UI 按通用选项表渲染）。 */
+            val intent: Intent? = null,
+        )
+
+        /**
+         * #310③：调用方声明的呈现意图（dsh-user-questions AskUserQuestionIntent）。
+         * kind="plan-review"：detail 是待审计划全文，[approve] 命名批准选项的
+         * label（非位置、非布尔——服务端 intent.approve 即 option label 字符串），
+         * 其余选项均为否决。
+         */
+        @Serializable
+        data class Intent(
+            val kind: String? = null,
+            val approve: String? = null,
         )
 
         @Serializable

@@ -777,6 +777,10 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="permission_full_access_confirm_message">Przy pełnym dostępie agent uruchamia polecenia i edytuje pliki bez ograniczeń piaskownicy. Włączaj tylko dla zaufanych zadań.</string>
     <string name="permission_full_access_confirm_button">Przełącz na pełny dostęp</string>
     <string name="a11y_icon_permission_preset">Tryb uprawnień</string>
+    <string name="plan_chip_label">Plan</string>
+    <string name="plan_chip_active_a11y">Tryb Plan włączony — dotknij, aby wyłączyć (/plan off)</string>
+    <string name="plan_chip_pending_a11y">Przechodzenie do trybu Plan — dotknij, aby anulować (/plan off)</string>
+    <string name="plan_exit_failed">Nie udało się wyłączyć trybu Plan</string>
     <string name="server_settings_default_permission">Domyślne uprawnienia nowych sesji</string>
     <string name="agent_preset_locked">Preset agenta jest zablokowany dla tej sesji</string>
     <string name="agent_preset_switch_failed">Nie udało się zmienić presetu agenta</string>

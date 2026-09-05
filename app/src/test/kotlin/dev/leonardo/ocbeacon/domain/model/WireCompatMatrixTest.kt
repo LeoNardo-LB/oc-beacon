@@ -42,6 +42,8 @@ class WireCompatMatrixTest {
                 "blank", "agentPreset", "tokenUsage", "subagentTiming",
                 // backlog #285 批：goal + 环三投影（DSH 专属，OpenCode 恒 null 不落盘——encodeDefaults=false）
                 "goal", "contextPressure", "contextBreakdown", "sessionStats",
+                // backlog #310③：plan 投影裁剪视图（DSH 专属，同上不落盘）
+                "plan",
             ),
             names(Session.serializer()),
         )

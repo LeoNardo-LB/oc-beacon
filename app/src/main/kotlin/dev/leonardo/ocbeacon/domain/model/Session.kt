@@ -46,6 +46,8 @@ data class Session(
     val contextBreakdown: DshContextBreakdown? = null,
     /** DSH sessionStats 投影（全日志累计；OpenCode 恒 null）。 */
     val sessionStats: DshSessionStats? = null,
+    /** DSH plan 投影（session/projection 帧 key=plan 裁剪视图，#310③；OpenCode 恒 null）。 */
+    val plan: DshPlanProjection? = null,
 ) {
     @Serializable
     data class Time(

@@ -772,6 +772,10 @@
     <string name="permission_full_access_confirm_message">完全访问将允许智能体在不受沙箱限制的情况下运行命令和修改文件。仅对可信任务开启。</string>
     <string name="permission_full_access_confirm_button">切换到完全访问</string>
     <string name="a11y_icon_permission_preset">权限预设</string>
+    <string name="plan_chip_label">Plan</string>
+    <string name="plan_chip_active_a11y">Plan 模式已开启——点按关闭（/plan off）</string>
+    <string name="plan_chip_pending_a11y">正在切换到 Plan 模式——点按取消（/plan off）</string>
+    <string name="plan_exit_failed">退出 Plan 模式失败</string>
     <string name="server_settings_default_permission">新会话默认权限</string>
     <string name="agent_preset_locked">预设已锁定，无法切换</string>
     <string name="agent_preset_switch_failed">切换 Agent 预设失败</string>

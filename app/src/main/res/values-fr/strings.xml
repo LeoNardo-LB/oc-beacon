@@ -767,6 +767,10 @@
     <string name="permission_full_access_confirm_message">En accès complet, l\'agent exécute des commandes et modifie des fichiers sans restrictions de sandbox. À activer uniquement pour des tâches de confiance.</string>
     <string name="permission_full_access_confirm_button">Passer en accès complet</string>
     <string name="a11y_icon_permission_preset">Mode d\'autorisation</string>
+    <string name="plan_chip_label">Plan</string>
+    <string name="plan_chip_active_a11y">Mode Plan activé — touchez pour le désactiver (/plan off)</string>
+    <string name="plan_chip_pending_a11y">Activation du mode Plan — touchez pour annuler (/plan off)</string>
+    <string name="plan_exit_failed">Échec de la sortie du mode Plan</string>
     <string name="server_settings_default_permission">Autorisation par défaut des nouvelles sessions</string>
     <string name="agent_preset_locked">Le preset agent est verrouillé pour cette session</string>
     <string name="agent_preset_switch_failed">Échec du changement de preset agent</string>

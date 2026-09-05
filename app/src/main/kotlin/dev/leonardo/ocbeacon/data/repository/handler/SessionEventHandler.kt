@@ -75,6 +75,7 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
             is SseEvent.SessionTokenUsageChanged -> { handleSessionTokenUsageChanged(event); true }
             is SseEvent.SessionSubagentTimingChanged -> { handleSessionSubagentTimingChanged(event); true }
             is SseEvent.SessionGoalChanged -> { handleSessionGoalChanged(event); true }
+            is SseEvent.SessionPlanChanged -> { handleSessionPlanChanged(event); true }
             is SseEvent.SessionContextPressureChanged -> { handleSessionContextPressureChanged(event); true }
             is SseEvent.SessionContextBreakdownChanged -> { handleSessionContextBreakdownChanged(event); true }
             is SseEvent.SessionStatsChanged -> { handleSessionStatsChanged(event); true }
@@ -216,6 +217,11 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
     /** goal 投影（goal/change 事件 / session/projection key=goal）→ 折叠进 Session.goal（last-wins 全量快照；null = clear）。 */
     private fun handleSessionGoalChanged(event: SseEvent.SessionGoalChanged) {
         updateSession(event.sessionId) { it.copy(goal = event.goal) }
+    }
+
+    /** plan 投影（session/projection key=plan 裁剪视图，#310③）→ 折叠进 Session.plan（last-wins；null = clear）。 */
+    private fun handleSessionPlanChanged(event: SseEvent.SessionPlanChanged) {
+        updateSession(event.sessionId) { it.copy(plan = event.plan) }
     }
 
     /** contextPressure 投影帧 → 折叠进 Session.contextPressure（环分子/分母源，last-wins）。 */

@@ -769,6 +769,10 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="permission_full_access_confirm_message">Mit Vollzugriff führt der Agent Befehle aus und bearbeitet Dateien ohne Sandbox-Einschränkungen. Nur für vertrauenswürdige Aufgaben aktivieren.</string>
     <string name="permission_full_access_confirm_button">Zu Vollzugriff wechseln</string>
     <string name="a11y_icon_permission_preset">Berechtigungsmodus</string>
+    <string name="plan_chip_label">Plan</string>
+    <string name="plan_chip_active_a11y">Plan-Modus aktiv – zum Deaktivieren tippen (/plan off)</string>
+    <string name="plan_chip_pending_a11y">Wechsel in den Plan-Modus – zum Abbrechen tippen (/plan off)</string>
+    <string name="plan_exit_failed">Plan-Modus konnte nicht deaktiviert werden</string>
     <string name="server_settings_default_permission">Standardberechtigung für neue Sitzungen</string>
     <string name="agent_preset_locked">Agent-Preset ist für diese Sitzung gesperrt</string>
     <string name="agent_preset_switch_failed">Wechsel des Agent-Presets fehlgeschlagen</string>

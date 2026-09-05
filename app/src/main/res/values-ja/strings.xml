@@ -769,6 +769,10 @@
     <string name="permission_full_access_confirm_message">フルアクセスでは、エージェントがサンドボックス制限なしでコマンド実行やファイル編集を行えます。信頼できるタスクにのみ有効化してください。</string>
     <string name="permission_full_access_confirm_button">フルアクセスに切り替える</string>
     <string name="a11y_icon_permission_preset">権限プリセット</string>
+    <string name="plan_chip_label">Plan</string>
+    <string name="plan_chip_active_a11y">Plan モードはオンです。タップでオフにします（/plan off）</string>
+    <string name="plan_chip_pending_a11y">Plan モードに切り替え中です。タップでキャンセルします（/plan off）</string>
+    <string name="plan_exit_failed">Plan モードの終了に失敗しました</string>
     <string name="server_settings_default_permission">新規セッションのデフォルト権限</string>
     <string name="agent_preset_locked">このセッションのエージェントプリセットはロックされています</string>
     <string name="agent_preset_switch_failed">エージェントプリセットの切り替えに失敗しました</string>

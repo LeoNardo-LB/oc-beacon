@@ -64,6 +64,10 @@ internal fun AgentModelVariantSelector(
     permissions: SessionPermissions? = null,
     onPermissionSelect: (String) -> Unit = {},
     onPermissionCustomClick: () -> Unit = {},
+    // #310③ Plan 模式状态 chip（DSH-only，显隐由 PlanChipGate 在调用方判定）
+    planChipVisible: Boolean = false,
+    planPending: Boolean = false,
+    onPlanExit: () -> Unit = {},
 ) {
     // 不提前返回：配置未就绪（agents 空 / modelLabel 空 / variantNames 空）时，
     // 左侧标签区为空但 Row 高度由右侧附件按钮（32.dp）稳定支撑；
@@ -77,6 +81,15 @@ internal fun AgentModelVariantSelector(
                 permissions = permissions,
                 onSelectPreset = onPermissionSelect,
                 onCustomClick = onPermissionCustomClick,
+            )
+            Spacer(Modifier.width(SpacingTokens.SM.dp))
+        }
+
+        // #310③ Plan 状态 chip（与权限药丸同位同族；pending=进行中语义）
+        if (planChipVisible) {
+            PlanChip(
+                pending = planPending,
+                onExit = onPlanExit,
             )
             Spacer(Modifier.width(SpacingTokens.SM.dp))
         }

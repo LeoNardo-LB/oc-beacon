@@ -858,6 +858,10 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="permission_full_access_confirm_message">Full access lets the agent run commands and edit files without sandbox restrictions. Only enable this for trusted work.</string>
     <string name="permission_full_access_confirm_button">Switch to Full access</string>
     <string name="a11y_icon_permission_preset">Permission preset</string>
+    <string name="plan_chip_label">Plan</string>
+    <string name="plan_chip_active_a11y">Plan mode on — tap to turn off (/plan off)</string>
+    <string name="plan_chip_pending_a11y">Switching to plan mode — tap to cancel (/plan off)</string>
+    <string name="plan_exit_failed">Failed to exit plan mode</string>
     <string name="server_settings_default_permission">New session default permission</string>
     <string name="agent_preset_locked">Agent preset is locked for this session</string>
     <string name="agent_preset_switch_failed">Failed to switch Agent preset</string>

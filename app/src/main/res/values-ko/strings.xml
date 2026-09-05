@@ -769,6 +769,10 @@
     <string name="permission_full_access_confirm_message">전체 액세스를 사용하면 에이전트가 샌드박스 제한 없이 명령을 실행하고 파일을 수정할 수 있습니다. 신뢰할 수 있는 작업에만 활성화하세요.</string>
     <string name="permission_full_access_confirm_button">전체 액세스로 전환</string>
     <string name="a11y_icon_permission_preset">권한 프리셋</string>
+    <string name="plan_chip_label">Plan</string>
+    <string name="plan_chip_active_a11y">Plan 모드가 켜져 있습니다. 탭하여 끕니다(/plan off)</string>
+    <string name="plan_chip_pending_a11y">Plan 모드로 전환 중입니다. 탭하여 취소합니다(/plan off)</string>
+    <string name="plan_exit_failed">Plan 모드 종료 실패</string>
     <string name="server_settings_default_permission">새 세션 기본 권한</string>
     <string name="agent_preset_locked">이 세션의 에이전트 프리셋이 잠겨 있습니다</string>
     <string name="agent_preset_switch_failed">에이전트 프리셋 전환 실패</string>

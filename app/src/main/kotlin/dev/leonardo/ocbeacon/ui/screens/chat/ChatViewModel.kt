@@ -706,6 +706,31 @@ class ChatViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, WhileSubscribed5s, null)
 
+    // ============ Plan 模式状态（#310③；DSH plan 投影 + /plan off 命令） ============
+
+    /**
+     * 当前会话 plan 投影（Session.plan，session/projection key=plan 裁剪视图
+     * {active,pending}，last-wins；OpenCode 恒 null）。PlanChip 经
+     * PlanChipGate.chipVisible(serverType, planState) 决定显隐与形态。
+     */
+    val planState: StateFlow<dev.leonardo.ocbeacon.domain.model.DshPlanProjection?> =
+        sessionLifecycle.sessionIdFlow.flatMapLatest { sid ->
+            sessionRepository.getSessionsFlow(serverId).map { sessions ->
+                sessions.firstOrNull { it.id == sid }?.plan
+            }
+        }.stateIn(viewModelScope, WhileSubscribed5s, null)
+
+    /**
+     * 退出 Plan 模式（#310③）：发 /plan off 经既有 commands/execute 斜杠命令链
+     *（DshApiClient.executeCommand line="/plan off"）。UI 回显由 plan 投影帧驱动
+     *（active+pending → effective=false → chip 退场），此处不乐观置态。
+     */
+    fun exitPlanMode(onResult: (Boolean) -> Unit = {}) =
+        sessionActions.executeCommand("plan", "off") { ok ->
+            if (!ok) AppLogger.w(TAG, "exitPlanMode /plan off failed")
+            onResult(ok)
+        }
+
     // ============ 消息反馈 👍/👎（#310②；DSH 服务器门控） ============
 
     private val messageFeedbackDelegate = MessageFeedbackDelegate(chatRepository, serverId)

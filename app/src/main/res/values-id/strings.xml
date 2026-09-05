@@ -775,6 +775,10 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="permission_full_access_confirm_message">Dengan akses penuh, agen menjalankan perintah dan mengedit berkas tanpa batasan sandbox. Aktifkan hanya untuk tugas tepercaya.</string>
     <string name="permission_full_access_confirm_button">Beralih ke akses penuh</string>
     <string name="a11y_icon_permission_preset">Mode izin</string>
+    <string name="plan_chip_label">Plan</string>
+    <string name="plan_chip_active_a11y">Mode Plan aktif — ketuk untuk menonaktifkan (/plan off)</string>
+    <string name="plan_chip_pending_a11y">Beralih ke mode Plan — ketuk untuk membatalkan (/plan off)</string>
+    <string name="plan_exit_failed">Gagal keluar dari mode Plan</string>
     <string name="server_settings_default_permission">Izin default sesi baru</string>
     <string name="agent_preset_locked">Preset agen terkunci untuk sesi ini</string>
     <string name="agent_preset_switch_failed">Gagal mengganti preset agen</string>

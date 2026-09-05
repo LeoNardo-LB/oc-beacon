@@ -291,6 +291,29 @@ object DshEventMapper {
                         else -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
                     }
                 }
+                "plan" -> {
+                    // #310③：客户端裁剪视图 {active, pending}（dsh-plan-mode
+                    // index.js:115-124 stateSchema crop——完整 state 还有 wanted/
+                    // running/activeAtLastHeader，carrier 只发裁剪视图）；JsonNull
+                    // 容错为 clear（同 goal/permissions 键语义）。
+                    when (val value = payload["value"]) {
+                        is JsonNull -> listOf(
+                            DshMappedEvent.Sse(SseEvent.SessionPlanChanged(sessionId = sid, plan = null))
+                        )
+                        is JsonObject -> listOf(
+                            DshMappedEvent.Sse(
+                                SseEvent.SessionPlanChanged(
+                                    sessionId = sid,
+                                    plan = dev.leonardo.ocbeacon.domain.model.DshPlanProjection(
+                                        active = value.bool("active") ?: false,
+                                        pending = value.bool("pending") ?: false,
+                                    ),
+                                )
+                            )
+                        )
+                        else -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+                    }
+                }
                 // 其余投影键（title…）：本任务不消费
                 else -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.PROJECTION))
             }
@@ -430,6 +453,15 @@ object DshEventMapper {
             },
             // item.id 即 answer map 键（稳定 id 回显于答案）——对位 V2 form key
             key = q.str("id"),
+            // #310③：detail（问题描述正文，plan-review=计划全文）与 intent（呈现
+            // 意图，只改呈现不改协议）透传；均为单字键，无 camel/snake 歧义。
+            detail = q.str("detail"),
+            intent = q.obj("intent")?.let {
+                SseEvent.QuestionAsked.Intent(
+                    kind = it.str("kind"),
+                    approve = it.str("approve"),
+                )
+            },
         )
 
     // ============ SessionEvent 内层分派（历史重放与实况同路径） ============

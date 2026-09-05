@@ -769,6 +769,10 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="permission_full_access_confirm_message">Tam erişimde aracı, sandbox kısıtlaması olmadan komut çalıştırır ve dosyaları düzenler. Yalnızca güvenilen görevler için etkinleştirin.</string>
     <string name="permission_full_access_confirm_button">Tam erişime geç</string>
     <string name="a11y_icon_permission_preset">İzin modu</string>
+    <string name="plan_chip_label">Plan</string>
+    <string name="plan_chip_active_a11y">Plan modu açık — kapatmak için dokunun (/plan off)</string>
+    <string name="plan_chip_pending_a11y">Plan moduna geçiliyor — iptal etmek için dokunun (/plan off)</string>
+    <string name="plan_exit_failed">Plan modundan çıkılamadı</string>
     <string name="server_settings_default_permission">Yeni oturumlar için varsayılan izin</string>
     <string name="agent_preset_locked">Ajan ön ayarı bu oturum için kilitli</string>
     <string name="agent_preset_switch_failed">Ajan ön ayarı değiştirilemedi</string>

@@ -777,6 +777,10 @@
     <string name="permission_full_access_confirm_message">У режимі повного доступу агент виконує команди та змінює файли без обмежень пісочниці. Увімкайте лише для довірених завдань.</string>
     <string name="permission_full_access_confirm_button">Перейти до повного доступу</string>
     <string name="a11y_icon_permission_preset">Режим дозволів</string>
+    <string name="plan_chip_label">Plan</string>
+    <string name="plan_chip_active_a11y">Режим Plan увімкнено — торкніться, щоб вимкнути (/plan off)</string>
+    <string name="plan_chip_pending_a11y">Перехід у режим Plan — торкніться, щоб скасувати (/plan off)</string>
+    <string name="plan_exit_failed">Не вдалося вийти з режиму Plan</string>
     <string name="server_settings_default_permission">Дозвіл за замовчуванням для нових сесій</string>
     <string name="agent_preset_locked">Пресет агента заблоковано для цієї сесії</string>
     <string name="agent_preset_switch_failed">Не вдалося змінити пресет агента</string>

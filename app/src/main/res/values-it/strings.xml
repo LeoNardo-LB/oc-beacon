@@ -769,6 +769,10 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="permission_full_access_confirm_message">Con l\'accesso completo l\'agente esegue comandi e modifica file senza restrizioni sandbox. Attivalo solo per attività affidabili.</string>
     <string name="permission_full_access_confirm_button">Passa ad accesso completo</string>
     <string name="a11y_icon_permission_preset">Modalità di autorizzazione</string>
+    <string name="plan_chip_label">Plan</string>
+    <string name="plan_chip_active_a11y">Modalità Plan attiva — tocca per disattivarla (/plan off)</string>
+    <string name="plan_chip_pending_a11y">Passaggio alla modalità Plan in corso — tocca per annullare (/plan off)</string>
+    <string name="plan_exit_failed">Uscita dalla modalità Plan non riuscita</string>
     <string name="server_settings_default_permission">Autorizzazione predefinita nuove sessioni</string>
     <string name="agent_preset_locked">Preset agente bloccato per questa sessione</string>
     <string name="agent_preset_switch_failed">Impossibile cambiare il preset agente</string>

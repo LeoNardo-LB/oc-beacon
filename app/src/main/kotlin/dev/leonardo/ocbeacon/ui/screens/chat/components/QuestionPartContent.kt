@@ -34,6 +34,7 @@ import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -439,6 +440,9 @@ internal fun QuestionOptionRows(
 ) {
     val accentColor = MaterialTheme.colorScheme.primary
     val contentColor = MaterialTheme.colorScheme.onSurface
+    // #310③：plan-review 呈现意图——detail（计划全文）为主体，approve 命名的
+    // 选项行强调（intent 只改呈现不改协议——提交链不变）。
+    val isPlanReview = question.intent?.kind == "plan-review"
     Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)) {
         if (question.question.isNotBlank()) {
             // 2026-08-17 用户重设计：问题域只承载问题描述——元信息（Q chips/
@@ -454,6 +458,21 @@ internal fun QuestionOptionRows(
                 color = contentColor
             )
         }
+        // #310③：计划正文（detail）——tonal 容器承载，随页内滚动可达。
+        // 纯文本渲染取舍：Markdown 组件绑定流式状态机（rememberMarkdownState），
+        // 嵌入限高插值页的成本与回归面大；先纯文本，计划原文可读性够用。
+        val planDetail = question.detail
+        if (isPlanReview && !planDetail.isNullOrBlank()) {
+            Text(
+                text = planDetail,
+                style = MaterialTheme.typography.bodySmall,
+                color = contentColor.copy(alpha = AlphaTokens.MEDIUM),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh, ShapeTokens.small)
+                    .padding(SpacingTokens.SM.dp),
+            )
+        }
         // 2026-08-17 用户第四轮：紧凑行（settings 同款模式——clickable Row +
         // 紧凑 padding）替代 M3 ListItem——ListItem 容器高度是固定 token
         // （单行 48dp 起，无 padding 参数）压不矮，用户反馈"item 太高"；
@@ -461,6 +480,8 @@ internal fun QuestionOptionRows(
         // （选中才显示，未选中无控件）。
         question.options.forEach { option ->
             val isSelected = option.label in selected
+            // #310③：approve 命名的选项=主按钮强调（命名而非位置——服务端契约）
+            val isApprove = isPlanReview && option.label == question.intent?.approve
             CompactOptionRow(
                 label = option.label,
                 description = option.description.takeIf { it.isNotBlank() },
@@ -468,6 +489,7 @@ internal fun QuestionOptionRows(
                 readOnly = readOnly,
                 accentColor = accentColor,
                 contentColor = contentColor,
+                emphasized = isApprove,
                 onClick = { onOptionClick(option.label) },
             )
         }
@@ -545,6 +567,9 @@ private fun CompactOptionRow(
     readOnly: Boolean,
     accentColor: Color,
     contentColor: Color,
+    /** #310③：主按钮强调（plan-review 的 approve 选项）——accent 描边+字重，
+     * 交互与提交链不变（仍走 onOptionClick） */
+    emphasized: Boolean = false,
     onClick: () -> Unit,
 ) {
     Row(
@@ -555,6 +580,11 @@ private fun CompactOptionRow(
                 if (isSelected) accentColor.copy(alpha = AlphaTokens.SELECTED) else Color.Transparent,
                 ShapeTokens.small
             )
+            .then(
+                if (emphasized && !isSelected) {
+                    Modifier.border(1.dp, accentColor.copy(alpha = AlphaTokens.MEDIUM), ShapeTokens.small)
+                } else Modifier
+            )
             // 左缘（审计 D4 折中）：SM(8dp)——选项文字 +20dp，与输入框文字(+28dp,
             // M3 默认 start 16dp)差收窄到 8dp；XS 太贴边、MD 又回到 24dp 老问题
             .padding(horizontal = SpacingTokens.SM.dp, vertical = SpacingTokens.SM.dp),
@@ -562,7 +592,15 @@ private fun CompactOptionRow(
         horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
     ) {
         Column(Modifier.weight(1f)) {
-            Text(label, style = MaterialTheme.typography.bodyMedium, color = if (isSelected) accentColor else contentColor)
+            Text(
+                label,
+                style = if (emphasized) {
+                    MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                    )
+                } else MaterialTheme.typography.bodyMedium,
+                color = if (isSelected || emphasized) accentColor else contentColor,
+            )
             if (description != null) {
                 Text(description, style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = AlphaTokens.MEDIUM))
             }

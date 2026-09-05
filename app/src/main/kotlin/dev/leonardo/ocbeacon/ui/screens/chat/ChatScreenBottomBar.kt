@@ -33,6 +33,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.input.BusyIndicatorSmoother
 import dev.leonardo.ocbeacon.ui.screens.chat.input.ChatAttachmentsHandler
 import dev.leonardo.ocbeacon.ui.screens.chat.input.ChatInputBar
 import dev.leonardo.ocbeacon.ui.screens.chat.input.ChatInputMode
+import dev.leonardo.ocbeacon.ui.screens.chat.input.PlanChipGate
 import dev.leonardo.ocbeacon.ui.screens.chat.util.ImageAttachment
 import dev.leonardo.ocbeacon.ui.screens.chat.util.PromptBuilder
 import dev.leonardo.ocbeacon.ui.screens.chat.util.SlashCommand
@@ -108,6 +109,11 @@ internal fun ChatScreenBottomBar(
     val revertSupported = serverCapabilities.revertSupported
     // 权限预设切换器（DSH 专属）：能力位门控 + 会话 permissions 投影驱动回显
     val permissionSwitchSupported = serverCapabilities.permissionSwitchSupported
+    // #310③ Plan 状态 chip（DSH-only）：投影 {active,pending} 驱动——无投影/有效
+    // 目标态为关时不出 chip（PlanChipGate 纯逻辑，单测钉死）
+    val planState by viewModel.planState.collectAsStateWithLifecycle()
+    val planChipVisible = PlanChipGate.chipVisible(serverType, planState)
+    val planExitFailedMsg = stringResource(R.string.plan_exit_failed)
 
     // #106 lint 清偿（LocalContextGetResourceValueCall）：snackbar 文案 hoist 到
     // 组合层 stringResource（lambda 内不可调用 @Composable）；带参格式串 hoist
@@ -517,6 +523,19 @@ internal fun ChatScreenBottomBar(
                 onPermissionCustomClick = {
                     coroutineScope.launch {
                         snackbarHostState.showSnackbar(permissionCustomMsg)
+                    }
+                },
+                planChipVisible = planChipVisible,
+                planPending = planState?.pending == true,
+                onPlanExit = {
+                    // #310③：经既有 commands/execute 斜杠命令链发 /plan off；
+                    // 回显由 plan 投影帧驱动（active+pending → chip 退场），不乐观置态
+                    viewModel.exitPlanMode { ok ->
+                        if (!ok) {
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(planExitFailedMsg)
+                            }
+                        }
                     }
                 },
             )

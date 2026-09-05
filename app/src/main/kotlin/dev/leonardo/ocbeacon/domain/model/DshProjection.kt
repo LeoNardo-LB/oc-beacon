@@ -101,6 +101,31 @@ data class DshGoalProjection(
 )
 
 /**
+ * DSH plan 投影（session/projection 帧 key=plan 的客户端裁剪视图，#310③）。
+ *
+ * wire 形状（dsh-plan-mode index.js:115-124 stateSchema crop；客户端 carriers
+ * 只见裁剪视图）：
+ * ```
+ * {active, pending}
+ * ```
+ * [active] = 已提交进会话日志的 plan mode 状态；[pending] = 存在未生效的目标
+ * 选择（wanted ≠ active，下一个 accepted in-turn pre-step 才落盘）。
+ * 有效目标态 = pending ? !active : active（见 [effective]）。
+ */
+@Serializable
+data class DshPlanProjection(
+    val active: Boolean = false,
+    val pending: Boolean = false,
+) {
+    /**
+     * 有效目标态 = pending ? !active : active（官方 dsh-client-ui-plan PlanChip
+     * 同式——折叠宿主值，非客户端乐观）。pending = 未生效的目标选择（wanted ≠
+     * active）→ 目标态取反：切换中(0,1) 视为开、退出中(1,1) 视为关。
+     */
+    val effective: Boolean get() = if (pending) !active else active
+}
+
+/**
  * DSH contextPressure 投影（session/projection 帧 key=contextPressure 的整值）。
  *
  * wire 形状（dsh-token-meter/lib/types/projection.d.ts ContextPressureProjection）：

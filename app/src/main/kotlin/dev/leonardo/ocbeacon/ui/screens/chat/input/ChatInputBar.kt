@@ -102,6 +102,10 @@ internal fun ChatInputBar(
     permissions: SessionPermissions? = null,
     onPermissionSelect: (String) -> Unit = {},
     onPermissionCustomClick: () -> Unit = {},
+    // #310③ Plan 模式状态 chip（DSH-only；显隐/形态由调用方经 PlanChipGate 判定）
+    planChipVisible: Boolean = false,
+    planPending: Boolean = false,
+    onPlanExit: () -> Unit = {},
 ) {
     // 发送失败时恢复草稿文本
     androidx.compose.runtime.LaunchedEffect(restoredDraft) {
@@ -233,6 +237,9 @@ internal fun ChatInputBar(
                 permissions = permissions,
                 onPermissionSelect = onPermissionSelect,
                 onPermissionCustomClick = onPermissionCustomClick,
+                planChipVisible = planChipVisible,
+                planPending = planPending,
+                onPlanExit = onPlanExit,
             )
 
             // 图片附件缩略图
