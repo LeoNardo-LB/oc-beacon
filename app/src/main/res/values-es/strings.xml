@@ -382,6 +382,7 @@
     <string name="chat_shell_placeholder">Introduce un comando de shell…</string>
     <string name="chat_shell_failed">No se pudo ejecutar el comando de shell</string>
     <string name="chat_shell_empty">Primero introduce un comando de shell</string>
+    <string name="chat_subagent_one_shot_read_only">Sesión de subagente de un solo uso: no admite mensajes de seguimiento</string>
     <string name="chat_shell_attachments_unsupported">El modo shell no admite archivos adjuntos</string>
     <string name="chat_terminal_connect_failed">No se pudo abrir el terminal</string>
     <string name="server_settings_providers">Proveedores</string>

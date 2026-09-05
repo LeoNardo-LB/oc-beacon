@@ -382,6 +382,7 @@
     <string name="chat_shell_placeholder">셸 명령어를 입력하세요…</string>
     <string name="chat_shell_failed">쉘 명령어 실행 실패</string>
     <string name="chat_shell_empty">먼저 쉘 명령어를 입력하세요</string>
+    <string name="chat_subagent_one_shot_read_only">원샷 서브에이전트 세션: 후속 메시지는 지원되지 않습니다</string>
     <string name="chat_shell_attachments_unsupported">쉘 모드에서는 첨부 파일을 지원하지 않습니다</string>
     <string name="chat_terminal_connect_failed">터미널 열기 실패</string>
     <string name="server_settings_providers">프로바이더</string>

@@ -388,6 +388,7 @@
     <string name="chat_shell_placeholder">Masukkan perintah shell…</string>
     <string name="chat_shell_failed">Gagal menjalankan perintah shell</string>
     <string name="chat_shell_empty">Masukkan perintah shell terlebih dahulu</string>
+    <string name="chat_subagent_one_shot_read_only">Sesi subagen sekali pakai: pesan lanjutan tidak didukung</string>
     <string name="chat_shell_attachments_unsupported">Mode shell tidak mendukung lampiran</string>
     <string name="chat_terminal_connect_failed">Gagal membuka terminal</string>
     <string name="server_settings_providers">Penyedia</string>

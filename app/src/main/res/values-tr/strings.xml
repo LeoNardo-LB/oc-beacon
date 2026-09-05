@@ -382,6 +382,7 @@
     <string name="chat_shell_placeholder">Kabuk komutunu girin…</string>
     <string name="chat_shell_failed">Kabuk komutu çalıştırılamadı</string>
     <string name="chat_shell_empty">Önce bir kabuk komutu girin</string>
+    <string name="chat_subagent_one_shot_read_only">Tek kullanımlık alt ajan oturumu: sonraki mesajlar desteklenmez</string>
     <string name="chat_shell_attachments_unsupported">Kabuk modu ekleri desteklemiyor</string>
     <string name="chat_terminal_connect_failed">Terminal açılamadı</string>
     <string name="server_settings_providers">Sağlayıcılar</string>

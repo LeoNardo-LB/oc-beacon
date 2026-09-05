@@ -382,6 +382,7 @@
     <string name="chat_shell_placeholder">シェルコマンドを入力…</string>
     <string name="chat_shell_failed">シェルコマンドの実行に失敗しました</string>
     <string name="chat_shell_empty">先にシェルコマンドを入力してください</string>
+    <string name="chat_subagent_one_shot_read_only">単発サブエージェントセッション：追加メッセージには対応していません</string>
     <string name="chat_shell_attachments_unsupported">シェルモードでは添付ファイルは利用できません</string>
     <string name="chat_terminal_connect_failed">ターミナルの起動に失敗しました</string>
     <string name="server_settings_providers">プロバイダー</string>

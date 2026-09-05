@@ -390,6 +390,7 @@
     <string name="chat_shell_placeholder">Wpisz polecenie powłoki…</string>
     <string name="chat_shell_failed">Nie udało się uruchomić polecenia powłoki</string>
     <string name="chat_shell_empty">Najpierw wpisz polecenie powłoki</string>
+    <string name="chat_subagent_one_shot_read_only">Jednorazowa sesja podagenta: wiadomości następcze nie są obsługiwane</string>
     <string name="chat_shell_attachments_unsupported">Tryb powłoki nie obsługuje załączników</string>
     <string name="chat_terminal_connect_failed">Nie udało się otworzyć terminala</string>
     <string name="server_settings_providers">Dostawcy</string>

@@ -5,8 +5,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -89,6 +93,13 @@ internal fun ChatScreenBottomBar(
     // #276 能力位门控：DSH 无 command 执行端点——斜杠命令面板与 /cmd 发送拦截均停用
     val serverCapabilities by viewModel.serverCapabilities.collectAsStateWithLifecycle()
     val slashCommandsSupported = serverCapabilities.commandsSupported
+    // #310① 子会话续聊门控：DSH 子会话 mode=continuable → 解禁 composer
+    //（one-shot 只读提示行）；加载中/失败保守隐藏——防 one-shot 误发。
+    val serverType by viewModel.serverType.collectAsStateWithLifecycle()
+    val subagentMode by viewModel.subagentModeState.collectAsStateWithLifecycle()
+    val subagentComposerVisible = SubagentComposerGate.composerVisible(
+        sessionMeta.sessionParentId, serverType, subagentMode,
+    )
     // #276 后端接口补全：DSH 无 shell 域——shell 模式入口（！ 前缀自动切换/
     //   长按切换/面板 shell 项）与 shell 发送全部停用，！ 前缀按普通消息发送。
     val shellCommandSupported = serverCapabilities.shellCommandSupported
@@ -254,7 +265,7 @@ internal fun ChatScreenBottomBar(
             doSend()
         }
     }
-    if (sessionMeta.sessionParentId == null && !isTerminalMode && interaction.error == null) {
+    if (subagentComposerVisible && !isTerminalMode && interaction.error == null) {
         val modelLabel = if (modelConfig.selectedModelId != null && modelConfig.providers.isNotEmpty()) {
             val provider = modelConfig.providers.find { it.id == modelConfig.selectedProviderId }
             val model = provider?.models?.get(modelConfig.selectedModelId)
@@ -508,6 +519,26 @@ internal fun ChatScreenBottomBar(
                         snackbarHostState.showSnackbar(permissionCustomMsg)
                     }
                 },
+            )
+        }
+    }
+    // #310① one-shot 子会话只读提示行（明确不可续聊；加载中/失败保持全隐藏——
+    // 与 composer 同位替换渲染，占位底部栏避免布局跳变）
+    if (SubagentComposerGate.readOnlyHintVisible(sessionMeta.sessionParentId, serverType, subagentMode) &&
+        !isTerminalMode
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+        ) {
+            Text(
+                text = stringResource(R.string.chat_subagent_one_shot_read_only),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
             )
         }
     }

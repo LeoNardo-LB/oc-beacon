@@ -390,6 +390,7 @@
     <string name="chat_shell_placeholder">Введіть команду shell…</string>
     <string name="chat_shell_failed">Не вдалося виконати команду shell</string>
     <string name="chat_shell_empty">Спочатку введіть команду shell</string>
+    <string name="chat_subagent_one_shot_read_only">Одноразова сесія субагента: повторні повідомлення не підтримуються</string>
     <string name="chat_shell_attachments_unsupported">У режимі shell вкладення не підтримуються</string>
     <string name="chat_terminal_connect_failed">Не вдалося відкрити термінал</string>
     <string name="server_settings_providers">Провайдери</string>

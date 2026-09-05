@@ -706,6 +706,21 @@ class ChatViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, WhileSubscribed5s, null)
 
+    // ============ 子会话续聊 mode（#310① composer 门控数据源） ============
+
+    /**
+     * 当前会话的子智能体目录 mode（continuable|one-shot）；主会话/非 DSH/加载中/
+     * 失败 → null（保守隐藏 composer——防 one-shot 误发）。ChatScreenBottomBar 经
+     * [SubagentComposerGate] + [serverType] 决定 composer 显隐与 one-shot 只读提示行。
+     */
+    val subagentModeState: StateFlow<String?> = SubagentModeTracker(chatRepository, serverId)
+        .modeFlow(
+            sessionIdFlow = sessionLifecycle.sessionIdFlow,
+            sessionsFlow = sessionRepository.getSessionsFlow(serverId),
+            serverTypeFlow = serverType,
+        )
+        .stateIn(viewModelScope, WhileSubscribed5s, null)
+
     /** goal mutation 失败提示（resId：goal_failed/goal_busy）——GoalSheet collect 显示 snackbar。 */
     private val _goalError = MutableSharedFlow<Int>(extraBufferCapacity = 4)
     val goalError: SharedFlow<Int> = _goalError

@@ -398,6 +398,7 @@
     <string name="chat_shell_placeholder">أدخل أمر شل...</string>
     <string name="chat_shell_failed">فشل تشغيل أمر الشل</string>
     <string name="chat_shell_empty">يرجى إدخال أمر شل أولاً</string>
+    <string name="chat_subagent_one_shot_read_only">جلسة وكيل فرعي للاستخدام مرة واحدة: لا يتم دعم الرسائل التابعة</string>
     <string name="chat_shell_attachments_unsupported">وضع الشل لا يدعم المرفقات</string>
     <string name="chat_terminal_connect_failed">فشل فتح الطرفية</string>
     <string name="server_settings_providers">المزودون</string>

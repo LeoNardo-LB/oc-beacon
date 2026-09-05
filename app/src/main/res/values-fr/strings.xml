@@ -382,6 +382,7 @@
     <string name="chat_shell_placeholder">Saisissez une commande shell…</string>
     <string name="chat_shell_failed">Échec de l’exécution de la commande shell</string>
     <string name="chat_shell_empty">Veuillez d’abord saisir une commande shell</string>
+    <string name="chat_subagent_one_shot_read_only">Session de sous-agent à usage unique : les messages de suivi ne sont pas pris en charge</string>
     <string name="chat_shell_attachments_unsupported">Le mode shell ne prend pas en charge les pièces jointes</string>
     <string name="chat_terminal_connect_failed">Impossible d’ouvrir le terminal</string>
     <string name="server_settings_providers">Fournisseurs</string>

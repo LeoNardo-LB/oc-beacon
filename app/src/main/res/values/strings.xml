@@ -324,6 +324,7 @@
     <string name="chat_shell_placeholder">Enter shell command…</string>
     <string name="chat_shell_failed">Failed to run shell command</string>
     <string name="chat_shell_empty">Enter a shell command first</string>
+    <string name="chat_subagent_one_shot_read_only">One-shot subagent session: follow-up messages are not supported</string>
     <string name="chat_shell_attachments_unsupported">Shell mode does not support attachments</string>
     <string name="chat_terminal_connect_failed">Failed to open terminal</string>
     

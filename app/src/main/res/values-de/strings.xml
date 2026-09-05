@@ -382,6 +382,7 @@
     <string name="chat_shell_placeholder">Shell-Befehl eingeben…</string>
     <string name="chat_shell_failed">Shell-Befehl konnte nicht ausgeführt werden</string>
     <string name="chat_shell_empty">Bitte zuerst einen Shell-Befehl eingeben</string>
+    <string name="chat_subagent_one_shot_read_only">Einmalige Subagent-Sitzung: Folgenachrichten werden nicht unterstützt</string>
     <string name="chat_shell_attachments_unsupported">Shell-Modus unterstützt keine Anhänge</string>
     <string name="chat_terminal_connect_failed">Terminal konnte nicht geöffnet werden</string>
     <string name="server_settings_providers">Provider</string>
