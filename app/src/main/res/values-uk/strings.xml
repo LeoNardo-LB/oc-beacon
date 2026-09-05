@@ -896,4 +896,14 @@
     <string name="dsh_provider_credential_missing">Облікові дані не задано</string>
     <string name="dsh_provider_active">Активний у середовищі виконання</string>
     <string name="dsh_provider_inactive">Неактивний у середовищі виконання</string>
+
+    <!-- #324② preset 管理 -->
+    <string name="dsh_preset_view">Переглянути склад</string>
+    <string name="dsh_preset_copy_title">Дублювати пресет %1$s</string>
+    <string name="dsh_preset_copy_id">ID нового пресета</string>
+    <string name="dsh_preset_copy_name">Нова назва (необов\'язково)</string>
+    <string name="dsh_preset_copy">Дублювати</string>
+    <string name="dsh_preset_delete_confirm_title">Видалити пресет</string>
+    <string name="dsh_preset_delete_confirm_text">Видалити користувацький пресет %1$s? Активні сесії не постраждають; нові повернуться до типового.</string>
+    <string name="dsh_preset_broken_badge">Пошкоджений: %1$s</string>
 </resources>

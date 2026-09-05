@@ -894,4 +894,14 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="dsh_provider_credential_missing">Kredensial belum diatur</string>
     <string name="dsh_provider_active">Aktif di runtime</string>
     <string name="dsh_provider_inactive">Tidak aktif di runtime</string>
+
+    <!-- #324② preset 管理 -->
+    <string name="dsh_preset_view">Lihat komposisi</string>
+    <string name="dsh_preset_copy_title">Duplikat preset %1$s</string>
+    <string name="dsh_preset_copy_id">ID preset baru</string>
+    <string name="dsh_preset_copy_name">Nama baru (opsional)</string>
+    <string name="dsh_preset_copy">Duplikat</string>
+    <string name="dsh_preset_delete_confirm_title">Hapus preset</string>
+    <string name="dsh_preset_delete_confirm_text">Hapus preset pengguna %1$s? Sesi yang berjalan tidak terpengaruh; sesi baru kembali ke bawaan.</string>
+    <string name="dsh_preset_broken_badge">Rusak: %1$s</string>
 </resources>

@@ -888,4 +888,14 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="dsh_provider_credential_missing">Credenziale non impostata</string>
     <string name="dsh_provider_active">Attivo nel runtime</string>
     <string name="dsh_provider_inactive">Non attivo nel runtime</string>
+
+    <!-- #324② preset 管理 -->
+    <string name="dsh_preset_view">Visualizza composizione</string>
+    <string name="dsh_preset_copy_title">Duplica il preset %1$s</string>
+    <string name="dsh_preset_copy_id">ID nuovo preset</string>
+    <string name="dsh_preset_copy_name">Nuovo nome (opzionale)</string>
+    <string name="dsh_preset_copy">Duplica</string>
+    <string name="dsh_preset_delete_confirm_title">Elimina preset</string>
+    <string name="dsh_preset_delete_confirm_text">Eliminare il preset utente %1$s? Le sessioni in corso non sono interessate; le nuove tornano al predefinito.</string>
+    <string name="dsh_preset_broken_badge">Danneggiato: %1$s</string>
 </resources>

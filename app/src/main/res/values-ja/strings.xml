@@ -888,4 +888,14 @@
     <string name="dsh_provider_credential_missing">認証情報は未設定</string>
     <string name="dsh_provider_active">ランタイムで有効</string>
     <string name="dsh_provider_inactive">ランタイムで無効</string>
+
+    <!-- #324② preset 管理 -->
+    <string name="dsh_preset_view">構成を表示</string>
+    <string name="dsh_preset_copy_title">プリセット %1$s を複製</string>
+    <string name="dsh_preset_copy_id">新しいプリセット ID</string>
+    <string name="dsh_preset_copy_name">新しい名前（任意）</string>
+    <string name="dsh_preset_copy">複製</string>
+    <string name="dsh_preset_delete_confirm_title">プリセットを削除</string>
+    <string name="dsh_preset_delete_confirm_text">ユーザープリセット %1$s を削除しますか？実行中のセッションには影響せず、新しいセッションは既定に戻ります。</string>
+    <string name="dsh_preset_broken_badge">破損: %1$s</string>
 </resources>

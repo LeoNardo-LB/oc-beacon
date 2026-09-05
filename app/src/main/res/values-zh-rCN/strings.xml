@@ -891,4 +891,14 @@
     <string name="dsh_provider_credential_missing">凭据未设置</string>
     <string name="dsh_provider_active">运行时已启用</string>
     <string name="dsh_provider_inactive">运行时未启用</string>
+
+    <!-- #324② preset 管理 -->
+    <string name="dsh_preset_view">查看组成</string>
+    <string name="dsh_preset_copy_title">复制预设 %1$s</string>
+    <string name="dsh_preset_copy_id">新预设 ID</string>
+    <string name="dsh_preset_copy_name">新名称（可选）</string>
+    <string name="dsh_preset_copy">复制</string>
+    <string name="dsh_preset_delete_confirm_title">删除预设</string>
+    <string name="dsh_preset_delete_confirm_text">删除用户预设 %1$s？进行中的会话不受影响；新会话回退到默认档。</string>
+    <string name="dsh_preset_broken_badge">已损坏：%1$s</string>
 </resources>

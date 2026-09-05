@@ -897,4 +897,14 @@
     <string name="dsh_provider_credential_missing">Учётные данные не заданы</string>
     <string name="dsh_provider_active">Активен в среде выполнения</string>
     <string name="dsh_provider_inactive">Не активен в среде выполнения</string>
+
+    <!-- #324② preset 管理 -->
+    <string name="dsh_preset_view">Показать состав</string>
+    <string name="dsh_preset_copy_title">Дублировать пресет %1$s</string>
+    <string name="dsh_preset_copy_id">ID нового пресета</string>
+    <string name="dsh_preset_copy_name">Новое имя (необязательно)</string>
+    <string name="dsh_preset_copy">Дублировать</string>
+    <string name="dsh_preset_delete_confirm_title">Удалить пресет</string>
+    <string name="dsh_preset_delete_confirm_text">Удалить пользовательский пресет %1$s? Текущие сессии не затрагиваются; новые возвращаются к значению по умолчанию.</string>
+    <string name="dsh_preset_broken_badge">Повреждён: %1$s</string>
 </resources>

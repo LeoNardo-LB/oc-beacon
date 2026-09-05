@@ -888,4 +888,14 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="dsh_provider_credential_missing">Kimlik bilgisi ayarlanmadı</string>
     <string name="dsh_provider_active">Çalışma zamanında etkin</string>
     <string name="dsh_provider_inactive">Çalışma zamanında etkin değil</string>
+
+    <!-- #324② preset 管理 -->
+    <string name="dsh_preset_view">Oluşumu görüntüle</string>
+    <string name="dsh_preset_copy_title">%1$s hazır ayarını çoğalt</string>
+    <string name="dsh_preset_copy_id">Yeni hazır ayar kimliği</string>
+    <string name="dsh_preset_copy_name">Yeni ad (isteğe bağlı)</string>
+    <string name="dsh_preset_copy">Çoğalt</string>
+    <string name="dsh_preset_delete_confirm_title">Hazır ayarı sil</string>
+    <string name="dsh_preset_delete_confirm_text">%1$s kullanıcı hazır ayarı silinsin mi? Devam eden oturumlar etkilenmez; yeni oturumlar varsayılana döner.</string>
+    <string name="dsh_preset_broken_badge">Bozuk: %1$s</string>
 </resources>

@@ -970,4 +970,14 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="dsh_provider_credential_missing">Credential not set</string>
     <string name="dsh_provider_active">Active in runtime</string>
     <string name="dsh_provider_inactive">Not active in runtime</string>
+
+    <!-- #324② preset 管理 -->
+    <string name="dsh_preset_view">View composition</string>
+    <string name="dsh_preset_copy_title">Duplicate preset %1$s</string>
+    <string name="dsh_preset_copy_id">New preset ID</string>
+    <string name="dsh_preset_copy_name">New name (optional)</string>
+    <string name="dsh_preset_copy">Duplicate</string>
+    <string name="dsh_preset_delete_confirm_title">Delete preset</string>
+    <string name="dsh_preset_delete_confirm_text">Delete user preset %1$s? Running sessions are unaffected; new sessions fall back to the default.</string>
+    <string name="dsh_preset_broken_badge">Broken: %1$s</string>
 </resources>

@@ -904,4 +904,14 @@
     <string name="dsh_provider_credential_missing">مفتاح الاعتماد غير مضبوط</string>
     <string name="dsh_provider_active">نشط في وقت التشغيل</string>
     <string name="dsh_provider_inactive">غير نشط في وقت التشغيل</string>
+
+    <!-- #324② preset 管理 -->
+    <string name="dsh_preset_view">عرض التركيبة</string>
+    <string name="dsh_preset_copy_title">تكرار الإعداد %1$s</string>
+    <string name="dsh_preset_copy_id">معرّف الإعداد الجديد</string>
+    <string name="dsh_preset_copy_name">اسم جديد (اختياري)</string>
+    <string name="dsh_preset_copy">تكرار</string>
+    <string name="dsh_preset_delete_confirm_title">حذف الإعداد</string>
+    <string name="dsh_preset_delete_confirm_text">حذف إعداد المستخدم %1$s؟ الجلسات الجارية لا تتأثر؛ الجلسات الجديدة تعود إلى الافتراضي.</string>
+    <string name="dsh_preset_broken_badge">تالف: %1$s</string>
 </resources>

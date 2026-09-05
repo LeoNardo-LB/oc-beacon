@@ -888,4 +888,14 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="dsh_provider_credential_missing">Credencial não definida</string>
     <string name="dsh_provider_active">Ativo no runtime</string>
     <string name="dsh_provider_inactive">Inativo no runtime</string>
+
+    <!-- #324② preset 管理 -->
+    <string name="dsh_preset_view">Ver composição</string>
+    <string name="dsh_preset_copy_title">Duplicar preset %1$s</string>
+    <string name="dsh_preset_copy_id">ID do novo preset</string>
+    <string name="dsh_preset_copy_name">Novo nome (opcional)</string>
+    <string name="dsh_preset_copy">Duplicar</string>
+    <string name="dsh_preset_delete_confirm_title">Excluir preset</string>
+    <string name="dsh_preset_delete_confirm_text">Excluir o preset do usuário %1$s? Sessões em andamento não são afetadas; novas sessões voltam ao padrão.</string>
+    <string name="dsh_preset_broken_badge">Quebrado: %1$s</string>
 </resources>

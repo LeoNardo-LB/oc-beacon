@@ -886,4 +886,14 @@
     <string name="dsh_provider_credential_missing">Identifiant non défini</string>
     <string name="dsh_provider_active">Actif dans le runtime</string>
     <string name="dsh_provider_inactive">Inactif dans le runtime</string>
+
+    <!-- #324② preset 管理 -->
+    <string name="dsh_preset_view">Voir la composition</string>
+    <string name="dsh_preset_copy_title">Dupliquer le préréglage %1$s</string>
+    <string name="dsh_preset_copy_id">ID du nouveau préréglage</string>
+    <string name="dsh_preset_copy_name">Nouveau nom (facultatif)</string>
+    <string name="dsh_preset_copy">Dupliquer</string>
+    <string name="dsh_preset_delete_confirm_title">Supprimer le préréglage</string>
+    <string name="dsh_preset_delete_confirm_text">Supprimer le préréglage utilisateur %1$s ? Les sessions en cours ne sont pas affectées ; les nouvelles reviennent au défaut.</string>
+    <string name="dsh_preset_broken_badge">Cassé : %1$s</string>
 </resources>

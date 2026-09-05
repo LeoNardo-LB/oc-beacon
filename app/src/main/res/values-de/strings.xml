@@ -888,4 +888,14 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="dsh_provider_credential_missing">Credential nicht gesetzt</string>
     <string name="dsh_provider_active">Aktiv in der Laufzeit</string>
     <string name="dsh_provider_inactive">Nicht aktiv in der Laufzeit</string>
+
+    <!-- #324② preset 管理 -->
+    <string name="dsh_preset_view">Zusammensetzung ansehen</string>
+    <string name="dsh_preset_copy_title">Preset %1$s duplizieren</string>
+    <string name="dsh_preset_copy_id">Neue Preset-ID</string>
+    <string name="dsh_preset_copy_name">Neuer Name (optional)</string>
+    <string name="dsh_preset_copy">Duplizieren</string>
+    <string name="dsh_preset_delete_confirm_title">Preset löschen</string>
+    <string name="dsh_preset_delete_confirm_text">Benutzer-Preset %1$s löschen? Laufende Sitzungen sind nicht betroffen; neue Sitzungen nutzen den Standard.</string>
+    <string name="dsh_preset_broken_badge">Defekt: %1$s</string>
 </resources>

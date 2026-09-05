@@ -2,6 +2,8 @@ package dev.leonardo.ocbeacon.data.repository
 
 import dev.leonardo.ocbeacon.data.api.dsh.DshApiClient
 import dev.leonardo.ocbeacon.domain.model.DshAgentPresetDefault
+import dev.leonardo.ocbeacon.domain.model.DshAgentPresetDocument
+import dev.leonardo.ocbeacon.domain.model.DshAgentPresetRoster
 import dev.leonardo.ocbeacon.domain.model.DshCustomProviderDraft
 import dev.leonardo.ocbeacon.domain.model.DshCustomProviders
 import dev.leonardo.ocbeacon.domain.model.DshDiscoveredModel
@@ -29,6 +31,20 @@ class DshSettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setDefaultAgentPreset(conn: ServerConnection, preset: String): Boolean =
         dshApi.setDefaultAgentPreset(conn, preset)
+
+    // ============ #324② preset 管理 ============
+
+    override suspend fun agentPresetRoster(conn: ServerConnection): DshAgentPresetRoster =
+        dshApi.agentPresetRoster(conn)
+
+    override suspend fun readAgentPreset(conn: ServerConnection, id: String): DshAgentPresetDocument? =
+        dshApi.readAgentPreset(conn, id)
+
+    override suspend fun copyAgentPreset(conn: ServerConnection, from: String, id: String, name: String?): Boolean =
+        dshApi.copyAgentPreset(conn, from, id, name)
+
+    override suspend fun deleteAgentPreset(conn: ServerConnection, id: String): Boolean =
+        dshApi.deleteAgentPreset(conn, id)
 
     // ============ #324① provider/模型目录 ============
 

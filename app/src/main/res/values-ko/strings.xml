@@ -888,4 +888,14 @@
     <string name="dsh_provider_credential_missing">자격 증명 미설정</string>
     <string name="dsh_provider_active">런타임에서 활성</string>
     <string name="dsh_provider_inactive">런타임에서 비활성</string>
+
+    <!-- #324② preset 管理 -->
+    <string name="dsh_preset_view">구성 보기</string>
+    <string name="dsh_preset_copy_title">프리셋 %1$s 복제</string>
+    <string name="dsh_preset_copy_id">새 프리셋 ID</string>
+    <string name="dsh_preset_copy_name">새 이름(선택 사항)</string>
+    <string name="dsh_preset_copy">복제</string>
+    <string name="dsh_preset_delete_confirm_title">프리셋 삭제</string>
+    <string name="dsh_preset_delete_confirm_text">사용자 프리셋 %1$s을(를) 삭제할까요? 실행 중인 세션은 영향을 받지 않으며 새 세션은 기본값으로 돌아갑니다.</string>
+    <string name="dsh_preset_broken_badge">손상됨: %1$s</string>
 </resources>

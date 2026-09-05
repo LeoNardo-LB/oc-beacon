@@ -1,6 +1,8 @@
 package dev.leonardo.ocbeacon.domain.repository
 
 import dev.leonardo.ocbeacon.domain.model.DshAgentPresetDefault
+import dev.leonardo.ocbeacon.domain.model.DshAgentPresetDocument
+import dev.leonardo.ocbeacon.domain.model.DshAgentPresetRoster
 import dev.leonardo.ocbeacon.domain.model.DshCustomProviderDraft
 import dev.leonardo.ocbeacon.domain.model.DshDiscoveredModel
 import dev.leonardo.ocbeacon.domain.model.DshModelDiscoveryRequest
@@ -37,6 +39,20 @@ interface DshSettingsRepository {
 
     /** 写新会话默认 Agent 预设（内部先 describe 取 revision 再 mutate，乐观并发）；403 → 抛 [DshSettingsForbiddenException]。 */
     suspend fun setDefaultAgentPreset(conn: ServerConnection, preset: String): Boolean
+
+    // ============ #324② preset 管理（roster 完整面 + read/copy/deletePreset） ============
+
+    /** 完整 roster（presets 含 trust/broken + authorable 可创作位）。 */
+    suspend fun agentPresetRoster(conn: ServerConnection): DshAgentPresetRoster
+
+    /** 只读组成文档（未知 id → null）。 */
+    suspend fun readAgentPreset(conn: ServerConnection, id: String): DshAgentPresetDocument?
+
+    /** 复制为 user 预设（成功 true）。 */
+    suspend fun copyAgentPreset(conn: ServerConnection, from: String, id: String, name: String?): Boolean
+
+    /** 删除 user 预设（成功 true；system 被服务端拒绝）。 */
+    suspend fun deleteAgentPreset(conn: ServerConnection, id: String): Boolean
 
     // ============ #324① provider/模型目录（llm 目录 + credentials + 自定义增删） ============
 

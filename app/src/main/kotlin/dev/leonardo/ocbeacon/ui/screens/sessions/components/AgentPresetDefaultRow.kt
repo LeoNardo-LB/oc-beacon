@@ -4,12 +4,17 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -43,6 +48,11 @@ fun AgentPresetDefaultRow(
     onSelect: (String) -> Unit,
     /** #298：非 loopback 连接 403——区块保留但显示 loopback 标注（替代整块消失）。 */
     blocked: Boolean = false,
+    // #324②：管理动作（展开行尾图标；默认空不渲染）
+    authorable: Boolean = false,
+    onViewPreset: (AgentPreset) -> Unit = {},
+    onCopyPreset: (AgentPreset) -> Unit = {},
+    onDeletePreset: (AgentPreset) -> Unit = {},
 ) {
     if (blocked) {
         DefaultsBlockedSection(stringResource(R.string.server_settings_default_agent_preset))
@@ -88,11 +98,46 @@ fun AgentPresetDefaultRow(
                             )
                         },
                         title = preset.name,
+                        subtitle = preset.broken?.let { broken ->
+                            // 损坏标注（roster broken：预设文件不可解析）
+                            stringResource(R.string.dsh_preset_broken_badge, broken)
+                        },
                         trailing = {
-                            RadioButton(
-                                selected = preset.id == currentValue,
-                                onClick = null,
-                            )
+                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                // #324② 管理动作：查看组成/复制(authorable)/删除(user)
+                                IconButton(onClick = { onViewPreset(preset) }, modifier = Modifier.size(32.dp)) {
+                                    Icon(
+                                        Icons.Default.Info,
+                                        contentDescription = stringResource(R.string.dsh_preset_view),
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                if (authorable) {
+                                    IconButton(onClick = { onCopyPreset(preset) }, modifier = Modifier.size(32.dp)) {
+                                        Icon(
+                                            Icons.Default.ContentCopy,
+                                            contentDescription = stringResource(R.string.dsh_preset_copy),
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                                if (preset.trust == "user") {
+                                    IconButton(onClick = { onDeletePreset(preset) }, modifier = Modifier.size(32.dp)) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = stringResource(R.string.delete),
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.error,
+                                        )
+                                    }
+                                }
+                                RadioButton(
+                                    selected = preset.id == currentValue,
+                                    onClick = null,
+                                )
+                            }
                         },
                         onClick = { onSelect(preset.id) },
                     )

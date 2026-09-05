@@ -896,4 +896,14 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="dsh_provider_credential_missing">Poświadczenie nieustawione</string>
     <string name="dsh_provider_active">Aktywny w środowisku uruchomieniowym</string>
     <string name="dsh_provider_inactive">Nieaktywny w środowisku uruchomieniowym</string>
+
+    <!-- #324② preset 管理 -->
+    <string name="dsh_preset_view">Pokaż kompozycję</string>
+    <string name="dsh_preset_copy_title">Duplikuj preset %1$s</string>
+    <string name="dsh_preset_copy_id">ID nowego preseta</string>
+    <string name="dsh_preset_copy_name">Nowa nazwa (opcjonalnie)</string>
+    <string name="dsh_preset_copy">Duplikuj</string>
+    <string name="dsh_preset_delete_confirm_title">Usuń preset</string>
+    <string name="dsh_preset_delete_confirm_text">Usunąć preset użytkownika %1$s? Trwające sesje nie są dotknięte; nowe sesje wracają do domyślnego.</string>
+    <string name="dsh_preset_broken_badge">Uszkodzony: %1$s</string>
 </resources>

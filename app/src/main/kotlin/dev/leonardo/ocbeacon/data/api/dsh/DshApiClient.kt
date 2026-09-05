@@ -42,6 +42,8 @@ import dev.leonardo.ocbeacon.data.dto.response.VcsChangeDto
 import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
 import dev.leonardo.ocbeacon.domain.model.AgentPreset
 import dev.leonardo.ocbeacon.domain.model.DshAgentPresetDefault
+import dev.leonardo.ocbeacon.domain.model.DshAgentPresetDocument
+import dev.leonardo.ocbeacon.domain.model.DshAgentPresetRoster
 import dev.leonardo.ocbeacon.domain.model.DshConfigurableProvider
 import dev.leonardo.ocbeacon.domain.model.DshCredentialStatus
 import dev.leonardo.ocbeacon.domain.model.DshCustomProviderDraft
@@ -403,26 +405,74 @@ class DshApiClient @Inject constructor(
         executeCommand(conn, sessionId, "/permission $preset")
 
     /**
-     * agentPreset.list → roster（value.presets[{id,name,description,isDefault}]）。
-     * 失败软降级空列表（调用方隐藏预设卡，AppLogger.w）。
+     * agentPreset.list → roster（value.presets[{id,name,description,isDefault,trust,broken?}]
+     * + authorable；#324② 扩信任教仓/损坏标注/可创作位）。
+     * 失败软降级空 roster（调用方隐藏预设卡，AppLogger.w）。
      */
-    override suspend fun listAgentPresets(conn: ServerConnection): List<AgentPreset> {
+    suspend fun agentPresetRoster(conn: ServerConnection): DshAgentPresetRoster {
         val value = rpc.call(conn, "agentPreset.list", buildJsonObject {}) { it }.getOrElse { e ->
             AppLogger.w(TAG, "agentPreset.list failed: " + e.message)
-            return emptyList()
+            return DshAgentPresetRoster()
         }
         val presets = value.dshArr("presets") ?: emptyList()
-        return presets.mapNotNull { el ->
-            val entry = el as? JsonObject ?: return@mapNotNull null
-            val id = entry.dshStr("id") ?: return@mapNotNull null
-            AgentPreset(
-                id = id,
-                name = entry.dshStr("name") ?: id,
-                description = entry.dshStr("description") ?: "",
-                isDefault = entry.dshBool("isDefault") ?: false,
-            )
-        }
+        return DshAgentPresetRoster(
+            presets = presets.mapNotNull { el ->
+                val entry = el as? JsonObject ?: return@mapNotNull null
+                val id = entry.dshStr("id") ?: return@mapNotNull null
+                AgentPreset(
+                    id = id,
+                    name = entry.dshStr("name") ?: id,
+                    description = entry.dshStr("description") ?: "",
+                    isDefault = entry.dshBool("isDefault") ?: false,
+                    trust = entry.dshStr("trust") ?: "system",
+                    broken = entry.dshStr("broken"),
+                )
+            },
+            authorable = value.dshBool("authorable") ?: false,
+        )
     }
+
+    override suspend fun listAgentPresets(conn: ServerConnection): List<AgentPreset> =
+        agentPresetRoster(conn).presets
+
+    // ============ #324②：agentPresets 管理三方法（read/copy/deletePreset） ============
+
+    /**
+     * agentPresets/read(agentPreset) → 只读组成文档（content 为服务端
+     * 解析后原文）。未知 id（agent-preset-not-found）→ null；
+     * 其余失败上抛由调用方提示。
+     */
+    suspend fun readAgentPreset(conn: ServerConnection, agentPreset: String): DshAgentPresetDocument? {
+        val value = rpc.call(conn, "agentPreset.read", buildJsonObject { put("agentPreset", agentPreset) }) { it }
+            .getOrElse { e ->
+                AppLogger.w(TAG, "agentPresets/read failed for " + agentPreset + ": " + e.message)
+                return null
+            }
+        return DshAgentPresetDocument(
+            agentPreset = value.dshStr("agentPreset") ?: agentPreset,
+            trust = value.dshStr("trust") ?: "system",
+            content = value.dshStr("content") ?: "",
+            name = value.dshStr("name"),
+            description = value.dshStr("description"),
+        )
+    }
+
+    /**
+     * agentPresets/copy(from, id, name?) → 复制为 user 预设（void 回程走
+     * [DshRpcClient.callVoid]）。name 空→载荷不放键（服务端按 id 派生）。
+     */
+    suspend fun copyAgentPreset(conn: ServerConnection, from: String, id: String, name: String?): Boolean {
+        val payload = buildJsonObject {
+            put("from", from)
+            put("id", id)
+            if (!name.isNullOrBlank()) put("name", name)
+        }
+        return rpc.callVoid(conn, "agentPreset.copy", payload).isSuccess
+    }
+
+    /** agentPresets/deletePreset(id)（user 预设可删；system 拒绝；void 回程）。 */
+    suspend fun deleteAgentPreset(conn: ServerConnection, id: String): Boolean =
+        rpc.callVoid(conn, "agentPreset.deletePreset", buildJsonObject { put("id", id) }).isSuccess
 
     /**
      * agentPreset.select {sessionId, agentPreset}（活体 ap-5/ap-6）：成功 value={agentPreset}；

@@ -57,10 +57,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.domain.model.AgentPreset
 import dev.leonardo.ocbeacon.service.ServerLinkState
 import dev.leonardo.ocbeacon.ui.components.DshTokenDialog
 import dev.leonardo.ocbeacon.ui.components.DshTokenNeededBanner
 import dev.leonardo.ocbeacon.ui.components.ServerLinkBanner
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.AgentPresetContentDialog
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.AgentPresetCopyDialog
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.AgentPresetDeleteConfirmDialog
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.ContentSearchFilterChips
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.DeleteSessionDialog
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.NewSessionQuickDialog
@@ -118,6 +122,10 @@ var showMoreMenu by remember { mutableStateOf(false) }
     var assignTagIds by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     val sessionTags by viewModel.sessionTags.collectAsStateWithLifecycle()
+    // #324②：preset 管理对话框状态
+    var pendingViewPreset by remember { mutableStateOf<AgentPreset?>(null) }
+    var pendingCopyPreset by remember { mutableStateOf<AgentPreset?>(null) }
+    var pendingDeletePreset by remember { mutableStateOf<AgentPreset?>(null) }
     val sessionTagAssignments by viewModel.sessionTagAssignments.collectAsStateWithLifecycle()
     val tagFilters by viewModel.tagFilters.collectAsStateWithLifecycle()
     val favoriteSessionIds by viewModel.favoriteSessionIds.collectAsStateWithLifecycle()
@@ -567,6 +575,14 @@ viewModel.consumePendingReadSessionId()
                         agentPresetDefault = viewModel.agentPresetDefault.collectAsStateWithLifecycle().value,
                         onSetAgentPresetDefault = viewModel::setAgentPresetDefault,
                         agentPresetDefaultBlocked = viewModel.agentPresetDefaultBlocked.collectAsStateWithLifecycle().value,
+                        // #324②：preset 管理动作（对话框宿主在本层下方对话框群）
+                        agentPresetAuthorable = viewModel.agentPresetAuthorable.collectAsStateWithLifecycle().value,
+                        onViewAgentPreset = { preset ->
+                            pendingViewPreset = preset
+                            viewModel.readAgentPreset(preset.id)
+                        },
+                        onCopyAgentPreset = { preset -> pendingCopyPreset = preset },
+                        onDeleteAgentPreset = { preset -> pendingDeletePreset = preset },
                     )
                 }
             }
@@ -595,6 +611,33 @@ viewModel.consumePendingReadSessionId()
                 viewModel.dismissDshTokenDialog()
                 showDshTokenDialog = false
             },
+        )
+    }
+    // #324②：preset 管理三对话框（组成查看/复制/删除确认）
+    val agentPresetDoc by viewModel.agentPresetDocument.collectAsStateWithLifecycle()
+    if (pendingViewPreset != null) {
+        agentPresetDoc?.let { doc ->
+            AgentPresetContentDialog(document = doc, onDismiss = {
+                pendingViewPreset = null
+                viewModel.closeAgentPresetDocument()
+            })
+        }
+    }
+    pendingCopyPreset?.let { preset ->
+        AgentPresetCopyDialog(
+            preset = preset,
+            onConfirm = { newId, name ->
+                viewModel.copyAgentPreset(preset.id, newId, name)
+                pendingCopyPreset = null
+            },
+            onDismiss = { pendingCopyPreset = null },
+        )
+    }
+    pendingDeletePreset?.let { preset ->
+        AgentPresetDeleteConfirmDialog(
+            preset = preset,
+            onConfirm = { viewModel.deleteAgentPreset(preset.id) },
+            onDismiss = { pendingDeletePreset = null },
         )
     }
 

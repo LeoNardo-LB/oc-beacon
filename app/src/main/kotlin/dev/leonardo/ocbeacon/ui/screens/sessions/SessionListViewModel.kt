@@ -11,6 +11,7 @@ import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.ui.navigation.routes.safeDecodeParam
 import dev.leonardo.ocbeacon.ui.WhileSubscribed5s
 import dev.leonardo.ocbeacon.domain.model.AgentPreset
+import dev.leonardo.ocbeacon.domain.model.DshAgentPresetDocument
 import dev.leonardo.ocbeacon.domain.model.FileNode
 import dev.leonardo.ocbeacon.domain.model.McpServerStatus
 import dev.leonardo.ocbeacon.domain.model.Project
@@ -208,6 +209,8 @@ class SessionListViewModel @Inject constructor(
     private val _agentPresets = MutableStateFlow<List<AgentPreset>>(emptyList())
     private val _agentPresetDefault = MutableStateFlow<dev.leonardo.ocbeacon.domain.model.DshAgentPresetDefault?>(null)
     private val _agentPresetDefaultBlocked = MutableStateFlow(false)
+    private val _agentPresetAuthorable = MutableStateFlow(false)
+    private val _agentPresetDocument = MutableStateFlow<DshAgentPresetDocument?>(null)
 
     private val directoryManager = DirectoryManager(
         serverId = serverId,
@@ -418,15 +421,29 @@ class SessionListViewModel @Inject constructor(
     /** #298：非 loopback 连接（Host 栅栏 403）——行保留但标注需 adb reverse。 */
     val agentPresetDefaultBlocked: StateFlow<Boolean> = _agentPresetDefaultBlocked.asStateFlow()
 
+    // ============ #324② preset 管理（authorable 位 + 组成查看/复制/删除） ============
+
+    /** 部署是否开放用户预设创作（复制入口门控）。 */
+    val agentPresetAuthorable: StateFlow<Boolean> = _agentPresetAuthorable.asStateFlow()
+
+    /** 组成查看文档（当前打开的 preset；null = 未查看/加载中）。 */
+    val agentPresetDocument: StateFlow<DshAgentPresetDocument?> = _agentPresetDocument.asStateFlow()
+
     /** 读 roster + 默认档（DSH-only；能力位外 no-op；roster 失败软降级空列表）。 */
     fun loadAgentPresets() {
         if (!_serverCapabilities.value.agentPresetSupported) return
         val conn = _mcpConn ?: return
         viewModelScope.launch {
             _agentPresetDefaultBlocked.value = false
-            chatRepository.listAgentPresets(serverId)
-                .onSuccess { list -> _agentPresets.value = list }
-                .onFailure { AppLogger.w(TAG_SESSION_LIST_VM, "listAgentPresets failed") }
+            // #324②：roster 直读（同时取 authorable；原 chatRepository 路径丢 trust/broken）
+            try {
+                val roster = dshSettingsRepository.agentPresetRoster(conn)
+                _agentPresets.value = roster.presets
+                _agentPresetAuthorable.value = roster.authorable
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                AppLogger.w(TAG_SESSION_LIST_VM, "listAgentPresets failed: " + e.message)
+            }
             try {
                 _agentPresetDefault.value = dshSettingsRepository.getDefaultAgentPreset(conn)
             } catch (e: DshSettingsForbiddenException) {
@@ -445,6 +462,49 @@ class SessionListViewModel @Inject constructor(
             try {
                 if (dshSettingsRepository.setDefaultAgentPreset(conn, preset)) {
                     _agentPresetDefault.value = dshSettingsRepository.getDefaultAgentPreset(conn)
+                }
+            } catch (e: DshSettingsForbiddenException) {
+                _agentPresetDefaultBlocked.value = true
+            }
+        }
+    }
+
+    /** #324②：组成查看（未知 id → null 保持对话框提示不可用）。 */
+    fun readAgentPreset(id: String) {
+        val conn = _mcpConn ?: return
+        viewModelScope.launch {
+            _agentPresetDocument.value = dshSettingsRepository.readAgentPreset(conn, id)
+        }
+    }
+
+    fun closeAgentPresetDocument() {
+        _agentPresetDocument.value = null
+    }
+
+    /** #324②：复制为 user 预设；成功后回读 roster。 */
+    fun copyAgentPreset(from: String, newId: String, name: String?) {
+        val conn = _mcpConn ?: return
+        viewModelScope.launch {
+            try {
+                if (dshSettingsRepository.copyAgentPreset(conn, from, newId, name)) {
+                    val roster = dshSettingsRepository.agentPresetRoster(conn)
+                    _agentPresets.value = roster.presets
+                    _agentPresetAuthorable.value = roster.authorable
+                }
+            } catch (e: DshSettingsForbiddenException) {
+                _agentPresetDefaultBlocked.value = true
+            }
+        }
+    }
+
+    /** #324②：删除 user 预设；成功后回读 roster。 */
+    fun deleteAgentPreset(id: String) {
+        val conn = _mcpConn ?: return
+        viewModelScope.launch {
+            try {
+                if (dshSettingsRepository.deleteAgentPreset(conn, id)) {
+                    val roster = dshSettingsRepository.agentPresetRoster(conn)
+                    _agentPresets.value = roster.presets
                 }
             } catch (e: DshSettingsForbiddenException) {
                 _agentPresetDefaultBlocked.value = true

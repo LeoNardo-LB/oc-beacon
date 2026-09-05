@@ -64,6 +64,11 @@ fun ServerSettingsContent(
     agentPresetDefault: DshAgentPresetDefault? = null,
     onSetAgentPresetDefault: (String) -> Unit = {},
     agentPresetDefaultBlocked: Boolean = false,
+    // #324②：preset 管理（authorable 位 + 查看/复制/删除回调）
+    agentPresetAuthorable: Boolean = false,
+    onViewAgentPreset: (AgentPreset) -> Unit = {},
+    onCopyAgentPreset: (AgentPreset) -> Unit = {},
+    onDeleteAgentPreset: (AgentPreset) -> Unit = {},
 ) {
     var mcpExpanded by remember { mutableStateOf(false) }
 
@@ -90,6 +95,10 @@ fun ServerSettingsContent(
                     currentValue = agentPresetDefault?.currentValue,
                     onSelect = onSetAgentPresetDefault,
                     blocked = agentPresetDefaultBlocked,
+                    authorable = agentPresetAuthorable,
+                    onViewPreset = onViewAgentPreset,
+                    onCopyPreset = onCopyAgentPreset,
+                    onDeletePreset = onDeleteAgentPreset,
                 )
             }
         }
