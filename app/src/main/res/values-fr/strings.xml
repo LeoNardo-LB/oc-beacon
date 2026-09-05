@@ -211,6 +211,11 @@
     <string name="chat_event_task_failed">Échec du sous-agent</string>
     <string name="chat_event_shell_completed">Commande d’arrière-plan terminée</string>
     <string name="chat_event_shell_failed">Échec de la commande d’arrière-plan</string>
+    <string name="chat_turn_ledger_summary">Tour %1$d · %2$s · %3$d étapes · %4$d outils</string>
+    <string name="chat_turn_ledger_expand">Afficher les détails du tour</string>
+    <string name="chat_turn_ledger_collapse">Masquer les détails du tour</string>
+    <string name="chat_turn_ledger_tool_calls">Appels d\'outils : %1$d</string>
+    <string name="chat_turn_ledger_tokens">Tokens : %1$s</string>
     <string name="chat_event_generic">Événement</string>
     <string name="chat_event_locate_task">Localiser la tâche</string>
     <string name="task_sheet_subagent_completed">Terminé</string>

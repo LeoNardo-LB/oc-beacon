@@ -211,6 +211,11 @@
     <string name="chat_event_task_failed">Alt ajan başarısız</string>
     <string name="chat_event_shell_completed">Arka plan komutu tamamlandı</string>
     <string name="chat_event_shell_failed">Arka plan komutu başarısız</string>
+    <string name="chat_turn_ledger_summary">Tur %1$d · %2$s · %3$d adım · %4$d araç</string>
+    <string name="chat_turn_ledger_expand">Tur ayrıntılarını göster</string>
+    <string name="chat_turn_ledger_collapse">Tur ayrıntılarını gizle</string>
+    <string name="chat_turn_ledger_tool_calls">Araç çağrıları: %1$d</string>
+    <string name="chat_turn_ledger_tokens">Token: %1$s</string>
     <string name="chat_event_generic">Olay</string>
     <string name="chat_event_locate_task">Görevi bul</string>
     <string name="task_sheet_subagent_completed">Tamamlandı</string>

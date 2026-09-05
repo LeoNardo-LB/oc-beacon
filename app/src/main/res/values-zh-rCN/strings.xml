@@ -213,6 +213,11 @@
     <string name="chat_event_task_failed">子智能体失败</string>
     <string name="chat_event_shell_completed">后台命令完成</string>
     <string name="chat_event_shell_failed">后台命令失败</string>
+    <string name="chat_turn_ledger_summary">轮次 %1$d · %2$s · %3$d 步 · %4$d 个工具</string>
+    <string name="chat_turn_ledger_expand">展开轮次详情</string>
+    <string name="chat_turn_ledger_collapse">收起轮次详情</string>
+    <string name="chat_turn_ledger_tool_calls">工具调用: %1$d</string>
+    <string name="chat_turn_ledger_tokens">令牌: %1$s</string>
     <string name="chat_event_generic">事件</string>
     <string name="chat_event_locate_task">定位发起任务</string>
     <string name="task_sheet_subagent_completed">已完成</string>

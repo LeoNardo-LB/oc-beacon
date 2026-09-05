@@ -217,6 +217,11 @@
     <string name="chat_event_task_failed">Błąd podagenta</string>
     <string name="chat_event_shell_completed">Polecenie w tle zakończone</string>
     <string name="chat_event_shell_failed">Błąd polecenia w tle</string>
+    <string name="chat_turn_ledger_summary">Tura %1$d · %2$s · %3$d kroków · %4$d narzędzi</string>
+    <string name="chat_turn_ledger_expand">Pokaż szczegóły tury</string>
+    <string name="chat_turn_ledger_collapse">Ukryj szczegóły tury</string>
+    <string name="chat_turn_ledger_tool_calls">Wywołania narzędzi: %1$d</string>
+    <string name="chat_turn_ledger_tokens">Tokeny: %1$s</string>
     <string name="chat_event_generic">Zdarzenie</string>
     <string name="chat_event_locate_task">Zlokalizuj zadanie</string>
     <string name="task_sheet_subagent_completed">Ukończono</string>

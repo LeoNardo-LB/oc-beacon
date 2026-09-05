@@ -223,6 +223,11 @@
     <string name="chat_event_task_failed">فشل الوكيل الفرعي</string>
     <string name="chat_event_shell_completed">اكتمل أمر الخلفية</string>
     <string name="chat_event_shell_failed">فشل أمر الخلفية</string>
+    <string name="chat_turn_ledger_summary">الدور %1$d · %2$s · %3$d خطوات · %4$d أدوات</string>
+    <string name="chat_turn_ledger_expand">إظهار تفاصيل الدور</string>
+    <string name="chat_turn_ledger_collapse">إخفاء تفاصيل الدور</string>
+    <string name="chat_turn_ledger_tool_calls">استدعاءات الأدوات: %1$d</string>
+    <string name="chat_turn_ledger_tokens">الرموز: %1$s</string>
     <string name="chat_event_generic">حدث</string>
     <string name="chat_event_locate_task">تحديد موقع المهمة</string>
     <string name="task_sheet_subagent_completed">مكتمل</string>

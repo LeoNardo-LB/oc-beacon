@@ -211,6 +211,11 @@
     <string name="chat_event_task_failed">Subagente fallido</string>
     <string name="chat_event_shell_completed">Comando en segundo plano completado</string>
     <string name="chat_event_shell_failed">Comando en segundo plano fallido</string>
+    <string name="chat_turn_ledger_summary">Turno %1$d · %2$s · %3$d pasos · %4$d herramientas</string>
+    <string name="chat_turn_ledger_expand">Mostrar detalles del turno</string>
+    <string name="chat_turn_ledger_collapse">Ocultar detalles del turno</string>
+    <string name="chat_turn_ledger_tool_calls">Llamadas de herramientas: %1$d</string>
+    <string name="chat_turn_ledger_tokens">Tokens: %1$s</string>
     <string name="chat_event_generic">Evento</string>
     <string name="chat_event_locate_task">Localizar tarea</string>
     <string name="task_sheet_subagent_completed">Completado</string>

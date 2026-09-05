@@ -30,6 +30,20 @@ data class RenderableTurn(
     val stepFinishes: List<Part.StepFinish>,
     val taskAgentName: String?,
     val copyText: String?,
+    /**
+     * #310④ 轨迹台账：步骤数 = turn 内 assistant 消息数。
+     * 后端无关真相源——V2 每个 step 产出一条 assistant 消息；DSH
+     * assistant/message 事件同构（每 step 一帧）。不用 StepFinish parts
+     * 计数（DSH step/end 不产 part，见 DshEventMapper LIFECYCLE_NOISE）。
+     */
+    val stepCount: Int = 0,
+    /**
+     * #310④ 轨迹台账：token 总量 = Σ 消息级 tokens（total ?: input+output）。
+     * 消息级 tokens 双后端均写入（V2 session.step.ended/REST tokens 字段、
+     * DSH usage 桶）；任一消息缺席 → null（严格语义，与 durationMs 的
+     * 「全完结才给值」同哲学）。
+     */
+    val tokensTotal: Long? = null,
 )
 
 @Immutable
@@ -200,6 +214,14 @@ fun computeRenderableTurn(
         null
     }
 
+    // #310④ 轨迹台账预计算（后端无关）：步骤数 = assistant 消息数；
+    // token 总量 = Σ 消息级 tokens（严格：任一缺席即 null——混合求和会
+    // 低估整轮用量，宁可缺席不撒谎）。UI 侧只做纯投影（TurnLedger.kt）。
+    val ledgerStepCount = assistantsForMeta.size
+    val ledgerTokensTotal: Long? = assistantsForMeta.mapNotNull { it.tokens }
+        .takeIf { it.size == assistantsForMeta.size }
+        ?.sumOf { t -> (t.total ?: (t.input + t.output)).toLong() }
+
     // 用于 token 统计的 StepFinish
     val stepFinishes = if (isTurnLast) {
         ordered.flatMap { msg -> msg.parts.filterIsInstance<Part.StepFinish>() }
@@ -233,5 +255,7 @@ fun computeRenderableTurn(
         stepFinishes = stepFinishes,
         taskAgentName = taskAgentName,
         copyText = copyText,
+        stepCount = ledgerStepCount,
+        tokensTotal = ledgerTokensTotal,
     )
 }

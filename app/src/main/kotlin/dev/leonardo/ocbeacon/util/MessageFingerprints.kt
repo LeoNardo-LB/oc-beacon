@@ -28,6 +28,8 @@ object MessageFingerprints {
      * 2026-08-15：追加覆盖 modelId/providerId/agent——原注释假设"生命周期内
      * 不变"在 V2 下为假（step.ended 事件不含模型信息会触发字段变异、REST 兜底
      * 也会补值）；不纳入会导致 RenderableTurn 缓存复用陈旧值（统计栏丢模型不恢复）。
+     * #310④（2026-09-05）：追加覆盖 tokens——REST 兜底可只补 tokens（其余字段
+     * 已定型），不入指纹则台账 tokensTotal 陈旧缺席（同款教训）。
      */
     fun messageFingerprint(msg: ChatMessage): Int {
         val m = msg.message
@@ -37,6 +39,7 @@ object MessageFingerprints {
             h = h * 31 + (m.modelId ?: "").hashCode()
             h = h * 31 + (m.providerId ?: "").hashCode()
             h = h * 31 + (m.agent ?: "").hashCode()
+            h = h * 31 + (m.tokens?.let { (it.total ?: (it.input + it.output)) } ?: -1).hashCode()
             if (m.error != null) {
                 h = h * 31 + m.error.name.hashCode() * 31 + (m.error.data?.toString()?.hashCode() ?: 0)
             }

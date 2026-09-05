@@ -90,6 +90,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.components.AlwaysConfirmDialog
 import dev.leonardo.ocbeacon.ui.screens.chat.util.rememberSafeFlingBehavior
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderableTurn
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.computeRenderableTurn
+import dev.leonardo.ocbeacon.ui.screens.chat.tools.turnOrdinalByAnchorId
 import dev.leonardo.ocbeacon.ui.screens.chat.util.JumpTarget
 import dev.leonardo.ocbeacon.ui.screens.chat.util.computeTurnGroups
 import dev.leonardo.ocbeacon.ui.screens.chat.util.extractJumpTargets
@@ -456,6 +457,12 @@ fun ChatMessageList(
         if (prevReal != null) m[prevReal.message.id] = null  // 会话最后一条：无后继 = turn 尾
         m
     }
+
+    // #310④ 轨迹台账：轮次序号（当前已加载窗口内按视觉顺序编号，最旧 = 1；
+    // 分页窗口变化号码随之平移——绝对轮次号无数据源，纯函数可测）+ 台账
+    // 展开记忆表（#227 屏幕级模式：滚出视口不丢、离会话即清）。
+    val turnOrdinalByMsgId = remember(displayItems) { turnOrdinalByAnchorId(displayItems) }
+    val turnLedgerExpandedStates = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
 
     // #217/#226：尾部兜底去重判据（消息 id 集 + V1 摘要消息入列判定）——
     // 纯逻辑在 CompactionDividerPolicy（C4），此处只做 remember 缓存。
@@ -1305,9 +1312,10 @@ fun ChatMessageList(
                                         }
                                 ) {
                                     // [perf-flng] #258 组合成本取证（DEBUG-only）。
-                                    // return@Box 先行提出——保证 begin/end 段闭合。
+                                    // return@Column 先行提出——保证 begin/end 段闭合。
                                     val chunkT0 = android.os.SystemClock.elapsedRealtimeNanos()
-                                    val chunkTurn = renderableTurns[displayItemIndex] ?: return@Box
+                                    Column {
+                                    val chunkTurn = renderableTurns[displayItemIndex] ?: return@Column
                                     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                                         android.os.Trace.beginSection("flng:it:chunk")
                                     }
@@ -1342,6 +1350,16 @@ fun ChatMessageList(
                                                 "ms key=" + entry.key.takeLast(12)
                                         )
                                     }
+                                    // #310④ 台账行：分片 turn 的视觉末段（entry.isLast）挂台账
+                                    if (entry.isLast) {
+                                        MaybeTurnLedgerRow(
+                                            turn = chunkTurn,
+                                            anchorMsgId = turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id,
+                                            turnNumber = turnOrdinalByMsgId[msg.message.id],
+                                            expandedStates = turnLedgerExpandedStates,
+                                        )
+                                    }
+                                    } // Column（#310④：气泡 + 台账行）
                                 }
                             }
                             is ChatEntry.TurnChunk -> {
@@ -1357,9 +1375,10 @@ fun ChatMessageList(
                                         }
                                 ) {
                                     // [perf-flng] #258 Stage B 分段组合成本取证（DEBUG-only）。
-                                    // return@Box 先行提出——保证 begin/end 段闭合。
+                                    // return@Column 先行提出——保证 begin/end 段闭合。
                                     val segT0 = android.os.SystemClock.elapsedRealtimeNanos()
-                                    val segTurn = renderableTurns[entry.displayIndex] ?: return@Box
+                                    Column {
+                                    val segTurn = renderableTurns[entry.displayIndex] ?: return@Column
                                     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                                         android.os.Trace.beginSection("flng:it:seg")
                                     }
@@ -1392,6 +1411,16 @@ fun ChatMessageList(
                                                 "ms key=" + entry.key.takeLast(12),
                                         )
                                     }
+                                    // #310④ 台账行：分段 turn 的视觉末段（entry.isLast）挂台账
+                                    if (entry.isLast) {
+                                        MaybeTurnLedgerRow(
+                                            turn = segTurn,
+                                            anchorMsgId = turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id,
+                                            turnNumber = turnOrdinalByMsgId[msg.message.id],
+                                            expandedStates = turnLedgerExpandedStates,
+                                        )
+                                    }
+                                    } // Column（#310④：气泡 + 台账行）
                                 }
                             }
                             is ChatEntry.UserChunk -> {
@@ -1569,6 +1598,7 @@ fun ChatMessageList(
                                     android.os.Trace.beginSection("flng:it:turn-a")
                                 }
                                 val (msgFeedback, msgOnRate) = feedbackFor(msg.message)
+                                Column {
                                 MessageCard(
                                     role = MessageCardRole.ASSISTANT,
                                     renderableTurn = renderableTurns[displayItemIndex],
@@ -1602,9 +1632,21 @@ fun ChatMessageList(
                                     questionAnswersCache = viewModel.questionAnswerStore,
                                     eventExpandedStates = eventCardExpandedStates,
                                 )
+                                // #310④ 台账行：轮次边界（气泡下方）。仅已完结轮次——
+                                // MaybeTurnLedgerRow 以 durationMs 判完结，流式进行中
+                                // 轮次不显示（SSE 铁律；此处 !isStreamingMsg 为双保险）。
+                                if (!isStreamingMsg) {
+                                    MaybeTurnLedgerRow(
+                                        turn = renderableTurns[displayItemIndex],
+                                        anchorMsgId = turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id,
+                                        turnNumber = turnOrdinalByMsgId[msg.message.id],
+                                        expandedStates = turnLedgerExpandedStates,
+                                    )
+                                }
                                 if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                                     android.os.Trace.endSection()
                                 }
+                                } // Column（#310④：气泡 + 台账行）
                             }
                             msg.isUser -> {
                                 val chatMessage = msg

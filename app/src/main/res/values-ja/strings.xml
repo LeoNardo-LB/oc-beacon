@@ -211,6 +211,11 @@
     <string name="chat_event_task_failed">サブエージェント失敗</string>
     <string name="chat_event_shell_completed">バックグラウンドコマンド完了</string>
     <string name="chat_event_shell_failed">バックグラウンドコマンド失敗</string>
+    <string name="chat_turn_ledger_summary">ターン %1$d · %2$s · %3$d ステップ · %4$d ツール</string>
+    <string name="chat_turn_ledger_expand">ターンの詳細を表示</string>
+    <string name="chat_turn_ledger_collapse">ターンの詳細を隠す</string>
+    <string name="chat_turn_ledger_tool_calls">ツール呼び出し: %1$d</string>
+    <string name="chat_turn_ledger_tokens">トークン: %1$s</string>
     <string name="chat_event_generic">イベント</string>
     <string name="chat_event_locate_task">タスクを特定</string>
     <string name="task_sheet_subagent_completed">完了</string>

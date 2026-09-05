@@ -147,6 +147,11 @@
     <string name="chat_event_task_failed">Subagen gagal</string>
     <string name="chat_event_shell_completed">Perintah latar belakang selesai</string>
     <string name="chat_event_shell_failed">Perintah latar belakang gagal</string>
+    <string name="chat_turn_ledger_summary">Putaran %1$d · %2$s · %3$d langkah · %4$d alat</string>
+    <string name="chat_turn_ledger_expand">Tampilkan detail putaran</string>
+    <string name="chat_turn_ledger_collapse">Sembunyikan detail putaran</string>
+    <string name="chat_turn_ledger_tool_calls">Panggilan alat: %1$d</string>
+    <string name="chat_turn_ledger_tokens">Token: %1$s</string>
     <string name="chat_event_generic">Acara</string>
     <string name="chat_event_locate_task">Temukan tugas</string>
     <string name="task_sheet_subagent_completed">Selesai</string>

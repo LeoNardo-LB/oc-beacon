@@ -237,6 +237,11 @@
     <string name="chat_event_task_failed">Сбой субагента</string>
     <string name="chat_event_shell_completed">Фоновая команда завершена</string>
     <string name="chat_event_shell_failed">Сбой фоновой команды</string>
+    <string name="chat_turn_ledger_summary">Раунд %1$d · %2$s · %3$d шагов · %4$d инструментов</string>
+    <string name="chat_turn_ledger_expand">Показать подробности раунда</string>
+    <string name="chat_turn_ledger_collapse">Скрыть подробности раунда</string>
+    <string name="chat_turn_ledger_tool_calls">Вызовы инструментов: %1$d</string>
+    <string name="chat_turn_ledger_tokens">Токены: %1$s</string>
     <string name="chat_event_generic">Событие</string>
     <string name="chat_event_locate_task">Найти задачу</string>
     <string name="task_sheet_subagent_completed">Завершено</string>

@@ -71,6 +71,26 @@ class MessageFingerprintsTest {
     }
 
     @Test
+    fun `messageFingerprint tokens change affects fingerprint`() {
+        // #310④ 台账：tokens 不入指纹 → REST 兜底只补 tokens 时缓存陈旧
+        //（tokensTotal 恒缺席）——与 2026-08-15 modelId 同款教训。
+        fun msg(tokens: Message.Assistant.Tokens?) = ChatMessage(
+            message = Message.Assistant(
+                id = "1", sessionId = "s1",
+                time = TimeInfo(created = 100L, completed = 200L),
+                parentId = "p", tokens = tokens,
+            ),
+            parts = listOf(textPart("p1", "same")),
+        )
+        assertNotEquals(
+            MessageFingerprints.messageFingerprint(msg(null)),
+            MessageFingerprints.messageFingerprint(
+                msg(Message.Assistant.Tokens(input = 10, output = 5))
+            ),
+        )
+    }
+
+    @Test
     fun `toolFingerprint running output affects fingerprint`() {
         fun tool(output: String) = Part.Tool(
             id = "t1", sessionId = "s1", messageId = "m1", callId = "c1", tool = "bash",
