@@ -80,6 +80,9 @@
 
 ## P2 — 优化与锦上添花
 
+- [ ] **#333 旧会话（35h/6h+）重进转录空白态** `dsh` `session` `data`
+  - #312 验收实测:9月4 会话(35h/6h+)重进转录空白多帧(无崩溃)——疑 session/follow 限界窗口(#319 语义)外的历史加载链(listMessages 分页/fold)断,待诊断;→ `docs/acceptance/2026-09-05-312-s-pool.md` 观测③
+
 - [ ] **#325 DSH token 首次配对体验——dev 注入脚本/QR 扫码/SSH 通道/sameBackend username 修复** `dsh` `security` `ui`
   - 调研实证:token 仅存进程内存(重启轮换/不落盘/不可配置),无 LAN 静默发现途径(设计使然);cookie 365 天/authority——自动发现=首次配对问题;宿主 dsh-url 工具已带 QR 输出,app 粘贴框现成
   - 四子项:①debug-entry.sh 并 token 注入(现成)②QR 扫码(CameraX)③SSH 白名单通道(sshj)④DSH 条目 sameBackend 忽略 username;→ `docs/research/2026-09-04-dsh-token-autodiscovery.md`
@@ -100,11 +103,6 @@
 - [~] **#312 DSH 面对齐零星 S 级池：相对时间戳/KaTeX/spill 提示/命令带图限制/消息级分支锚点** `dsh` `ui`
   - 四子项落地（f6e288b7+4b5f1618;③spill 转 #332 P4）;验收 6✔+A2 终裁✔（markdown 面,用户卡纯 Text 既有设计）:docs/acceptance/2026-09-05-312-s-pool.md——fork wire 112ms+导航/拦截 wire 级不派发/相对时间戳三形态;**UIUX 待人工**（域汇总;含下轮补一发助手面数学定向确认）
   - → `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md` §四 · `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §12.3
-
-## P2 — 优化与锦上添花
-
-- [ ] **#333 旧会话（35h/6h+）重进转录空白态** `dsh` `session` `data`
-  - #312 验收实测:9月4 会话(35h/6h+)重进转录空白多帧(无崩溃)——疑 session/follow 限界窗口(#319 语义)外的历史加载链(listMessages 分页/fold)断,待诊断;→ `docs/acceptance/2026-09-05-312-s-pool.md` 观测③
 
 ## P3 — 观察与低价值改进
 
