@@ -1,20 +1,27 @@
 package dev.leonardo.ocbeacon.service
 
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
+import dev.leonardo.ocbeacon.data.repository.PendingInteractionStore
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.Session
+import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
+import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
 import dev.leonardo.ocbeacon.domain.usecase.ManagePermissionUseCase
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -45,11 +52,20 @@ class SessionNotificationCoordinatorTest {
     private val notificationsEnabledFlow = MutableStateFlow(true)
     private val autoAllowFlow = MutableStateFlow(false)
 
+    // #336：到达发布 → 已通知槽标记（退后台补发去重源）——真实 store
+    private val statuses = MutableStateFlow<Map<String, SessionStatus>>(emptyMap())
+    private val testDispatcher = UnconfinedTestDispatcher()
+    private lateinit var store: PendingInteractionStore
+
     @Before
     fun setup() {
         every { eventDispatcher.sessions } returns sessionsFlow
         every { settingsRepository.notificationsEnabled() } returns notificationsEnabledFlow
         every { settingsRepository.autoAllowPermissions() } returns autoAllowFlow
+        store = PendingInteractionStore(
+            mockk<SessionStateRepository> { every { statusFlow } returns statuses },
+            CoroutineScope(testDispatcher + SupervisorJob()),
+        )
         coordinator = SessionNotificationCoordinator(
             actions = port,
             appNotificationManager = appNotificationManager,
@@ -57,6 +73,7 @@ class SessionNotificationCoordinatorTest {
             settingsRepository = settingsRepository,
             eventDispatcher = eventDispatcher,
             managePermissionUseCase = managePermissionUseCase,
+            pendingInteractionStore = store,
         )
     }
 
@@ -438,6 +455,65 @@ class SessionNotificationCoordinatorTest {
         coordinator.processEvent(server, SseEvent.MessageRemoved(sessionId = "sess1", messageId = "msg_x"))
 
         assertTrue(port.calls.isEmpty())
+    }
+
+    // ============ #336：到达发布 → 已通知槽标记（退后台补发去重源）============
+
+    @Test
+    fun permissionPostedInBackgroundMarksPendingNotified() = runTest {
+        background()
+
+        coordinator.processEvent(server, permission())
+
+        assertEquals(listOf("showPermissionAsked:sess1:fs.write"), port.calls)
+        // 系统通知已发布 → 已通知槽置位（退后台补发不重发）
+        assertTrue(store.isNotified("sess1"))
+    }
+
+    @Test
+    fun permissionSuppressedInForegroundLeavesSlotUnmarked() = runTest {
+        focusOn("sess1")
+
+        coordinator.processEvent(server, permission())
+
+        // 前台正看该会话：转提示音、无系统通知 → 槽不置位（退后台可补发）
+        assertEquals(listOf("sound:PERMISSION:sess1:fs.write"), port.calls)
+        assertFalse(store.isNotified("sess1"))
+    }
+
+    @Test
+    fun questionPostedInBackgroundMarksPendingNotified() = runTest {
+        background()
+
+        coordinator.processEvent(server, question())
+
+        assertEquals(listOf("showQuestionAsked:sess1:Favorite animal?"), port.calls)
+        assertTrue(store.isNotified("sess1"))
+    }
+
+    @Test
+    fun questionSuppressedInForegroundLeavesSlotUnmarked() = runTest {
+        focusOn("sess1")
+
+        coordinator.processEvent(server, question())
+
+        assertEquals(listOf("sound:QUESTION:sess1:Favorite animal?"), port.calls)
+        assertFalse(store.isNotified("sess1"))
+    }
+
+    @Test
+    fun autoAllowedPermissionDoesNotMarkNotified() = runTest {
+        background()
+        autoAllowFlow.value = true
+        coEvery {
+            managePermissionUseCase.replyToPermission("server1", "sess1", "perm_1", "always", null)
+        } returns true
+
+        coordinator.processEvent(server, permission())
+
+        assertTrue(port.calls.isEmpty())
+        // 自动应答路径无通知发布 → 槽不置位（如实：未发过）
+        assertFalse(store.isNotified("sess1"))
     }
 
     // ============ fake 端口 ============

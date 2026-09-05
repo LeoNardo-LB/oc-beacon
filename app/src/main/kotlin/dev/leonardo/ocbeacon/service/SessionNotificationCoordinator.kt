@@ -4,6 +4,8 @@ import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
+import dev.leonardo.ocbeacon.data.repository.PendingInteractionKind
+import dev.leonardo.ocbeacon.data.repository.PendingInteractionStore
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.QuestionState
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
@@ -105,6 +107,7 @@ class SessionNotificationCoordinator @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val eventDispatcher: EventDispatcher,
     private val managePermissionUseCase: ManagePermissionUseCase,
+    private val pendingInteractionStore: PendingInteractionStore,
 ) {
 
     /** 事件派发器的会话表快照（子会话判定/冒泡/auto-allow directory 解析的数据源）。 */
@@ -216,6 +219,10 @@ class SessionNotificationCoordinator @Inject constructor(
             return
         }
         actions.showPermissionAsked(server, targetSessionId, event.permission)
+        // #336：系统通知已发布（或文本去重判定为等效通知仍在展示）→ 已通知槽
+        // 置位（键=原始事件 sessionId，与 store 记录键一致）——退后台补发据此
+        // 「已发过的不重发」；被抑制（上方提示音路径）/自动应答路径不标记。
+        pendingInteractionStore.markNotified(event.sessionId, PendingInteractionKind.APPROVAL)
     }
 
     private suspend fun onQuestionAsked(server: ServerConfig, event: SseEvent.QuestionAsked) {
@@ -236,6 +243,9 @@ class SessionNotificationCoordinator @Inject constructor(
         val questionText = event.questions.firstOrNull()?.question
             ?: actions.fallbackQuestionText()
         actions.showQuestionAsked(server, targetSessionId, questionText)
+        // #336：系统通知已发布 → 已通知槽置位（同 permission 路径口径；kind 值
+        // 信息性——去重判定只看槽在场，plan-review 归并 question 同点）。
+        pendingInteractionStore.markNotified(event.sessionId, PendingInteractionKind.QUESTION)
     }
 
     private suspend fun onSessionError(server: ServerConfig, event: SseEvent.SessionError) {

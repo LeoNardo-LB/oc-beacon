@@ -102,6 +102,10 @@ class OpenCodeConnectionService : Service() {
     @Inject
     lateinit var pendingInteractionNotificationRevoker: PendingInteractionNotificationRevoker
 
+    // #336：前台挂起的审批/提问等待态 → 退后台转换沿补发通知（同族保活姿势）
+    @Inject
+    lateinit var pendingInteractionBackgroundNotifier: PendingInteractionBackgroundNotifier
+
     @Inject
     lateinit var feedbackPlayer: InSessionFeedbackPlayer
 

@@ -153,4 +153,72 @@ class PendingInteractionStoreTest {
         store.clearAll()
         assertEquals(emptyMap<String, PendingInteractionKind>(), store.pendingBySession.value)
     }
+
+    // ============ #336：已通知槽（补发去重——「已发过的不重发」）============
+
+    @Test
+    fun `markNotified records slot and isNotified reflects it`() {
+        val store = newStore()
+        store.record("s1", PendingInteractionKind.APPROVAL)
+        org.junit.Assert.assertFalse(store.isNotified("s1"))
+        store.markNotified("s1", PendingInteractionKind.APPROVAL)
+        org.junit.Assert.assertTrue(store.isNotified("s1"))
+    }
+
+    @Test
+    fun `clearIfKind also clears notified slot for next round`() {
+        val store = newStore()
+        store.record("s1", PendingInteractionKind.APPROVAL)
+        store.markNotified("s1", PendingInteractionKind.APPROVAL)
+        store.clearIfKind("s1", PendingInteractionKind.APPROVAL)
+        org.junit.Assert.assertFalse(store.isNotified("s1"))
+    }
+
+    @Test
+    fun `clearForSession and clearAll clear notified slots`() {
+        val store = newStore()
+        store.record("s1", PendingInteractionKind.APPROVAL)
+        store.record("s2", PendingInteractionKind.QUESTION)
+        store.markNotified("s1", PendingInteractionKind.APPROVAL)
+        store.markNotified("s2", PendingInteractionKind.QUESTION)
+        store.clearForSession("s1")
+        org.junit.Assert.assertFalse(store.isNotified("s1"))
+        org.junit.Assert.assertTrue(store.isNotified("s2"))
+        store.clearAll()
+        org.junit.Assert.assertFalse(store.isNotified("s2"))
+    }
+
+    @Test
+    fun `busy to idle fallback clears notified slot`() = runTest(testDispatcher) {
+        val store = newStore()
+        store.record("s1", PendingInteractionKind.QUESTION)
+        store.markNotified("s1", PendingInteractionKind.QUESTION)
+        statuses.value = mapOf("s1" to SessionStatus.Busy)
+        advanceUntilIdle()
+        statuses.value = mapOf("s1" to SessionStatus.Idle)
+        advanceUntilIdle()
+        assertNull(store.pendingBySession.value["s1"])
+        org.junit.Assert.assertFalse(store.isNotified("s1"))
+    }
+
+    @Test
+    fun `record with different kind resets notified slot`() {
+        val store = newStore()
+        store.record("s1", PendingInteractionKind.APPROVAL)
+        store.markNotified("s1", PendingInteractionKind.APPROVAL)
+        // kind 切换 = 新等待态 → 通知机会重置
+        store.record("s1", PendingInteractionKind.QUESTION)
+        org.junit.Assert.assertFalse(store.isNotified("s1"))
+    }
+
+    @Test
+    fun `record with same kind keeps notified slot`() {
+        val store = newStore()
+        store.record("s1", PendingInteractionKind.APPROVAL)
+        store.markNotified("s1", PendingInteractionKind.APPROVAL)
+        // 同 kind 再记录（重放/追加同类请求）——单值域等待态延续，不重置
+        //（防 SSE 冷启重放清槽 → 退后台重复补发）
+        store.record("s1", PendingInteractionKind.APPROVAL)
+        org.junit.Assert.assertTrue(store.isNotified("s1"))
+    }
 }

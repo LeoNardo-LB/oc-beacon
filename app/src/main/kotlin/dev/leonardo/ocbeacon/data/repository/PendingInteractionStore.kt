@@ -61,6 +61,20 @@ class PendingInteractionStore @Inject constructor(
     /** sessionId → 待交互种类（单值 last-wins）。 */
     val pendingBySession: StateFlow<Map<String, PendingInteractionKind>> = _pendingBySession.asStateFlow()
 
+    /**
+     * #336：sessionId → 已通知槽（该会话当前挂起等待态的系统通知已发布过）。
+     *
+     * 键空间与 [pendingBySession] 一致（原始事件 sessionId）——生命周期严格随
+     * pending 条目联动，由本类清除路径同点复位：
+     * - pending 清除（三径任一）/ kind 切换 → 槽复位（下一轮等待态可再通知）；
+     * - 同 kind 再记录（SSE 冷启重放/追加同类请求）→ 槽保留（单值域等待态
+     *   延续——防重放清槽导致退后台重复补发）。
+     *
+     * 写入方：到达发布点（SessionNotificationCoordinator 通知后）与退后台补发点
+     * （PendingInteractionBackgroundNotifier 补发后）——「已发过的不重发」判定源。
+     */
+    private val notifiedBySession = MutableStateFlow<Map<String, PendingInteractionKind>>(emptyMap())
+
     init {
         // ② 轮次结束兜底：store 侧订阅状态流（只读消费——FSM 写入路径零接触，
         // 承重规则：不重新引入按 handler 维护的状态、不改 SessionStateFSM）。
@@ -81,6 +95,15 @@ class PendingInteractionStore @Inject constructor(
     /** 分发点旁路记录（所有权去重后调用——双配置同后端只记一次）。 */
     fun record(sessionId: String, kind: PendingInteractionKind) {
         _pendingBySession.update { it + (sessionId to kind) }
+        // #336：kind 切换 = 新等待态 → 已通知槽复位（通知机会重置）；
+        // 同 kind 再记录保留槽（等待态延续，防重放重复补发）。
+        notifiedBySession.update { notified ->
+            if (notified.containsKey(sessionId) && notified[sessionId] != kind) {
+                notified - sessionId
+            } else {
+                notified
+            }
+        }
     }
 
     /** 清除①同点调用：仅当记录种类同族时移除（question 族互清——plan-review 归并）。 */
@@ -93,13 +116,33 @@ class PendingInteractionStore @Inject constructor(
                 all
             }
         }
+        clearNotifiedIfPendingAbsent(sessionId)
     }
 
     fun clearForSession(sessionId: String) {
         _pendingBySession.update { it - sessionId }
+        clearNotifiedIfPendingAbsent(sessionId)
     }
 
     fun clearAll() {
         _pendingBySession.value = emptyMap()
+        notifiedBySession.value = emptyMap()
+    }
+
+    // ============ #336：已通知槽 ============
+
+    /** 系统通知发布后同点标记（到达发布点/退后台补发点调用）。 */
+    fun markNotified(sessionId: String, kind: PendingInteractionKind) {
+        notifiedBySession.update { it + (sessionId to kind) }
+    }
+
+    /** 该会话当前挂起等待态是否已发过通知（补发去重判定）。 */
+    fun isNotified(sessionId: String): Boolean = notifiedBySession.value.containsKey(sessionId)
+
+    /** 槽随 pending 条目联动复位：pending 已不在 → 槽一并清除。 */
+    private fun clearNotifiedIfPendingAbsent(sessionId: String) {
+        if (!_pendingBySession.value.containsKey(sessionId)) {
+            notifiedBySession.update { it - sessionId }
+        }
     }
 }
