@@ -2115,4 +2115,108 @@ class DshApiClientTest {
         assertEquals("/api/session.export", req.url.encodedPath)
         assertEquals("dsh-auth-x=v1.abc", req.headers["Cookie"])
     }
+
+    // ============ #311 Task1：workspace 数据层（契约 2026-09-05-311-wire-contracts ①-a/①-d） ============
+
+    /**
+     * V012 workspace/archiveSession（#310 wire 契约钉死同款）：URL/信封方法名
+     * workspace/archiveSession；载荷 {args:{request:{sessionId}}}（typert 参数
+     * wire:'request'——WRAPPED 缺省键）；回执 {archivedSessionIds} 是**完整新
+     * 集合**（集合替换式，非增量合并）。
+     */
+    @Test
+    fun `v012 archiveSession posts workspace archiveSession and parses receipt`() = runTest {
+        val engine = MockEngine { respond(ok("""{"archivedSessionIds":["s-2","s-9"]}"""), HttpStatusCode.OK, jsonHeaders()) }
+        val archived = client(engine, DshWireProtocol.V012).archiveSession(conn, "s-9")
+        assertEquals(listOf("s-2", "s-9"), archived)
+        val req = captureRequests(engine).single()
+        assertEquals("/api/workspace/archiveSession", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("workspace/archiveSession", body["method"]!!.jsonPrimitive.content)
+        assertEquals(
+            """{"args":{"request":{"sessionId":"s-9"}}}""",
+            body["payload"].toString(),
+        )
+    }
+
+    /** V011 线面无 workspace/archiveSession（0.1.1 方法面无此动词）→ UnsupportedServerCapability。 */
+    @Test
+    fun `archiveSession throws unsupported on v011`() = runTest {
+        val engine = MockEngine { respond(ok("{}"), HttpStatusCode.OK, jsonHeaders()) }
+        val outcome = runCatching { client(engine).archiveSession(conn, "s-1") }
+        assertTrue(outcome.isFailure)
+        assertTrue(outcome.exceptionOrNull() is dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability)
+    }
+
+    /** workspace.list 完整映射（契约 ①-d WorkspaceView：名字键=title、归属=sessionIds）。 */
+    @Test
+    fun `listWorkspaces maps full workspace view shape`() = runTest {
+        val engine = MockEngine {
+            respond(
+                ok(
+                    """{"items":[
+                        {"workspaceId":"ws-1","path":"/home/leo/proj","title":"Beacon",
+                         "sessionIds":["s-1","s-2"],
+                         "createdAt":"2026-09-05T00:00:00Z","updatedAt":"2026-09-05T01:00:00Z"},
+                        {"workspaceId":"ws-2","path":"/srv/ops","title":"Ops","sessionIds":[]}
+                    ]}""",
+                ),
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        val workspaces = client(engine).listWorkspaces(conn)
+        assertEquals(2, workspaces.size)
+        assertEquals("ws-1", workspaces[0].workspaceId)
+        assertEquals("/home/leo/proj", workspaces[0].path)
+        assertEquals("Beacon", workspaces[0].title)
+        assertEquals(listOf("s-1", "s-2"), workspaces[0].sessionIds)
+        assertTrue(workspaces[1].sessionIds.isEmpty())
+    }
+
+    /** 旧线面形状回退（0.1.1 {id,name}）：id→workspaceId、name→title（零回归兼容）。 */
+    @Test
+    fun `listWorkspaces falls back to legacy id and name keys`() = runTest {
+        val engine = MockEngine {
+            respond(ok("""{"items":[{"id":"ws-old","path":"/w/one","name":"Legacy"}]}"""), HttpStatusCode.OK, jsonHeaders())
+        }
+        val workspaces = client(engine).listWorkspaces(conn)
+        assertEquals(1, workspaces.size)
+        assertEquals("ws-old", workspaces[0].workspaceId)
+        assertEquals("Legacy", workspaces[0].title)
+        assertTrue(workspaces[0].sessionIds.isEmpty())
+    }
+
+    /** title 缺席 → basename(path)（服务器 create 默认语义——名字键永不空）。 */
+    @Test
+    fun `listWorkspaces defaults title to path basename`() = runTest {
+        val engine = MockEngine {
+            respond(ok("""{"items":[{"workspaceId":"ws-3","path":"/w/deep/proj"}]}"""), HttpStatusCode.OK, jsonHeaders())
+        }
+        assertEquals("proj", client(engine).listWorkspaces(conn).single().title)
+    }
+
+    /** V012 create 带 workspaceId（契约 ①-d SessionCreateRequest.workspaceId）。 */
+    @Test
+    fun `v012 createSession includes workspaceId when provided`() = runTest {
+        val engine = MockEngine { respond(ok("""{"sessionId":"session-ws-1"}"""), HttpStatusCode.OK, jsonHeaders()) }
+        client(engine, DshWireProtocol.V012)
+            .createSession(conn, title = null, parentId = null, directory = null, workspaceId = "ws-1")
+        val req = captureRequests(engine).single()
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("session/create", body["method"]!!.jsonPrimitive.content)
+        val request = body["payload"]!!.jsonObject["args"]!!.jsonObject["request"]!!.jsonObject
+        assertEquals("ws-1", request["workspaceId"]!!.jsonPrimitive.content)
+    }
+
+    /** workspaceId 默认 null → 载荷不放键（既有调用方零回归）。 */
+    @Test
+    fun `v012 createSession omits workspaceId by default`() = runTest {
+        val engine = MockEngine { respond(ok("""{"sessionId":"session-new-4"}"""), HttpStatusCode.OK, jsonHeaders()) }
+        client(engine, DshWireProtocol.V012).createSession(conn, title = null, parentId = null, directory = "/tmp")
+        val req = captureRequests(engine).single()
+        val request = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+            .get("payload")!!.jsonObject["args"]!!.jsonObject["request"]!!.jsonObject
+        assertFalse(request.containsKey("workspaceId"))
+        assertEquals("/tmp", request["cwd"]!!.jsonPrimitive.content)
+    }
 }

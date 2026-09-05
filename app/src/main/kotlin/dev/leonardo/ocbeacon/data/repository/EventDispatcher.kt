@@ -46,6 +46,8 @@ class EventDispatcher @Inject constructor(
     private val shellJobsHandler: ShellJobsHandler,
     private val dshJobsHandler: DshJobsHandler,
     private val dshQueueHandler: DshQueueHandler,
+    // #311 Task1：workspace 域事件 → DshWorkspaceStore（漏 bind 即静默丢弃——goal 前车之鉴）
+    private val dshWorkspaceHandler: DshWorkspaceHandler,
     private val sessionStateRepository: SessionStateService,
     private val unreadBadgeService: UnreadBadgeService,
     private val ownershipRegistry: StreamingOwnershipRegistry,
@@ -158,6 +160,12 @@ class EventDispatcher @Inject constructor(
         bind(sessionHandler, SseEvent.SessionPlanChanged::class)
         // DSH 排队收件箱整快照 → DshQueueHandler（2026-09-01 QueueDock）
         bind(dshQueueHandler, SseEvent.QueueSnapshot::class)
+        // DSH workspace 域（follow baseline + archived 增量）→ DshWorkspaceHandler
+        //（#311 Task1；EventDispatcherWorkspace311Test 钉死）
+        bind(
+            dshWorkspaceHandler,
+            SseEvent.WorkspaceSnapshotChanged::class, SseEvent.WorkspaceArchivedChanged::class
+        )
         return map
     }
 
@@ -464,6 +472,9 @@ class EventDispatcher @Inject constructor(
             is SseEvent.InstallationUpdateAvailable -> null
             is SseEvent.WorktreeReady -> null
             is SseEvent.WorktreeFailed -> null
+            // #311 Task1：workspace 域事件（服务器级注册表/归档集合——无单一会话归属）
+            is SseEvent.WorkspaceSnapshotChanged -> null
+            is SseEvent.WorkspaceArchivedChanged -> null
         }
     }
 

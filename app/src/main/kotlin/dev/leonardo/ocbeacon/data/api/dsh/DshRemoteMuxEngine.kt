@@ -41,9 +41,9 @@ interface DshMuxAuth {
  *
  * 与 0.1.1 双流引擎（[DshWsEventEngine]）的关键差异：
  * - **可上行**：open/cancel 帧（0.1.1 纯下行、发帧即踢）；本引擎是唯一合法上行方；
- * - **三条逻辑流**：`$events`（全局：ready/emit/waterfall/cancel）+ `session/follow`
+ * - **四条逻辑流**：`$events`（全局：ready/emit/waterfall/cancel）+ `session/follow`
  *   （每会话：snapshot 基线 + 增量 SessionEvent）+ `session/control`（jobs/队列/投影
- *   整快照基线）；
+ *   整快照基线）+ `workspace/follow`（#311：workspace 注册表基线 + archived 集合增量）；
  * - **鉴权**：升级请求带 Cookie；401 unexpected-response → 清凭据 + 挂起等 token
  *   （[DshConnectionRegistry.awaitCookie]，TokenNeeded 模态由连接层呈现）。
  *
@@ -153,6 +153,9 @@ class DshRemoteMuxEngine(
                     webSocket.send(openFrame(EVENTS_STREAM, EVENTS_ENDPOINT))
                     // session/control：jobs/队列/投影整快照基线
                     webSocket.send(openFrame(CONTROL_STREAM, "session/control"))
+                    // workspace/follow（#311 Task1）：注册表基线 + archived 集合增量。
+                    // 旧版 0.1.2 无此端点 → 流错误帧（仅记日志，不影响其他逻辑流）。
+                    webSocket.send(openFrame(WORKSPACE_STREAM, WORKSPACE_ENDPOINT))
                     // 会话 follow：限界集全量（running 或 24h 内活跃；后续新增/激活走 onSessionActive）
                     scope.launch {
                         val targets = runCatching { listFollowTargets() }.onFailure {
@@ -236,9 +239,12 @@ class DshRemoteMuxEngine(
     private companion object {
         const val EVENTS_STREAM = "evt"
         const val CONTROL_STREAM = "ctl"
+        const val WORKSPACE_STREAM = "wsp"
         const val FOLLOW_PREFIX = "f:"
         /** $events 逻辑流端点（转义 $：字面量）。 */
         const val EVENTS_ENDPOINT = "\$events"
+        /** workspace 状态流端点（#311：baseline + 增量）。 */
+        const val WORKSPACE_ENDPOINT = "workspace/follow"
     }
 }
 
@@ -303,6 +309,7 @@ class DshMuxSynthesizer(
         when {
             streamId == "evt" -> onEventsValue(value, pendingWaterfalls)
             streamId == "ctl" -> onControlValue(value)
+            streamId == "wsp" -> onWorkspaceValue(value)
             streamId.startsWith("f:") -> onFollowValue(streamId.removePrefix("f:"), value)
             else -> AppLogger.d(TAG, "未知逻辑流 " + streamId + " 值: " + value.toString().take(100))
         }
@@ -564,6 +571,36 @@ class DshMuxSynthesizer(
                     (proj as? JsonObject)?.get("values")?.let { emitProjections(sid, it) }
                 }
             }
+        }
+    }
+
+    // ---- workspace/follow：baseline + archived 增量（#311 Task1） ------------
+
+    /**
+     * workspace 状态流值分型（服务器 workspace-controller types.d.ts:108-131
+     * WorkspaceFollowFrame）：baseline 一次（{type:'baseline', value:{items,
+     * archivedSessionIds}}——value 包装与 session/control 同形态）+ 增量帧
+     * {type:'upsert'|'remove'|'order'|'archived',…}（平铺）。
+     *
+     * #311 Task1 消费面：baseline + {type:'archived'}（归档集合替换式——帧即新
+     * 集合）镜像为合成帧 workspace/baseline|archived，下游 mapper/store 单一消费
+     * 路径。upsert/remove/order（注册表结构变更）属 #311 Task2（多 workspace UI），
+     * 到达仅留痕不合成。
+     */
+    private fun onWorkspaceValue(value: JsonObject) {
+        when (value.strOf("type")) {
+            "baseline" -> {
+                val baseline = value["value"] as? JsonObject ?: return
+                frame("workspace/baseline", buildJsonObject {
+                    put("items", baseline["items"] ?: JsonArray(emptyList()))
+                    put("archivedSessionIds", baseline["archivedSessionIds"] ?: JsonArray(emptyList()))
+                })
+            }
+            "archived" -> {
+                val ids = value["archivedSessionIds"] ?: return
+                frame("workspace/archived", buildJsonObject { put("archivedSessionIds", ids) })
+            }
+            else -> AppLogger.d(TAG, "workspace 增量未消费型（upsert/remove/order 属 #311 Task2）: " + value.toString().take(120))
         }
     }
 

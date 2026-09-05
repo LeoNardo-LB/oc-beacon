@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.data.repository
 
+import dev.leonardo.ocbeacon.data.repository.handler.DshJobsHandler
 import dev.leonardo.ocbeacon.data.repository.handler.DshQueueHandler
 import dev.leonardo.ocbeacon.data.repository.handler.DshWorkspaceHandler
 import dev.leonardo.ocbeacon.data.repository.handler.MessageEventHandler
@@ -9,9 +10,9 @@ import dev.leonardo.ocbeacon.data.repository.handler.QuestionEventHandler
 import dev.leonardo.ocbeacon.data.repository.handler.SessionEventHandler
 import dev.leonardo.ocbeacon.data.repository.handler.SessionNextEventHandler
 import dev.leonardo.ocbeacon.data.repository.handler.ShellJobsHandler
-import dev.leonardo.ocbeacon.domain.model.DshPlanProjection
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SseEvent
+import dev.leonardo.ocbeacon.domain.model.Workspace
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.usecase.PaginationCursorPolicyFactory
 import io.mockk.mockk
@@ -28,22 +29,24 @@ import org.junit.Test
 import javax.inject.Provider
 
 /**
- * #310③ 三步接线钉死：SessionPlanChanged 必须 ① mapper 产事件（DshEventMapperPlan310Test）
- * ② EventDispatcher 注册到 SessionHandler（本测试——漏 bind 即静默丢弃，goal 前车之鉴）
- * ③ handler 折叠进 Session.plan（SessionEventHandlerPlan310Test）。
+ * #311 Task1 三步接线钉死（#310③ 同款纪律）：
+ * ① mapper 产事件（DshEventMapperWorkspace311Test）
+ * ② EventDispatcher 注册到 DshWorkspaceHandler（本测试——漏 bind 即「No handler
+ *    registered」静默丢弃，goal 前车之鉴）
+ * ③ handler 折叠进 DshWorkspaceStore（baseline 整替换 + archived 集合替换）。
  */
-class EventDispatcherPlan310Test {
+class EventDispatcherWorkspace311Test {
 
     private lateinit var dispatcher: EventDispatcher
-    private lateinit var sessionHandler: SessionEventHandler
+    private lateinit var store: DshWorkspaceStore
     private lateinit var stateServiceScope: TestScope
 
     @Before
     fun setup() {
         stateServiceScope = TestScope(UnconfinedTestDispatcher())
-        sessionHandler = SessionEventHandler()
+        store = DshWorkspaceStore()
         dispatcher = EventDispatcher(
-            sessionHandler = sessionHandler,
+            sessionHandler = SessionEventHandler(),
             messageHandler = MessageEventHandler(),
             permissionHandler = PermissionEventHandler(),
             questionHandler = QuestionEventHandler(),
@@ -63,11 +66,11 @@ class EventDispatcherPlan310Test {
                 CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob()),
             ),
             ownershipRegistry = StreamingOwnershipRegistry(),
-            permissionAutoApprover = mockk<PermissionAutoApprover>(relaxed = true),
+            permissionAutoApprover = mockk(relaxed = true),
             historySyncManagerProvider = Provider { mockk<HistorySyncManager>(relaxed = true) },
             dshJobsHandler = mockk(relaxed = true),
             dshQueueHandler = DshQueueHandler(mockk(relaxed = true)),
-            dshWorkspaceHandler = DshWorkspaceHandler(DshWorkspaceStore()),
+            dshWorkspaceHandler = DshWorkspaceHandler(store),
         )
     }
 
@@ -77,19 +80,30 @@ class EventDispatcherPlan310Test {
     }
 
     @Test
-    fun `SessionPlanChanged routed to SessionHandler and folded into session plan`() = runTest {
-        val session = Session(id = "s1", title = "T", time = Session.Time(1000L, 2000L))
-        dispatcher.processEvent(SseEvent.SessionCreated(session), "server1")
-
+    fun `workspace baseline and archived events routed to handler and folded into store`() = runTest {
+        // 预置会话（serverSessions 键建立——与 workspace 域无关，仅验证事件不串扰）
         dispatcher.processEvent(
-            SseEvent.SessionPlanChanged("s1", DshPlanProjection(active = true, pending = false)),
-            "server1",
+            SseEvent.SessionCreated(Session(id = "s1", title = "T", time = Session.Time(1000L, 2000L))),
+            "srv-1",
         )
 
-        // 漏 bind（registry 无注册）时事件被「No handler registered」静默丢弃 → plan 恒 null
-        assertEquals(
-            DshPlanProjection(active = true, pending = false),
-            dispatcher.sessions.value.single().plan,
+        // baseline：注册表 + 归档集合同帧入 store
+        dispatcher.processEvent(
+            SseEvent.WorkspaceSnapshotChanged(
+                workspaces = listOf(Workspace(workspaceId = "ws-1", path = "/w", title = "W", sessionIds = listOf("s-1"))),
+                archivedSessionIds = listOf("s-9"),
+            ),
+            "srv-1",
         )
+        assertEquals(listOf("ws-1"), store.snapshotFor("srv-1").workspaces.map { it.workspaceId })
+        assertEquals(listOf("s-9"), store.snapshotFor("srv-1").archivedSessionIds)
+
+        // archived 增量：集合替换（workspaces 保持）
+        dispatcher.processEvent(
+            SseEvent.WorkspaceArchivedChanged(archivedSessionIds = listOf("s-2", "s-9")),
+            "srv-1",
+        )
+        assertEquals(listOf("s-2", "s-9"), store.snapshotFor("srv-1").archivedSessionIds)
+        assertEquals(listOf("ws-1"), store.snapshotFor("srv-1").workspaces.map { it.workspaceId })
     }
 }

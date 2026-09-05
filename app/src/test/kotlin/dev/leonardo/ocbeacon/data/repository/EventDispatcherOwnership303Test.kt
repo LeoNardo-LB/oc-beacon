@@ -50,6 +50,7 @@ class EventDispatcherOwnership303Test {
             historySyncManagerProvider = { mockk(relaxed = true) },
             dshJobsHandler = mockk(relaxed = true),
             dshQueueHandler = DshQueueHandler(mockk(relaxed = true)),
+            dshWorkspaceHandler = DshWorkspaceHandler(DshWorkspaceStore()),
         )
         AppLogger.d("test", "setup done")
     }

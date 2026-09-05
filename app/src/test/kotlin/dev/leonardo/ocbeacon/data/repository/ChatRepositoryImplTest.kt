@@ -38,6 +38,9 @@ class ChatRepositoryImplTest {
     private lateinit var messageHandler: MessageEventHandler
     private lateinit var permissionHandler: PermissionEventHandler
     private lateinit var questionHandler: QuestionEventHandler
+    // #311 Task1：workspace 归档代理 + 快照流（真 store 断言流式投影）
+    private lateinit var dshApiClient: dev.leonardo.ocbeacon.data.api.dsh.DshApiClient
+    private lateinit var dshWorkspaceStore: DshWorkspaceStore
 
     @Before
     fun setup() {
@@ -74,10 +77,15 @@ class ChatRepositoryImplTest {
             historySyncManagerProvider = javax.inject.Provider { io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.HistorySyncManager>(relaxed = true) },
             dshJobsHandler = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.handler.DshJobsHandler>(relaxed = true),
             dshQueueHandler = dev.leonardo.ocbeacon.data.repository.handler.DshQueueHandler(mockk(relaxed = true)),
+            dshWorkspaceHandler = dev.leonardo.ocbeacon.data.repository.handler.DshWorkspaceHandler(
+                dev.leonardo.ocbeacon.data.repository.DshWorkspaceStore(),
+            ),
 
         )
         every { sessionStateRepository.statusFlow } returns MutableStateFlow(emptyMap())
-        repo = ChatRepositoryImpl(messageApi, sessionApi, terminalApi, mockk(relaxed = true), providerApi, eventDispatcher, serverRepo, permissionAutoApprover, messageStore, mockk(relaxed = true), mockk(relaxed = true))
+        dshApiClient = mockk(relaxed = true)
+        dshWorkspaceStore = DshWorkspaceStore()
+        repo = ChatRepositoryImpl(messageApi, sessionApi, terminalApi, mockk(relaxed = true), providerApi, eventDispatcher, serverRepo, permissionAutoApprover, messageStore, dshApiClient, mockk(relaxed = true), dshWorkspaceStore)
     }
 
     // ============ getMessagesFlow ============
@@ -191,5 +199,44 @@ class ChatRepositoryImplTest {
         val textPart = Part.Text(id = "", sessionId = "s1", messageId = "", text = "hello")
         val result = repo.sendMessage("s1", listOf(textPart))
         assertTrue(result.isSuccess)
+    }
+
+    // ============ #311 Task1：DSH workspace 归档代理 ============
+
+    @Test
+    fun `archiveSession proxies to dsh api and returns new archived set for dsh server`() = runTest {
+        coEvery { serverRepo.getServer("srv-dsh") } returns ServerConfig(
+            id = "srv-dsh", url = "http://dsh.local", serverType = ServerType.Dsh,
+        )
+        coEvery { dshApiClient.archiveSession(any(), "s-9") } returns listOf("s-2", "s-9")
+        val result = repo.archiveSession("srv-dsh", "s-9")
+        assertEquals(listOf("s-2", "s-9"), result.getOrThrow())
+    }
+
+    @Test
+    fun `archiveSession fails unsupported for non-dsh server`() = runTest {
+        coEvery { serverRepo.getServer("srv-v1") } returns ServerConfig(
+            id = "srv-v1", url = "http://v1.local",
+        )
+        val result = repo.archiveSession("srv-v1", "s-1")
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability)
+    }
+
+    @Test
+    fun `workspace snapshot flow maps store state and defaults empty for unknown server`() = runTest {
+        // 未知服务器 → 恒空快照（非 DSH 无 workspace 帧的降级形态）
+        val empty = repo.getWorkspaceSnapshotFlow("srv-none").first()
+        assertTrue(empty.workspaces.isEmpty())
+        assertTrue(empty.archivedSessionIds.isEmpty())
+        // store baseline 后 → 流投影注册表 + 归档集合
+        dshWorkspaceStore.applyBaseline(
+            "srv-dsh",
+            listOf(Workspace(workspaceId = "ws-1", path = "/w", title = "W", sessionIds = listOf("s-1"))),
+            archivedSessionIds = listOf("s-9"),
+        )
+        val snapshot = repo.getWorkspaceSnapshotFlow("srv-dsh").first()
+        assertEquals(listOf("ws-1"), snapshot.workspaces.map { it.workspaceId })
+        assertEquals(listOf("s-9"), snapshot.archivedSessionIds)
     }
 }

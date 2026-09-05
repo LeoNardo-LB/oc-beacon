@@ -195,6 +195,33 @@ sealed class SseEvent {
     ) : SseEvent()
 
     /**
+     * DSH workspace 基线整快照（workspace/follow baseline → 合成帧 workspace/baseline；#311 Task1）。
+     *
+     * wire = WorkspaceBaseline {items:[WorkspaceView], archivedSessionIds}——每代
+     * 重连恰一帧（集合替换式）。瞬态语义（不入历史/不重放）；由 DshWorkspaceHandler
+     * 写入 DshWorkspaceStore；OpenCode 无此帧。upsert/remove/order 增量属 #311 Task2
+     * （多 workspace UI），到达即忽略留痕。
+     */
+    @Serializable
+    data class WorkspaceSnapshotChanged(
+        val workspaces: List<Workspace>,
+        val archivedSessionIds: List<String>,
+    ) : SseEvent()
+
+    /**
+     * DSH workspace 归档集合变更（workspace/follow 增量 {type:'archived'} →
+     * 合成帧 workspace/archived；#311 Task1）。
+     *
+     * [archivedSessionIds] 是**完整新集合**（集合替换式，非增量合并——契约 ①-a：
+     * workspace/archiveSession 回执同语义）；由 DshWorkspaceHandler 写入
+     * DshWorkspaceStore（workspaces 保持不变）。OpenCode 无此帧。
+     */
+    @Serializable
+    data class WorkspaceArchivedChanged(
+        val archivedSessionIds: List<String>,
+    ) : SseEvent()
+
+    /**
      * DSH tokenUsage 投影变更（session/projection 帧 key=tokenUsage）。
      * 由 SessionEventHandler 折叠进 Session.tokenUsage（last-wins）。
      */

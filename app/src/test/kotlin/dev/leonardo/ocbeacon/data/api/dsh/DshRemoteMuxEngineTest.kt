@@ -375,4 +375,68 @@ class DshRemoteMuxEngineTest {
         assertEquals("s1", frames[0].payload.strField("sessionId"))
         assertEquals("tokenUsage", frames[0].payload.strField("key"))
     }
+
+    // ---- workspace/follow（#311 Task1：baseline {items,archivedSessionIds} +
+    //      增量 {type:'archived'}——workspace-controller types.d.ts:108-131；
+    //      baseline 带 value 包装（同 session/control #327 形态），增量平铺） ----
+
+    @Test
+    fun workspaceBaseline_synthesizesWorkspaceBaselineFrame() {
+        val frames = mutableListOf<SynthFrame>()
+        val syn = synthesizer(frames, mutableListOf())
+        syn.onItem(
+            "wsp",
+            Json.parseToJsonElement(
+                """{"type":"baseline","value":{
+                    "items":[{"workspaceId":"ws-1","path":"/w","title":"W","sessionIds":["s-1"]}],
+                    "archivedSessionIds":["s-9"]
+                   }}""",
+            ) as JsonObject,
+            ConcurrentHashMap(),
+        )
+        assertEquals(1, frames.size)
+        assertEquals("workspace/baseline", frames[0].method)
+        val item = (frames[0].payload["items"] as? kotlinx.serialization.json.JsonArray)
+            ?.firstOrNull() as? JsonObject
+        assertEquals("ws-1", item?.strField("workspaceId"))
+        assertEquals("s-9", (frames[0].payload["archivedSessionIds"] as? kotlinx.serialization.json.JsonArray)
+            ?.firstOrNull()?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content })
+    }
+
+    @Test
+    fun workspaceIncrementalArchived_synthesizesWorkspaceArchivedFrame() {
+        val frames = mutableListOf<SynthFrame>()
+        val syn = synthesizer(frames, mutableListOf())
+        syn.onItem(
+            "wsp",
+            Json.parseToJsonElement(
+                """{"type":"archived","archivedSessionIds":["s-2","s-9"]}""",
+            ) as JsonObject,
+            ConcurrentHashMap(),
+        )
+        assertEquals(1, frames.size)
+        assertEquals("workspace/archived", frames[0].method)
+        val ids = (frames[0].payload["archivedSessionIds"] as? kotlinx.serialization.json.JsonArray)
+        assertEquals(2, ids?.size)
+    }
+
+    /** upsert/remove/order 增量属 #311 Task2（多 workspace UI）——到达不合成帧。 */
+    @Test
+    fun workspaceIncrementalUpsert_ignoredWithoutFrame() {
+        val frames = mutableListOf<SynthFrame>()
+        val syn = synthesizer(frames, mutableListOf())
+        syn.onItem(
+            "wsp",
+            Json.parseToJsonElement(
+                """{"type":"upsert","workspace":{"workspaceId":"ws-1","path":"/w","title":"W","sessionIds":[]}}""",
+            ) as JsonObject,
+            ConcurrentHashMap(),
+        )
+        syn.onItem(
+            "wsp",
+            Json.parseToJsonElement("""{"type":"order","workspaceIds":["ws-1"]}""") as JsonObject,
+            ConcurrentHashMap(),
+        )
+        assertTrue(frames.isEmpty())
+    }
 }

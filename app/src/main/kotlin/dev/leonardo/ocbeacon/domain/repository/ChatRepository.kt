@@ -20,6 +20,7 @@ import dev.leonardo.ocbeacon.domain.model.ShellOutput
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.StepProgressInfo
 import dev.leonardo.ocbeacon.domain.model.SubagentCatalog
+import dev.leonardo.ocbeacon.domain.model.WorkspaceSnapshot
 import dev.leonardo.ocbeacon.domain.model.ToolProgressInfo
 import kotlinx.coroutines.flow.Flow
 
@@ -298,6 +299,25 @@ interface ChatRepository {
         serverId: String,
         sessionId: String,
     ): Result<List<dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem>?>
+
+
+    // ============ DSH workspace 归档（backlog #311 Task1；OpenCode V1/V2 不支持） ============
+
+    /**
+     * DSH workspace/archiveSession（归档会话出列表分组）→ 回执 archivedSessionIds
+     * **完整新集合**（集合替换式，契约 ①-a）。非 DSH 后端 / DSH V011 →
+     * Result.failure(UnsupportedServerCapability)（写操作不走常量降级——假成功会误导）。
+     */
+    suspend fun archiveSession(
+        serverId: String,
+        sessionId: String,
+    ): Result<List<String>>
+
+    /**
+     * workspace 快照流（workspaces + archivedSessionIds；workspace/follow baseline
+     * 维护，DshWorkspaceStore 单一真相源）。非 DSH 服务器无 workspace 帧 → 恒空快照。
+     */
+    fun getWorkspaceSnapshotFlow(serverId: String): Flow<WorkspaceSnapshot>
 
 
     // ============ DSH @ 引用候选（backlog #310⑤/#321；非 DSH 走 findFiles 现路径） ============

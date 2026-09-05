@@ -54,6 +54,7 @@ import dev.leonardo.ocbeacon.domain.model.SessionPage
 import dev.leonardo.ocbeacon.domain.model.ShellJob
 import dev.leonardo.ocbeacon.domain.model.ShellOutput
 import dev.leonardo.ocbeacon.domain.model.SseEvent
+import dev.leonardo.ocbeacon.domain.model.Workspace
 import dev.leonardo.ocbeacon.domain.repository.DshSettingsForbiddenException
 import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.util.PathUtils
@@ -154,13 +155,18 @@ class DshApiClient @Inject constructor(
         title: String?,
         parentId: String?,
         directory: String?,
+        workspaceId: String?,
     ): Session {
         if (protocolOf(conn) == DshWireProtocol.V012) {
             // 0.1.2 schema {workspaceId?,cwd?,sessionId?,agentPreset?}——无 title/
             // parentSessionId（journal §2.3）；改名走 create 成功后的 session.rename
-            // 追加（失败仅告警，本地 fallbackTitle 保真展示）。
+            // 追加（失败仅告警，本地 fallbackTitle 保真展示）。workspaceId（#311 ①-d
+            // SessionCreateRequest）指定入组 workspace；缺席走服务器 cwd 归属。
             val payload = buildJsonObject {
                 directory?.let { put("cwd", it) }
+                // #311 ①-d：SessionCreateRequest.workspaceId（入组 workspace）——与 cwd
+                // 可并存（都给时服务器按 workspaceId 归属），缺席走 cwd 归属。
+                workspaceId?.let { put("workspaceId", it) }
             }
             val value = rpc.call(conn, "session.create", payload) { it }.getOrElse { e -> throw e }
             val session = mapSessionEcho(value, fallbackTitle = title, blankByDefault = true)
@@ -1190,6 +1196,22 @@ class DshApiClient @Inject constructor(
         )
     }
 
+    /**
+     * workspace/archiveSession（#311 Task1；契约 ①-a）：payload {sessionId}——V012
+     * 经 WRAPPED 翻译为 {args:{request:{sessionId}}}（typert 参数 wire:'request'）。
+     * 回执 {archivedSessionIds} 是**完整新集合**（集合替换式——回执即新集合，
+     * workspace-controller types.d.ts WorkspaceArchiveValue），直接返回。
+     * V011 线面无此动词 → [UnsupportedServerCapability]。
+     */
+    suspend fun archiveSession(conn: ServerConnection, sessionId: String): List<String> {
+        if (protocolOf(conn) != DshWireProtocol.V012) unsupported("workspace.archiveSession")
+        val value = rpc.call(conn, "workspace/archiveSession", buildJsonObject {
+            put("sessionId", sessionId)
+        }) { it }.getOrElse { e -> throw e }
+        return (value.dshArr("archivedSessionIds") ?: emptyList())
+            .mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
+    }
+
     override suspend fun deleteMessage(conn: ServerConnection, sessionId: String, messageId: String): Boolean = false
 
     override suspend fun deleteMessagePart(
@@ -1478,13 +1500,10 @@ class DshApiClient @Inject constructor(
         val root = when (protocolOf(conn)) {
             DshWireProtocol.V012 -> firstSessionCwd(conn)
             DshWireProtocol.V011 -> {
-                val workspaceRoot = runCatching {
-                    val value = rpc.call(conn, "workspace.list", buildJsonObject {}) { it }.getOrNull()
-                    val items = value?.dshArr("items") ?: value?.dshArr("workspaces") ?: emptyList()
-                    items.asSequence()
-                        .mapNotNull { it as? JsonObject }
-                        .firstNotNullOfOrNull { it.dshStr("path") ?: it.dshStr("cwd") ?: it.dshStr("directory") }
-                }.getOrNull()?.takeIf { it.isNotBlank() }
+                // #311 Task1：workspace.list 消费升级为完整 List<Workspace>——根路径
+                // 只取首个 path（调用方兼容语义不变：首个含 path 条目）。
+                val workspaceRoot = runCatching { listWorkspaces(conn).firstOrNull()?.path }
+                    .getOrNull()?.takeIf { it.isNotBlank() }
                 workspaceRoot ?: runCatching {
                     rpc.call(conn, "host.describe", buildJsonObject {}) { it }.getOrNull()?.dshStr("cwd")
                 }.getOrNull()?.takeIf { it.isNotBlank() }
@@ -1520,6 +1539,41 @@ class DshApiClient @Inject constructor(
         directory: String?,
     ): List<FileDiffDto> = emptyList()
 
+    /**
+     * workspace.list → 完整 [Workspace] 注册表（#311 Task1；契约 ①-d WorkspaceView）。
+     *
+     * 名字键 = title（缺席回退旧线面 name 键，再回退 basename(path)——服务器 create
+     * 默认语义）；workspaceId 缺席回退 id 键；sessionIds 显式数组（旧线面缺席 → 空）。
+     * 时间戳 ISO 字符串不进域模型（§5 双态坑位）。失败/空 → 空列表（调用方兜底）。
+     * V012 线面该方法已删（journal §2.3——注册表数据源改 workspace/follow baseline），
+     * 本方法承载旧线面（V011）消费点升级后的完整映射。
+     */
+    suspend fun listWorkspaces(conn: ServerConnection): List<Workspace> {
+        val value = rpc.call(conn, "workspace.list", buildJsonObject {}) { it }
+            .getOrElse { e ->
+                AppLogger.w(TAG, "workspace.list failed: " + e.message)
+                return emptyList()
+            }
+        val items = value.dshArr("items") ?: value.dshArr("workspaces") ?: emptyList()
+        return items.mapNotNull { el -> (el as? JsonObject)?.let(::mapWorkspaceEntry) }
+    }
+
+    /** workspace.list 条目 → [Workspace]（新旧线面键兼容：workspaceId←id、title←name、path←cwd/directory）。 */
+    private fun mapWorkspaceEntry(entry: JsonObject): Workspace? {
+        val path = entry.dshStr("path") ?: entry.dshStr("cwd") ?: entry.dshStr("directory") ?: return null
+        val title = entry.dshStr("title")
+            ?: entry.dshStr("name")
+            ?: PathUtils.fileName(path).takeIf { it.isNotEmpty() }
+            ?: path
+        return Workspace(
+            workspaceId = entry.dshStr("workspaceId") ?: entry.dshStr("id") ?: path,
+            path = path,
+            title = title,
+            sessionIds = (entry.dshArr("sessionIds") ?: emptyList())
+                .mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content },
+        )
+    }
+
     /** workspace.list → Project（时间戳单位双态坑位 §5：workspace 侧 ISO 字符串不进 Project）。 */
     override suspend fun listProjects(conn: ServerConnection): List<Project> {
         // 0.1.2 workspace.list 无对应（journal §2.3）——从 session.list 聚合
@@ -1543,19 +1597,14 @@ class DshApiClient @Inject constructor(
                 )
             }
         }
-        val value = rpc.call(conn, "workspace.list", buildJsonObject {}) { it }
-            .getOrElse { e ->
-                AppLogger.w(TAG, "workspace.list failed: " + e.message)
-                return emptyList()
-            }
-        val items = value.dshArr("items") ?: value.dshArr("workspaces") ?: emptyList()
-        return items.mapNotNull { el ->
-            val entry = el as? JsonObject ?: return@mapNotNull null
-            val worktree = entry.dshStr("path") ?: entry.dshStr("cwd") ?: entry.dshStr("directory") ?: return@mapNotNull null
+        // #311 Task1：完整 List<Workspace> 映射后投影 Project——名字键升级 title
+        //（mapper 内 name 键回退 + basename 兜底，Project.name 由可空变为有名——
+        // 服务器 create 默认 basename 语义对齐，UI 工作区标签展示面零回归）。
+        return listWorkspaces(conn).map { workspace ->
             Project(
-                id = entry.dshStr("id") ?: entry.dshStr("workspaceId") ?: worktree,
-                worktree = worktree,
-                name = entry.dshStr("name"),
+                id = workspace.workspaceId,
+                worktree = workspace.path,
+                name = workspace.title,
             )
         }
     }

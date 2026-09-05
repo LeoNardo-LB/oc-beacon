@@ -33,6 +33,7 @@ import dev.leonardo.ocbeacon.domain.model.ShellJob
 import dev.leonardo.ocbeacon.domain.model.ShellOutput
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import dev.leonardo.ocbeacon.domain.model.StepProgressInfo
+import dev.leonardo.ocbeacon.domain.model.WorkspaceSnapshot
 import dev.leonardo.ocbeacon.domain.model.SubagentCatalog
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.model.ToolProgressInfo
@@ -78,6 +79,8 @@ class ChatRepositoryImpl @Inject constructor(
     private val dshApiClient: dev.leonardo.ocbeacon.data.api.dsh.DshApiClient,
     // #310⑤/#321：非 DSH @ 文件补全回落 findFiles（FileApiImpl 三分路由现路径）。
     private val fileApi: FileApi,
+    // #311 Task1：workspace 快照读取（workspace/follow baseline 维护的单一真相源）。
+    private val dshWorkspaceStore: DshWorkspaceStore,
 ) : ChatRepository {
 
     // ============ 状态观察 ============
@@ -481,6 +484,34 @@ class ChatRepositoryImpl @Inject constructor(
         }
         dshApiClient.messageFeedbackList(conn, sessionId)
     }
+
+    // ============ DSH workspace 归档（backlog #311 Task1） ============
+
+    /**
+     * workspace/archiveSession：仅 DSH 线面——非 DSH 显式 unsupported（归档是写
+     * 操作，假成功会误导；DSH V011 由 DshApiClient 同判）。回执即新 archived 集合。
+     */
+    override suspend fun archiveSession(
+        serverId: String,
+        sessionId: String,
+    ): Result<List<String>> = runCatchingCancellable {
+        val conn = resolveConnection(serverId)
+        if (conn.serverType != dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
+            throw dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability(
+                "workspace.archiveSession", conn.serverType.name,
+            )
+        }
+        dshApiClient.archiveSession(conn, sessionId)
+    }
+
+    /**
+     * workspace 快照流：DshWorkspaceStore 直读（非 DSH 服务器无 workspace 帧 →
+     * 恒空快照——端点缺席降级形态，listAgentPresets 空表先例同款）。
+     */
+    override fun getWorkspaceSnapshotFlow(serverId: String): Flow<WorkspaceSnapshot> =
+        dshWorkspaceStore.snapshots
+            .map { it[serverId] ?: WorkspaceSnapshot() }
+            .distinctUntilChanged()
 
     // ============ DSH @ 引用候选（backlog #310⑤/#321） ============
 

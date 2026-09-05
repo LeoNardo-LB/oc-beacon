@@ -153,8 +153,10 @@ class V1ApiClient @Inject constructor(
         conn: ServerConnection,
         title: String?,
         parentId: String?,
-        directory: String?
+        directory: String?,
+        workspaceId: String?
     ): Session {
+        // workspaceId：DSH V012 专属（SessionCreateRequest.workspaceId，#311）——V1 忽略
         val body = buildMap<String, String> {
             title?.let { put("title", it) }
             parentId?.let { put("parentID", it) }

@@ -48,7 +48,9 @@ interface SessionApi {
         conn: ServerConnection,
         title: String? = null,
         parentId: String? = null,
-        directory: String? = null
+        directory: String? = null,
+        /** #311 ①-d：DSH V012 SessionCreateRequest.workspaceId（指定入组 workspace）；其余后端忽略。 */
+        workspaceId: String? = null
     ): Session
 
     suspend fun deleteSession(conn: ServerConnection, sessionId: String): Boolean
@@ -241,8 +243,9 @@ class SessionApiImpl @Inject constructor(
         conn: ServerConnection,
         title: String?,
         parentId: String?,
-        directory: String?
-    ): Session = pick(conn).createSession(conn, title, parentId, directory)
+        directory: String?,
+        workspaceId: String?
+    ): Session = pick(conn).createSession(conn, title, parentId, directory, workspaceId)
 
     override suspend fun deleteSession(conn: ServerConnection, sessionId: String): Boolean =
         pick(conn).deleteSession(conn, sessionId)

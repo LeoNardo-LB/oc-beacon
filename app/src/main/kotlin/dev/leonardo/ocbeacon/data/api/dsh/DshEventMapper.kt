@@ -335,6 +335,37 @@ object DshEventMapper {
                 )
             )
         }
+        // workspace/follow 基线（0.1.2 mux 合成帧；#311 Task1）——items 逐行映射
+        // Workspace（畸形行丢弃），archivedSessionIds 透传（集合替换式）。
+        "workspace/baseline" -> {
+            val items = payload["items"]
+            val archivedIds = payload["archivedSessionIds"]
+            if (items !is JsonArray || archivedIds !is JsonArray) {
+                listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+            } else {
+                listOf(
+                    DshMappedEvent.Sse(
+                        SseEvent.WorkspaceSnapshotChanged(
+                            workspaces = items.mapNotNull { el ->
+                                (el as? JsonObject)?.let(::mapWorkspaceView)
+                            },
+                            archivedSessionIds = archivedIds.mapNotNull { it.text() },
+                        )
+                    )
+                )
+            }
+        }
+
+        // workspace/follow 归档增量（{type:'archived'} 合成帧；#311 Task1）——
+        // archivedSessionIds 是完整新集合（集合替换式，契约 ①-a）。
+        "workspace/archived" -> {
+            val ids = payload["archivedSessionIds"]
+            if (ids !is JsonArray) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+            else listOf(
+                DshMappedEvent.Sse(SseEvent.WorkspaceArchivedChanged(archivedSessionIds = ids.mapNotNull { it.text() }))
+            )
+        }
+
         "stream/error" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.STREAM_ERROR))
 
         "host/session-added" -> {
@@ -1071,6 +1102,25 @@ object DshEventMapper {
     // ============ jobs / projection 帧解析 ============
 
     /** session/jobs 帧单个 JobView 项 → 域模型（wire taskViewSchema 形状）。 */
+    /**
+     * WorkspaceView → [Workspace]（#311 契约 ①-d）：名字键=title（缺席回退
+     * basename(path)——服务器 create 默认语义）；workspaceId/path 必填，缺席
+     * 整行丢弃（行级容错）；sessionIds 显式数组（归属关系）。
+     */
+    private fun mapWorkspaceView(w: JsonObject): dev.leonardo.ocbeacon.domain.model.Workspace? {
+        val workspaceId = w.str("workspaceId") ?: return null
+        val path = w.str("path") ?: return null
+        val title = w.str("title")
+            ?: dev.leonardo.ocbeacon.util.PathUtils.fileName(path).takeIf { it.isNotEmpty() }
+            ?: path
+        return dev.leonardo.ocbeacon.domain.model.Workspace(
+            workspaceId = workspaceId,
+            path = path,
+            title = title,
+            sessionIds = (w.arr("sessionIds") ?: emptyList()).mapNotNull { it.text() },
+        )
+    }
+
     private fun mapJobView(j: JsonObject): dev.leonardo.ocbeacon.domain.model.JobView =
         dev.leonardo.ocbeacon.domain.model.JobView(
             id = j.str("id") ?: "",
