@@ -238,8 +238,8 @@ sealed class SseEvent {
      *
      * wire = WorkspaceBaseline {items:[WorkspaceView], archivedSessionIds}——每代
      * 重连恰一帧（集合替换式）。瞬态语义（不入历史/不重放）；由 DshWorkspaceHandler
-     * 写入 DshWorkspaceStore；OpenCode 无此帧。remove/order 增量无消费面，到达即
-     * 忽略留痕（upsert 见 [WorkspaceUpserted]）。
+     * 写入 DshWorkspaceStore；OpenCode 无此帧。增量消费面：upsert 见
+     * [WorkspaceUpserted]、remove/order 见 [WorkspaceRemoved]/[WorkspaceOrderChanged]（#330）。
      */
     @Serializable
     data class WorkspaceSnapshotChanged(
@@ -271,6 +271,32 @@ sealed class SseEvent {
     @Serializable
     data class WorkspaceArchivedChanged(
         val archivedSessionIds: List<String>,
+    ) : SseEvent()
+
+    /**
+     * DSH workspace 注册表行删除（workspace/follow 增量 {type:'remove', workspaceId}
+     * → 合成帧 workspace/remove；#330）。
+     *
+     * 由 DshWorkspaceHandler 按 workspaceId 删行写入 DshWorkspaceStore（其余行与
+     * archived 集合保持）；重连 baseline 前即收敛——#331 对话框陈旧条目随 remove
+     * 消费而减。OpenCode 无此帧。
+     */
+    @Serializable
+    data class WorkspaceRemoved(
+        val workspaceId: String,
+    ) : SseEvent()
+
+    /**
+     * DSH workspace 注册表序变更（workspace/follow 增量 {type:'order', workspaceIds}
+     * → 合成帧 workspace/order；#330）。
+     *
+     * [workspaceIds] 是**完整新序**（服务器 changed() 在序变时 publish 全量
+     * workspaceIds 数组）；由 DshWorkspaceHandler 写入 DshWorkspaceStore 按帧序
+     * 重排（帧内未知 id 忽略、未提及行防丢行，见 applyOrder）。OpenCode 无此帧。
+     */
+    @Serializable
+    data class WorkspaceOrderChanged(
+        val workspaceIds: List<String>,
     ) : SseEvent()
 
     /**

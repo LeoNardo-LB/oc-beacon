@@ -167,12 +167,14 @@ class EventDispatcher @Inject constructor(
         bind(sessionHandler, SseEvent.SessionPlanChanged::class)
         // DSH 排队收件箱整快照 → DshQueueHandler（2026-09-01 QueueDock）
         bind(dshQueueHandler, SseEvent.QueueSnapshot::class)
-        // DSH workspace 域（follow baseline + archived 增量）→ DshWorkspaceHandler
-        //（#311 Task1；EventDispatcherWorkspace311Test 钉死）
+        // DSH workspace 域（follow baseline + archived/upsert/remove/order 增量）
+        // → DshWorkspaceHandler（#311 Task1/Task3 + #330；漏 bind 即静默丢弃——
+        // EventDispatcherWorkspace311Test 钉死）
         bind(
             dshWorkspaceHandler,
             SseEvent.WorkspaceSnapshotChanged::class, SseEvent.WorkspaceArchivedChanged::class,
-            SseEvent.WorkspaceUpserted::class,
+            SseEvent.WorkspaceUpserted::class, SseEvent.WorkspaceRemoved::class,
+            SseEvent.WorkspaceOrderChanged::class,
         )
         return map
     }
@@ -504,6 +506,9 @@ class EventDispatcher @Inject constructor(
             is SseEvent.WorkspaceSnapshotChanged -> null
             is SseEvent.WorkspaceArchivedChanged -> null
             is SseEvent.WorkspaceUpserted -> null
+            // #330：remove/order 同为服务器级注册表增量——无单一会话归属
+            is SseEvent.WorkspaceRemoved -> null
+            is SseEvent.WorkspaceOrderChanged -> null
         }
     }
 

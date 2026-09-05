@@ -17,7 +17,9 @@ import javax.inject.Singleton
  * - 增量 {type:'archived'}：只替换归档集合（**集合替换式**——帧即新集合，非合并），
  *   workspaces 保持；
  * - 增量 {type:'upsert'}（#311 Task3）：注册表行按 workspaceId 原位替换（title/
- *   sessionIds 实时消费面）；remove/order 仍不消费（无消费面，留痕）。
+ *   sessionIds 实时消费面）；
+ * - 增量 {type:'remove'}/{type:'order'}（#330）：按 workspaceId 删行 / 按帧序
+ *   （完整新序）重排——重连 baseline 前即收敛。
  *
  * 瞬态数据：不入 Room/历史、不重放（防替换/历史折叠语义与 DshQueueStore 同款）。
  */
@@ -50,8 +52,8 @@ class DshWorkspaceStore @Inject constructor() {
 
     /**
      * 注册表行替换（#311 Task3；wire {type:'upsert', workspace:WorkspaceView} 整行）：
-     * 按 workspaceId 原位替换（序稳定——服务器 order 增量未消费，保持 baseline 序），
-     * 未知 id 追加尾部；archived 集合保持（upsert 帧不携带）。
+     * 按 workspaceId 原位替换（序稳定——显式序变由 applyOrder 承担），未知 id
+     * 追加尾部；archived 集合保持（upsert 帧不携带）。
      */
     fun applyUpsert(serverId: String, workspace: Workspace) {
         _snapshots.update { all ->
@@ -63,6 +65,34 @@ class DshWorkspaceStore @Inject constructor() {
                 current.workspaces + workspace
             }
             all + (serverId to current.copy(workspaces = merged))
+        }
+    }
+
+    /**
+     * 注册表行删除（#330；wire {type:'remove', workspaceId}）：按 workspaceId 删行，
+     * 其余行与 archived 集合保持；未知 id / 未 baseline 服务器无副作用。
+     */
+    fun applyRemove(serverId: String, workspaceId: String) {
+        _snapshots.update { all ->
+            val current = all[serverId] ?: return@update all
+            all + (serverId to current.copy(workspaces = current.workspaces.filterNot { it.workspaceId == workspaceId }))
+        }
+    }
+
+    /**
+     * 注册表序重排（#330；wire {type:'order', workspaceIds}——服务器 publish 的
+     * 完整新序）：帧内 id 按帧序排前（本地不存在的帧 id 忽略——不凭空造行）；
+     * 帧未提及的本地行保持原相对序追加尾部（防丢行——后续 remove/baseline 收敛）；
+     * archived 集合保持（order 帧不携带）。
+     */
+    fun applyOrder(serverId: String, orderedIds: List<String>) {
+        _snapshots.update { all ->
+            val current = all[serverId] ?: return@update all
+            val mentioned = LinkedHashSet(orderedIds)
+            val byId = current.workspaces.associateBy { it.workspaceId }
+            val reordered = mentioned.mapNotNull { byId[it] }
+            val rest = current.workspaces.filter { it.workspaceId !in mentioned }
+            all + (serverId to current.copy(workspaces = reordered + rest))
         }
     }
 

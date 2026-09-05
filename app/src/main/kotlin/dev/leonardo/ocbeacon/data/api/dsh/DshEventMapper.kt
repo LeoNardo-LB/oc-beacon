@@ -391,6 +391,24 @@ object DshEventMapper {
             )
         }
 
+        // workspace/follow 注册表行删除（{type:'remove'} 合成帧；#330）——
+        // workspaceId 删行（store applyRemove；其余行与 archived 集合保持）。
+        "workspace/remove" -> {
+            val id = payload.str("workspaceId")
+            if (id == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+            else listOf(DshMappedEvent.Sse(SseEvent.WorkspaceRemoved(workspaceId = id)))
+        }
+
+        // workspace/follow 注册表序变更（{type:'order'} 合成帧；#330）——
+        // workspaceIds 是完整新序（服务器 publish 全量数组；store applyOrder 重排）。
+        "workspace/order" -> {
+            val ids = payload.arr("workspaceIds")
+            if (ids == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+            else listOf(
+                DshMappedEvent.Sse(SseEvent.WorkspaceOrderChanged(workspaceIds = ids.mapNotNull { it.text() }))
+            )
+        }
+
         "stream/error" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.STREAM_ERROR))
 
         "host/session-added" -> {

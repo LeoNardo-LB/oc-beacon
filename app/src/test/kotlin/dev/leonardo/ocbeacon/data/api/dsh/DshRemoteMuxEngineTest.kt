@@ -422,7 +422,7 @@ class DshRemoteMuxEngineTest {
 
     /** #311 Task3：upsert 增量（{type:'upsert', workspace:WorkspaceView}）→ 合成帧
      * workspace/upsert——title 重命名/新会话入组等注册表行变更的实时载体（对话框
-     * title/sessionIds 消费面）。remove/order 仍留痕不合成（本任务无消费面）。 */
+     * title/sessionIds 消费面）。remove/order 增量消费见 #330 下方两测。 */
     @Test
     fun workspaceIncrementalUpsert_synthesizesWorkspaceUpsertFrame() {
         val frames = mutableListOf<SynthFrame>()
@@ -441,20 +441,37 @@ class DshRemoteMuxEngineTest {
         assertEquals("Renamed", workspace?.strField("title"))
     }
 
+    /** #330：remove 增量（{type:'remove', workspaceId}——服务器 changed() deleted 分支）
+     * → 合成帧 workspace/remove——注册表行删除实时载体（重连 baseline 前即收敛，
+     * #331 对话框陈旧条目随 remove 消费而减）。 */
     @Test
-    fun workspaceIncrementalOrderAndRemove_stillIgnoredWithoutFrame() {
+    fun workspaceIncrementalRemove_synthesizesWorkspaceRemoveFrame() {
         val frames = mutableListOf<SynthFrame>()
         val syn = synthesizer(frames, mutableListOf())
-        syn.onItem(
-            "wsp",
-            Json.parseToJsonElement("""{"type":"order","workspaceIds":["ws-1"]}""") as JsonObject,
-            ConcurrentHashMap(),
-        )
         syn.onItem(
             "wsp",
             Json.parseToJsonElement("""{"type":"remove","workspaceId":"ws-1"}""") as JsonObject,
             ConcurrentHashMap(),
         )
-        assertTrue(frames.isEmpty())
+        assertEquals(1, frames.size)
+        assertEquals("workspace/remove", frames[0].method)
+        assertEquals("ws-1", frames[0].payload.strField("workspaceId"))
+    }
+
+    /** #330：order 增量（{type:'order', workspaceIds}——服务器 publish 完整新序）
+     * → 合成帧 workspace/order（数组透传，序即注册表显示序）。 */
+    @Test
+    fun workspaceIncrementalOrder_synthesizesWorkspaceOrderFrame() {
+        val frames = mutableListOf<SynthFrame>()
+        val syn = synthesizer(frames, mutableListOf())
+        syn.onItem(
+            "wsp",
+            Json.parseToJsonElement("""{"type":"order","workspaceIds":["ws-2","ws-1","ws-3"]}""") as JsonObject,
+            ConcurrentHashMap(),
+        )
+        assertEquals(1, frames.size)
+        assertEquals("workspace/order", frames[0].method)
+        val ids = (frames[0].payload["workspaceIds"] as? kotlinx.serialization.json.JsonArray)
+        assertEquals(listOf("ws-2", "ws-1", "ws-3"), ids?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content })
     }
 }

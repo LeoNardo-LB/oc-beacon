@@ -43,7 +43,8 @@ interface DshMuxAuth {
  * - **可上行**：open/cancel 帧（0.1.1 纯下行、发帧即踢）；本引擎是唯一合法上行方；
  * - **四条逻辑流**：`$events`（全局：ready/emit/waterfall/cancel）+ `session/follow`
  *   （每会话：snapshot 基线 + 增量 SessionEvent）+ `session/control`（jobs/队列/投影
- *   整快照基线）+ `workspace/follow`（#311：workspace 注册表基线 + archived 集合增量）；
+ *   整快照基线）+ `workspace/follow`（#311/#330：workspace 注册表基线 + 全增量——
+ *   archived/upsert/remove/order）；
  * - **鉴权**：升级请求带 Cookie；401 unexpected-response → 清凭据 + 挂起等 token
  *   （[DshConnectionRegistry.awaitCookie]，TokenNeeded 模态由连接层呈现）。
  *
@@ -588,8 +589,12 @@ class DshMuxSynthesizer(
      *
      * #311 Task3 增量消费：{type:'upsert', workspace}（WorkspaceView 整行——title
      * 重命名/新会话入组等注册表行变更）→ 合成帧 workspace/upsert（对话框
-     * title/sessionIds 实时消费面）。remove/order 仍留痕不合成（无消费面——
-     * remove 后注册表行由重连 baseline 收敛；order 不进移动端排序语义）。
+     * title/sessionIds 实时消费面）。
+     *
+     * #330 增量消费：{type:'remove', workspaceId}（注册表行删——重连 baseline 前即
+     * 收敛，#331 对话框陈旧条目随减）→ 合成帧 workspace/remove；{type:'order',
+     * workspaceIds}（完整新序——服务器 changed() 序变时 publish 全量数组）→
+     * 合成帧 workspace/order。
      */
     private fun onWorkspaceValue(value: JsonObject) {
         when (value.strOf("type")) {
@@ -608,7 +613,15 @@ class DshMuxSynthesizer(
                 val ws = value["workspace"] ?: return
                 frame("workspace/upsert", buildJsonObject { put("workspace", ws) })
             }
-            else -> AppLogger.d(TAG, "workspace 增量未消费型（remove/order）: " + value.toString().take(120))
+            "remove" -> {
+                val id = value.strOf("workspaceId") ?: return
+                frame("workspace/remove", buildJsonObject { put("workspaceId", id) })
+            }
+            "order" -> {
+                val ids = value["workspaceIds"] as? JsonArray ?: return
+                frame("workspace/order", buildJsonObject { put("workspaceIds", ids) })
+            }
+            else -> AppLogger.d(TAG, "workspace 未知增量型: " + value.toString().take(120))
         }
     }
 

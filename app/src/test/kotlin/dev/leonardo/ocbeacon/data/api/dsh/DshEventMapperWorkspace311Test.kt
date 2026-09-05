@@ -64,6 +64,32 @@ class DshEventMapperWorkspace311Test {
         assertEquals(listOf("s-1", "s-2", "s-3"), event.workspace.sessionIds)
     }
 
+    /** #330：workspace/remove（engine 合成帧）→ WorkspaceRemoved——注册表行删除
+     * 的单一事件载体（store applyRemove 行删）。 */
+    @Test
+    fun `workspace remove frame maps to WorkspaceRemoved`() {
+        val events = frame(
+            "workspace/remove",
+            """{"workspaceId":"ws-1"}""",
+        )
+        assertEquals(1, events.size)
+        val event = (events[0] as DshMappedEvent.Sse).event as SseEvent.WorkspaceRemoved
+        assertEquals("ws-1", event.workspaceId)
+    }
+
+    /** #330：workspace/order（engine 合成帧）→ WorkspaceOrderChanged——
+     * workspaceIds 是完整新序（服务器 publish 全量数组）。 */
+    @Test
+    fun `workspace order frame maps to WorkspaceOrderChanged`() {
+        val events = frame(
+            "workspace/order",
+            """{"workspaceIds":["ws-2","ws-1","ws-3"]}""",
+        )
+        assertEquals(1, events.size)
+        val event = (events[0] as DshMappedEvent.Sse).event as SseEvent.WorkspaceOrderChanged
+        assertEquals(listOf("ws-2", "ws-1", "ws-3"), event.workspaceIds)
+    }
+
     @Test
     fun `workspace frames with malformed payload are ignored`() {
         // baseline 缺 items/archivedSessionIds 键 → MALFORMED
@@ -77,6 +103,9 @@ class DshEventMapperWorkspace311Test {
         assertTrue(
             frame("workspace/upsert", """{"workspace":"not-an-object"}""").single() is DshMappedEvent.Ignored,
         )
+        // remove 缺 workspaceId / order 缺 workspaceIds → MALFORMED（#330）
+        assertTrue(frame("workspace/remove", """{}""").single() is DshMappedEvent.Ignored)
+        assertTrue(frame("workspace/order", """{"workspaceIds":"not-an-array"}""").single() is DshMappedEvent.Ignored)
     }
 
     /** 畸形 item 行（缺 workspaceId）丢弃不崩——行级容错（对齐 jobs/queue mapper）。 */

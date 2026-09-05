@@ -79,6 +79,55 @@ class DshWorkspaceStoreTest {
         assertEquals(listOf("ws-1", "ws-2"), store.snapshotFor("srv-1").workspaces.map { it.workspaceId })
     }
 
+    /** #330：remove 增量（wire {type:'remove', workspaceId}）——按 id 删行，
+     * 其余行与 archived 集合保持；未知 id 无副作用。 */
+    @Test
+    fun `applyRemove deletes row by workspaceId keeping others and archived set`() {
+        val store = DshWorkspaceStore()
+        store.applyBaseline(
+            "srv-1",
+            listOf(ws("ws-1", "s-1"), ws("ws-2", "s-2"), ws("ws-3")),
+            archivedSessionIds = listOf("s-9"),
+        )
+        store.applyRemove("srv-1", "ws-2")
+        val snapshot = store.snapshotFor("srv-1")
+        assertEquals(listOf("ws-1", "ws-3"), snapshot.workspaces.map { it.workspaceId })
+        // archived 保持——remove 帧不携带归档集合
+        assertEquals(listOf("s-9"), snapshot.archivedSessionIds)
+        // 未知 id 删行无副作用
+        store.applyRemove("srv-1", "ws-none")
+        assertEquals(listOf("ws-1", "ws-3"), store.snapshotFor("srv-1").workspaces.map { it.workspaceId })
+        // 其他服务器隔离
+        store.applyRemove("srv-2", "ws-1")
+        assertEquals(2, store.snapshotFor("srv-1").workspaces.size)
+    }
+
+    /** #330：order 增量（wire {type:'order', workspaceIds}——完整新序）——
+     * 帧内 id 按帧序排前；帧内未知 id 忽略；帧未提及的本地行保持原相对序防丢行。 */
+    @Test
+    fun `applyOrder reorders by frame order ignoring unknown ids keeping unmentioned tail`() {
+        val store = DshWorkspaceStore()
+        store.applyBaseline(
+            "srv-1",
+            listOf(ws("ws-1", "s-1"), ws("ws-2", "s-2"), ws("ws-3")),
+            archivedSessionIds = listOf("s-9"),
+        )
+        // ws-ghost 不在本地注册表——忽略；ws-3 帧未提及——保持尾部
+        store.applyOrder("srv-1", listOf("ws-ghost", "ws-3", "ws-1", "ws-2"))
+        val snapshot = store.snapshotFor("srv-1")
+        assertEquals(listOf("ws-3", "ws-1", "ws-2"), snapshot.workspaces.map { it.workspaceId })
+        // 行内容与 archived 保持——order 只动序
+        assertEquals(listOf("s-1"), snapshot.workspaces[1].sessionIds)
+        assertEquals(listOf("s-9"), snapshot.archivedSessionIds)
+        // 服务器隔离：其他服务器不受影响
+        store.applyBaseline("srv-2", listOf(ws("a"), ws("b")), archivedSessionIds = emptyList())
+        store.applyOrder("srv-1", listOf("ws-1", "ws-3", "ws-2"))
+        assertEquals(listOf("a", "b"), store.snapshotFor("srv-2").workspaces.map { it.workspaceId })
+        // 无 baseline 服务器 order 无副作用（不凭空造快照）
+        store.applyOrder("srv-none", listOf("x", "y"))
+        assertTrue(store.snapshotFor("srv-none").workspaces.isEmpty())
+    }
+
     @Test
     fun `clearForServer releases state and clear empties all`() {
         val store = DshWorkspaceStore()

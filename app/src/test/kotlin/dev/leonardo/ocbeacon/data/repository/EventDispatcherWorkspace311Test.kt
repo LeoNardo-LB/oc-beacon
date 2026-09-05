@@ -134,4 +134,33 @@ class EventDispatcherWorkspace311Test {
         assertEquals(listOf("s-1", "s-2"), snapshot.workspaces[0].sessionIds)
         assertEquals(listOf("s-9"), snapshot.archivedSessionIds)
     }
+
+    /** #330：remove/order 增量路由折叠——漏 bind 即静默丢弃（与 Task1/Task3 同款纪律）。 */
+    @Test
+    fun `workspace remove and order events routed to handler and folded into store`() = runTest {
+        dispatcher.processEvent(
+            SseEvent.WorkspaceSnapshotChanged(
+                workspaces = listOf(
+                    Workspace(workspaceId = "ws-1", path = "/w", title = "W", sessionIds = listOf("s-1")),
+                    Workspace(workspaceId = "ws-2", path = "/w2", title = "W2"),
+                    Workspace(workspaceId = "ws-3", path = "/w3", title = "W3"),
+                ),
+                archivedSessionIds = listOf("s-9"),
+            ),
+            "srv-1",
+        )
+        // remove：ws-2 行删
+        dispatcher.processEvent(
+            SseEvent.WorkspaceRemoved(workspaceId = "ws-2"),
+            "srv-1",
+        )
+        assertEquals(listOf("ws-1", "ws-3"), store.snapshotFor("srv-1").workspaces.map { it.workspaceId })
+        // order：帧序 ws-3 → ws-1（完整新序，未提及行防丢行由 store 测试覆盖）
+        dispatcher.processEvent(
+            SseEvent.WorkspaceOrderChanged(workspaceIds = listOf("ws-3", "ws-1")),
+            "srv-1",
+        )
+        assertEquals(listOf("ws-3", "ws-1"), store.snapshotFor("srv-1").workspaces.map { it.workspaceId })
+        assertEquals(listOf("s-9"), store.snapshotFor("srv-1").archivedSessionIds)
+    }
 }
