@@ -98,6 +98,10 @@ echo "服务器 URL: $LAN_URL"
 echo "深链（点击/扫码打开 app 自动填表）:"
 echo "  $DEEPLINK"
 echo
+echo "adb 直测（E2E 用；#325 E1 教训：URI 里的 & 必须落在设备侧引号内，"
+echo "否则被 shell 切分丢失 token 参数——app 侧将记 pair deep-link rejected: MISSING_TOKEN）:"
+echo "  adb -s <serial> shell \"am start -a android.intent.action.VIEW -d '$DEEPLINK'\""
+echo
 if command -v qrencode >/dev/null 2>&1; then
   echo "二维码（任意扫码器/QR app 打开即预填）："
   qrencode -t ansiutf8 "$DEEPLINK"

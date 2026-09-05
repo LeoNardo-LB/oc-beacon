@@ -12,6 +12,36 @@ data class DshPairPayload(
     val token: String,
 )
 
+/** #325 修复：配对 URI 解析结果——拒绝时携带原因。 */
+sealed interface PairUriParseResult {
+    data class Ok(val payload: DshPairPayload) : PairUriParseResult
+    data class Rejected(val reason: PairRejectReason) : PairUriParseResult
+}
+
+/**
+ * #325 修复：拒绝原因枚举。E1（验收 2026-09-06）深链经 adb shell 投递时
+ * URI 中未加引号的 & 被设备侧 sh 切分，token 参数整段丢失——app 静默拒绝
+ * 无任何日志可查；此枚举使拒绝可诊断（MainActivity 记 warning，不记 token）。
+ */
+enum class PairRejectReason {
+    /** 空白输入。 */
+    EMPTY,
+    /** ocbeacon:// 深链但主机非 pair。 */
+    NOT_PAIR_HOST,
+    /** 深链缺 url 参数。 */
+    MISSING_URL,
+    /** 深链缺 token 参数（E1 截断形态）。 */
+    MISSING_TOKEN,
+    /** token 字符集/长度不合规。 */
+    BAD_TOKEN,
+    /** url 缺 host / 含畸形字符 / 端口越界。 */
+    BAD_URL,
+    /** 粘贴形态未找到 token。 */
+    NO_TOKEN_IN_TEXT,
+    /** 粘贴形态未找到 http(s) URL。 */
+    NO_URL_IN_TEXT,
+}
+
 /**
  * #325②：配对 URI 纯函数解析器（QR/深链降级通道的 app 侧入口）。
  *
@@ -45,9 +75,16 @@ object DshPairingParser {
     /** host 白名单：hostname/IP 常规字符（拒绝 %、空格等畸形解码残余）。 */
     private val HOST_REGEX = Regex("^[A-Za-z0-9._\\-]+$")
 
-    fun parsePairUri(raw: String): DshPairPayload? {
+    /** 兼容投影：[parsePairUriDetailed] 的 Ok→payload、Rejected→null。 */
+    fun parsePairUri(raw: String): DshPairPayload? = when (val r = parsePairUriDetailed(raw)) {
+        is PairUriParseResult.Ok -> r.payload
+        is PairUriParseResult.Rejected -> null
+    }
+
+    /** #325 修复：带拒绝原因的解析入口（诊断缝——单测 D1-D10 锁定）。 */
+    fun parsePairUriDetailed(raw: String): PairUriParseResult {
         val trimmed = raw.trim()
-        if (trimmed.isEmpty()) return null
+        if (trimmed.isEmpty()) return PairUriParseResult.Rejected(PairRejectReason.EMPTY)
         return if (trimmed.startsWith(SCHEME_PREFIX)) {
             parseDeepLink(trimmed.removePrefix(SCHEME_PREFIX))
         } else {
@@ -57,23 +94,28 @@ object DshPairingParser {
 
     // ---- 深链形态：ocbeacon://pair?url=…&token=… ----------------------------
 
-    private fun parseDeepLink(rest: String): DshPairPayload? {
-        if (rest.substringBefore('?') != PAIR_HOST) return null
+    private fun parseDeepLink(rest: String): PairUriParseResult {
+        if (rest.substringBefore('?') != PAIR_HOST) {
+            return PairUriParseResult.Rejected(PairRejectReason.NOT_PAIR_HOST)
+        }
         val params = queryParams(rest.substringAfter('?', ""))
-        val url = params["url"] ?: return null
-        val token = params["token"] ?: return null
-        if (!BARE_TOKEN_REGEX.matches(token)) return null
-        val base = normalizeBaseUrl(url) ?: return null
-        return DshPairPayload(base, token)
+        val url = params["url"] ?: return PairUriParseResult.Rejected(PairRejectReason.MISSING_URL)
+        val token = params["token"] ?: return PairUriParseResult.Rejected(PairRejectReason.MISSING_TOKEN)
+        if (!BARE_TOKEN_REGEX.matches(token)) return PairUriParseResult.Rejected(PairRejectReason.BAD_TOKEN)
+        val base = normalizeBaseUrl(url) ?: return PairUriParseResult.Rejected(PairRejectReason.BAD_URL)
+        return PairUriParseResult.Ok(DshPairPayload(base, token))
     }
 
     // ---- 粘贴形态：dsh web URL / web.log 启动行 ------------------------------
 
-    private fun parsePastedText(text: String): DshPairPayload? {
-        val token = extractDshToken(text) ?: return null
-        val urlSample = URL_SAMPLE_REGEX.find(text)?.value ?: return null
-        val base = normalizeBaseUrl(urlSample) ?: return null
-        return DshPairPayload(base, token)
+    private fun parsePastedText(text: String): PairUriParseResult {
+        val token = extractDshToken(text)
+            ?: return PairUriParseResult.Rejected(PairRejectReason.NO_TOKEN_IN_TEXT)
+        val urlSample = URL_SAMPLE_REGEX.find(text)?.value
+            ?: return PairUriParseResult.Rejected(PairRejectReason.NO_URL_IN_TEXT)
+        val base = normalizeBaseUrl(urlSample)
+            ?: return PairUriParseResult.Rejected(PairRejectReason.BAD_URL)
+        return PairUriParseResult.Ok(DshPairPayload(base, token))
     }
 
     // ---- 归一化与解码 --------------------------------------------------------

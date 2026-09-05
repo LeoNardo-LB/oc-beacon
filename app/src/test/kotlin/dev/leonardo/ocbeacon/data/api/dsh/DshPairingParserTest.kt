@@ -117,9 +117,93 @@ class DshPairingParserTest {
         assertNull(DshPairingParser.parsePairUri("ocbeacon://pair?url=http%3A%2F%2Fh%NR:3080&token=$token"))
     }
 
+
     @Test
     fun `P14_尾斜杠baseUrl归一化`() {
         val payload = DshPairingParser.parsePairUri("http://10.0.0.5:3080/?token=$token")
         assertEquals("http://10.0.0.5:3080", payload?.baseUrl)
+    }
+
+    // ---- #325 修复：Detailed 结果（拒绝带原因——E1 静默失败可诊断化） ----
+    // 背景：验收 2026-09-06 E1，深链经 adb shell am start -d "<link>" 投递时
+    // URI 中未加引号的 & 被设备侧 sh 切分，token 参数整段丢失；app 收到
+    // ocbeacon://pair?url=…（无 token）→ parse 返回 null 且无声 → 无任何日志
+    // 可查。修复：解析器提供带拒绝原因的 Detailed 结果，MainActivity 拒绝时
+    // 记 warning（不记 token）。以下用例锁定该缝。
+
+    @Test
+    fun `D1_深链缺token参数判MISSING_TOKEN`() {
+        // E1 截断形态精确复现：& 被 shell 吃掉后 app 实际收到的 URI
+        val result = DshPairingParser.parsePairUriDetailed(
+            "ocbeacon://pair?url=http%3A%2F%2F192.168.110.53%3A3080",
+        )
+        assertEquals(PairUriParseResult.Rejected(PairRejectReason.MISSING_TOKEN), result)
+    }
+
+    @Test
+    fun `D2_完整深链Detailed解析Ok`() {
+        val result = DshPairingParser.parsePairUriDetailed(
+            "ocbeacon://pair?url=http%3A%2F%2F192.168.110.53%3A3080&token=$token",
+        )
+        assertEquals(PairUriParseResult.Ok(DshPairPayload("http://192.168.110.53:3080", token)), result)
+    }
+
+    @Test
+    fun `D3_非pair主机Detailed拒绝NOT_PAIR_HOST`() {
+        val result = DshPairingParser.parsePairUriDetailed(
+            "ocbeacon://other?url=http://10.0.0.5:3080&token=$token",
+        )
+        assertEquals(PairUriParseResult.Rejected(PairRejectReason.NOT_PAIR_HOST), result)
+    }
+
+    @Test
+    fun `D4_短token Detailed拒绝BAD_TOKEN`() {
+        val result = DshPairingParser.parsePairUriDetailed(
+            "ocbeacon://pair?url=http://10.0.0.5:3080&token=short",
+        )
+        assertEquals(PairUriParseResult.Rejected(PairRejectReason.BAD_TOKEN), result)
+    }
+
+    @Test
+    fun `D5_无host的url Detailed拒绝BAD_URL`() {
+        val result = DshPairingParser.parsePairUriDetailed(
+            "ocbeacon://pair?url=http://&token=$token",
+        )
+        assertEquals(PairUriParseResult.Rejected(PairRejectReason.BAD_URL), result)
+    }
+
+    @Test
+    fun `D6_空输入Detailed拒绝EMPTY`() {
+        assertEquals(PairUriParseResult.Rejected(PairRejectReason.EMPTY), DshPairingParser.parsePairUriDetailed("  "))
+    }
+
+    @Test
+    fun `D7_深链缺url参数判MISSING_URL`() {
+        val result = DshPairingParser.parsePairUriDetailed("ocbeacon://pair?token=$token")
+        assertEquals(PairUriParseResult.Rejected(PairRejectReason.MISSING_URL), result)
+    }
+
+    @Test
+    fun `D8_粘贴形态无token拒绝NO_TOKEN_IN_TEXT`() {
+        val result = DshPairingParser.parsePairUriDetailed("dsh web: 本机 http://127.0.0.1:3080 LAN")
+        assertEquals(PairUriParseResult.Rejected(PairRejectReason.NO_TOKEN_IN_TEXT), result)
+    }
+
+    @Test
+    fun `D9_粘贴形态无URL拒绝NO_URL_IN_TEXT`() {
+        // query 形态 token 可提取（extractDshToken 认 ?token=/&token=）但无 http(s) URL
+        val result = DshPairingParser.parsePairUriDetailed("随手粘贴的无地址文本?token=$token")
+        assertEquals(PairUriParseResult.Rejected(PairRejectReason.NO_URL_IN_TEXT), result)
+    }
+
+    @Test
+    fun `D10_parsePairUri与Detailed结果保持一致`() {
+        // 兼容缝：旧 API 是新 API 的投影（Ok→payload，Rejected→null）
+        val ok = "ocbeacon://pair?url=http%3A%2F%2F192.168.110.53%3A3080&token=$token"
+        assertEquals(
+            (DshPairingParser.parsePairUriDetailed(ok) as PairUriParseResult.Ok).payload,
+            DshPairingParser.parsePairUri(ok),
+        )
+        assertNull(DshPairingParser.parsePairUri("ocbeacon://pair?url=http%3A%2F%2F192.168.110.53%3A3080"))
     }
 }

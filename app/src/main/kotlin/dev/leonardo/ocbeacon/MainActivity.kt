@@ -376,12 +376,24 @@ class MainActivity : ComponentActivity() {
     private fun handlePairDeepLink(intent: Intent?) {
         if (intent?.action != Intent.ACTION_VIEW) return
         val data = intent.dataString ?: return
-        val payload = dev.leonardo.ocbeacon.data.api.dsh.DshPairingParser.parsePairUri(data) ?: return
-        AppLogger.i(TAG, "Pair deep-link received: " + payload.baseUrl)
-        _pairRequestFlow.tryEmit(payload)
-        lifecycleScope.launch {
-            val ok = dshConnectionRegistry.exchangeToken(payload.baseUrl, payload.token)
-            AppLogger.i(TAG, "pair token exchange for " + payload.baseUrl + ": " + if (ok) "ok" else "rejected")
+        // 只认自家 scheme（其他 VIEW 深链未来另归他处，不进配对面）
+        if (!data.startsWith("ocbeacon://")) return
+        when (val result = dev.leonardo.ocbeacon.data.api.dsh.DshPairingParser.parsePairUriDetailed(data)) {
+            is dev.leonardo.ocbeacon.data.api.dsh.PairUriParseResult.Ok -> {
+                val payload = result.payload
+                AppLogger.i(TAG, "Pair deep-link received: " + payload.baseUrl)
+                _pairRequestFlow.tryEmit(payload)
+                lifecycleScope.launch {
+                    val ok = dshConnectionRegistry.exchangeToken(payload.baseUrl, payload.token)
+                    AppLogger.i(TAG, "pair token exchange for " + payload.baseUrl + ": " + if (ok) "ok" else "rejected")
+                }
+            }
+            is dev.leonardo.ocbeacon.data.api.dsh.PairUriParseResult.Rejected -> {
+                // #325 修复（E1 教训）：截断/畸形深链原先静默返回、零日志可查——
+                // 现在记原因（只记 host 与长度，绝不记 query/token——token 是 RCE 等价物）。
+                val host = data.removePrefix("ocbeacon://").substringBefore('?')
+                AppLogger.w(TAG, "Pair deep-link rejected: " + result.reason + " (host=" + host + ", len=" + data.length + ")")
+            }
         }
     }
 
