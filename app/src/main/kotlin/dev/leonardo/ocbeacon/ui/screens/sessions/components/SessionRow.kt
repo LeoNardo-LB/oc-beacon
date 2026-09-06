@@ -64,6 +64,7 @@ import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
@@ -137,7 +138,7 @@ internal fun SessionRow(
         state = dismissState,
         enableDismissFromStartToEnd = false,
         enableDismissFromEndToStart = canSwipeToArchive,
-        backgroundContent = { SwipeToArchiveBackground() },
+        backgroundContent = { SwipeToArchiveBackground(dismissState) },
     ) {
     Row(
         modifier = Modifier
@@ -413,10 +414,28 @@ internal fun SessionRow(
 }
 
 /**
+ * #342 归档揭示背景的绘制判定（纯函数，可单测）：仅负向位移（左滑揭示中）
+ * 绘制。[SwipeToArchiveBackground] 的 rest 态遮蔽依据。
+ */
+internal fun shouldRevealArchiveBackground(offset: Float): Boolean = offset < -1f
+
+/**
  * #311 左滑归档背景（M3 errorContainer 形态）——左滑过程中从右侧揭示。
+ *
+ * #342 根因修复（2026-09-07 真机实证红列表）：M3 SwipeToDismissBox 的
+ * backgroundContent **无条件全尺寸常驻**在内容后方，而 SessionRow 前景
+ * Row 无底色（透明）→ errorContainer 恒透出 = 整列表红底（自 #311 Task2
+ * 2026-09-05 上线起恒在；XML dump 验收色盲 + 「左滑手感」人工项未做双漏）。
+ * 修复：rest/复位态不绘制（透出列表 surface），仅在真实左滑位移时绘制。
  */
 @Composable
-private fun SwipeToArchiveBackground(modifier: Modifier = Modifier) {
+private fun SwipeToArchiveBackground(state: SwipeToDismissBoxState, modifier: Modifier = Modifier) {
+    val offset = runCatching { state.requireOffset() }.getOrDefault(0f)
+    if (!shouldRevealArchiveBackground(offset)) {
+        // rest 态：完全透明占位（保持 backgroundContent 槽位/测量稳定）
+        Spacer(modifier = modifier.fillMaxSize())
+        return
+    }
     Row(
         modifier = modifier
             .fillMaxSize()
