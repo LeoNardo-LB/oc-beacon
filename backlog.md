@@ -81,12 +81,6 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#335 DataStore 无 corruptionHandler——写事务被 SIGKILL 打断即静默清空服务器配置** `data` `security`
-  - 2026-09-06 真机事故实证:多次 force-stop 窗口内 servers key 丢失(preferences_pb 仅剩 65B;无自定义 corruptionHandler,损坏→默认 emptyPreferences 静默 wipe);修法=corruptionHandler+原子备份恢复;→ docs/acceptance/2026-09-06-final-combined.md E1 事故链
-
-- [ ] **#333 旧会话（35h/6h+）重进转录空白态** `dsh` `session` `data`
-  - #312 验收实测:9月4 会话(35h/6h+)重进转录空白多帧(无崩溃)——疑 session/follow 限界窗口(#319 语义)外的历史加载链(listMessages 分页/fold)断,待诊断;→ `docs/acceptance/2026-09-05-312-s-pool.md` 观测③
-
 - [~] **#325 DSH token 首次配对体验——dev 注入脚本/QR 扫码/SSH 通道/sameBackend username 修复** `dsh` `security` `ui`
   - 四通道裁决落地（9ad9bb03+7a31a788）:adb 注入实现（dsh-pair.sh）/QR=深链降级（ocbeacon://pair 预填,验收 ✔ 终轮 E1-r2——根因=adb & 转义伪影+静默拒绝已修）/sameBackend username 修复✔/**SSH 暂缓**:需 sshj ~1.5MB 新依赖（AGENTS 红线）,无免依赖路径——若用户裁决可加依赖再启;**UIUX 待人工**
   - 调研实证:token 仅存进程内存(重启轮换/不落盘/不可配置),无 LAN 静默发现途径(设计使然);cookie 365 天/authority——自动发现=首次配对问题;宿主 dsh-url 工具已带 QR 输出,app 粘贴框现成
@@ -113,22 +107,13 @@
 
 ## P3 — 观察与低价值改进
 
-- [ ] **#337 子会话挂起通知撤除 id 槽错配——发布侧冒泡父 id/撤除侧用原始子 id** `dsh` `ui`
-  - #334 诊断线顺带发现(#320 遗留):Coordinator 发布冒泡父目标,revoker 撤用子 sessionId 稳定槽→子会话应答后通知可能不撤;修=revoker 镜像冒泡口径;纳入 #336 补发验收清单一并真机验
-
-- [ ] **#336 审批/提问通知无「退后台补发」——到达时语义（app 在前台时挂起的事件,退后台不补通知）** `dsh` `ui`
-  - 终轮 D1①实证:前台本会话挂起→HOME→无通知（抑制在到达时刻判定）;增强=退后台时扫描 pending store 补发;→ docs/acceptance/2026-09-06-final-combined.md D1 复盘点③
+- [~] **#336 审批/提问通知「退后台补发」——已实现（279b7639+b95a2bc9）** `dsh` `ui`
+  - 已实现:fg→bg 转换沿扫描 pending 已通知槽去重防重放;验收 ✔（终验 A4 三段链:前台抑制→HOME 补发在场→面板点按直达→应答撤）;#337 顺修（revoker 父槽镜像+共享冒泡函数三侧统一）;**UIUX 待人工**（通知域汇总已含）
 
 
-
-- [ ] **#331 新建/派生会话行入列表 ~3min 时延（对话框 workspace 计数即时+1）** `dsh` `sse` `ui`
-  - #311 验收实测:本端新建会话行约 3 分钟才入列表(workspace upsert 计数即时);#312 验收实测:fork 派生子会话 3.5min 不入列表——session 行来源链(session.list 轮询/session-added 帧)时延待查;→ 两次验收顺带观测
-
-- [ ] **#330 workspace follow remove/order 增量未消费——新建对话框短暂显示已删 workspace** `dsh` `sse`
-  - Task1/3 只消费 baseline/archived/upsert;remove 后对话框陈旧条目点击有目录回退兜底不阻断;价值低缓行;→ `docs/journal/2026-09-04-fix-308-always-326-327.md` §十五-#311 段
 
 - [ ] **#329 busy 流式期入队消息服务器隐形 hold 不产 session/queue 快照——角标不可见** `dsh` `sse`
-  - 现象（#327 验收实测）：排队仅在服务器「思考期」命中形成；流式期 mid-turn 发送走隐形 hold → 轮末直接 drain（不入队不显角标）。服务器 inbox 语义考据 + app 端乐观呈现（本地 pending 项）可行性评估后再定；web 端同形性待对照
+  - **终裁(2026-09-06):平价记录项**——服务器 inbox 语义(流式期 hold→轮末 drain),web 队列镜像同源同形(web 同不显);无数据丢失(轮末消费链 #326 A3 已证 44s);**增强选项留用户定夺**:app 端乐观本地 pending 项(入队瞬间本地显示,服务器快照到达后对齐)——若需要请示下,默认按 web 平价不实现
   - → `docs/acceptance/2026-09-05-327-queue-badge-chain.md` 环境事实①
 
 - [~] **#324 DSH 设置面深度对齐缓行池——provider/模型目录 CRUD·插件配置与清单·preset 管理·skills 触发组** `dsh` `ui`
