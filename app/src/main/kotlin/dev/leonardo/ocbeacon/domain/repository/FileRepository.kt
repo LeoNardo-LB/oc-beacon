@@ -21,4 +21,14 @@ interface FileRepository {
 
     /** 搜索匹配查询的目录（type=directory）。委托给 FileApi.findFiles。 */
     suspend fun findDirectories(serverId: String, directory: String, query: String, limit: Int = 50): Result<List<String>>
+
+    /**
+     * 在服务器上创建子目录（原生通道；返回创建后的绝对路径）。
+     * W4/D8(2026-09-06 全量 E2E)：DSH = directoryPicker/createDirectory 直达
+     * （旧 mkdir 临时会话 shell 通道在该后端双回退必败且 deleteSession 无能力位
+     * → 临时会话泄漏）；V1/V2 无原生端点（默认=UnsupportedOperationException，
+     * 调用方回落临时会话 shell 通道——该通道在 V1/V2 工作且支持删除清理）。
+     */
+    suspend fun createDirectory(serverId: String, parentDirectory: String, folderName: String): Result<String> =
+        Result.failure(UnsupportedOperationException("file.createDirectory not supported by this backend"))
 }

@@ -32,6 +32,14 @@ interface FileApi {
     suspend fun listDirectory(conn: ServerConnection, path: String = "", directory: String? = null): List<FileNodeDto>
 
     /**
+     * 在服务器上创建子目录（原生通道；返回创建后的绝对路径）。
+     * W4/D8：DSH = directoryPicker/createDirectory；V1/V2 无端点（默认抛
+     * [UnsupportedOperationException]，仓库层转 Result 由用例回落旧通道）。
+     */
+    suspend fun createDirectory(conn: ServerConnection, parentDirectory: String, folderName: String): String =
+        throw UnsupportedOperationException("file.createDirectory not supported by this backend")
+
+    /**
      * 搜索符号。
      * GET /find/symbol
      */
@@ -91,6 +99,9 @@ class FileApiImpl @Inject constructor(
 
     override suspend fun listDirectory(conn: ServerConnection, path: String, directory: String?): List<FileNodeDto> =
         pick(conn).listDirectory(conn, path, directory)
+
+    override suspend fun createDirectory(conn: ServerConnection, parentDirectory: String, folderName: String): String =
+        pick(conn).createDirectory(conn, parentDirectory, folderName)
 
     override suspend fun findSymbols(conn: ServerConnection, query: String, directory: String?): List<SymbolInfo> =
         pick(conn).findSymbols(conn, query, directory)

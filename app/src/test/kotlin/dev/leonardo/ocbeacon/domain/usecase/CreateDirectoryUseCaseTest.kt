@@ -29,6 +29,44 @@ class CreateDirectoryUseCaseTest {
     fun setup() {
         sut = CreateDirectoryUseCase(sessionRepository, manageTerminalUseCase, fileRepository)
         coEvery { sessionRepository.createSession(any(), any()) } returns Result.success(tempSession)
+        // W4/D8:默认桩=后端无原生建目录(V1/V2)→既有用例全部走临时会话 shell 通道
+        coEvery { fileRepository.createDirectory(any(), any(), any()) } returns Result.failure(UnsupportedOperationException("file.createDirectory"))
+    }
+
+    // ---- W4/D8(2026-09-06 全量 E2E):原生建目录优先 + 回落语义 --------------------
+    // DSH directoryPicker/createDirectory 直达(无临时会话→无泄漏);V1/V2 无原生
+    // 端点回落旧通道;服务器明确失败原样上抛不回落。
+
+    @Test
+    fun `native createDirectory success short-circuits temp session path`() = runTest {
+        coEvery { fileRepository.createDirectory(serverId, "/parent", "newdir") } returns Result.success("/parent/newdir")
+
+        val result = sut(serverId, "/parent", "newdir")
+
+        assertTrue(result.isSuccess)
+        assertEquals("/parent/newdir", result.getOrThrow())
+        coVerify(exactly = 0) { sessionRepository.createSession(any(), any()) }
+    }
+
+    @Test
+    fun `native createDirectory definitive failure surfaces without temp session`() = runTest {
+        coEvery { fileRepository.createDirectory(any(), any(), any()) } returns Result.failure(IllegalStateException("directory-picker/create-failed"))
+
+        val result = sut(serverId, "/parent", "newdir")
+
+        assertFalse(result.isSuccess)
+        coVerify(exactly = 0) { sessionRepository.createSession(any(), any()) }
+    }
+
+    @Test
+    fun `native createDirectory unsupported falls back to temp session shell path`() = runTest {
+        coEvery { manageTerminalUseCase.runShellCommand(any(), any(), any(), any(), any(), any()) } returns true
+
+        val result = sut(serverId, "/parent", "newdir")
+
+        assertTrue(result.isSuccess)
+        coVerify { sessionRepository.createSession(any(), any()) }
+        coVerify { sessionRepository.deleteSession(serverId, tempSession.id) }
     }
 
     @Test

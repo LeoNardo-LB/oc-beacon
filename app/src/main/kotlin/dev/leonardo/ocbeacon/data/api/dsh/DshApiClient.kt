@@ -1623,6 +1623,28 @@ class DshApiClient @Inject constructor(
         rpc.call(conn, "host.listDirectory", buildJsonObject { put("path", directory) }) { Unit }.isSuccess
 
     /**
+     * W4/D8(2026-09-06 全量 E2E)：DSH 原生建目录——directoryPicker/createDirectory
+     * {path,name}(browse 能力;name 单段,返回绝对路径字符串)。取代 mkdir 临时会话
+     * shell 通道:DSH 命令注册表无 shell/exec → runShellCommand/executeCommand 双
+     * 回退必败(Failed to create directory),且 finally deleteSession 无能力位 →
+     * 临时会话泄漏为正式列表行(实测「mkdir」行,SessionListViewModel 链在案)。
+     */
+    override suspend fun createDirectory(conn: ServerConnection, parentDirectory: String, folderName: String): String {
+        // callJson 语义:结果是非对象 value(字符串路径)——call 的对象前置会拒。
+        val value = rpc.callJson(conn, "host.createDirectory", buildJsonObject {
+            put("path", parentDirectory)
+            put("name", folderName)
+        }) { it }.getOrElse { e -> throw e }
+        return (value as? JsonPrimitive)?.content
+            ?: throw DshApiError(
+                code = null,
+                message = "createDirectory: unexpected non-string result",
+                details = null,
+                httpStatus = null,
+            )
+    }
+
+    /**
      * #276 走查 N2（D1 workspace 空路径）：DSH host.listDirectory 要求
      * fully-qualified path——path=""（OpenCode 语义的工作区根）直传会
      * directory-unreadable。解析序：①调用方 [directory]（会话 cwd 等

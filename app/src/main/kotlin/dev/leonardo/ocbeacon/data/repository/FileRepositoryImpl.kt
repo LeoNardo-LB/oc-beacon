@@ -33,6 +33,15 @@ class FileRepositoryImpl @Inject constructor(
             }
         }
 
+    /** W4/D8(2026-09-06)：原生建目录委托（DSH=picker;V1/V2 抛 Unsupported→用例回落）。 */
+    override suspend fun createDirectory(serverId: String, parentDirectory: String, folderName: String): Result<String> =
+        withContext(Dispatchers.IO) {
+            runCatchingCancellable {
+                val conn = serverRepository.resolveConnection(serverId)
+                api.createDirectory(conn, parentDirectory, folderName)
+            }
+        }
+
     // #137（D2-L60）：网络 IO + JSON 解析统一移出主线程（原仅 listDirectory
     // 有 withContext(IO)——其余 6 方法在调用方协程（可能 Main）执行网络请求）
     override suspend fun getFileContent(serverId: String, directory: String, path: String): Result<FileContent> =

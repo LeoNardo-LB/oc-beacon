@@ -43,6 +43,17 @@ class CreateDirectoryUseCase @Inject constructor(
                 "${parentDirectory.trimEnd('/')}/$sanitized"
             }
 
+            // W4/D8(2026-09-06 全量 E2E)：原生建目录优先——DSH
+            // directoryPicker/createDirectory 直达(无临时会话→无泄漏);V1/V2
+            // 无原生端点(UnsupportedOperationException)回落下方临时会话 shell
+            // 通道。服务器明确失败(directory-picker/create-failed 等)原样上抛
+            // 不回落——回落会把「服务器拒绝」误报成 shell 双失败且多漏一个
+            // 临时会话行。
+            val native = fileRepository.createDirectory(serverId, parentDirectory, sanitized)
+            if (native.exceptionOrNull() !is UnsupportedOperationException) {
+                return@runCatching native.getOrThrow()
+            }
+
             val tempSession = sessionRepository.createSession(
                 serverId,
                 CreateSessionOpts(title = "mkdir", directory = parentDirectory),
@@ -76,7 +87,15 @@ class CreateDirectoryUseCase @Inject constructor(
                     }
                 }
             } finally {
-                runCatching { sessionRepository.deleteSession(serverId, tempSession.id) }
+                // W4/D8:清理失败不再静默——后端无 session.delete 能力位时临时会话
+                // 必泄漏为正式行(DSH 实证),至少留可观测痕迹供诊断屏排查。
+                val cleanup = runCatching { sessionRepository.deleteSession(serverId, tempSession.id) }
+                if (cleanup.isFailure) {
+                    dev.leonardo.ocbeacon.logging.AppLogger.w(
+                        "CreateDirectoryUseCase",
+                        "mkdir temp session cleanup failed (backend without session.delete?) — leaked row: " + tempSession.id,
+                    )
+                }
             }
 
             repeat(6) {

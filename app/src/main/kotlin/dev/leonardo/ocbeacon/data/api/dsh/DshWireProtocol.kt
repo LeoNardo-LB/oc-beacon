@@ -192,6 +192,8 @@ object DshWireAdapter {
         "goal.clear" to "goals/clear",
         // 跨命名空间迁移
         "host.listDirectory" to "directoryPicker/list",
+        // W4/D8(2026-09-06):原生建目录(机械替换会得 host/createDirectory——错)。
+        "host.createDirectory" to "directoryPicker/createDirectory",
         "llm.providers" to "llm/listProviders",
         // llm.models 无对应 → session/modelCatalog（调用点走专用分支，不经 RPC 泛面）
         "llm.models" to "session/modelCatalog",
@@ -237,6 +239,8 @@ object DshWireAdapter {
         "sessionReferenceResolver/candidates",
         "agentPresets/select",
         "directoryPicker/list",
+        // W4/D8:两平铺参 {path,name}(typert 参数名即 wire 键)。
+        "directoryPicker/createDirectory",
         "settings/mutate",
         // #324①：llm/discoverModels {settingsNs,request} + credentials 三方法
         // {keys}/{key,value}/{key}（typert 参数名即 wire 键）

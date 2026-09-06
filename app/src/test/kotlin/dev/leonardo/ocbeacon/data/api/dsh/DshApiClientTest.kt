@@ -1224,6 +1224,26 @@ class DshApiClientTest {
         assertEquals(0, captureRequests(engine).size)
     }
 
+    /** W4/D8(2026-09-06 全量 E2E):原生建目录——directoryPicker/createDirectory
+     * 平铺 {path,name}(browse 能力,两位置参数名即 wire 键),返回字符串直取。
+     * 取代 mkdir 临时会话 shell 通道(DSH 命令注册表无 shell/exec→双回退必败,
+     * 且 finally deleteSession 无能力位→临时会话泄漏)。 */
+    @Test
+    fun `createDirectory sends picker createDirectory flat args and returns path`() = runTest {
+        val engine = MockEngine { respond(ok("\"/parent/newdir\""), HttpStatusCode.OK, jsonHeaders()) }
+        val path = client(engine, protocol = DshWireProtocol.V012)
+            .createDirectory(conn, "/parent", "newdir")
+        assertEquals("/parent/newdir", path)
+        val req = captureRequests(engine).single()
+        assertEquals("/api/directoryPicker/createDirectory", req.url.encodedPath)
+        val body = json.parseToJsonElement(bodyTextOf(req)).jsonObject
+        assertEquals("directoryPicker/createDirectory", body["method"]!!.jsonPrimitive.content)
+        assertEquals(
+            """{"args":{"path":"/parent","name":"newdir"}}""",
+            body["payload"].toString(),
+        )
+    }
+
     // ============ SystemApi / FileApi / TerminalApi / ShellApi / ProviderApi ============
 
     @Test
