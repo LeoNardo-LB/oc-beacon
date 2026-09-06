@@ -550,6 +550,58 @@ class MessageEventHandlerTest {
         assertTrue(after.time.completed != null && after.time.completed!! >= before)
     }
 
+    @Test
+    fun `legacy polluted completed beyond watermark resets to null`() {
+        // 历史残留（本地钟回填 +3.5h）：回放事件 completed=null 且域水位已知 → 自愈归 null
+        val polluted = Message.Assistant(
+            id = "m1", sessionId = "s1", parentId = "",
+            time = TimeInfo(created = 1000L, completed = 1000L + 3_600_000L * 4),
+        )
+        handler.upsertMessages("s1", listOf(MessageWithParts(info = polluted, parts = emptyList())), MergeStrategy.SSE_PRIORITY)
+        handler.recordDomainTime("s1", 2000L)
+        val foldEvent = Message.Assistant(
+            id = "m1", sessionId = "s1", parentId = "", time = TimeInfo(created = 1500L),
+        )
+        handler.handleMessageUpdated(SseEvent.MessageUpdated(foldEvent))
+        val after = handler.messages.value["s1"]!!.first() as Message.Assistant
+        assertNull(after.time.completed)
+    }
+
+    @Test
+    fun `authoritative completed in event is trusted as-is`() {
+        // 事件自带 completed（服务器真相）不受消毒影响
+        val polluted = Message.Assistant(
+            id = "m1", sessionId = "s1", parentId = "",
+            time = TimeInfo(created = 1000L, completed = 1000L + 3_600_000L * 4),
+        )
+        handler.upsertMessages("s1", listOf(MessageWithParts(info = polluted, parts = emptyList())), MergeStrategy.SSE_PRIORITY)
+        handler.recordDomainTime("s1", 2000L)
+        val authoritative = Message.Assistant(
+            id = "m1", sessionId = "s1", parentId = "",
+            time = TimeInfo(created = 1500L, completed = 1800L),
+        )
+        handler.handleMessageUpdated(SseEvent.MessageUpdated(authoritative))
+        val after = handler.messages.value["s1"]!!.first() as Message.Assistant
+        assertEquals(1800L, after.time.completed)
+    }
+
+    @Test
+    fun `completed within watermark margin is kept`() {
+        // 合法完结（与水位差 < 10min 阈值）保留
+        val legit = Message.Assistant(
+            id = "m1", sessionId = "s1", parentId = "",
+            time = TimeInfo(created = 1000L, completed = 1000L + 300_000L),
+        )
+        handler.upsertMessages("s1", listOf(MessageWithParts(info = legit, parts = emptyList())), MergeStrategy.SSE_PRIORITY)
+        handler.recordDomainTime("s1", 2000L)
+        val foldEvent = Message.Assistant(
+            id = "m1", sessionId = "s1", parentId = "", time = TimeInfo(created = 1500L),
+        )
+        handler.handleMessageUpdated(SseEvent.MessageUpdated(foldEvent))
+        val after = handler.messages.value["s1"]!!.first() as Message.Assistant
+        assertEquals(1000L + 300_000L, after.time.completed)
+    }
+
         // ============ markSessionIdle（REST 降级：强制完成流式输出）============
 
     @Test

@@ -70,6 +70,12 @@ class MessageEventHandler @Inject constructor(
         internal const val UPSERT_BATCH_THRESHOLD = 128
         internal const val UPSERT_BATCH_MAX_LATENCY_MS = 250L
         internal const val UPSERT_BATCH_TICK_MS = 25L
+
+        /**
+         * #338：历史残留 completed 的物理不可能阈值——超会话域水位此时长
+         * 即判旧本地钟回填残留（实证残留 +3.5h；合法完结与水位差恒小）。
+         */
+        internal const val POLLUTED_COMPLETED_MARGIN_MS = 10 * 60_000L
     }
 
     private val _messages = MutableStateFlow<Map<String, List<Message>>>(emptyMap())
@@ -161,6 +167,28 @@ class MessageEventHandler @Inject constructor(
     /** #338：域内「现在」——有基准用基准（与 created 同域），无基准回退本地钟。 */
     private fun domainNowMs(sessionId: String): Long =
         lastDomainEventTimeMs[sessionId] ?: System.currentTimeMillis()
+
+    /**
+     * #338 历史残留消毒：本事件不携带权威 completed（DSH 工具宿主整装/回放
+     * 腿恒 null）而存量 completed 超出会话域水位（本事件 created 与已采集
+     * 域基准的较大者）[POLLUTED_COMPLETED_MARGIN_MS] 以上——物理不可能
+     * （消息不可能在会话事件流之后许久才完结）＝旧版本本地钟回填残留
+     * （真机实证 completed=created+3.5h）→ 归 null（时长未知），随同点
+     * 落盘修复 Room 行；下一次 resync 后旧污染自愈。
+     */
+    private fun sanitizeLegacyPollutedCompleted(
+        sessionId: String,
+        incoming: Message.Assistant,
+        merged: Message.Assistant,
+    ): Message.Assistant {
+        if (incoming.time.completed != null) return merged
+        val completed = merged.time.completed ?: return merged
+        val watermark = maxOf(lastDomainEventTimeMs[sessionId] ?: 0L, incoming.time.created)
+        if (completed - watermark > POLLUTED_COMPLETED_MARGIN_MS) {
+            return merged.copy(time = merged.time.copy(completed = null))
+        }
+        return merged
+    }
 
     init {
         // #340：单写协程——唤醒后先保序排空增量队，再按阈值/时延批量刷洗
@@ -385,7 +413,12 @@ class MessageEventHandler @Inject constructor(
                 // 改为非空字段合并：incoming 缺失的元数据保留 existing。
                 val existing = msgs[idx]
                 msgs[idx] = if (existing is Message.Assistant && event.info is Message.Assistant) {
-                    MessageMergeEngine.mergeAssistantMeta(existing, event.info)
+                    // #338：合并后过历史残留消毒（旧本地钟回填 completed 自愈）
+                    sanitizeLegacyPollutedCompleted(
+                        sessionId,
+                        event.info,
+                        MessageMergeEngine.mergeAssistantMeta(existing, event.info),
+                    )
                 } else {
                     event.info
                 }
