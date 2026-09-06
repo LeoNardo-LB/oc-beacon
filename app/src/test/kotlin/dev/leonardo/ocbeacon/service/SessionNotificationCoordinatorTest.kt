@@ -18,7 +18,10 @@ import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -82,8 +85,9 @@ class SessionNotificationCoordinatorTest {
     private fun session(id: String, parentId: String? = null, directory: String = "") =
         Session(id = id, parentId = parentId, directory = directory, time = Session.Time(created = 0, updated = 0))
 
-    private fun userMessage(role: String = "user") = Message.User(
-        id = "msg_u1", sessionId = "sess1", role = role, time = TimeInfo(created = 0),
+    // #339：created 用当前时刻——回放消息（陈旧 created）不重置 streak 是新门控
+    private fun userMessage(role: String = "user", created: Long = System.currentTimeMillis()) = Message.User(
+        id = "msg_u1", sessionId = "sess1", role = role, time = TimeInfo(created = created),
     )
 
     private fun focusOn(sessionId: String) {
@@ -448,7 +452,77 @@ class SessionNotificationCoordinatorTest {
         assertTrue(port.calls.isEmpty())
     }
 
-    // ============ 其他事件：不路由 ============
+    // ============ #339：resync 重放通知族防护 ============
+
+    @Test
+    fun staleReplayedErrorDoesNotNotify() = runTest {
+        // 回放的历史错误轮（「错误·hi」×7-8 重发实证）不通知
+        background()
+        val stale = SseEvent.SessionError(
+            sessionId = "sess1", error = "boom",
+            time = System.currentTimeMillis() - 6 * 60_000L,
+        )
+        coordinator.processEvent(server, stale)
+        assertTrue(port.calls.isEmpty())
+    }
+
+    @Test
+    fun freshErrorStillNotifies() = runTest {
+        background()
+        val fresh = SseEvent.SessionError(
+            sessionId = "sess1", error = "boom",
+            time = System.currentTimeMillis(),
+        )
+        coordinator.processEvent(server, fresh)
+        assertEquals(listOf("streak:server1:sess1", "showSessionError:sess1:boom"), port.calls)
+    }
+
+    @Test
+    fun staleReplayedUserMessageDoesNotResetStreak() = runTest {
+        // 回放用户消息（created=原始时刻）重置 streak 曾致旧错误轮连环通过
+        coordinator.processEvent(
+            server,
+            SseEvent.MessageUpdated(userMessage(created = System.currentTimeMillis() - 6 * 60_000L)),
+        )
+        assertTrue(port.calls.isEmpty())
+    }
+
+    @Test
+    fun questionTextStripsSystemReminderCorpus() = runTest {
+        background()
+        coordinator.processEvent(
+            server,
+            question(text = "<system-reminder> A skill is a reusable set of instructions.</system-reminder>Tea or coffee?"),
+        )
+        assertEquals(listOf("showQuestionAsked:sess1:Tea or coffee?"), port.calls)
+    }
+
+    @Test
+    fun allReminderQuestionTextFallsBack() = runTest {
+        background()
+        coordinator.processEvent(
+            server,
+            question(text = "<system-reminder> A skill is a reusable set of instructions.</system-reminder>"),
+        )
+        // 全剥离为空 → fallback 文案（RecordingPort 固定串）
+        assertEquals(listOf("showQuestionAsked:sess1:<<fallback>>"), port.calls)
+    }
+
+    @Test
+    fun questionReplayWaitsForRegistryHydrationThenPublishes() = runTest {
+        // 注册表未水化 → 有界等待；期间水化完成 → 正常发布
+        background()
+        sessionsFlow.value = emptyList()
+        val job = launch { coordinator.processEvent(server, question()) }
+        advanceTimeBy(600)  // 等待窗口内（未水化，仍在轮询）
+        assertTrue(port.calls.isEmpty())
+        sessionsFlow.value = listOf(session("sess1"))
+        advanceUntilIdle()
+        job.join()
+        assertEquals(listOf("showQuestionAsked:sess1:Favorite animal?"), port.calls)
+    }
+
+        // ============ 其他事件：不路由 ============
 
     @Test
     fun unrelatedEventIsIgnored() = runTest {

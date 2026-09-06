@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -76,7 +77,36 @@ class PendingInteractionStoreTest {
         assertEquals(PendingInteractionKind.APPROVAL, store.pendingBySession.value["s1"])
     }
 
-    // ============ 清除② 轮次结束兜底（状态流订阅）============
+    // ============ #339：伪 Idle 边沿延后复核 ============
+
+    @Test
+    fun `transient replay idle edge followed by busy keeps entry`() = runTest(testDispatcher) {
+        // 真机实证形态（W5 21:06:59.723）：回放交错产生瞬态 Idle 边沿，
+        // 后续事件又回 Busy（终态仍 Busy）——不得误清仍挂起的 pending
+        val store = newStore()
+        store.record("s1", PendingInteractionKind.QUESTION)
+        statuses.value = mapOf("s1" to SessionStatus.Busy)
+        advanceUntilIdle()
+        statuses.value = mapOf("s1" to SessionStatus.Idle)
+        advanceTimeBy(100)  // 延后复核窗口内（<2s）
+        statuses.value = mapOf("s1" to SessionStatus.Busy)  // 回放继续，边沿被覆盖
+        advanceUntilIdle()
+        assertEquals(PendingInteractionKind.QUESTION, store.pendingBySession.value["s1"])
+    }
+
+    @Test
+    fun `idle persisting beyond settle window still clears entry`() = runTest(testDispatcher) {
+        // 真实轮末 Idle 持续在场 → 延后复核照常清除（兜底语义不变）
+        val store = newStore()
+        store.record("s1", PendingInteractionKind.QUESTION)
+        statuses.value = mapOf("s1" to SessionStatus.Busy)
+        advanceUntilIdle()
+        statuses.value = mapOf("s1" to SessionStatus.Idle)
+        advanceTimeBy(IDLE_CLEAR_SETTLE_MS + 100)
+        assertNull(store.pendingBySession.value["s1"])
+    }
+
+        // ============ 清除② 轮次结束兜底（状态流订阅）============
 
     @Test
     fun `busy to idle transition clears entry`() = runTest(testDispatcher) {

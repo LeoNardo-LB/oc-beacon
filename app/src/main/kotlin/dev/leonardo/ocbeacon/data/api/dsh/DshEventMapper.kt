@@ -624,7 +624,13 @@ object DshEventMapper {
                     "error" -> listOf(
                         idle,
                         DshMappedEvent.Sse(
-                            SseEvent.SessionError(sessionId = sessionId, error = reason.obj("error")?.str("message") ?: "turn error")
+                            // #339：携带原始时刻（同 #294 turn/end 透传）——回放的
+                            // 历史错误轮据此被通知层陈旧过滤（「错误·hi」×7-8 重发实证）。
+                            SseEvent.SessionError(
+                                sessionId = sessionId,
+                                error = reason.obj("error")?.str("message") ?: "turn error",
+                                time = time.takeIf { it > 0 },
+                            )
                         ),
                     )
                     "max-tokens" -> listOf(

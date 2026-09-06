@@ -25,6 +25,16 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "SessionNotifCoord"
+/**
+ * #339：通知文本剥离系统注入语料——<system-reminder>…</system-reminder> 块
+ * （skill catalog 注入片段曾直接成为问题/错误通知 text，W5 实证）；
+ * 剥离后为空回退 null（调用方走 fallback 文案）。
+ */
+internal fun sanitizeNotificationText(raw: String): String? =
+    raw.replace(Regex("(?s)<system-reminder>.*?</system-reminder>"), "")
+        .trim()
+        .takeIf { it.isNotEmpty() }
+
 
 /** D2-L30（#112）：response-ready 收敛检查次数与间隔（无输出会话最坏多等 750ms）。 */
 private const val RESPONSE_READY_ATTEMPTS = 3
@@ -32,6 +42,17 @@ private const val RESPONSE_READY_INTERVAL_MS = 250L
 
 /** #294：事件陈旧阈值——超过此时龄的 idle 完成不通知（回放的历史事件时龄以小时/天计，实时事件 <1s）。 */
 private const val STALE_EVENT_NOTIFY_MS = 5 * 60_000L
+
+/** #339：重放用户消息的 streak 重置门——同 #294 阈值（回放消息 created=原始时刻）。 */
+private const val STALE_USER_MESSAGE_MS = 5 * 60_000L
+
+/**
+ * #339：会话注册表水化等待（重放 QuestionAsked/PermissionAsked 欲重发布时，
+ * sessions 列表可能尚未水化——buildSessionPath 拿不到行 → 深链降级）。
+ * 有界轮询（250ms × 12 = 3s），超时按现状发布（best effort）。
+ */
+private const val HYDRATION_WAIT_INTERVAL_MS = 250L
+private const val HYDRATION_WAIT_ATTEMPTS = 12
 
 /**
  * 通知/提示音动作端口（C9）：[SessionNotificationCoordinator] 的纯策略输出。
@@ -201,6 +222,9 @@ class SessionNotificationCoordinator @Inject constructor(
     }
 
     private suspend fun onPermissionAsked(server: ServerConfig, event: SseEvent.PermissionAsked) {
+        // #339：重放场景注册表未水化时等待（buildSessionPath 深链降级实证）——
+        // 有界轮询，超时按现状继续（best effort）。
+        awaitSessionHydration(event.sessionId)
         // 2026-08-16（用户需求·自动允许开关）：开关开启时自动应答
         // always（服务器落持久规则，同类请求不再询问）并跳过通知。
         // 应答失败不中断：落回原通知路径由用户手动处理。
@@ -226,11 +250,14 @@ class SessionNotificationCoordinator @Inject constructor(
     }
 
     private suspend fun onQuestionAsked(server: ServerConfig, event: SseEvent.QuestionAsked) {
+        // #339：同 permission 路径——重放重发布前等待注册表水化。
+        awaitSessionHydration(event.sessionId)
         val targetSessionId = bubbleToParentSession(event.sessionId)
         AppLogger.i(TAG, "[${server.displayName}] Question asked for session ${event.sessionId} (target=$targetSessionId)")
         if (sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) {
             // #155：被抑制的问题通知 → 会话内提示音（独立去重，Q11）
-            val qText = event.questions.firstOrNull()?.question
+            // #339：question 文本剥离 <system-reminder> 系统注入语料
+            val qText = sanitizeNotificationText(event.questions.firstOrNull()?.question ?: "")
                 ?: actions.fallbackQuestionText()
             actions.playInSessionSound(
                 serverId = server.id,
@@ -240,7 +267,8 @@ class SessionNotificationCoordinator @Inject constructor(
             )
             return
         }
-        val questionText = event.questions.firstOrNull()?.question
+        // #339：question 文本剥离 <system-reminder> 系统注入语料
+        val questionText = sanitizeNotificationText(event.questions.firstOrNull()?.question ?: "")
             ?: actions.fallbackQuestionText()
         actions.showQuestionAsked(server, targetSessionId, questionText)
         // #336：系统通知已发布 → 已通知槽置位（同 permission 路径口径；kind 值
@@ -249,6 +277,17 @@ class SessionNotificationCoordinator @Inject constructor(
     }
 
     private suspend fun onSessionError(server: ServerConfig, event: SseEvent.SessionError) {
+        // #339：回放的历史错误轮不重发通知（「错误·hi」×7-8 同题重发实证——
+        // 重放用户消息曾重置 streak 致连环通过；时刻缺席（V1/V2）保持原行为）。
+        event.time?.let { eventTime ->
+            val ageMs = System.currentTimeMillis() - eventTime
+            if (ageMs > STALE_EVENT_NOTIFY_MS) {
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(TAG, "[\${server.displayName}] Skip stale error notification (\${ageMs / 60_000}min old, \${event.sessionId})")
+                }
+                return
+            }
+        }
         val targetSessionId = event.sessionId?.let { bubbleToParentSession(it) }
         AppLogger.i(TAG, "[${server.displayName}] Session error: ${event.error} (session=${event.sessionId}, target=$targetSessionId)")
         if (targetSessionId != null && sessionFocusHolder.shouldSuppress(server.id, targetSessionId)) {
@@ -268,15 +307,21 @@ class SessionNotificationCoordinator @Inject constructor(
             AppLogger.i(TAG, "[${server.displayName}] Error notification suppressed by streak (target=$targetSessionId)")
             return
         }
-        actions.showSessionError(server, targetSessionId, event.error)
+        // #339：错误文本剥离 <system-reminder> 系统注入语料（全剥离→空文本，标题仍在场）
+        actions.showSessionError(server, targetSessionId, sanitizeNotificationText(event.error) ?: "")
     }
 
     private fun onMessageUpdated(server: ServerConfig, event: SseEvent.MessageUpdated) {
         // #155（Q10）：用户主动发出新消息 → 重置该会话错误 streak。
         // 合成消息（synthetic，工具代发）不算用户主动。
+        // #339：回放的历史用户消息不算「主动发出」（重放会重置 streak →
+        // 旧错误轮连环通过重发实证）——created 为原始时刻，陈旧即跳过。
         val info = event.info
         if (info is Message.User && info.role != "synthetic") {
-            actions.onUserMessage(server.id, info.sessionId)
+            val ageMs = System.currentTimeMillis() - info.time.created
+            if (ageMs <= STALE_USER_MESSAGE_MS) {
+                actions.onUserMessage(server.id, info.sessionId)
+            }
         }
     }
 
@@ -321,6 +366,24 @@ class SessionNotificationCoordinator @Inject constructor(
             AppLogger.i(TAG, "[${server.displayName}] Auto-allowed permission ${event.permission} (id=${event.id}, session=${event.sessionId})")
         }
         return replied
+    }
+
+    /**
+     * #339：等待会话注册表水化——重连 resync 重放 QuestionAsked/PermissionAsked
+     * 欲重发布时 sessions 列表可能尚未填充（buildSessionPath 拿不到行 → 深链
+     * 降级）。有界轮询（250ms × 12 = 3s），已水化/超时即返回。
+     */
+    private suspend fun awaitSessionHydration(eventSessionId: String) {
+        if (sessions.any { it.id == eventSessionId }) return
+        for (attempt in 0 until HYDRATION_WAIT_ATTEMPTS) {
+            delay(HYDRATION_WAIT_INTERVAL_MS)
+            if (sessions.any { it.id == eventSessionId }) {
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(TAG, "Session registry hydrated after wait #" + (attempt + 1) + " (" + eventSessionId.take(12) + ")")
+                }
+                return
+            }
+        }
     }
 
     /** 子智能体会话事件冒泡到父会话通知；非子会话/查无父时原样返回（#337 共享映射）。 */

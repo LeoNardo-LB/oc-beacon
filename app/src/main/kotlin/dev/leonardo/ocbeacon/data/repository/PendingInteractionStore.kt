@@ -4,6 +4,7 @@ import dev.leonardo.ocbeacon.di.ApplicationScope
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.repository.SessionStateRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,6 +29,13 @@ enum class PendingInteractionKind {
 /** question 呈现族：plan-review 归并 question 同点；行指示与 Asking 合流去重（勿双点）。 */
 val PendingInteractionKind.isQuestionFamily: Boolean
     get() = this == PendingInteractionKind.QUESTION || this == PendingInteractionKind.PLAN_REVIEW
+
+/**
+ * #339：径② 清除延后复核窗口——重连 resync 重放历史的瞬态 Busy→Idle 边沿
+ * （回放交错产物，间隔毫秒级）在窗口内被后续状态覆盖；真实轮末 Idle 持续
+ * 在场不受影响。2s 兼顾回放交错跨度（实证 <50ms）与轮末清除时延感知。
+ */
+internal const val IDLE_CLEAR_SETTLE_MS = 2_000L
 
 /**
  * 会话待交互（等待审批/提问）状态容器（#311 Task4，客户端本地域）。
@@ -78,13 +86,25 @@ class PendingInteractionStore @Inject constructor(
     init {
         // ② 轮次结束兜底：store 侧订阅状态流（只读消费——FSM 写入路径零接触，
         // 承重规则：不重新引入按 handler 维护的状态、不改 SessionStateFSM）。
+        //
+        // #339（伪 Idle 边沿防御——延后复核）：重连 resync 重放历史时，回放的
+        // 旧 turn/end 会产生瞬态 Busy→Idle 边沿（真机实证 21:06:59.723 Idle →
+        // .725 又回 Busy/Waiting——回放交错，终态仍 Busy），即时清 pending 会
+        // 误撤仍挂起的问题通知（Revoker 同点撤除，用户失去提醒）。改为延后
+        // [IDLE_CLEAR_SETTLE_MS] 复核：届时仍 Idle 才清（真轮末 Idle 持续在场；
+        // 回放瞬态边沿已被后续 Busy 覆盖）。径①/径③ 仍即时，不受影响。
         appScope.launch {
             var prev: Map<String, SessionStatus> = emptyMap()
             sessionStateRepository.statusFlow.collect { statuses ->
                 statuses.forEach { (sessionId, status) ->
                     val was = prev[sessionId]
                     if (status is SessionStatus.Idle && was != null && was !is SessionStatus.Idle) {
-                        clearForSession(sessionId)
+                        appScope.launch {
+                            delay(IDLE_CLEAR_SETTLE_MS)
+                            if (sessionStateRepository.statusFlow.value[sessionId] is SessionStatus.Idle) {
+                                clearForSession(sessionId)
+                            }
+                        }
                     }
                 }
                 prev = statuses

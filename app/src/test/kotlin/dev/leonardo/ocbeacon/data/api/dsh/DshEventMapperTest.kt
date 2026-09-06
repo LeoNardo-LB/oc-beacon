@@ -775,7 +775,8 @@ class DshEventMapperTest {
         assertEquals(
             listOf(
                 DshMappedEvent.Sse(SseEvent.SessionIdle("s9", 1788109999000)),
-                DshMappedEvent.Sse(SseEvent.SessionError(sessionId = "s9", error = "provider quota exceeded")),
+                // #339：错误事件携带原始信封时刻（通知层陈旧过滤依据）
+                DshMappedEvent.Sse(SseEvent.SessionError(sessionId = "s9", error = "provider quota exceeded", time = 1788109999000)),
             ),
             DshEventMapper.mapSessionEvent(
                 "s9",

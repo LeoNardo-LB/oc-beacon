@@ -54,7 +54,10 @@ sealed class SseEvent {
     @Serializable
     data class SessionError(
         val sessionId: String?,
-        val error: String
+        val error: String,
+        /** 事件原始时刻（epoch ms；DSH turn/end reason=error 携带）。null=来源无时刻。
+         *  #339：回放的历史错误轮重发通知（「错误·hi」×7-8 实证）按此刻做陈旧过滤。 */
+        val time: Long? = null,
     ) : SseEvent()
 
     /**
