@@ -138,6 +138,8 @@ class EventDispatcherPendingInteraction311Test {
         dispatcher.processEvent(asked, "srv")
         statuses.value = mapOf("ses-1" to SessionStatus.Busy)
         statuses.value = mapOf("ses-1" to SessionStatus.Idle)
+        // #339：径②延后复核（2s settle + 届时仍 Idle 才清）——虚拟调度器推进
+        testDispatcher.scheduler.advanceUntilIdle()
         assertNull(store.pendingBySession.value["ses-1"])
     }
 
