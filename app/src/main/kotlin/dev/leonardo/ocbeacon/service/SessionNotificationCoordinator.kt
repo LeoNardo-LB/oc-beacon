@@ -283,7 +283,7 @@ class SessionNotificationCoordinator @Inject constructor(
             val ageMs = System.currentTimeMillis() - eventTime
             if (ageMs > STALE_EVENT_NOTIFY_MS) {
                 if (BuildConfig.DEBUG) {
-                    AppLogger.d(TAG, "[\${server.displayName}] Skip stale error notification (\${ageMs / 60_000}min old, \${event.sessionId})")
+                    AppLogger.d(TAG, "[" + server.displayName + "] Skip stale error notification (" + (ageMs / 60_000) + "min old, " + event.sessionId + ")")
                 }
                 return
             }
