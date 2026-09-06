@@ -125,6 +125,45 @@ class DshRemoteMuxEngineTest {
         assertEquals("s-parent", frames[0].payload.strField("parentSessionId"))
     }
 
+    /**
+     * A2(2026-09-06 全量 E2E):api-session/activity args=[sessionId, updatedAt]——
+     * web(mod04.js handleSessionActivity→mutation kind=activity)以 updatedAt 单调
+     * 合并驱动会话列表即时重排;app 此前仅当动态补开信号、丢弃时间载荷 → 旧会话
+     * 活动后行排序位滞后(W1 实测 >86s 且 ≤~5min 才靠缓存更新升顶)。合成帧必须
+     * 透传 updatedAt,由 mapper→SessionUpdated→defendSessionReplacement max 合并。
+     */
+    @Test
+    fun emit_apiSessionActivity_synthesizesHostSessionActivityWithUpdatedAt() {
+        val frames = mutableListOf<SynthFrame>()
+        val syn = synthesizer(frames, mutableListOf())
+        syn.onItem(
+            "evt",
+            Json.parseToJsonElement(
+                """{"type":"emit","event":"api-session/activity","args":["s1",1788626112891]}""",
+            ) as JsonObject,
+            ConcurrentHashMap(),
+        )
+        assertEquals(1, frames.size)
+        assertEquals("host/session-activity", frames[0].method)
+        assertEquals("s1", frames[0].payload.strField("sessionId"))
+        assertEquals("1788626112891", frames[0].payload.strField("updatedAt"))
+    }
+
+    /** A2:activity 载荷缺时间戳(args=[sessionId] 单参)→ 不产合成帧(无意义事件噪声)。 */
+    @Test
+    fun emit_apiSessionActivity_withoutTimestamp_emitsNoFrame() {
+        val frames = mutableListOf<SynthFrame>()
+        val syn = synthesizer(frames, mutableListOf())
+        syn.onItem(
+            "evt",
+            Json.parseToJsonElement(
+                """{"type":"emit","event":"api-session/activity","args":["s1"]}""",
+            ) as JsonObject,
+            ConcurrentHashMap(),
+        )
+        assertEquals(0, frames.size)
+    }
+
     @Test
     fun emit_apiSessionStatus_synthesizesHostSessionStatus() {
         val frames = mutableListOf<SynthFrame>()
@@ -211,9 +250,11 @@ class DshRemoteMuxEngineTest {
             ) as JsonObject,
             ConcurrentHashMap(),
         )
-        // 仅补开信号，不合成 0.1.1 帧（activity 数据面由 session.list 刷新承担）
+        // 补开信号 + A2(2026-09-06):时间载荷透传合成 host/session-activity 帧
+        //（web 平价:updatedAt 单调合并驱动列表即时重排——此前丢弃致排序位滞后）
         assertEquals(listOf("s-wake"), active)
-        assertTrue(frames.isEmpty())
+        assertEquals(1, frames.size)
+        assertEquals("host/session-activity", frames[0].method)
     }
 
     // ---- waterfall -----------------------------------------------------------

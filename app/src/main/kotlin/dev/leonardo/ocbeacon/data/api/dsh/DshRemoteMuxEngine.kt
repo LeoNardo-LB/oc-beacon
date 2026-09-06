@@ -416,6 +416,21 @@ class DshMuxSynthesizer(
                 //（activity 数据面由 session.list 刷新承担），仅作动态补开信号。
                 val sid = (args.getOrNull(0) as? JsonPrimitive)?.content ?: return
                 onSessionActive(sid)
+                // A2(2026-09-06 全量 E2E):web(mod04.js handleSessionActivity→
+                // mutation kind=activity)以 updatedAt 单调合并驱动会话列表即时
+                // 重排——app 此前丢弃时间载荷,旧会话活动后排序位滞后(真机实测
+                // >86s、≤~5min 才靠缓存升顶)。透传合成帧,由 mapper→最小
+                // SessionUpdated→defendSessionReplacement max 合并(web 同款语义)。
+                val activityAt = (args.getOrNull(1) as? JsonPrimitive)?.content?.toLongOrNull()
+                if (activityAt != null && activityAt > 0L) {
+                    frame(
+                        "host/session-activity",
+                        buildJsonObject {
+                            put("sessionId", sid)
+                            put("updatedAt", activityAt)
+                        },
+                    )
+                }
             }
             "api-session/status" -> {
                 val sid = (args.getOrNull(0) as? JsonPrimitive)?.content ?: return

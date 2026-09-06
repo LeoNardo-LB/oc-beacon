@@ -451,6 +451,24 @@ object DshEventMapper {
             )
         }
 
+        // A2(2026-09-06 全量 E2E):api-session/activity 合成帧(服务器仅在
+        // user/message·source=user 时发射,时间=消息时刻,与列表 updatedAt=
+        // max(createdAt,lastPromptAt) 语义一致)——web 以 updatedAt 单调合并即时
+        // 重排列表;映射最小 SessionUpdated(title 缺席由 defendSessionReplacement
+        // 回填缓存,updated 经 max 合并防历史重放回拉排序位)。
+        "host/session-activity" -> {
+            val sid = payload.str("sessionId")
+            val activityAt = payload.long("updatedAt")
+            if (sid == null || activityAt == null || activityAt <= 0L) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+            else listOf(
+                DshMappedEvent.Sse(
+                    SseEvent.SessionUpdated(
+                        Session(id = sid, time = Session.Time(created = 0L, updated = activityAt)),
+                    ),
+                ),
+            )
+        }
+
         "host/agent-error" -> {
             val sid = payload.str("sessionId")
             if (sid == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))

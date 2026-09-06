@@ -92,6 +92,39 @@ class DshEventMapperTest {
         assertNull(created.info.parentId)
     }
 
+    // ---- host/session-activity:列表排序位即时更新(A2 2026-09-06 全量 E2E) -------
+
+    /** A2:activity 帧(api-session/activity 合成)→ 最小 SessionUpdated,
+     * time.updated=载荷 updatedAt;title/created 缺席由 defendSessionReplacement
+     * 回填缓存——web mod04 mutation kind=activity 同款语义的单调重排数据腿。 */
+    @Test
+    fun `host session-activity maps to SessionUpdated with wire updatedAt`() {
+        val events = eventsOf(
+            DshEventMapper.mapFrame(
+                "host/session-activity",
+                json.parseToJsonElement(
+                    """{"sessionId":"s1","updatedAt":1788626112891}""",
+                ).let { it as JsonObject },
+                "",
+            ),
+        )
+        val updated = events.filterIsInstance<SseEvent.SessionUpdated>().single()
+        assertEquals("s1", updated.info.id)
+        assertEquals(1788626112891L, updated.info.time.updated)
+    }
+
+    /** A2:载荷缺 updatedAt → MALFORMED 忽略(不产噪声事件)。 */
+    @Test
+    fun `host session-activity without updatedAt is ignored`() {
+        val mapped = DshEventMapper.mapFrame(
+            "host/session-activity",
+            json.parseToJsonElement("""{"sessionId":"s1"}""").let { it as JsonObject },
+            "",
+        )
+        assertEquals(1, mapped.count { it is DshMappedEvent.Ignored })
+        assertEquals(1, mapped.size)
+    }
+
     /** origin=subagent added 帧 → parentId 保留（#310① 既有 durable 语义回归钉）。 */
     @Test
     fun `host session-added subagent child keeps parentId`() {

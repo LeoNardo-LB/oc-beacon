@@ -322,6 +322,24 @@ class DshConnectionOrchestratorTest {
     }
 
     /**
+     * A2(2026-09-06 全量 E2E):activity 最小 SessionUpdated(title 缺席、created=0、
+     * updated=事件时刻)经防御合并——updated 取 max(web mod04.js mutation
+     * kind=activity 同款单调语义:仅当 mutation.updatedAt > summary.updatedAt 才
+     * 更新),标题等元数据保留缓存不被整替换抹除;旧时刻(重放腿)不回拉排序位。
+     */
+    @Test
+    fun `defendSessionReplacement merges activity timestamp monotonically keeping cached title`() {
+        val existing = Session(id = "s1", directory = "/w", title = "T", time = Session.Time(100L, 100L))
+        val newer = SseEvent.SessionUpdated(Session(id = "s1", time = Session.Time(created = 0L, updated = 900L)))
+        val defendedNewer = orchestrator().defendSessionReplacement(newer) { existing } as SseEvent.SessionUpdated
+        assertEquals(900L, defendedNewer.info.time.updated)
+        assertEquals("T", defendedNewer.info.title)
+        val older = SseEvent.SessionUpdated(Session(id = "s1", time = Session.Time(created = 0L, updated = 50L)))
+        val defendedOlder = orchestrator().defendSessionReplacement(older) { existing } as SseEvent.SessionUpdated
+        assertEquals(100L, defendedOlder.info.time.updated)
+    }
+
+    /**
      * #310① A8 缺陷B根因钉（第二层防线）：最小 SessionCreated/SessionUpdated
      * （host/session-added、session/title 产物）不携 parentId 时，防御合并必须保留
      * 缓存父址——否则子会话条目被整对象替换抹掉 parentId，ChatSendDelegate 续聊
