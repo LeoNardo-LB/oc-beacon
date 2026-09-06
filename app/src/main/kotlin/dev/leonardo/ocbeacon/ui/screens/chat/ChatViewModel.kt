@@ -1079,6 +1079,14 @@ class ChatViewModel @Inject constructor(
 
         // 加载数据
         if (!isNewSession) {
+            // #333：窗口外/未开流会话聚焦 follow 兜底——DSH 限界窗口（#319）外的
+            // 旧会话连接期不 follow、无 added/status/activity 事件可触发动态补开，
+            // REST history 腿又依赖 session.list projections.asOfSeq（冷会话无投影
+            // 缓存时合法缺席，服务器 summarizeCold/projectionsFor 实证）——重进呈
+            // 转录空白态。进 ChatRoute 即请求开流：follow snapshot（cursor+尾页
+            // records）作转录基线，观察写回投影缓存后 REST 分页随之恢复。非 DSH
+            // 服务器无登记帧源，返回 false 静默跳过。
+            sseConnectionManager.requestDshSessionFollow(serverId, sessionId)
             viewModelScope.launch {
                 try { sessionLifecycle.loadSession() } catch (e: Exception) { if (e is CancellationException) throw e; AppLogger.e(TAG, "loadSession failed", e) }
                 // #271：loadSession 完成后首开自动 drain 全量历史（后台静默分页拉取，

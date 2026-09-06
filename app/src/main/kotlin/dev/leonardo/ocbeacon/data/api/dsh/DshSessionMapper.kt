@@ -186,27 +186,33 @@ object DshSessionMapper {
 
 
 /**
- * session.list 行 → SessionAddress wire 装配（#310① A8 缺陷A修复）。
+ * session.list 行 → SessionAddress wire 装配（#310① A8 缺陷A修复 + #333 origin 判别）。
  *
- * 服务器契约（session-controller index.js validateAddress）：origin=subagent
- * 会话拒收 {kind:session} 地址（"subagent Sessions require their durable parent
- * address"——A7/A8 实测 follow 与 page 双腿同拒）；须 {kind:subagent,
- * parentSessionId, childSessionId, mode}，且 mode 与行内 subagent 投影身份严格
- * 一致（validateAddress 强校验 identity.mode）。
+ * 服务器契约（session-controller index.js validateAddress:1374-1392）：
+ * - origin=subagent 会话拒收 {kind:session} 地址（"subagent Sessions require their
+ *   durable parent address"——A7/A8 实测 follow 与 page 双腿同拒）；须 {kind:subagent,
+ *   parentSessionId, childSessionId, mode}，且 mode 与行内 subagent 投影身份严格一致。
+ * - 反向同样成立：{kind:session} 对 origin!==subagent 的会话**恒合法**——fork 子会话
+ *   （session.fork meta 携 parentSession 但**无 origin 字段**，服务器源码 fork() 实证；
+ *   2026-09-06 会话存储 session-49fb76af header parentSession 在/origin null 活体佐证）
+ *   是普通会话，此前因 parentSessionId 误判为 subagent、无 mode 投影 → null 地址 →
+ *   连接期 follow 跳过（#333 同族：fork 子会话连接期从未开流）。
  */
 object DshSessionAddress {
     /**
-     * 普通会话 → {kind:session,sessionId}；子会话（带 parentSessionId）→ durable
-     * subagent 地址。subagent 投影缺席（无 mode）无法构成合法地址——返回 null，
-     * 调用方保守跳过/回退 session 形态（不劣于修复前行为）。
+     * 普通会话/fork 子会话 → {kind:session,sessionId}；origin=subagent 子会话 →
+     * durable subagent 地址。subagent 投影缺席（无 mode）无法构成合法地址——返回
+     * null，调用方保守跳过/回退 session 形态（不劣于修复前行为）。
      */
     fun fromListItem(item: JsonObject): JsonObject? {
         val sid = item.dshStr("sessionId") ?: return null
-        val parent = item.dshStr("parentSessionId")
-            ?: return buildJsonObject {
+        if (item.dshStr("origin") != "subagent") {
+            return buildJsonObject {
                 put("kind", "session")
                 put("sessionId", sid)
             }
+        }
+        val parent = item.dshStr("parentSessionId") ?: return null
         val mode = item.dshObj("projections")?.dshObj("values")?.dshObj("subagent")?.dshStr("mode")
             ?: return null
         return buildJsonObject {

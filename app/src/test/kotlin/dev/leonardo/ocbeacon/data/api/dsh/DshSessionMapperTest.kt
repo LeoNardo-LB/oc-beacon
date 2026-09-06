@@ -1,6 +1,8 @@
 package dev.leonardo.ocbeacon.data.api.dsh
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -207,5 +209,73 @@ class DshSessionMapperTest {
         assertNull(session.contextPressure)
         assertNull(session.contextBreakdown)
         assertNull(session.sessionStats)
+    }
+
+    // ---- DshSessionAddress.fromListItem origin 判别 #333 --------------------
+    // 服务器 validateAddress(dsh-api-session-controller index.js:1374-1392):
+    // kind:session 地址对 origin!=subagent 的会话恒合法; durable subagent 地址仅对
+    // origin==subagent 合法。fork 子会话(parentSession 在 header, origin 缺席——
+    // session.fork meta 无 origin 字段, 服务器源码 fork() 实证)按普通 session 地址
+    // 寻址, 不因 parentSessionId 被误判为 subagent。
+
+    /** fork 子会话(parentSessionId 在, origin 缺席) -> 普通 session 地址。 */
+    @Test
+    fun `fromListItem fork child without origin maps to session address`() {
+        val item = obj(FORK_CHILD_JSON)
+        val address = DshSessionAddress.fromListItem(item)
+        assertEquals("session", address.strKey("kind"))
+        assertEquals("s-fork", address.strKey("sessionId"))
+    }
+
+    /** origin=subagent 子会话(含 mode 投影) -> durable subagent 地址(#310① 既有语义)。 */
+    @Test
+    fun `fromListItem subagent child with mode maps to durable address`() {
+        val item = obj(SUBAGENT_CHILD_JSON)
+        val address = DshSessionAddress.fromListItem(item)
+        assertEquals("subagent", address.strKey("kind"))
+        assertEquals("s-parent", address.strKey("parentSessionId"))
+        assertEquals("continuable", address.strKey("mode"))
+    }
+
+    /** origin=subagent 无 mode 投影 -> null(validateAddress 强校验 identity.mode, 保守跳过不变)。 */
+    @Test
+    fun `fromListItem subagent child without mode projection stays null`() {
+        val item = obj(SUBAGENT_CHILD_NO_MODE_JSON)
+        assertNull(DshSessionAddress.fromListItem(item))
+    }
+
+    /** 普通会话 -> kind:session(既有行为回归钉)。 */
+    @Test
+    fun `fromListItem ordinary session maps to session address`() {
+        val item = obj(ORDINARY_JSON)
+        val address = DshSessionAddress.fromListItem(item)
+        assertEquals("session", address.strKey("kind"))
+        assertEquals("s-1", address.strKey("sessionId"))
+    }
+
+    private fun JsonObject?.strKey(key: String): String? =
+        (this?.get(key) as? JsonPrimitive)?.content
+
+    private companion object {
+        private const val FORK_CHILD_JSON =
+            "{" +
+                "\"sessionId\":\"s-fork\",\"updatedAt\":1,\"running\":false," +
+                "\"parentSessionId\":\"s-parent\"" +
+                "}"
+        private const val SUBAGENT_CHILD_JSON =
+            "{" +
+                "\"sessionId\":\"s-child\",\"updatedAt\":1,\"running\":false," +
+                "\"parentSessionId\":\"s-parent\",\"origin\":\"subagent\"," +
+                "\"projections\":{\"asOfSeq\":5,\"values\":{\"subagent\":{\"mode\":\"continuable\",\"label\":\"x\",\"seq\":5}}}" +
+                "}"
+        private const val SUBAGENT_CHILD_NO_MODE_JSON =
+            "{" +
+                "\"sessionId\":\"s-child\",\"updatedAt\":1,\"running\":false," +
+                "\"parentSessionId\":\"s-parent\",\"origin\":\"subagent\"" +
+                "}"
+        private const val ORDINARY_JSON =
+            "{" +
+                "\"sessionId\":\"s-1\",\"updatedAt\":1,\"running\":false" +
+                "}"
     }
 }

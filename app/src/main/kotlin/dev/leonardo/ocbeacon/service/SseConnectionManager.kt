@@ -117,6 +117,13 @@ class SseConnectionManager @Inject constructor(
      */
     private val dshSeqTrackers = ConcurrentHashMap<String, DshSessionSeqTracker>()
 
+    /**
+     * #333：每服务器 DSH 帧源登记——聚焦 follow 请求（窗口外会话进 ChatRoute 的
+     * 开流兜底）路由用。runDshEventLoop 创建即登记（重连整体替换，旧源随
+     * orchestrator.run 的 finally 自 stop）；stopConnection/stopAllConnections 清理。
+     */
+    private val dshFrameSources = ConcurrentHashMap<String, dev.leonardo.ocbeacon.data.api.dsh.DshFrameSource>()
+
     init {
         // 2026-08-15（research/06 P0）：接线 durable.seq gap 检测——服务器每事件
         // seq 严格递增（core/event.ts:294）；连接代内 gap = 事件丢失（非断连，
@@ -252,6 +259,7 @@ class SseConnectionManager @Inject constructor(
         state.sseJob.cancel()
         timeoutTrackers.remove(serverId)
         dshSeqTrackers.remove(serverId) // #276：水位表随连接销毁（重连=全量 InitialFetch）
+        dshFrameSources.remove(serverId) // #333：帧源登记随连接销毁
         _connectedServerIds.update { it - serverId }
         _connectingServerIds.update { it - serverId }
         // 双轴审查：TokenNeeded 挂起中取消连接时 markTokenNeeded(false) 不可达
@@ -272,6 +280,7 @@ class SseConnectionManager @Inject constructor(
         connections.clear()
         timeoutTrackers.clear()
         dshSeqTrackers.clear()
+        dshFrameSources.clear()
         // RS-002 修复：使用 .update{} 而非直接赋值以参与 CAS，
         // 防止已取消但仍运行的 SSE 协程的 updateServerConnected
         // 调用复活已被清除的 server ID。
@@ -369,6 +378,17 @@ class SseConnectionManager @Inject constructor(
      * [onConnected] 接收聚合连接状态（双流 Connected 才 Connected，取最差）。
      * 挂起直到取消——engine 自重连，重连后服务端重推 subscribed 基线触发增量对账。
      */
+    /**
+     * #333：请求对 DSH 服务器的某会话开 follow 流（窗口外/未开流会话进 ChatRoute
+     * 的开流兜底——follow snapshot 即转录基线，兼暖服务器投影缓存恢复 REST 分页）。
+     * 返回 false = 该服务器无登记帧源（非 DSH / 未连接）——调用方静默降级。
+     */
+    fun requestDshSessionFollow(serverId: String, sessionId: String): Boolean {
+        val source = dshFrameSources[serverId] ?: return false
+        source.requestFollow(sessionId)
+        return true
+    }
+
     private suspend fun runDshEventLoop(
         server: ServerConfig,
         conn: ServerConnection,
@@ -376,9 +396,11 @@ class SseConnectionManager @Inject constructor(
         onConnected: (Boolean) -> Unit,
     ) {
         val tracker = dshSeqTrackers.getOrPut(server.id) { DshSessionSeqTracker() }
+        val frameSource = dshFrameSourceFactory.create()
+            .also { dshFrameSources[server.id] = it }
         dshConnectionOrchestrator.run(
             baseUrl = conn.baseUrl,
-            frameSource = dshFrameSourceFactory.create(),
+            frameSource = frameSource,
             historySource = DshRpcHistorySource(
                 dshRpcClient,
                 conn,

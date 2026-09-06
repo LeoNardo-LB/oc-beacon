@@ -102,6 +102,39 @@ class DshRemoteMuxEngine(
         generation = null
         state.value = DshWsConnectionState.Disconnected
         pendingWaterfalls.clear()
+        focusFollowOpener = null
+        pendingFocusFollows.clear()
+    }
+
+    // ---- #333：聚焦 follow（窗口外会话进 ChatRoute 的开流兜底）----------------
+    //
+    // #319 限界集（running/近 24h）外的会话连接期不 follow；added/status/activity
+    // 三事件动态补开也覆盖不到「冷只读重进」（无任何服务器事件）。用户进入
+    // ChatRoute 时经 [requestFollow] 显式开流：follow snapshot（cursor + 尾页
+    // records）即转录基线——REST session/page 的 throughSeq 前置（session.list
+    // projections.asOfSeq 对无投影缓存的冷会话**合法缺席**：服务器 summarizeCold/
+    // projectionsFor 仅在投影缓存命中时给列；probe 仅 ≤1KB 文件）不再是唯一
+    // 转录入口，且开流观察会写回投影缓存（coldSnapshot write-back），后续
+    // session.list/REST 分页随之恢复。
+
+    /** 当前代的聚焦开流入口（捕获该代 followed 集与 activeSocket；代更替置 null）。 */
+    @Volatile private var focusFollowOpener: ((String) -> Unit)? = null
+
+    /** 连接未就绪时挂起的聚焦请求（onOpen 后统一补开，请求不丢）。 */
+    private val pendingFocusFollows: MutableSet<String> =
+        java.util.concurrent.ConcurrentHashMap.newKeySet()
+
+    /**
+     * 请求对 [sessionId] 开 follow 流（幂等——已 follow 直接 no-op）。socket
+     * 未就绪（连接代间隙/未连接）时请求挂起，待 onOpen 补开。
+     */
+    fun requestFollow(sessionId: String) {
+        val opener = focusFollowOpener
+        if (opener != null && activeSocket != null) {
+            opener(sessionId)
+        } else {
+            pendingFocusFollows.add(sessionId)
+        }
     }
 
     /** 连接生命周期：开 → 开流 → 挂起等断 → 退避 → 重连（401 特判等 token）。 */
@@ -125,6 +158,12 @@ class DshRemoteMuxEngine(
                 if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                     AppLogger.d(TAG, "动态 follow 发送失败（连接已断？）: " + target.sessionId)
                 }
+            }
+        }
+        // #333：本代聚焦开流入口（与 onSessionActive 同款异步解析，resolve 失败静默放弃）
+        focusFollowOpener = { sid ->
+            scope.launch {
+                resolveFollowTarget(sid)?.let { openFollow(it) }
             }
         }
         while (true) {
@@ -163,6 +202,12 @@ class DshRemoteMuxEngine(
                             AppLogger.w(TAG, "session.list 拉取失败——本轮零 follow，重连重试: " + it.message)
                         }.getOrElse { emptyList() }
                         for (target in targets) openFollow(target)
+                        // #333：连接前挂起的聚焦 follow 请求补开（请求不丢语义）
+                        if (pendingFocusFollows.isNotEmpty()) {
+                            val drained = pendingFocusFollows.toList()
+                            pendingFocusFollows.clear()
+                            drained.forEach { sid -> focusFollowOpener?.invoke(sid) }
+                        }
                     }
                 }
 

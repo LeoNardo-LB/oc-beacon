@@ -16,6 +16,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -569,6 +570,49 @@ class DshConnectionOrchestratorTest {
         assertEquals("subagent", address?.strOfKey("kind"))
     }
 
+
+    /** #333：fork 子会话（parentSessionId 在、origin 缺席）是普通会话——窗口内照常以
+     * session 地址 follow（旧实现误判 subagent 因无 mode 投影而 null 地址跳过——fork
+     * 子会话连接期从未开流）。 */
+    @Test
+    fun followTargets_forkChildWithoutOrigin_followsViaSessionAddress() {
+        val now = 1_000_000_000_000L
+        val forkChild = buildJsonObject {
+            put("sessionId", "s-fork")
+            put("running", false)
+            put("updatedAt", now)
+            put("parentSessionId", "s-parent")
+        }
+        val targets = followTargets(listOf(forkChild), now)
+        assertEquals(listOf("s-fork"), targets.map { it.sessionId })
+        assertEquals("session", targets[0].address.strOfKey("kind"))
+        assertEquals("s-fork", targets[0].address.strOfKey("sessionId"))
+    }
+
+    /** #333：单条目无窗口解析（聚焦 follow 兜底）——不问 recency/running，仅拒孤儿与无法寻址行。 */
+    @Test
+    fun followTargetOfItem_resolvesRegardlessOfRecencyWindow() {
+        val ancient = buildJsonObject {
+            put("sessionId", "s-old")
+            put("running", false)
+            put("updatedAt", 1L)
+            put("cwd", "/w")
+        }
+        val target = followTargetOfItem(ancient)
+        assertEquals("s-old", target?.sessionId)
+        assertEquals("session", target?.address?.strOfKey("kind"))
+    }
+
+    /** #333：单条目解析对 origin=subagent 孤儿行（无父址）保守拒绝。 */
+    @Test
+    fun followTargetOfItem_subagentOrphanWithoutParent_rejected() {
+        val orphan = buildJsonObject {
+            put("sessionId", "s-orphan")
+            put("origin", "subagent")
+            put("running", true)
+        }
+        assertNull(followTargetOfItem(orphan))
+    }
     private fun JsonObject.strOfKey(key: String): String? =
         (this[key] as? kotlinx.serialization.json.JsonPrimitive)?.content
 }

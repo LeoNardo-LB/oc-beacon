@@ -29,6 +29,12 @@ interface DshFrameSource {
     val connectionState: StateFlow<DshWsConnectionState>
     fun start(baseUrl: String, onFrame: (method: String, payload: JsonObject, rpcId: String) -> Unit)
     fun stop()
+
+    /**
+     * #333：聚焦 follow 兜底——窗口外/未开流会话进 ChatRoute 时请求开流。
+     * 默认 no-op（0.1.1 双流引擎无上行面；上行本就只属 0.1.2 mux 引擎）。
+     */
+    fun requestFollow(sessionId: String) {}
 }
 
 /** 历史页取数缝隙（测试注入；生产 = [DshRpcHistorySource] 走 DshRpcClient）。 */
@@ -93,17 +99,26 @@ data class DshFollowTarget(val sessionId: String, val address: JsonObject) {
  */
 internal fun followTargets(items: List<JsonObject>, nowMs: Long): List<DshFollowTarget> =
     items.mapNotNull { item ->
-        val sid = item.dshStr("sessionId") ?: return@mapNotNull null
         val running = item.dshBool("running") == true
         val updatedAt = item.dshLong("updatedAt") ?: 0L
         val recent = nowMs - updatedAt < FOLLOW_RECENCY_MS + FOLLOW_CLOCK_SKEW_MS
         if (!running && !recent) return@mapNotNull null
-        if (item.dshStr("origin") == "subagent" && item.dshStr("parentSessionId") == null) {
-            return@mapNotNull null
-        }
-        val address = DshSessionAddress.fromListItem(item) ?: return@mapNotNull null
-        DshFollowTarget(sid, address)
+        followTargetOfItem(item)
     }
+
+/**
+ * #333：单条目 follow 目标解析（**无窗口**——聚焦兜底专用）。与 [followTargets] 的
+ * 差异仅在不判 running/recency（用户正在看这个会话，开单流无 #319 服务端负载
+ * 顾虑）；孤儿 subagent（无父址）与无法寻址行仍保守拒绝（null）。
+ */
+internal fun followTargetOfItem(item: JsonObject): DshFollowTarget? {
+    val sid = item.dshStr("sessionId") ?: return null
+    if (item.dshStr("origin") == "subagent" && item.dshStr("parentSessionId") == null) {
+        return null
+    }
+    val address = DshSessionAddress.fromListItem(item) ?: return null
+    return DshFollowTarget(sid, address)
+}
 
 /** 协议路由帧源：start 时按 [DshConnectionRegistry.protocolOf] 选引擎。 */
 private class DshProtocolRoutingFrameSource(
@@ -139,6 +154,16 @@ private class DshProtocolRoutingFrameSource(
                     AppLogger.w(TAG, "session.list 拉取失败——本轮零 follow，重连重试: " + e.message)
                     emptyList()
                 }.also { targets -> targets.forEach { targetCache[it.sessionId] = it.address } }
+            // #333：无窗口单会话解析（聚焦兜底）——限界集与缓存均未命中时按行内
+            // 字段直接寻址（fork/旧会话不在窗口集内也能开流）；成功回填缓存。
+            suspend fun resolveFocusedTarget(sid: String): DshFollowTarget? =
+                rpc.call(conn, "session.list", buildJsonObject {}) { value ->
+                    (value.dshArr("items") ?: emptyList())
+                        .filterIsInstance<JsonObject>()
+                        .firstOrNull { it.dshStr("sessionId") == sid }
+                }.getOrNull()?.let { item ->
+                    followTargetOfItem(item)?.also { targetCache[sid] = it.address }
+                }
             mux = DshRemoteMuxEngine(
                 scope = scope,
                 baseUrl = baseUrl,
@@ -147,6 +172,7 @@ private class DshProtocolRoutingFrameSource(
                 resolveFollowTarget = { sid ->
                     targetCache[sid]?.let { DshFollowTarget(sid, it) }
                         ?: refreshTargets().firstOrNull { it.sessionId == sid }
+                        ?: resolveFocusedTarget(sid)
                 },
             ).also {
                 scope.launch { it.connectionState.collect { s -> state.value = s } }
@@ -166,6 +192,11 @@ private class DshProtocolRoutingFrameSource(
         mux?.stop()
         mux = null
         state.value = DshWsConnectionState.Disconnected
+    }
+
+    /** #333：0.1.2 mux 引擎透传（0.1.1 无上行面，继承默认 no-op）。 */
+    override fun requestFollow(sessionId: String) {
+        mux?.requestFollow(sessionId)
     }
 }
 
