@@ -61,6 +61,15 @@ class MessageEventHandler @Inject constructor(
          * 冷存桶 + loadAround 按需分页加载，不依赖热视图）。
          */
         internal const val MEMORY_SESSION_MESSAGE_LIMIT = 1000
+
+        /**
+         * #340：全量 upsert 合并刷洗参数——消息数阈值 / 最大时延 / 刷洗
+         * 周期 tick。真机 resync 洪峰（数千事件/秒）下按 128 条或 250ms
+         * 批量落库，吞吐数量级提升且不再丢弃写请求。
+         */
+        internal const val UPSERT_BATCH_THRESHOLD = 128
+        internal const val UPSERT_BATCH_MAX_LATENCY_MS = 250L
+        internal const val UPSERT_BATCH_TICK_MS = 25L
     }
 
     private val _messages = MutableStateFlow<Map<String, List<Message>>>(emptyMap())
@@ -100,12 +109,18 @@ class MessageEventHandler @Inject constructor(
     /** debug 级 delta flush 节流计数器（仅 DEBUG 构建使用）。 */
     private var deltaFlushCounter = 0
 
-    // ---- 持久化 actor（#57）----
-    // 所有 SSE 双写落盘请求经 Channel 入队，由单一写协程串行处理：
-    // - 协程数恒为 1（原实现每 48ms flush 一个 fire-and-forget 协程，
-    //   活跃流式下无上限创建）
-    // - Channel BUFFERED 提供背压（写入慢时请求排队，不丢）
-    // - App 进程消亡时随进程终止（MessageEventHandler 为 @Singleton）
+    // ---- 持久化 actor（#57 → #340 合并写重构）----
+    // 所有 SSE 双写落盘请求由单一写协程串行处理（协程数恒为 1，
+    // App 进程消亡时随进程终止）。
+    //
+    // #340 根因修复：原 Channel.BUFFERED(64) + trySend 满即丢——真机 resync 期
+    // 实证 dropped 1150→1500 连发（Room 写入慢于 SSE 生产时丢弃最新写
+    // 请求，含终态修复写）。两路重构：
+    // - 增量 delta：UNLIMITED channel 保序入队不丢（流式生产速率有界：48ms 批）；
+    // - 全量 upsert：按 (sessionId, messageId) 最新快照合并（latest-wins，快照语义
+    //   天然幂等），内存占用=窗口内不同消息数（阈值刷洗封顶）；
+    // - 刷洗策略：消息数≥阈值或 最老条目时延≥上限时刷洗（每会话
+    //   单次 upsertMessages 调用=单事务）——吞吐数量级提升，不再丢写。
     private data class PersistRequest(
         val store: MessageCacheRepository,
         val sessionId: String,
@@ -114,7 +129,17 @@ class MessageEventHandler @Inject constructor(
         val incrementalDeltas: List<dev.leonardo.ocbeacon.data.local.PartDelta> = emptyList(),
     )
 
-    private val persistQueue = Channel<PersistRequest>(Channel.BUFFERED)
+    /** #340：增量写保序队（UNLIMITED——流式速率有界，永不丢）。 */
+    private val deltaPersistQueue = Channel<PersistRequest>(Channel.UNLIMITED)
+
+    /** #340：写协程唤醒信号（CONFLATED 天然合并突发）。 */
+    private val persistWakeups = Channel<Unit>(Channel.CONFLATED)
+
+    /** #340：全量 upsert 合并缓冲（sessionId → messageId → 最新快照；pendingUpsertsLock 保护）。 */
+    private val pendingUpserts = HashMap<String, HashMap<String, MessageWithParts>>()
+    private val pendingUpsertsLock = Any()
+    private var pendingUpsertCount = 0
+    private var oldestPendingUpsertAt = 0L
 
     /**
      * #338：会话时间域基准——最近观察到的该会话「消息/事件时刻」（DSH=服务器
@@ -137,34 +162,85 @@ class MessageEventHandler @Inject constructor(
     private fun domainNowMs(sessionId: String): Long =
         lastDomainEventTimeMs[sessionId] ?: System.currentTimeMillis()
 
-    /** N-1：persistQueue 满时 trySend 静默丢写的可观测性计数（内存视图不受影响，落盘由后续写补齐）。 */
-    private var droppedPersistWrites = 0
-
-    private fun onPersistQueueFull() {
-        droppedPersistWrites++
-        if (droppedPersistWrites == 1 || droppedPersistWrites % 50 == 0) {
-            AppLogger.w(TAG, "persist queue full, dropped $droppedPersistWrites write requests (Room slower than SSE production)")
-        }
-    }
-
     init {
+        // #340：单写协程——唤醒后先保序排空增量队，再按阈值/时延批量刷洗
+        // 全量 upsert 合并缓冲（刷洗周期 tick 间继续排空 delta）。
         batchScope.launch {
-            for (req in persistQueue) {
-                try {
-                    if (req.incrementalDeltas.isNotEmpty()) {
-                        // #97（H-6）：增量写——只追加 delta 文本 + 骨架消息
-                        req.store.appendPartTexts(req.sessionId, req.payload, req.incrementalDeltas)
+            for (wakeup in persistWakeups) {
+                drainDeltaPersistQueue()
+                while (pendingUpsertCountSnapshot() > 0) {
+                    val n = pendingUpsertCountSnapshot()
+                    val age = oldestPendingUpsertAtSnapshot().takeIf { it > 0 }
+                        ?.let { System.currentTimeMillis() - it } ?: 0L
+                    if (n >= UPSERT_BATCH_THRESHOLD || age >= UPSERT_BATCH_MAX_LATENCY_MS) {
+                        flushPendingUpserts()
                     } else {
-                        req.store.upsertMessages(req.sessionId, req.payload, persistOldBeyondWindow = false)
+                        delay(UPSERT_BATCH_TICK_MS)
+                        drainDeltaPersistQueue()
                     }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    // 写失败静默（MessageStore 内部已捕获，内存视图不受影响）
                 }
             }
         }
     }
+
+    /** #340：保序排空增量队（写失败静默——MessageStore 内部已捕获，内存视图不受影响）。 */
+    internal suspend fun drainDeltaPersistQueue() {
+        while (true) {
+            val req = deltaPersistQueue.tryReceive().getOrNull() ?: break
+            try {
+                // #97（H-6）：增量写——只追加 delta 文本 + 骨架消息
+                req.store.appendPartTexts(req.sessionId, req.payload, req.incrementalDeltas)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // 写失败静默
+            }
+        }
+    }
+
+    /** #340：全量 upsert 入合并缓冲（同消息最新快照胜出）。 */
+    private fun enqueueUpsert(store: MessageCacheRepository, sessionId: String, payload: List<MessageWithParts>) {
+        synchronized(pendingUpsertsLock) {
+            if (pendingUpsertCount == 0) oldestPendingUpsertAt = System.currentTimeMillis()
+            val byMsg = pendingUpserts.getOrPut(sessionId) { HashMap() }
+            for (mwp in payload) {
+                if (byMsg.put(mwp.info.id, mwp) == null) pendingUpsertCount++
+            }
+        }
+        persistWakeups.trySend(Unit)
+    }
+
+    /** #340：刷洗合并缓冲——每会话单次批量写（单事务）。 */
+    internal suspend fun flushPendingUpserts() {
+        val store = messageStore
+        val batches: Map<String, List<MessageWithParts>>
+        synchronized(pendingUpsertsLock) {
+            if (pendingUpserts.isEmpty()) return
+            batches = pendingUpserts.mapValues { (_, byMsg) -> byMsg.values.toList() }
+            pendingUpserts.clear()
+            pendingUpsertCount = 0
+            oldestPendingUpsertAt = 0L
+        }
+        if (store == null) return
+        var total = 0
+        for ((sessionId, payload) in batches) {
+            total += payload.size
+            try {
+                store.upsertMessages(sessionId, payload, persistOldBeyondWindow = false)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // 写失败静默（内存视图不受影响；后续写补齐）
+            }
+        }
+        if (BuildConfig.DEBUG && total >= UPSERT_BATCH_THRESHOLD) {
+            AppLogger.d(TAG, "[persist] coalesced flush: sessions=" + batches.size + " msgs=" + total)
+        }
+    }
+
+    private fun pendingUpsertCountSnapshot(): Int = synchronized(pendingUpsertsLock) { pendingUpsertCount }
+
+    private fun oldestPendingUpsertAtSnapshot(): Long = synchronized(pendingUpsertsLock) { oldestPendingUpsertAt }
 
     private fun scheduleFlush() {
         // 不要取消进行中的定时器——那会在 token 到达速率 > 1/48ms 时
@@ -267,17 +343,16 @@ class MessageEventHandler @Inject constructor(
                 )
             }
             val payload = msgs.map { MessageWithParts(it, _parts.value[it.id] ?: emptyList()) }
-            if (persistQueue.trySend(
-                    PersistRequest(
-                        store = store,
-                        sessionId = sessionId,
-                        payload = payload,
-                        incrementalDeltas = incrementalDeltas,
-                    )
-                ).isFailure
-            ) {
-                onPersistQueueFull()
-            }
+            // #340：增量写走保序无限队（流式速率有界，永不丢）
+            deltaPersistQueue.trySend(
+                PersistRequest(
+                    store = store,
+                    sessionId = sessionId,
+                    payload = payload,
+                    incrementalDeltas = incrementalDeltas,
+                )
+            )
+            persistWakeups.trySend(Unit)
         }
     }
 
@@ -475,10 +550,8 @@ class MessageEventHandler @Inject constructor(
         if (msgs.isEmpty()) return
         val parts = _parts.value
         val payload = msgs.map { MessageWithParts(it, parts[it.id] ?: emptyList()) }
-        // #57：入队由单写协程处理（不再每 48ms 创建 fire-and-forget 协程）
-        if (persistQueue.trySend(PersistRequest(store, sessionId, payload)).isFailure) {
-            onPersistQueueFull()
-        }
+        // #340：全量写入合并缓冲（同消息最新快照胜出；单写协程批量刷洗）
+        enqueueUpsert(store, sessionId, payload)
     }
 
     /**
