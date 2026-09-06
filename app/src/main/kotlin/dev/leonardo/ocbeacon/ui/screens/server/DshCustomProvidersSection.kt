@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.KeyOff
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -95,10 +96,20 @@ internal fun DshCustomProvidersSection(
             if (loading) {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
             } else {
-                IconButton(onClick = onRefresh) {
+                // W4/D2(2026-09-06 全量 E2E):Add 图标曾误接 onRefresh(tap 只触发
+                // 目录刷新),showCreate 全历史无 =true 赋值——整套新增表单对话框
+                // 为不可达死代码。正接:Add=开表单;刷新独立成钮(文案复用
+                // workspace_refresh)。
+                IconButton(onClick = { showCreate = true }) {
                     Icon(
                         Icons.Filled.Add,
                         contentDescription = stringResource(R.string.dsh_provider_add_custom),
+                    )
+                }
+                IconButton(onClick = onRefresh) {
+                    Icon(
+                        Icons.Filled.Refresh,
+                        contentDescription = stringResource(R.string.workspace_refresh),
                     )
                 }
             }
