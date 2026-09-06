@@ -57,7 +57,18 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
     val lastUserMessageTime: StateFlow<Map<String, Long>> = _lastUserMessageTime.asStateFlow()
 
     fun recordUserMessage(sessionId: String, time: Long) {
-        _lastUserMessageTime.update { it + (sessionId to time) }
+        _lastUserMessageTime.update {
+            // #331 A2（2026-09-06 验收残余）：排序键单调——fork 子会话行由 added 帧/
+            // 回执腿先立 updated=创建时刻（与服务器 summaryFor 的 max(createdAt,
+            // lastPromptAt) 同源），随后的 fork 历史重放（session/title、user/message
+            // 携**原始**时刻）不得把行拉回旧位（真机：回列表行沉出视口，冷重进
+            // REST 基线才回顶位）。两道下限：①会话行当前 time.updated（服务器认可
+            // 的活跃位）；②per-session 已记录值（只进不退）。实时消息（now ≥ 两者）
+            // 语义不变。
+            val floor = _sessions.value.firstOrNull { s -> s.id == sessionId }?.time?.updated ?: 0L
+            val prev = it[sessionId] ?: 0L
+            it + (sessionId to maxOf(time, floor, prev))
+        }
     }
 
     override fun handle(event: SseEvent, serverId: String): Boolean {

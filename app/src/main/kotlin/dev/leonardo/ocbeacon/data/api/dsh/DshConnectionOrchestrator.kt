@@ -462,6 +462,13 @@ class DshConnectionOrchestrator @Inject constructor() {
             title = incoming.title ?: existing.title,
             time = incoming.time.copy(
                 created = if (incoming.time.created == 0L) existing.time.created else incoming.time.created,
+                // #331 A2（2026-09-06 验收残余）：updated 单调合并（同 created 的回填
+                // 语义再进一步）——session/title 等最小事件携事件时刻，fork 历史
+                // **重放**携原始旧时刻，原样覆写会把 added 帧/回执腿已立的行排序位
+                // 拉回旧值（真机 A2：fork 行沉出列表视口，冷重进才顶位）。服务器
+                // summaryFor 的 updatedAt 本身单调（max(createdAt, lastPromptAt)），
+                // 客户端对齐取 max；epoch0 缺席哨兵同被兜住。
+                updated = maxOf(incoming.time.updated, existing.time.updated),
             ),
             // 权限预设状态同样防整替换抹除（session/title 等最小 Session 不携带 permissions）
             permissions = incoming.permissions ?: existing.permissions,
