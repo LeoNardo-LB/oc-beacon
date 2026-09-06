@@ -115,19 +115,17 @@
   - web Settings 深度面：自定义 provider 增删+discoverModels、插件配置卡（shell 超时/agent loop/web search/子代理模型）+pluginInventory 清单、agentPresets 管理 CRUD、"/"菜单 skills/list 触发组；beacon 现有 auth+过滤+选择器，缺 CRUD/清单
   - 移动端价值中等缓行；ServerSettingsContent/ProvidersScreen 行范式可直接扩 → `docs/research/2026-09-04-dsh-web-parity-round2.md` #324
 
-- [ ] **#338 轮次台账偶发负时长(-207ms)——created/completed 时间腿混源嫌疑** `dsh` `ui`
-  - W2 全量 E2E 实测(B4 会话轮次 1 台账 -207ms 单发,同会话另有 0ms 轮);RenderableTurn.durationMs=max(completed)-min(created),负值=某腿 completed<created——mapper 注释称双值均取服务器事件时间,但混本地时钟腿有先例(V2SseMapper step.started=本地 currentTimeMillis),根因未钉死不盲打 max(0) 补丁
-  - → docs/acceptance/e2e-2026-09-06/W2-notes.md 观测4 · RenderableTurn.kt:220;同族:被中断轮台账 0ms(W3 F3 观测6)一并归此卡
+- [~] **#338 轮次/思考时长跨钟域混腿——completed 本地钟回填污染+流式 ticker 负值+零跨度显示 0ms** `dsh` `ui`
+  - 已修复(7c9fddc7) 三层根因实证钉死:①W2 B4「-207ms」实为 StreamingElapsedText 无下限钳制(startMs=DSH 服务器信封,设备钟慢 207ms 窗口内为负——非台账腿);②工具宿主 completed 由 markSessionIdle 本地钟回填,Room 实证 completed=created+3.5h(resync 期回填)且 merge incoming?:existing 使污染永久残留——改域一致回填(EventDispatcher 采集 MessageUpdated.created/SessionIdle.time 同域基准,逐消息 max 钳制);③零/负跨度=时长未知→null(台账"-"/思考无时长变体,新 i18n 键×15)
+  - → 根因证据链:W6-db.db cached_messages call_17 completed=1788701892804 · W2-logcat B4 事件窗 · W5-logcat 21:06:59 窗;单测 +10(MessageEventHandlerTest×5/RenderableTurnTest×3);**真机验收待做**
 
-- [ ] **#339 重连 resync 通知族缺陷——伪 Idle 边沿误撤 pending 通知+旧错误轮重发+注册表未水化阻断重发布** `dsh` `notification`
-  - W5 全量 E2E 三源实证:①重连 resync 重建状态流产生伪 busy→idle 边沿→PendingInteractionStore 径②(轮末兜底)误清仍 pending 的 tea/coffee 问题→Revoker 撤通知(21:06:59.723,问题服务器侧仍挂起,行「待回答」在场);②同期重放的 QuestionAsked 欲重发布被 buildSessionPath: session not found 阻断(注册表未水化)→用户失去提醒且不自愈;③resync 把旧错误轮重发(「错误·hi」×7-8 同题,重放用户消息重置 streak 致连环通过);④连带:断开后通知全滞留(disconnect 无 cancel,定性=产品观察非 #320 契约三径内)、就绪/错误通知无 TTL 仅 tap/进会话/应答三撤径、通知 text 取样含 <system-reminder> 系统注入语料
-  - 修法方向(改动面大故记录):resync 窗口内挂起 pending 清径/通知发布直至注册表水化(buildSessionPath 就绪信号);错误通知引入会话级已通知槽(#336 同款)或 resync 抑制窗;断开撤除+TTL 为产品裁量
-  - → docs/acceptance/e2e-2026-09-06/W5-notes.md 观测1/2/5 · W5-logcat.log 21:06:59 窗 · PendingInteractionStore.kt:86 · 证据 /tmp/e2e-full/W5-notif-*
+- [~] **#339 重连 resync 通知族缺陷——伪 Idle 边沿误撤+旧错误轮重发+注册表未水化阻断+通知文本系统注入** `dsh` `notification`
+  - 已修复(b2a84aea) 四子缺陷根因闭环:①径②清除延后复核(2s settle+仍 Idle 才清——W5 实证伪边沿 Idle→.725 即回 Busy,通知层同事件已判 6min 陈旧而 pending 域无判);②SessionError 携带 turn/end 信封时刻+#294 同款 5min 陈旧过滤;③重放用户消息(created 陈旧)不再重置 streak(曾致「错误·hi」×7-8 连环通过);④重发布前有界等待注册表水化(250ms×12)+question/error 文本剥离 <system-reminder> 注入语料;断开撤除+TTL 仍留产品裁量(未实现)
+  - → 单测 +8(PendingInteractionStoreTest×2/SessionNotificationCoordinatorTest×6)+DshEventMapperTest 时刻契约;**真机 resync 场景验收待做**
 
-- [ ] **#340 resync 期 Room 持久化背压丢写——SSE 生产速率超 Room 写入时丢弃持久化写请求** `dsh` `storage`
-  - W6 G5 诊断屏实证:重同步期「persist queue full, dropped N write requests (Room slower than SSE production)」WARN 连发(N=1150→1500 按 50 递增,9 条可见)——消息仍在内存/转录可读,但该窗口消息可能未落库;H2 终态库完好(cached_messages=12,764/integrity=ok)未证实际丢失,冷启后该窗口消息是否可恢复未验
-  - 修法方向:背压时降级为合并写/丢弃最旧而非丢新,或 resync 期批量事务化提升吞吐;与 #335 存储域联合裁量
-  - → docs/acceptance/e2e-2026-09-06/W6-notes.md 观测1 · W6-logcat.log
+- [~] **#340 resync 期 Room 持久化背压丢写——BUFFERED 满即丢写(含终态修复写)** `dsh` `storage`
+  - 已修复(07069ad0) 管线两路重构:全量 upsert 按 (sessionId,messageId) 最新快照合并(latest-wins 幂等)+按消息数阈值(128)/最大时延(250ms)批量刷洗(每会话单次调用=单事务,吞吐数量级↑);增量 delta 走 UNLIMITED 保序队永不丢(流式速率有界);旧 trySend 满即丢路径删除
+  - → 单测 +4(MessageEventHandlerCoalescingPersistTest:5000 条洪峰零丢失+最新快照合并+批量上界+delta 保序);**真机 resync 洪峰验收待做**(诊断屏应不再现 dropped WARN)
 
 ## P4 — 外部前提阻塞
 
