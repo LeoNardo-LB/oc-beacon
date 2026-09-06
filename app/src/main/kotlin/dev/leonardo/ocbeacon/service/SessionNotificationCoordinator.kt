@@ -323,16 +323,13 @@ class SessionNotificationCoordinator @Inject constructor(
         return replied
     }
 
-    /** 子智能体会话事件冒泡到父会话通知；非子会话/查无父时原样返回。 */
+    /** 子智能体会话事件冒泡到父会话通知；非子会话/查无父时原样返回（#337 共享映射）。 */
     private fun bubbleToParentSession(sessionId: String): String =
-        parentSessionIdOf(sessionId) ?: sessionId
+        bubbleToParentSessionTarget(sessionId, sessions)
 
     /** 会话是否为子智能体会话（已设置 parentID，子会话不应触发面向用户的通知）。 */
     private fun isChildSession(sessionId: String): Boolean =
-        parentSessionIdOf(sessionId) != null
-
-    private fun parentSessionIdOf(sessionId: String): String? =
-        sessions.firstOrNull { it.id == sessionId }?.parentId
+        parentSessionIdOf(sessionId, sessions) != null
 }
 
 /** 端口绑定（C9）：协调器依赖接口，生产实现为 ServiceNotificationActionPort。 */

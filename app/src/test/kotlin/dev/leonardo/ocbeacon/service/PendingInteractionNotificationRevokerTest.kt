@@ -32,6 +32,9 @@ import org.junit.Test
  *
  * 撤通知口径：只撤被清除 kind 对应的系统通知（审批=+1000 / 提问=+2000）；
  * turn 完成（+0，信息性发出后不撤）与错误（+3000）不动。
+ * #337：子会话挂起冒泡——发布/补发侧通知落在父会话稳定槽
+ * （SessionNotificationCoordinator / #336 notifier），撤除必须解析到同一
+ * 父槽（子会话应答/删除后父槽通知被撤，不残留）。
  * 通知发布本身属 SSE 管线（SessionNotificationCoordinator → AppNotificationManager，
  * 既有覆盖）；本组件只负责"等待态终结 → 撤对应通知"。
  */
@@ -39,6 +42,7 @@ class PendingInteractionNotificationRevokerTest {
 
     private val statuses = MutableStateFlow<Map<String, SessionStatus>>(emptyMap())
     private val serverSessions = MutableStateFlow<Map<String, Set<String>>>(emptyMap())
+    private val sessionsFlow = MutableStateFlow<List<Session>>(emptyList())
     private val notificationManager: NotificationManager = mockk(relaxed = true)
 
     private lateinit var store: PendingInteractionStore
@@ -51,7 +55,7 @@ class PendingInteractionNotificationRevokerTest {
         val eventDispatcher = mockk<EventDispatcher>()
         every { eventDispatcher.messages } returns MutableStateFlow(emptyMap())
         every { eventDispatcher.parts } returns MutableStateFlow(emptyMap())
-        every { eventDispatcher.sessions } returns MutableStateFlow<List<Session>>(emptyList())
+        every { eventDispatcher.sessions } returns sessionsFlow
         every { eventDispatcher.serverSessions } returns serverSessions
 
         val appContext = mockk<android.content.Context>()
@@ -131,6 +135,54 @@ class PendingInteractionNotificationRevokerTest {
         advanceUntilIdle()
 
         verify(exactly = 1) { notificationManager.cancel(baseId() + 2000) }
+    }
+
+    // ============ #337 子会话冒泡：撤除解析到父槽 ============
+
+    @Test
+    fun `child session answered revokes parent slot notification`() = runTest(testDispatcher) {
+        sessionsFlow.value = listOf(
+            Session(
+                id = "s_child",
+                parentId = "s_parent",
+                directory = "",
+                time = Session.Time(created = 0, updated = 0),
+            )
+        )
+        serverSessions.value = mapOf("server1" to setOf("s_child"))
+        advanceUntilIdle()
+        store.record("s_child", PendingInteractionKind.APPROVAL)
+        store.clearIfKind("s_child", PendingInteractionKind.APPROVAL)
+        advanceUntilIdle()
+
+        // 发布侧冒泡口径（Coordinator）：通知在父会话稳定槽——撤除须同槽
+        verify(exactly = 1) { notificationManager.cancel(baseId(sessionId = "s_parent") + 1000) }
+        // 原始子 sessionId 槽无通知——不得撤到错槽
+        verify(exactly = 0) { notificationManager.cancel(baseId(sessionId = "s_child") + 1000) }
+    }
+
+    @Test
+    fun `child session deletion cascade revokes parent slot notification`() = runTest(testDispatcher) {
+        sessionsFlow.value = listOf(
+            Session(
+                id = "s_child",
+                parentId = "s_parent",
+                directory = "",
+                time = Session.Time(created = 0, updated = 0),
+            )
+        )
+        serverSessions.value = mapOf("server1" to setOf("s_child"))
+        advanceUntilIdle()
+        store.record("s_child", PendingInteractionKind.APPROVAL)
+        // 仿真级联时序：SessionDeleted 先删会话行与注册表（handler.handle 在
+        // 分发点前段）再清 pending store——撤除时实时查表拿不到父归属，
+        // 须凭快照仍解析到父槽（knownServersBySession 同姿势）。
+        sessionsFlow.value = emptyList()
+        serverSessions.value = emptyMap()
+        store.clearForSession("s_child")
+        advanceUntilIdle()
+
+        verify(exactly = 1) { notificationManager.cancel(baseId(sessionId = "s_parent") + 1000) }
     }
 
     // ============ 清除② 轮次结束兜底（statusFlow → Idle）============

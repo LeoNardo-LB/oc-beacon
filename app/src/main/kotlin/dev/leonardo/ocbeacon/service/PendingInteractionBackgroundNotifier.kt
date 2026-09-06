@@ -87,8 +87,8 @@ class PendingInteractionBackgroundNotifier @Inject constructor(
                 AppLogger.w(TAG, "Skip background re-dispatch for $sessionId: no resolvable server ownership")
                 return@forEach
             }
-            // 子会话冒泡到父目标（镜像 SessionNotificationCoordinator 发布口径）
-            val targetSessionId = bubbleToParentSession(sessionId)
+            // 子会话冒泡到父目标（#337 共享映射——与 SessionNotificationCoordinator 同一函数）
+            val targetSessionId = bubbleToParentSessionTarget(sessionId, eventDispatcher.sessions.value)
             servers.forEach { server ->
                 when (SessionNotificationKind.forPendingInteraction(kind)) {
                     SessionNotificationKind.PERMISSION ->
@@ -108,9 +108,5 @@ class PendingInteractionBackgroundNotifier @Inject constructor(
             store.markNotified(sessionId, kind)
         }
     }
-
-    /** 子智能体会话冒泡到父会话通知目标；非子会话/查无父时原样返回。 */
-    private fun bubbleToParentSession(sessionId: String): String =
-        eventDispatcher.sessions.value.firstOrNull { it.id == sessionId }?.parentId ?: sessionId
 }
 
