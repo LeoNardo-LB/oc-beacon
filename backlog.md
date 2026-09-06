@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#339**。
+**编号**：全局递增，不回收。下一编号：**#341**。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -117,7 +117,17 @@
 
 - [ ] **#338 轮次台账偶发负时长(-207ms)——created/completed 时间腿混源嫌疑** `dsh` `ui`
   - W2 全量 E2E 实测(B4 会话轮次 1 台账 -207ms 单发,同会话另有 0ms 轮);RenderableTurn.durationMs=max(completed)-min(created),负值=某腿 completed<created——mapper 注释称双值均取服务器事件时间,但混本地时钟腿有先例(V2SseMapper step.started=本地 currentTimeMillis),根因未钉死不盲打 max(0) 补丁
-  - → docs/acceptance/e2e-2026-09-06/W2-notes.md 观测4 · RenderableTurn.kt:220
+  - → docs/acceptance/e2e-2026-09-06/W2-notes.md 观测4 · RenderableTurn.kt:220;同族:被中断轮台账 0ms(W3 F3 观测6)一并归此卡
+
+- [ ] **#339 重连 resync 通知族缺陷——伪 Idle 边沿误撤 pending 通知+旧错误轮重发+注册表未水化阻断重发布** `dsh` `notification`
+  - W5 全量 E2E 三源实证:①重连 resync 重建状态流产生伪 busy→idle 边沿→PendingInteractionStore 径②(轮末兜底)误清仍 pending 的 tea/coffee 问题→Revoker 撤通知(21:06:59.723,问题服务器侧仍挂起,行「待回答」在场);②同期重放的 QuestionAsked 欲重发布被 buildSessionPath: session not found 阻断(注册表未水化)→用户失去提醒且不自愈;③resync 把旧错误轮重发(「错误·hi」×7-8 同题,重放用户消息重置 streak 致连环通过);④连带:断开后通知全滞留(disconnect 无 cancel,定性=产品观察非 #320 契约三径内)、就绪/错误通知无 TTL 仅 tap/进会话/应答三撤径、通知 text 取样含 <system-reminder> 系统注入语料
+  - 修法方向(改动面大故记录):resync 窗口内挂起 pending 清径/通知发布直至注册表水化(buildSessionPath 就绪信号);错误通知引入会话级已通知槽(#336 同款)或 resync 抑制窗;断开撤除+TTL 为产品裁量
+  - → docs/acceptance/e2e-2026-09-06/W5-notes.md 观测1/2/5 · W5-logcat.log 21:06:59 窗 · PendingInteractionStore.kt:86 · 证据 /tmp/e2e-full/W5-notif-*
+
+- [ ] **#340 resync 期 Room 持久化背压丢写——SSE 生产速率超 Room 写入时丢弃持久化写请求** `dsh` `storage`
+  - W6 G5 诊断屏实证:重同步期「persist queue full, dropped N write requests (Room slower than SSE production)」WARN 连发(N=1150→1500 按 50 递增,9 条可见)——消息仍在内存/转录可读,但该窗口消息可能未落库;H2 终态库完好(cached_messages=12,764/integrity=ok)未证实际丢失,冷启后该窗口消息是否可恢复未验
+  - 修法方向:背压时降级为合并写/丢弃最旧而非丢新,或 resync 期批量事务化提升吞吐;与 #335 存储域联合裁量
+  - → docs/acceptance/e2e-2026-09-06/W6-notes.md 观测1 · W6-logcat.log
 
 ## P4 — 外部前提阻塞
 

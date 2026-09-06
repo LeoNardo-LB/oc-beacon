@@ -242,35 +242,34 @@
 - 操作:依次构造并截图五态:①idle+空 ②idle+文本 ③busy(发长任务「E2E06-C1:请写一篇 800 字文章」)+空 ④busy+文本 ⑤blocked(提问卡在场)
 - 期望:①SEND 禁用 ②SEND ③STOP ④SEND(排队语义) ⑤STOP+输入禁用;全程无双键并排
 - 判定:每态截图;出现双键并排=✘
-- 实测记录:(待填)
+- 实测记录:**✔ 五态全过,全程无双键并排**(2026-09-06 18:46-18:52,共用长任务会话 session-89a20513,首条消息 e2e06-c1,模型手选 zai-coding-cn·GLM-5.3-Flash)。①idle+空:chat-send=1/chat-stop=0 发送键在场;**行为禁用验证**:tap 发送(1086,2538)→转录零新增+logcat 零 prompt 分发行(C1-s1-idle-empty/aftertap.xml+png)。②idle+文本:input text 带 %s 空格落地,单发送键(C1-s2-idle-text.xml/png;发送键 IME 抬升位 [1014,1544][1158,1688])。③busy+空:essay 消息 18:50:05.300 发出(Sent prompt+Idle→Busy/Waiting),~18:50:09 dump=chat-stop=1/chat-send=0 单停止键(C1-s3-busy.xml+C1-s3-busy-empty.png)。④busy+文本:流式中输入排队文本→**chat-send=1/chat-stop=0,content-desc=「发送（排队）」**——排队语义显式标注在发送键上(C1-s4-busy-text.xml/png)。⑤blocked:18:51:1x 模型对 essay 提示自发澄清提问(ask_user_question 卡在场:待你回答+SINGLE+Q1/Q2 双问题+四选项+输入答案/忽略/下一个/提交)→dump=**chat-stop=1+chat-input en=false(输入禁用,已键入草稿被持留)**(C1-s5-blocked.xml/png;列表行同步出现「待回答」+「草稿」徽章);应答后(18:51:53 replyToQuestion success=true)输入区恢复 en=true。注记:⑤的卡非 B1 提示语显式构造,而是模型对 800 字 essay 提示的自发澄清提问——同一 ask_user_question 产物,blocked 状态构造等价,且恰发生在 e2e06-c1 前缀会话内;C1③④ 与 C2/C4/C5 共用本会话(依赖注记)
 
 ### C2 队列角标全生命周期(#327)
 - 前置:会话 A(E2E06-C2)发长任务 busy 中
 - 操作:busy 中同会话再发 2 条 → 角标 1→2;QueueSheet 移除 1 条 → 1;插话 1 条;等轮末消费完
 - 期望:角标与队列操作实时一致;轮末消息依次消费无丢失;最终归 0;**轮末消费完成后通知状态(交叉引 E3b 断言)**
 - 判定:每步截图/dump+角标数值;角标恒 0 或不更新=✘
-- 实测记录:(待填)
+- 实测记录:**✔ 角标全生命周期 1→2→(移除)→1→(插话)→0 实证**(2026-09-06 18:50-19:01,共用 e2e06-c1 会话 session-89a20513,跨两个 busy 窗口;录屏 W3-C2-seg1/2/3.mp4 全程覆盖)。**R1(800w essay 轮)**:queue message one 18:52:13.746+message two 18:52:18.687 相继于 Busy/Streaming 中发出(ClientSendParts wire)→展开 FAB dump 捕获**角标数字节点「2」@[908,2028][928,2076]**(C2-fab-badge2.xml/png,18:53:1x,紧贴排队队列入口 [960,2034]);~18:53:40 开 QueueSheet 已=「排队队列 (0)/暂无排队消息」——essay 轮 18:53:48 结束,双条轮末 drain 消费(wire SessionIdle→Busy/Waiting ×2 @18:53:48/18:54:17),转录含两消息+回复(C2-transcript-after-drain.xml:「Acknowledged: e2e06-c2, message two — received and processed」)。**R2(1200w essay 轮,补链)**:note one 18:57:30 排队→**角标=1**(C2-fab-badge1.png 像素探针:badge 粉底(233,186,183)+暗红字形(88,27,20) 58px;dump 数字节点失明见注)→note two 18:58:21 排队→**角标=2**(C2-fab-badge2b.png 字形 94px,与 R1「2」逐像素一致)→QueueSheet「排队队列 (2)」两行+每行三动作(C2-sheet-r2b-2items.xml/png)→**移除** note two(984,1063 tap 18:59:56;wire updateQueue 18:59:56.694)→Sheet(1) 仅剩 note one(C2-sheet-after-remove)+**角标=1**(C2-badge-after-remove.png 字形 58px)→**插话(引导至下一轮)** note one(1128,895 tap 19:00:30)→**3s 内 Sheet(0) 暂无排队消息**(C2-sheet-after-steer)+note one 注入并获回复(转录「Acknowledged: e2e06-c2, queue note one — received and processed」,C2-after-steer-transcript.xml)→终态**角标 0/无字形**(C2-badge-final0.png badge 区仅背景色)。「等轮末消费完」由 R1 自然 drain 链覆盖(R2 队列经移除+插话清空)。**E3b 交叉**:dumpsys posted 通知=opencode_tasks_silent 组摘要+opencode_tasks(内容=「就绪 · e2e06-a1-api 顶位测试」18:42 事件遗留,非本 wave 会话)+LEAKCANARY(debug 常驻)——**无队列/轮末类通知发布或残留**(app 前台全程);遗留就绪通知归 E3/W5 裁量。**判定方法注记**:uiautomator 对角标数字节点间歇失明(4 次 dump 仅 1 次捕获,§0-11 失明族)——角标数值以像素探针为主锚(粉底+暗红字形,字形面积可分 1=58px/2=94px),与唯一一次 dump 捕获互证
 
 ### C3 FAB 入口+QueueSheet 三动作(#313)
 - 前置:会话列表
 - 操作:FAB 展开核对入口清单(对照 `docs/acceptance/2026-09-05-327-queue-badge-chain.md` 记录的入口清单逐个核对并在报告列出);进 QueueSheet 验证三动作(移除/插话/跳转)
 - 期望:入口与 prior 清单一致;三动作各自生效
 - 判定:截图+逐动作观测记录
-- 实测记录:(待填)
-
-### C4 steer vs 排队(#309④)
+- 实测记录:**✔(入口清单一致;三动作=编辑/移除/插话实证,「跳转」不存在于 QueueSheet)**(2026-09-06 18:53-19:00)。FAB 任务菜单入口
+  - **主 agent 裁决(2026-09-06 19:3x)=web 平价,checklist 措辞笔误**——web zh/en locale 定音(mod20.js:13411-13417/13557-13562):队列面板动作集=queue.edit(编辑排队消息)/queue.remove(删除)/queue.steer(插话发送),**无「跳转」动作**;app 实测编辑/移除/插话=逐项平价 ✔。本 checklist「移除/插话/跳转」为主 agent 撰写记忆笔误,C3 维持 ✔ 不打折清单(展开态 dump,C2-fab-badge2.xml 同源多帧):**TODO @[1015,1458][1158,1530] / 智能体 @[1010,1602][1158,1674] / 目标 @[1059,1746][1158,1818] / Shell @[1044,1890][1158,1962] / 排队队列 @[960,2034][1158,2106]**(+收起菜单)——与 prior #327 清单及 W2 notes 观测 9 完全一致,五入口齐。QueueSheet 三动作逐行在场:**编辑排队消息 @[804,…] / 移除排队消息 @[948,…] / 引导至下一轮 @[1092,…]**(C2-sheet-r2b-2items.xml;编辑态=OutlinedTextField+保存/取消,QueueSheet.kt 契约一致):移除✔(C2 执行,Sheet 2→1+updateQueue wire)/插话=引导至下一轮✔(C2 执行,Sheet 1→0+注入消费)/编辑未执行(非本 item 断言面,同 updateQueue seam,prior #327 A2 有「不执行」先例);**「跳转」动作在 QueueSheet 行内不存在**——实际第三动作=编辑;跳转语义仅体现为 FAB 入口→Sheet 打开本身(如实记录,checklist 预期与实际 UI 有出入)。注:任务菜单 FAB 位于 ChatScreen(会话内,desc=打开任务菜单),**会话列表无此 FAB**(列表顶栏=搜索/新建会话/更多选项,W3-start.xml)——前置「会话列表」按实际 UI 修正为会话内执行(入口清单本身无会话状态依赖)
 - 前置:busy 会话(长任务中)
 - 操作:①普通发送文本(排队)②若有长按/steer 入口,长按发送
 - 期望:排队消息轮末消费;steer 即刻注入(流式中断/转向)
 - 判定:两路径 logcat 时间戳可分;无 steer UI=排队部分✔+steer 部分 BLOCKED-feature-absent
-- 实测记录:(待填)
+- 实测记录:**✔ 两路径时序可分**(2026-09-06 19:02-19:04,共用 e2e06-c1 会话第三 busy 窗口:1000w lighthouse essay 19:02:38 发出,Busy/Streaming 至 19:03+)。**①排队路径**:M(e2e06-c5,message m for hold and drain check)于 **19:03:01.318** Sent prompt+Busy/Streaming --ClientSendParts(Busy 中受理);转录即时 amount=0(hold,见 C5);轮末 drain 后消费+回复。**②steer 路径**:steer UI=**长按发送键**(busy+文本态发送键 desc=发送(排队),input swipe 1086,1616 同点 700ms,19:03:28.6)→wire **19:03:28.698** Sent prompt(Busy/Streaming 直发)→steer 消息气泡入转录「e2e06-c4,steer message s,acknowledge STEERED now」(C5-scrollup1.xml)+代理回复「**STEERED — acknowledged. ✅ Steer message s on case e2e06-c4…**」——注入+转向回复链完整。两路径 wire 时间戳相隔 27.4s 可分 ✓;steer 入口在场(非 BLOCKED-feature-absent)。观测注记:steer 落点恰逢 essay 自然收尾(流式计时 43.2s≈steer 时刻),「流式中断/强制完结」未得独立观测窗口(#326 A4 先例有 force-complete 证据);另 R2 内 QueueSheet「引导至下一轮」为同语义第二入口(C2 已证)
 
 ### C5 hold→drain 数据完整(#329 平价)
 - 前置:C4 的 busy 会话(时序证据复用 C4①,本项只断言数据完整性)
 - 操作:busy 中发送消息 M;流式期间记录 M 在转录中不可见(=web 平价,记录非失败);轮末后复查
 - 期望:轮末 M 出现且获得回复;无丢失无重复
 - 判定:M+回复都在且各一次;丢失/重复=✘(严重)
-- 实测记录:(待填)
+- 实测记录:**✔ 数据完整:消息 M 与回复各恰一次,无丢失无重复**(2026-09-06 19:03-19:07,复用 C4① 时序,M=19:03:01.318 发出)。**流式期间 M 不可见(web 平价,记录非失败)**:19:03:03 dump M 文本出现次数=0(C5-midstream-afterM.xml/png)。**轮末后复查**:M 用户气泡恰 1 次——「e2e06-c5,message m for hold and drain check」+「用户」角色标记(C5-seam2.xml);回复恰 1 次(单轮次 8 · 10.7s · 5 步 · 2 个工具):「Hold and drain check ( e2e06-c5 , message m ) — complete. ✅」+「Hold check: No hold is active…」+「Drain check: Verified via job registry — 0 background jobs…」(模型以 job registry 自证 drain 态,C5-bottom-final.xml/png 含 Case/Task/Status 表格全录);steer 消息/回复亦各 1 次(C5-scrollup1/mid*.xml 跨窗去重)。转录跨 8 个 dump 视图全覆盖采集(C5-midstream→scrollup1→mid2/mid3→seam/seam2→bottom-final),无第二处 M 或其回复
 
 ---
 
@@ -281,21 +280,21 @@
 - 操作:录屏 ≥40s;发送「E2E06-F1:请写一篇 600 字短文,分段清楚」
 - 期望:流式逐段渲染,无整页闪烁/无长时间静默后爆发
 - 判定:录屏抽 ≥5 帧比对(帧间内容递增、无全页白闪重绘)
-- 实测记录:(待填)
+- 实测记录:**✔**(2026-09-06 19:12-19:16,新会话 E2E06-F1 session-f9aa17ae,模型 zai-coding-cn·GLM-5.3-Flash)。录屏 **W3-F1F2-seg1.mp4(180.4s)**,覆盖两轮流式(600 字轮 29.9s + 1500 字轮 31.5s);**抽帧 11 张**(ffmpeg @110-178s)+拍摄期同步 screencap 13 张(F1-frame-t*/a*)。帧分析(内容区像素+帧间 diff):①600w 轮:t34 思考结束(252k)→t41 正文涌入(441k,diff 861k)→t48 完成重排(137k,含键盘收起/台账)→t55/t62 稳定——**逐段递增渲染,无整页白闪帧**(无任何帧 content_px 向纯背景坍缩);②1500w 轮(主证据):f110(发送前 200k)→f118(布局+键盘 624k)→f125-f150 流式期 **diff 1-7k/5-8s 连续非零**(增量推进;「静默后爆发」形态应为连续 diff≈0 后单帧巨变,实测相反)→f160(键盘收起+F2 滚动 117k)→f170 回底(278k)→f178 稳定=完成态。完成态 dumps:两篇 essay 全文+轮次台账完整渲染(F2-final-state.xml:「Here is the essay on the sea (~1,500 words, nine clear paragr…」+轮次 2 · 31.5s)。附注:GLM-5.3-Flash 思考期 19-22s(模型侧行为),流式 token 速率高(600 词≈10s 流完)——流式窗口短是本轮观测事实,判定以连续增量 diff+无白闪为准
 
 ### F2 滚动自愈(铁律回归,3.8★3)
 - 前置:F1 流式中
 - 操作:流式中上滚远离底部 2 屏 → 停 5s → 手动滚回底部
 - 期望:上滚后不被强制拉底;回底后恢复跟随新内容
 - 判定:录屏;持续被拉底=✘
-- 实测记录:(待填)
+- 实测记录:**✔**(2026-09-06 19:15:3x-19:15:5x,1500w essay 流式中执行,录屏 W3-F1F2-seg1.mp4 @~155-170s 段覆盖)。上滚:键盘先收(BACK),2×swipe(600,800→600,2000,350ms)远离底部 2 屏→**F2-away2 dump:视口停顶部老内容区**(标题栏+首条用户消息在场)+「滚动到底部」钮在场 @[36,2196][108,2268]+**chat-stop=1(流式仍在进行)**——停 3+s 未被强制拉底 ✓(铁律15:以可见内容+按钮 bounds 判,不依赖截图哈希;away1/away2 像素对含 fling 惯性位移,如实记录不作主证)。回底:tap 滚动到底部(72,2232)→**F2-returned2 dump:滚动到底部钮消失=已到底**+chat-stop=1 流式继续→完成态 F2-final-state dump 显示 essay 末段+轮次台账=**回底后恢复跟随新内容** ✓
 
 ### F3 中断流式(3.5★1)
 - 前置:新一轮长回复流式中
 - 操作:tap STOP
 - 期望:立即停;部分内容保留;会话回 idle;可再发新消息
 - 判定:截图+再发一轮往返
-- 实测记录:(待填)
+- 实测记录:**✔**(2026-09-06 19:17-19:19,E2E06-F1 会话 session-f9aa17ae 第三轮:1200w mountains essay 19:17:43 发出,思考 19.3s 后流式,TextDelta 4842 条确认流式中)。**tap STOP(1086,1616)@19:18:42.34→立即截图 19:18:42.97(tap 后 0.6s,F3-after-stop-immediate.png)**;wire:**19:18:42.463 Aborted session**(tap→abort <150ms)+Idle --ClientAbort--> Idle [force-complete]。**部分内容保留**:轮次 3 台账+部分正文区域在场,immediate 与 +2s 两帧逐像素 diff=0(稳定保留,F3-prestop/after-stop*);用户消息「e2e06-f3,write a 1200 word essay…」在场。**会话回 idle**:dump chat-send=1/chat-stop=0(+2s 内)。**再发一轮往返**:19:19:09 发「e2e06-f3,after stop,reply with the single word ok」→回复「**ok**」+轮次 4 台账(F3-after-resend.xml/png)——停止后可继续发消息 ✓。附注:被中断轮台账=「轮次 3 · 0ms · 1 步 · 0 个工具」(0ms 计时另记,供 B10 负时长族裁量)
 
 ---
 
@@ -306,70 +305,70 @@
 - 操作:搜索「E2E06」→ 查看命中区 → tap 一条命中;再搜无结果词 `zzzqqx`
 - 期望:服务器命中区显示(跨会话多条);tap 跳到对应会话/消息;无命中=明确空态
 - 判定:截图两态;跳转失败=✘
-- 实测记录:(待填)
+- 实测记录:**✔**(2026-09-06 19:35,W4)。搜索框聚焦后键入 e2e06(ASCII,type4.sh):**消息匹配区即时呈现**——过滤条(全部角色:用户/AI;全部时间:近 7 天/近 30 天)+ 消息命中卡**跨会话多条**:「e2e06-c1,please write an 800 word · 24 条消息」「e2e06-b2,please run this exact bash · 13 条消息」(含命中片段摘要「…mkdir -p /tmp/[e2e06]-test && rm -rf /tmp/[e2e06]-test…」);下方会话匹配行 e2e06-f1/c1/a1-api/b2/b8/b4 等多行(D1-hits.png/w4-d1-hits.xml)。**tap 跳转✔**:点消息命中卡 (400,1000) → 落 e2e06-c1 会话 ChatScreen,转录定位在含命中词的消息区(C5 drain 总结表「State at drain/Case/Task/Status」多段 e2e06-c1 匹配文本在场,非顶部起始)(D1-jumped.png/w4-d1-jump2.xml)。**空态✔**:清除后搜 zzzqqx → 「目录为空」明确空态,无命中无崩溃(D1-empty.png/w4-d1-empty2.xml)。注:清除搜索后焦点丢失,重键入需重新点搜索框(操作侧注记);搜索页「返回」落服务器管理页(W1 BACK 语义家族)。FATAL=0
 
 ### D2 提供方页(#324)
 - 前置:prod-3080 已连接
 - 操作:设置→提供方页;打开「新增」表单→**取消**
 - 期望:页打开不崩溃(回归 3cb324a8);列表/目录在场;表单正常开关不落库
 - 判定:截图;崩溃=✘(严重);取消后多出条目=✘
-- 实测记录:(待填)
+- 实测记录:**✔(核心)——页打开不崩溃;「新增」表单 UI 入口缺失(feature-absent,子腿)**(2026-09-06 19:38-19:41,W4)。路径:会话列表设置 tab →服务器管理页 prod-3080 卡齿轮「服务器设置」→「提供方」→ ServerProvidersScreen **打开不崩溃**(3cb324a8 回归通过,FATAL=0)。列表/目录在场:「DSH provider 目录」(DeepSeek/deepseek-official 运行时已启用+amazon-bedrock…zai-coding-cn 数十条,滚动流畅无测量崩溃)+「可用」区(DeepSeek/opencode-go/zai-coding-cn 各带「连接」钮)(D2-providers.png/w4-d2-prov2.xml/D2-after-tap2.png)。**新增表单子腿 feature-absent**:目录标题行 Add 图标(desc=新增自定义 provider [1044,376][1116,448])两次精确 tap 均未开表单——logcat 实证 tap 即时只触发 listProviders+listConfigurableProviders 刷新(19:40:36/19:41:15)=onClick 接 onRefresh;源码 DshCustomProvidersSection.kt showCreate 状态无任何 `= true` 赋值(git 全历史 -S 检索无),DshCustomProviderCreateDialog 为不可达死代码。表单无法打开→开关/落库断言无从触发,prod 配置零触碰(红线保持)。Add 图标形似「新增」实为刷新=UI 语义混淆,登记主 agent 裁量
 
 ### D3 preset 管理(#324)
 - 前置:同 D2
 - 操作:preset 管理入口;新建表单→取消
 - 期望:页/表单在场;取消无残留
 - 判定:截图
-- 实测记录:(待填)
+- 实测记录:**✔(管理入口+打开/取消路径);「新建表单」不存在=by-design 子腿注记**(2026-09-06 19:44-19:46,W4)。preset 管理入口=设置 tab「新会话默认 Agent 预设」(当前 PTC 模式)展开 roster:**标准模式/PTC 模式/极简模式/创造模式**四预设行,各带「查看组成/复制」动作(D3-preset-expanded.png/w4-d3-exp2.xml;agentPresets/list 19:44:13 RPC)。**#324② 交付形态无「新建」表单**——AgentPresetManageDialogs.kt 头注:查看=只读 content(移动端编辑走服务端文件,web read-only viewer 裁决);复制/删除为写路径(红线未触)。等价打开/取消路径:tap 标准模式「查看组成」→ AgentPresetContentDialog 打开(标题「标准模式」+关闭钮,正文等宽区 dump 失明属 §0-11 族;agentPresets/read 19:45:34 RPC)→ tap「关闭」→ roster 原样无残留,默认值 PTC 未变,无 settings.mutate 写(D3-preset-view-dialog.png/D3-preset-dialog-closed.png)。复制/删除按钮全程未触碰
 
 ### D4 插件清单+表单(#324)
 - 前置:同 D2
 - 操作:插件清单页(只读);任一插件配置表单打开
 - 期望:清单呈现;表单字段渲染不崩溃
 - 判定:截图
-- 实测记录:(待填)
+- 实测记录:**✔**(2026-09-06 19:42-19:47,W4)。插件清单:设置 tab「服务器插件」区块展开=**pluginInventory 只读清单**——cordis:include(已启用)/@deepseek-ai/cordis-plugin-timer(已启用)/@deepseek-ai/cordis-plugin-hmr(已停用)/@deepseek-ai/dsh-llm(已启用)/@deepseek-ai/dsh-deepseek-llm-api-extensions(已启用),各带 PhaseDot 运行态点(D4-plugins-list.png/w4-d4-plugins2.xml)。插件行 onClick=null——**per-plugin 表单按设计不存在**(web mod19 同构只读,无 mutate 面;tap cordis:include 行实测无响应)。表单断言以 #324③ 服务器配置动态 schema 表单覆盖:「服务器配置」区展开=agent-default-model(立即生效标注;provider/model/max/reasoningEffort 字段+各单字段「保存」钮)+subagent-model-selection(enabled)等卡片**渲染无崩溃**(D4-config-forms.png/w4-d4-cfg2.xml;settings/describe 驱动)。保存钮全程未触碰(红线:不落库)。FATAL=0
 
 ### D5 skills 触发组(#324)
 - 前置:同 D2
 - 操作:skills 触发组页
 - 期望:分组呈现(只读)
 - 判定:截图
-- 实测记录:(待填)
+- 实测记录:**✔**(2026-09-06 19:48-19:50,W4,前置修正:skills 触发组非独立设置页,#324⑤ 形态=会话内斜杠面板「技能」分组)。进 e2e06-f1 会话(idle)输入框键入 / → 斜杠面板即时呈现:**服务器命令组**(/compact /export /feedback /goal /permission /plan 各带英文描述,W2 观测 8 的 6 命令一致)+ **「技能」触发组头**+技能行 /ask-matt、/calculator、/code-review、/codebase-design(各标 skill 徽标)(D5-slash-panel.png/w4-d5-slash.xml;skills/list 19:48:51 RPC <30ms)。只读观测后清稿:长按+全选+单次 DEL 法清除 /,面板关闭无残留(w4-d5-cleared3.xml);未发送任何消息,会话零写入
 
 ### D6 归档链(#311)
 - 前置:专建测试会话(首条消息「E2E06-D6:标记归档测试」)
 - 操作:行菜单/左滑 → 归档 → 查主列表+折叠归档区
 - 期望:行从主列表消失;归档区在场可查;**无「取消归档」入口=正确**(契约单向)
 - 判定:截图;出现取消归档入口=✘(契约违背)
-- 实测记录:(待填)
+- 实测记录:**✔**(2026-09-06 19:51-19:56,W4)。靶会话:新建(workspace 目录)发送首条「e2e06-d6,archive,target,message」(默认模型 DeepSeek-V4-Flash,回复 Insufficient Balance=预期内,行非 blank)(D6-sent.png);BACK 回列表=**行即时顶位**(9月6 19:53,w4-d6-backlist.xml)。归档:长按行 → 菜单「会话详情/重命名会话/**归档**」(D6-row-menu.png)→ tap 归档 → **主列表行消失**(e2e06-d6 0 出现,D6-after-archive.png)。归档区:滚至列表底部=「**已归档（5）**」折叠区在场 → 展开=5 行,**e2e06-d6 在首位**(19:53;其余 4 行为 9月4/5 前批遗留归档,未触碰)(D6-archive-expanded/D6-archive-rows.png)。**无取消归档入口=✓**:归档行长按菜单仅「**会话详情**」一项——无归档/重命名/取消归档(单向契约正确,D6-archived-row-menu.png/w4-d6-arcmenu2.xml)。logcat archive RPC 链正常;FATAL=0
 
 ### D7 多工作区(#311)
 - 前置:prod-3080 已连接,当前 main
 - 操作:工作区管理;打开新建对话框观察(列表/输入/确认三要素);**取消**
 - 期望:对话框正常呈现(现工作区列表+新建入口);取消无残留;主列表无整页闪烁
 - 判定:截图
-- 实测记录:(待填)
+- 实测记录:**✔**(2026-09-06 19:57-19:58,W4;前置修正:app 无独立「工作区管理」页,入口=新建会话对话框族)。新建会话钮 → NewSessionQuickDialog:**现工作区列表在场**——workspace(/home/leo-tkp/workspace,26)/oc-beacon(…/mine/oc-beacon,1)/外包维权工作区(…/docs/外包维权工作区,2)+「打开其他项目…」新建入口(D7-quick-dialog.png/w4-d7-quick2.xml)。tap 打开其他项目… → OpenProjectDialog「打开项目」:**三要素齐**——①列表(目录浏览器 / → home → leo-tkp → workspace 逐级切换,directoryPicker/list RPC 每级 <40ms)②输入(「新建目录」→ 目录名称输入+取消/创建)③确认(「创建会话」主钮)(D7-open-project-dialog.png/w4-d7-openproj.xml)。**取消**:BACK 逐层关闭双对话框 → 主列表原样(首行仍父编排会话 17:34),无残留无整页闪烁(D7-after-cancel.png)。注:此处仅观察未提交任何创建动作
 
 ### D8 workspace remove/order(#330)
 - 前置:当前=main;**只允许对自建 workspace 做 order/remove,禁触其他**
 - 操作:新建工作区 `e2e06ws` → 成功 → 调整 e2e06ws 顺序(order)→ remove e2e06ws
 - 期望:新增后列表含新 ws;order 后顺序持久(退出重进仍新序);remove 后消失;main 全程在场
 - 判定:每步截图;顺序不持久/remove 失败/main 受影响=✘;结束断言恢复单 main
-- 实测记录:(待填)
+- 实测记录:**create 腿 ✘(新建目录在 DSH 后端不可用)+order/remove 腿 feature-absent;另有临时会话泄漏意外发现**(2026-09-06 19:58-20:07,W4)。**create**:OpenProjectDialog 导航至 /home/leo-tkp/workspace →「新建目录」输入 e2e06ws →「创建」→ **「Failed to create directory」失败**(D8-newfolder-dialog.png/D8-folder-created.png;宿主 ls 确认目录未建)。机制:CreateDirectoryUseCase=临时会话(title=mkdir)+runShellCommand(mkdir -p)→回退 executeCommand(bash -lc)——DSH 后端两条执行路径均不支持(命令注册表仅 6 命令),IllegalStateException。**意外发现①(mkdir 会话泄漏)**:logcat 20:03:32 session/create+rename(title=mkdir)+commands/execute 链在案,**finally 的 deleteSession 静默失败——DSH 无 session.delete 能力位(SessionRow.kt #276 注释同源)→ 临时 mkdir 会话泄漏为正式行**(列表顶位「mkdir·workspace·20:03」,w4-d8-listafter.xml);已按红线③(本测试副产物)归档清理(20:0x,终态主列表复原)。**order**:quick dialog 无任何排序手柄(纯 clickable 行;长按=点击语义,实测长按 workspace 行直接进入新会话=意外发现② blank「无标题会话」(20:05,session/create 20:05:58 在案),同样已归档清理)→ **BLOCKED-feature-absent**(消费链 prior 42ceff63 单测钉死:workspaceIncrementalRemove/Order 合成帧用例绿;#330 在 cascade-fixes 文档分类=非 UIUX 数据/服务层,真机腿 BLOCKED-处置)。**remove**:app 全域无 workspace 移除 UI(客户端仅 workspace/archiveSession RPC;#311 wire 契约 ①-d=workspace.list+connectWorkspace 语义,无 remove 面)→ feature-absent 同类。**main 在场断言 ✔**:清理后 quick dialog 复查=workspace(26)/oc-beacon(1)/外包维权(2)三既有条目全在场,主列表复原首行=父编排会话(D8-quickdialog-entries.png/D8-cleanup-done.png)。落库检查:无 settings/workspace 类写 RPC 发出(目录创建本身失败)
 
 ### D9 deliverables/skill 折叠卡(#311)
 - 前置:任一含子代理产出的会话(A1 产物)
 - 操作:观察子代理产出折叠卡;展开
 - 期望:折叠卡呈现可展开;内容可见
 - 判定:截图;harness run_code 内联族休眠无产出=BLOCKED-contract(注:与 web 同构,prior 2026-09-05-311 报告)
-- 实测记录:(待填)
+- 实测记录:**BLOCKED-contract(run_code 内联族休眠,契约性不挂载;skill 卡无场景)**(2026-09-06 20:08-20:15,W4)。主靶=父编排会话 FAB→智能体→AgentSheet(67)→「W1 真机执行会话树域」→该会话内 AgentSheet(3)=**A1 probe r1/r2/r3 spawn 三行树内可见**(与 W1 记录一致)→ 进 r1 子会话:轮次 2(A4 回执)+轮次 1(7h 8m 38s·3 步·2 个工具,派孙代 runId a3048811)转录完整,**两轮末均无「产物」行/文件 chips、无 skill 工具卡**(D9-probe-r1-session/D9-probe-r1-turnend.png/w4-d9-r1.xml)——r1 全程工具=run_code/bash 内联族,无 write/edit/str_replace_editor 写类调用,TurnDeliverables 契约「产出为空不挂载」正确呈现(空态即休眠,prior 2026-09-05-311 报告同判;web mod28 同构)。**skill 折叠卡无场景**:W1-W4 全部观测会话(probe/c1/f1/编排)无 name='skill' 工具调用(斜杠面板 skills 触发组=D5 已验,但会话内 skill 工具调用卡本轮未出现)。**附试(正向渲染腿)**:e2e06-c1 会话(轮次含 essay 文件产出,W3 已删宿主文件)上滑寻「产物」行——写文件轮的可见工具 chips=Run code(bash 族)×2,可见 dump 区无「产物」行(bash 族写不计入 fold=契约正确);轮次 2/6 正文区 V2 markdown dump 失明(§0-11,4 次 dump 逐字节相同),截图存档 D9-c1-turn7/mid.png 判读受执行器无图片输入限制——正向 write 类工具卡渲染由 prior #311 验收覆盖,本 round 无新场景
 
 ### D10 待审批琥珀点(#311)
 - 前置:存在 pending 审批(依赖受限档)
 - 操作:观察行/入口琥珀点
 - 期望:琥珀点 #f5c344 在场
 - 判定:截图像素;无 pending 场景=BLOCKED-environment(注¹,prior a69fd71a 验收)
-- 实测记录:(待填)
+- 实测记录:**BLOCKED-environment(注¹)**(2026-09-06 20:16,W4)。当前会话默认权限档=完全访问(B2/W2 已证 PermissionAsked 全程 0;新会话对话框「完全访问」标注在场),pending 审批场景不存在——构造受限档需改宿主 harness 权限规则=红线⑥禁止。列表行扫描(w4-d9-bk2.xml 全量 dump):待批准/待回答/审批/等待类指示 **0 出现**(D10-list-no-pending.png);W3 时代唯一的「待回答」行徽章(C1⑤ blocked 窗口)已于应答后消散。琥珀点 #f5c344 断言指针:docs/acceptance/2026-09-04-308-dsh-approval-wire.md(17✔ 含 A3 危险档双路径/审批卡全链);本 checklist 断言的当前档位语义(完全访问=无审批卡直接执行)已由 B2 ✔ 覆盖
 
 ---
 
@@ -377,17 +376,17 @@
 
 ### E1 深链配对预填(#325②)
 - 前置:当前服务器条目=2
-- 操作:宿主打印并执行(整体单引号包裹避免 & 转义坑):`adb -s 192.168.110.239:5555 shell 'am start -a android.intent.action.VIEW -d "ocbeacon://pair?endpoint=http://127.0.0.1:3080&token=e2e-dummy-token-06"' -n dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity`(**假 token,只测预填+取消**)→ 对话框出现 → **取消**
+- 操作:宿主打印并执行(整体单引号包裹避免 & 转义坑;**W5 勘误:参数名=url=(DshPairingParser 契约,endpoint= 会 MISSING_URL)且 token ≥20 字符(短于下限 BAD_TOKEN)**):`adb -s 192.168.110.239:5555 shell 'am start -a android.intent.action.VIEW -d "ocbeacon://pair?url=http://127.0.0.1:3080&token=e2e-dummy-token-06-abcd"' -n dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity`(**假 token,只测预填+取消**)→ 对话框出现 → **取消**
 - 期望:预填对话框首现(endpoint/token 预填可见);取消后无新条目/现有条目无变化
 - 判定:截图+服务器条目数仍=2;误新增条目=✘
-- 实测记录:(待填)
+- 实测记录:**✔(含命令模板勘误两处)**(2026-09-06 20:29-20:32,W5)。**第一跳按 checklist 模板原样执行(整体单引号包裹,URL len=71 完整到达)→ 静默拒绝**:logcat 20:29:56.823 `Pair deep-link rejected: MISSING_URL (host=pair, len=71)`——模板参数名 `endpoint=` 与 app 契约不符(DshPairingParser.kt:102 取 `params["url"]`,dsh-pair.sh 同款);且模板 token `e2e-dummy-token-06` 仅 18 字符 < BARE_TOKEN_REGEX 下限 20(`[A-Za-z0-9_-]{20,}`,DshPairingParser.kt:73)即便换成 url= 也会 BAD_TOKEN。**第二跳按契约正确格式重跑**(`url=`+假 token `e2e-dummy-token-06-abcd` 23 字符):am start → **「添加服务器」对话框首现**(DSH tab 在前,OpenCode|DSH 双 tab),**服务器 URL 字段预填 `http://127.0.0.1:3080` 可见**(E1-pair-dialog.png+dump:EditText text=http://127.0.0.1:3080 @ [192,1049][1008,1349]);**token 无表单字段=by-design**(MainActivity.kt:386-389:深链命中即后台 exchangeToken,对话框只填 URL;logcat 20:30:48.435 `token exchange rejected for http://127.0.0.1:3080: HTTP 401`——假 token 401 预期内,兜底=#317 手动横幅通道;checklist 措辞「endpoint/token 预填可见」与实际交付形态的差异如实记录)。**取消**(取消钮 639,2281)→ 落回服务器管理页,**条目仍=2**(Host-4199+prod-3080 已连接,E1-after-cancel.png)——无误新增/无覆盖 ✓。证据:E1-before-serverpage/E1-pair-dialog/E1-after-cancel.png + logcat Pair deep-link 三行
 
 ### E2 sameBackend 共存(#325④)
 - 前置:服务器管理页可达
 - 操作:观察两 条目(Host-4199/prod-3080)各自地址与状态
 - 期望:两 条目共存;prod-3080 已连接;Host-4199 可连接(G4 会真连);无相互覆盖
 - 判定:截图;条目异常/地址错乱=✘
-- 实测记录:(待填)
+- 实测记录:**✔**(2026-09-06 20:32,W5,与 E1 取消后同页观测)。**双条目共存无覆盖**:①Host-4199——http://127.0.0.1:4199·API v2 · 0.0.0-beta-17823·未连接态「连接」钮;②prod-3080——http://127.0.0.1:3080·**已连接**·DSH 徽标·「会话」+「断开连接」双钮;地址各正确无错乱(E2-samebackend.png+W5-serverpage.xml dump:行结构 click 区 [96,1348][591,1492]=会话/[609,1348][1104,1492]=断开)。E1 假配对取消后两者原样=相互零影响 ✓。**附注(意外观测)**:app 另有原生 opencode UI 域的独立服务器注册表——经 18:26 存量连接通知(「已连接到 192.168.110.95:4199」)deep-link 误入时发现其服务器页条目 `192.168.110.95:4199→http://192.168.110.248:4199`(已连接),与 DSH Home 页(2 条目)分属两套 UI/注册表,互不干扰(详见 W5-notes 意外观测 4)
 
 ### E3 通知发布/三清除径撤除(#320)
 - 前置:app 将退后台;测试会话 E2E06-E3 在设备端就绪
@@ -398,20 +397,21 @@
   - **c 断开撤除**:制造一条未处理通知(如提问卡未应答时 HOME)→ 服务器页断开 prod-3080 → dumpsys 断言相关通知撤除 → **重连恢复「已连接」**(放 W5 最后执行,断开期间不得执行其他 3080 item)
   - **d 审批处置撤除**:依赖受限权限档=BLOCKED-environment(注¹)
 - 判定:各径 dumpsys 前后对比摘录;标题错乱/不撤=✘
-- 实测记录:(待填)
+- 实测记录:**发布+直达 ✔;b 径=观测记录(队列类通知形态不存在);c 径 ✘(见 E3c);d 径 BLOCKED-environment(注¹)**(2026-09-06 20:33-20:42,W5)。**发布+直达**:新建 e2e06-e3 会话(workspace,模型手选 zai-coding-cn·GLM-5.3-Flash,新会话默认仍 deepseek-official 欠费)发送 `e2e06-e3,reply with one short sentence`(IME 吞空格落地 replywithoneshortsentence,W1 同款)→ **立即 HOME**(20:34:49)→ 轮次 3.6s 完成(20:34:51.724 SessionIdle)→ 首轮 poll ~4.5s 内 **「就绪 · e2e06-e3,replywithoneshortsentence」通知发布**(opencode_tasks 通道,标题正确;notification text=transcript 尾片段「<system-reminder> A skill is…」——text 字段取样含系统注入消息,观测记录)。**直达**:展开 shade → 组栈内该卡在场([210,417][1122,477])→ **tap 卡片主体区 (600,700) → app 打开并直达该会话**(ChatScreen=该会话转录+回复「This appears to be a test ping — ready and standing by.」在场,E3-session-entered/E3-after-tap.png);tap 后 dumpsys **该通知撤除**。**操作坑(MIUI shade)**:tap 标题条带 (666,447)/(600,447) 均不触发 contentIntent(该卡视觉消失但 shade 不关、dumpsys 仍在、activity 不启动);仅卡体区 tap 有效(与 E4② 失败对照,详见 E4)——组子卡可点区=卡体非标题行。**a 应答撤除**:与 E4 三段链互证 ✔(E4③:replyToQuestion success+PendingNotifRevoker Revoked QUESTION+dumpsys 0)。**b 轮末消费撤除(本波补观测)**:严格意义「队列消费触发撤除」的队列类通知在当前构建不存在(W3/C2 交叉:app 前台全程无队列类通知发布)=BLOCKED-无此通知形态注记;**后台轮末完成(就绪)通知保留性时序观测**:第二轮消息 20:40:31.363 发出→HOME→通知在场→**无交互 +30s/+60s 均 count=1(保留)**→**launcher 重进 app+前台查看该会话 ≥30s 仍 count=1(不因查看撤除)**→对照第一轮 tap 后即撤=**撤除仅由通知 tap(autoCancel)触发**;遗留 18:42「就绪 · e2e06-a1-api」通知(从未被 tap)持续在场与本观测一致;终局该遗留通知在 E4 期 resync 中消失(见 W5-notes 时间线)。**操作侧注记**:第二轮消息首跳因输入框坐标盲 tap 落空未发出(logcat 无 Sent prompt),重定位后成功——非 app 缺陷。证据:E3-*.png/xml 6 项+W5-notif-poll/retain* dumpsys 快照 5 份+logcat Sent prompt/Idle 行
+  - **c 断开撤除+重连(E3c,本 wave 最后执行)=撤除 ✘/重连 ✔**(2026-09-06 21:03-21:07,W5,录屏 W5-E3c-seg1.mp4)。**未处理通知制造**:e2e06-e5 会话二轮 B1 型提示(e2e06-e3c 前缀,tea/coffee)→ 卡在场(21:04:00.233 Question asked,「Which do you prefer: tea or coffee?」+Tea/Coffee)→ HOME(21:04:10.393)→「问题 · e2e06-e5」通知 count=1 ✓。**断开**:导航 服务器页(列表顶栏返回直达)→ prod-3080「断开连接」(21:05:19.232;logcat `ConnLifecycle: Disconnecting server e86084c4`+`SessionEventHandler: Clearing state(161 sessions)`;UI 已连接→连接钮)。**dumpsys 断言撤除 ✘**:断开后 +4s/+14s/+17s 三采样,**9 条通知全部仍在**(问题·e2e06-e5+错误·hi×7+错误·echo g2-once+组摘要;无任何 cancel 日志)——**源码定音:disconnect() 路径无通知撤除调用**(cancelSessionNotifications 仅 ChatViewModel:382 进会话调用;cancelInteractionNotifications 仅 PendingInteractionNotificationRevoker:111 应答/忽略调用)→ 断开撤除在当前构建缺失。附观测:断开后 ~17s 仍有 L2 stale re-confirm 的 session/list 请求发往 3080。**重连恢复 ✔**:tap 连接(21:06:99.247)→ **3s 内「已连接」恢复**(E3c-after-reconnect.png;条目=2 复原)。**重连期意外**:QuestionAsked SSE 重放 → `buildSessionPath: session 564060d3 not found`(warn,注册表未及水化)→ **Revoker 反将未处理问题通知撤除**(21:06:59.723;问题本身仍 pending)——通知撤除经「重放+路径缺失」失败路径达成而非断开设计;另 resync 新发「就绪 · This is an end-to-end test」+「错误 · e2e06-d6」(旧 Insufficient Balance 轮)。断开期间未执行任何其他 3080 item ✓。证据:W5-notif-e3c-pre/post.txt+E3c-before/after-disconnect/after-reconnect.png+logcat ConnLifecycle/Revoker 行
 
 ### E4 退后台补发三段链(#336)
 - 前置:app 前台;设备端新建会话发送 B1 同型提示(前缀 E2E06-E4),**等待提问卡在场**(dump/截图确认卡可见=前台抑制期基线)
 - 操作:①卡在场时 HOME → 等 3s → dumpsys 查通知(补发) ②tap 通知 → 回到该会话 ③tap 选项应答 → dumpsys 查通知撤除;全程录屏
 - 期望:三段全过:前台无通知→后台补发→tap 直达→应答撤除
 - 判定:各段 dumpsys 断言+录屏;某段失败=✘
-- 实测记录:(待填)
+- 实测记录:**①补发 ✔ ②tap 直达 ✘(MIUI shade 组子卡) ③应答撤除 ✔**(2026-09-06 20:44-20:58,W5,录屏 W5-E4-seg1~4.mp4 全程)。**前置**:新建 e2e06-e4 会话(zai flash)发送 B1 同型提示(e2e06-e4 前缀,ask_user_question 显名,下划线经 keycombination SHIFT+MINUS 落地)→ **卡 4.4s 在场**(20:44:30.261 Question asked session-6a746eb5;卡 dump:待你回答+SINGLE+「Apple or banana?」+Apple/Banana+忽略/提交,E4-card-present.xml)。**① 前台抑制期基线→后台补发**:卡前台 dumpsys **无问题通知**(仅就绪 e2e06-e3/a1-api 遗留+组摘要)→ HOME(20:45:24.902)→ +3s dumpsys **「问题 · e2e06-e4,pleasecalltheask_user_questiont」发布**(opencode_questions 通道,importance=4)✓ 前后对照在案(W5-notif-e4-fg-baseline/after-home.txt)。**② tap 通知回会话 ✘**:MIUI shade 通知组(opencode_*)子卡 **tap 不触发 contentIntent**——标题条带 (600,660)/(600,447)、卡体 (600,850)、图标区 (100,655) 多轮尝试均无 activity 启动(焦点恒 NotificationShade/dumpsys 通知仍在/无 autoCancel);**对照:独立卡 tap 有效**(OC Beacon 连接通知卡 tap → app 启动)=shade tap 本身有效,组子卡为特例;E3 成功坐标 (600,700) 在本布局命中下方淘宝广告卡([665,911] 覆盖组卡下段)→**误开淘宝**(录屏在案)。诊断性连接卡 tap 的**连锁副作用**:该通知为 18:26 存量 4199 连接通知 → app 经其 deep-link 进 4199 原生域会话列表 → 恢复触发 prod-3080 全量重同步(**错误通知 flood:「错误 · hi」×7-8+「错误 · 用 bash 执行 echo g2-once」,app 正确 Skip stale idle ×数十;原有问题/就绪通知在 resync 期全部撤除后按事件重发**)→ 冷启(force-stop+am start,COLD 873ms)复位回 DSH Home(条目=2)。**③ 应答撤除 ✔**:导航回 e2e06-e4 会话(卡仍待回答)→ tap Apple→提交 → logcat 20:57:54.192 `replyToQuestion result success=true`+20:57:54.193 `PendingNotifRevoker: Revoked QUESTION notification for session session-6a746eb5` → dumpsys 问题通知 count=0 ✓;**代理复述在场:「You chose apple.」**(E4-final-transcript.png)。注:②失败期间问题通知经 20:53:46/20:56:58/20:57:04 三次重发(resync/冷启重放),最终由 ③ 应答撤除。证据:E4-*.png/xml 8 项+dumpsys 快照 4 份+录屏 4 段(shade 交互全程可人工复盘)
 
 ### E5 子会话父槽撤除(#337)
 - 前置:设备端会话发送「E2E06-E5:请派一个子代理,让子代理调用 ask_user_question 提问任意问题」→ 等子会话提问(冒泡父槽)
 - 操作:HOME 后台 → 父槽通知在场(dumpsys)→ tap 直达 → 应答 → dumpsys 断言父槽通知撤除(无误撤他人/不漏撤)
 - 判定:dumpsys 前后对比;模型不派子代理=BLOCKED-model(prior A4 三段链证据)
-- 实测记录:(待填)
+- 实测记录:**父槽发布 ✔/应答撤除 ✔/tap 直达 ✘(同 E4② shade 组卡)/模型派子代理 ✔(非 BLOCKED-model)**(2026-09-06 20:59-21:03,W5,录屏 W5-E5-seg1.mp4)。**派发**:新建 e2e06-e5 会话(zai flash)发送 `e2e06-e5,please dispatch one subagent and tell the subagent to call the ask_user_question tool to ask me any simple question` → **模型派了子代理**:转录「Dispatched ✅ — one subagent is now running (test id: e2e06-e5)」+「Subagent id: 6f39c58a-e6aa…」+轮次 1 台账(8.9s·3 步·1 个工具)。**冒泡父槽**:21:00:15.218 `Question asked for session 6f39c58a(子) (target=session-564060d3(父))`——父槽语义正确;父会话卡在场(选项 Neither/No preference / something else+输入答案/忽略/提交,E5-card-present.xml)。**HOME→父槽通知**:前台基线 dumpsys e2e06-e5 通知=0(抑制 ✓)→ HOME(21:00:52.720)→ +3s **「问题 · e2e06-e5,pleasedispatchonesubagentandtel」发布**(opencode_questions,W5-notif-e5-fg/after-home.txt 对照)。**tap 直达 ✘**:shade 组子卡 tap 同 E4② 不触发(此轮 (600,700) 命中淘宝广告卡误开淘宝、(600,635) 无效;错误通知 flood 已把组栈挤乱,详见 W5-notes)。**应答撤除 ✔**:app 暖恢复直达会话(卡仍待回答)→ tap No preference→提交 → logcat 21:03:10.583 `replyToQuestion answers=[[Neither]] success=true`+21:03:10.585 **`PendingNotifRevoker: Revoked QUESTION notification for session 6f39c58a(target=session-564060d3)`——父槽通知撤除** → dumpsys count=0 ✓;**无误撤他人**(错误·hi 等 8 条通知在场不动)/不漏撤(e5 问题通知恰撤)。证据:E5-*.png/xml+dumpsys 快照 3 份+录屏 1 段
 
 ---
 
@@ -422,42 +422,42 @@
 - 操作:列表↔会话↔设置↔诊断往返;BACK 键逐级
 - 期望:无死路;BACK 逐级返回;无白屏
 - 判定:逐跳截图
-- 实测记录:(待填)
+- 实测记录:**✔**(2026-09-06 21:19-21:27,W6)。全链往返无死路/无白屏(BACK 逐级实测):①服务器管理页→prod-3080「会话」钮→会话列表(G1-list.xml/png);②列表→进 e2e06-f1 会话→转录完整渲染→**BACK 键回列表 ✓**(G1-session/G1-after-back);③列表底部「设置」tab→服务器域设置页(新会话默认权限/Agent 预设/服务器配置/插件/MCP/标签,G1-settings.png)→**BACK→服务器管理页**(跳过会话列表=返回栈观察记录,非死路);④服务器页顶栏「设置」图标→app 设置页(通用/外观/聊天显示/存储/高级/通知,G1-appsettings*.png);⑤「高级→诊断」→诊断屏开(G1-diagnostics.png)→**BACK→设置页 ✓**;⑥设置页「关闭」(X)→服务器管理页 ✓。导航观察:列表页底部 tab=会话/设置双 tab;W1 已记录的服务器页 BACK=退 app 行为本 wave未复测(会退出 app,非断言面)
 
 ### G2 主题切换
 - 前置:任页面
 - 操作:深色↔浅色切换;重进会话
 - 期望:渲染正常无破碎
 - 判定:截图两态
-- 实测记录:(待填)
+- 实测记录:**✔**(2026-09-06 21:27-21:29,W6,app 设置→外观→主题)。原态=系统默认(深色,bg 像素 (16,20,23));「选择主题」对话框(系统默认/浅色/深色三选):**切浅色**→设置页整体 bg (247,250,253) 全量翻转(G2-light.png);**重进会话**(e2e06-f1)渲染正常:用户气泡浅蓝 (198,232,253)+转录文本+轮次台账全渲染无破碎(G2-light-session.xml/png);**切深色**(反向)→bg (16,20,23) 复原(G2-dark.png,对话框「已选择」徽标随迁);**复原系统默认**→bg (16,20,23)+主题值复原(G2-restored.png)。主题设置零残留
 
 ### G3 i18n 抽查(3.11★1)
 - 前置:无
 - 操作:双路:①应用内若有语言设置则切 English 查本批新增文案(队列/反馈/归档/搜索/命令卡相关),查完切回;②宿主跑 `./scripts/i18n-check.sh` 静态检查+抽查 values-zh/values-en 对应本批新键存在
 - 期望:①英译在场非 key 裸奔;②脚本 0 error
 - 判定:截图+脚本输出;key 裸奔/脚本 error=✘
-- 实测记录:(待填)
+- 实测记录:**✔ 双路全过**(2026-09-06 21:28-21:33,W6)。**①应用内语言切换路径存在且生效**:app 设置→通用→语言→「选择语言」对话框(系统默认+15 语言)→English→activity 重建(locale list→[en],21:28:44)→全 UI 英文无 key 裸奔,本批新增文案英译逐项在场:Search sessions…(搜索)/Queue (0)+No queued messages(排队队列)/Rate as helpful·Rate as unhelpful(反馈)/Archive·Rename Session·Session Details(归档行菜单)/Fork from this turn(分支)/Turn N · Ns · N steps · N tools(台账)/Ask a question…(composer)(G3-english2/G3-en-list/G3-en-fabmenu/G3-en-queuesheet/G3-en-rowmenu2.png);切回系统默认→中文复原(跨 G4 冷启保持,G4 后 UI=中文)。注:切 English 后首帧 dump 仍中文=重建时滞,~4s 后复查全英文;logcat 同刻 MIUI SettingTrigger NoSuchFieldException=系统噪音非 app。**②宿主静态检查**:`./scripts/i18n-check.sh` **PASSED(867 keys × 14 languages,exit=0)**;本批新键 EN/zh-rCN 双在场:dsh_providers_section_title(values/strings.xml:950 "DSH provider directory"/values-zh-rCN:871 "DSH provider 目录",与 W4-D2 实测 UI 文案一致)、dsh_provider_add_custom(952 "Add custom provider"/873 "新增自定义 provider",=W4 实测 Add 图标 desc)、dsh_provider* 族 23 键两语言全等、queue_* 族 8 键全等(queue_edit/remove/steer/edit_hint/title/empty/steer_unavailable/action_failed,与①在 app 实测文案互证);键集合 EN=zh-rCN=pt-rBR 逐键一致(863 string+4 plurals)
 
 ### G4 Host-4199 冒烟(V1V2)
 - 前置:tcp:4199 reverse 在
 - 操作:`./scripts/debug-entry.sh 192.168.110.239:5555` 冷启直达 → 列表加载 → 开会话发一轮
 - 期望:4199 连接正常;基础收发通
 - 判定:回复在场截图;连不上=BLOCKED(记录诊断输出)
-- 实测记录:(待填)
+- 实测记录:**✘(连接+发送 ✔/回复 ✘=4199 服务器模型通道故障,非 app 缺陷;按「只发一轮」纪律一轮即止)**(2026-09-06 21:34-21:37,W6)。`./scripts/debug-entry.sh 192.168.110.239:5555` **成功**:"Debug channel → SessionList for server 6b1cd280"(Host-4199,PID→7568,采集器随换);4199 会话列表加载正常(leo-tkp 工作区 38 会话+旧 smoke 会话,全程未触碰)。新会话首条 `e2e06-g4,reply,with,one,short,sentence`(会话 ses_f89117f6,默认模型 Build·opencode-go·Omen Alpha)→ **发送 ✔**(21:35:36 Busy/Streaming,user 气泡渲染)→ assistant 轮**服务端失败**:session.retry.scheduled ×4(21:35:36-49)→ **session.step.failed provider.transport**(21:36:02.510,error.type=provider.transport);UI 呈现:轮次 1 · 26.5s 台账+错误态卡(dump 失明区,像素证实暗青色 (30,76,98) 错误卡面),无回复正文,会话回 idle(G4-failed.png/G4-reply*.xml)。**复位**:force-stop+am start→COLD TotalTime=870ms→**DSH Home 条目=2 ✓**(Host-4199 已连接成为活动连接/prod-3080 未连接→为 G6 手动重连,终态双已连接;G4-reset-home.png)。G4 会话留存未删(4199 域)
 
 ### G5 诊断屏日志
 - 前置:app 已使用一段时间
 - 操作:进 Diagnostics;检索关键字 `queue` 与 `notification`
 - 期望:各至少 1 行匹配;无异常刷屏
 - 判定:截图
-- 实测记录:(待填)
+- 实测记录:**✔**(2026-09-06 21:38-21:41,W6;G4 后新 PID 7491 缓冲)。诊断屏(设置→高级→诊断,级别 chips FATAL/ERROR/WARN/INFO/DEBUG+搜索框,缓冲 1000/1000):**检索 `queue`→9 条可见命中**,全为 WARN「persist queue full, dropped 1150→1500 write requests (Room slower than SSE production)」族(重同步期 Room 持久化背压告警,50 递增,重要观测归 notes);**检索 `notification`→首查 0/1000**(resync 洪流将 21:38:12 PendingNotifRevoker 行逐出 1000 环形缓冲)→以 app 自带「设置→通知→发送测试通知」钮确定性产生日志(AppNotificationMgr INFO 21:40:55「Self-test notification posted on channel opencode_tasks」)→**复检 1/1000 命中 ✓**(G5-search-notif4.png);queue 命中 G5-search-queue.png。测试通知事后经 shade 滑除(posted 10→9,余 9=W5 遗留错误/连接通知)。刷屏评估:重复告警族在场但受控(每屏 ≤9 条同族),无失控刷屏
 
 ### G6 未读红点(3.3★4,3.10★4)
 - 前置:会话 P 打开中;另一会话 Q(E2E06-G6)就绪
 - 操作:在 Q 发送「E2E06-G6:回复一句话」→ **立即切到会话 P**(保持 Q 不在读)→ 等 Q 回复到达 → 列表查 Q 行未读标记 → 点进 Q → 返回列表复查
 - 期望:未读标记出现;进入后清除
 - 判定:截图前后;标记不出现或不清除=✘(若时序难以构造宿主注入,可用 E 组通知会话的未读态,记录构造路径)
-- 实测记录:(待填)
+- 实测记录:**✔(未读点进场清除实证;W5 遗留 pending 会话素材腿如实记录)**(2026-09-06 21:42-21:45,W6)。**Leg A(W6 任务书指定素材 e2e06-e5)**:进场前列表行徽章=「待回答」在场 [461,875][564,918],**无未读点**(其 tea/coffee 问题在 W5 期间于会话内已读);进会话→pending 卡完整在场(待你回答+SINGLE+「Which do you prefer: tea or coffee?」+Tea/Coffee+忽略/提交,**全程未应答**)→返回列表→「待回答」徽章保持(问题仍 pending,**已保全供 E4② 人工复验**)(G6-e5-entered/G6-e5-after)。**Leg B(未读点清除语义)**:列表另有 3 行带「有未读消息」a11y 点(e2e06-a1-api 18:42/e2e06-b2 18:34/e2e06-b8 18:22,构造路径=真实未读事件:a1-api 为宿主 API prompt 时 app 在别处,b2/b8 为 W5 resync 洪流标记)→取 e2e06-b2(点 [126,1985][144,2003])→进会话→返回→**该行未读点消失**(a1-api/b8 两点原样不动)=进场清除 ✓(G6-list-before/G6-b2-after 对照)。附观测:e5 会话标题栏「1」数字徽标(待答计数?)在场记录
 
 ---
 
@@ -468,18 +468,18 @@
 - 操作:汇总 `grep -c 'FATAL EXCEPTION' /tmp/e2e-full/W*-logcat.log /tmp/e2e-full/W*-crash.log`;`adb shell dumpsys dropbox --print | grep -cE 'crash|anr'`(限本应用)
 - 期望:FATAL=0;ANR=0;dropbox 无本应用新条目
 - 判定:计数输出记录;>0=✘(最高严重度)
-- 实测记录:(待填)
+- 实测记录:**✔ FATAL=0/ANR=0 全程六波**(2026-09-06 21:46-21:48,W6 汇总)。逐文件计数:`grep -c 'FATAL EXCEPTION'` W1-logcat(501,950 行)=0 · W2(224,374)=0 · W3(235,945)=0 · W4(235,437)=0 · W5(368,172)=0 · W6(327,648)=0;ANR(grep 'ANR in |Application Not Responding')六波全 0;crash buffer 文件 W1~W6-crash.log 全部 **0 字节**;W6 AndroidRuntime E 级=0。dropbox(dumpsys dropbox --print):共 12 条,涉本应用 data_app_crash **9 条,全部在回归窗口(2026-09-06 11:14-21:5x)之前**——4 条 2026-09-03 12:41-13:03(OutOfMemoryError/Compose 布局族)+5 条 2026-09-06 04:48-05:20,后者构建 v1788639484/v1788642622 **≠** 本回归实测构建(v1788664302 11:14/v1788688910 18:39),均凌晨旧会话遗留;**窗口内 0 新增**(W6-dropbox-full.txt 存证)
 
 ### H2 存储直查(#335 非破坏,3.9★1)
 - 前置:无
 - 操作:①`adb shell run-as dev.leonardo.ocbeacon.dev ls files/datastore/`;②`./scripts/pull-app-db.sh 192.168.110.239:5555` 拉库后 sqlite3 直查 sessions 与 messages 表行数(记录数值)
 - 期望:①无 `*.corrupt-*` 文件;②行数>0 与本测试会话数一致量级
 - 判定:文件列表+SQL 计数记录;出现 corrupt=✘(附注:#335 恢复路径已有 3 例单测,prior 0bbe999f)
-- 实测记录:(待填)
+- 实测记录:**✔ 无 corrupt/库完好**(2026-09-06 21:49-21:51,W6)。①`run-as dev.leonardo.ocbeacon.dev ls files/datastore/`=**仅 opencode_prefs.preferences_pb,无 *.corrupt-***;databases/=ocbeacon.db+-shm+-wal(WAL 三件套正常)+leaks.db(+journal),无 corrupt 件。②`./scripts/pull-app-db.sh 192.168.110.239:5555 /tmp/e2e-full/W6-db`(WAL 三件套+integrity 循环):**首拉即 integrity=ok**;实际 schema 为冷存桶模型(checklist 措辞「sessions/messages 表」对应实际表如下):**cached_sessions=2**(热窗口:G4 的 4199 会话 ses_f89117f6+刚访问的 e2e06-b2 session-dae91814)、**cached_messages=12,764**、cached_parts=11,748、**archive_buckets=684**(设置页显示桶数 680+当日增量)、logs=44,566;cached_messages 按 sessionId 分组全量在库:父编排会话 1000(窗口上限)、全部 E2E06 会话(dae91814=17/455df04a=3/6a746eb5=2/564060d3=10/67b5c44d=7/88b6d0b8=24/89a20513=44/f9aa17ae=15/fbc96c4e=4/e2e06a1top01=3/7ccdfe0f=3/3bb683ff=27)+probe 子代理族(fc307231 系/孙代 a3048811·37b3d8c9·ad08176e 各 1)+E5 子代理 6f39c58a=6——与本测试会话量级一致 ✓
 
 ### H3 数据安全终检
 - 前置:全部 wave 完成
 - 操作:服务器页+工作区+会话列表终查;汇总各 wave notes 的宿主派生会话清单
 - 期望:服务器条目=2;main 工作区在;非测试会话未被动;E2E06 测试会话留存清单列出;宿主派生会话(probe-* 等)留存清单列出;可选:清理 /sdcard 录屏残留
 - 判定:dump/截图+清单;违任一=✘(最高严重度)
-- 实测记录:(待填)
+- 实测记录:**✔(含 1 条跨 wave 记录分歧移交主 agent)**(2026-09-06 21:52-22:0x,W6)。**服务器条目=2 ✓**(终态 dump:Host-4199 http://127.0.0.1:4199 已连接+prod-3080 http://127.0.0.1:3080 已连接·DSH,H3-final-serverpage.png;app 终态停服务器管理页,同 W5 惯例)。**main 工作区在场 ✓**:新建会话 quick dialog=workspace(/home/leo-tkp/workspace,29)/oc-beacon(…/mine/oc-beacon,1)/外包维权工作区(2)三既有条目,零测试新增,对话框取消零残留(H3-workspaces.png)。**非测试会话未被动 ✓**:父编排会话行「处理中」原样、9月4/9月5 旧会话全在位;归档区=**6 行全枚举**:mkdir(9月6 20:03)/e2e06-d6(19:53)/hi(9月5 22:20)/count from 1 to 50(9月5 12:38)/根据这个handoff 继续吧(9月4 11:11)/安装这几个插件(9月4 11:04)(H3-arch8/H3-archive-final.png)——**分歧记录:W4-notes 所记「无标题会话(20:05)已归档」未在归档区或主列表预期时间位复现**(W6 只观测不修复,供主 agent 裁量:W4 归档动作可能未生效或该 blank 行已被服务器侧清理)。**E2E06 会话清单+宿主派生留存清单**见 W6-notes §清单。**/sdcard 清理(可选腿,已执行)**:本轮 W1-W6 dump xml ~140 件(w1-*/w2/w3/w4-*/w5.xml/e2e_smoke.xml)全删;W3 录屏 mp4×4(163MB)宿主副本字节级核验在场后删设备副本;保留=主 agent 0906 补测 xml(a2r*/n*/sup*/v*/x*/y*/z*,部分宿主无副本,证据保全)+前批文件(2026-08-20~09-05)+Download 用户个人文件(未触碰);G5 测试通知已撤(posted 10→9,余 9=W5 遗留通知,归 W5 观测 5 族)
