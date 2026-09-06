@@ -51,6 +51,29 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
+ * #331 A2-r3：前插揭示裁决——head id 变化（有行前插到列表顶）且用户本在列表顶
+ * （离开时/变更前首可见索引 0）→ 揭示（scrollToItem(0)）。
+ *
+ * 真机插桩取证（2026-09-06 /tmp/a2r3_probe2.log + a2r3_fix.log）：fork 行四 seam
+ * （handler fold / 仓库发射 / VM combine / contentState）全部在场且列头位，但视口
+ * 首行仍是旧头——LazyColumn 按键锚定把前插行留在视口之上；返回时 ON_RESUME 的
+ * scrollToItem(0) 先于 WhileSubscribed5s 重订阅的新状态（~360ms）执行，随后数据
+ * 变更重布局又把锚点拉回旧头（真机复核取证：decide 瞬间读到的是重布局中途的可见
+ * 键，first=新行/idx=1 抖动）。
+ *
+ * 因此裁决只吃**无竞态**信号：head id（纯数据）+ 组合期读取的 firstVisibleItemIndex
+ * （此刻新条目尚未布局，读到的是前次布局的稳定锚定位）。可见键类布局读数一律不用。
+ */
+internal fun shouldRevealPrependedHead(
+    previousHeadId: String?,
+    newHeadId: String?,
+    wasAtTopWhenChanged: Boolean,
+): Boolean = previousHeadId != null &&
+    newHeadId != null &&
+    previousHeadId != newHeadId &&
+    wasAtTopWhenChanged
+
+/**
  * 会话树形列表（LazyColumn）——含分页加载、滚动恢复和目录/会话节点渲染。
  */
 @Composable
@@ -95,6 +118,23 @@ internal fun SessionTreeList(
         if (shouldLoadMore && viewModel.hasMorePages && !viewModel.isLoadingMore) {
             viewModel.loadMore()
         }
+    }
+
+    // #331 A2-r3：前插揭示——离开列表期间新行（fork 即插/added 帧等）前插到 head
+    // 时，LazyColumn 按键锚定的视口停在旧 head 上（新行在锚点之上不可见）。
+    // head 变化 + 用户本在顶部 → 滚回 0 揭示；中部浏览不拉动。
+    // prev 用 remember（非 saveable）：返回后首帧重新播种，避免把离开前的
+    // head 误当「刚被前插的旧 head」。
+    val revealPreviousHeadId = remember { mutableStateOf<String?>(null) }
+    val headNodeId = treeNodes.firstOrNull()?.id
+    // 组合期读取（新条目此时尚未布局 → 前次布局的稳定值，避开重布局竞态）
+    val revealWasAtTop = listState.firstVisibleItemIndex == 0
+    LaunchedEffect(headNodeId) {
+        val previousHeadId = revealPreviousHeadId.value
+        if (shouldRevealPrependedHead(previousHeadId, headNodeId, revealWasAtTop)) {
+            listState.scrollToItem(0)
+        }
+        revealPreviousHeadId.value = headNodeId
     }
 
     // 仅当从用户发送过消息的会话返回时滚动到顶部。
