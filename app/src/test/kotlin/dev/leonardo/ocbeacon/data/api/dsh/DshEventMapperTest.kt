@@ -55,6 +55,59 @@ class DshEventMapperTest {
     private fun eventsOf(mapped: List<DshMappedEvent>): List<SseEvent> =
         mapped.filterIsInstance<DshMappedEvent.Sse>().map { it.event }
 
+    // ---- host/session-added：updatedAt 透传 + parentId origin 判别（#331）--------
+
+    /** #331：added 帧携带 updatedAt（服务器 summaryFor 实证）→ SessionCreated
+     *  time.updated 采真值——否则 epoch0 使新会话行按 updated 倒序沉列表底部。 */
+    @Test
+    fun `host session-added maps wire updatedAt into time updated`() {
+        val events = eventsOf(
+            DshEventMapper.mapFrame(
+                "host/session-added",
+                json.parseToJsonElement(
+                    """{"sessionId":"s1","cwd":"/tmp","updatedAt":1788626112891}""",
+                ).let { it as JsonObject },
+                "",
+            ),
+        )
+        val created = events.filterIsInstance<SseEvent.SessionCreated>().single()
+        assertEquals(1788626112891L, created.info.time.updated)
+    }
+
+    /** #331/#333：fork 子会话 added 帧（parentSessionId 在、origin 缺席）→ parentId
+     *  null（普通会话——validateAddress 对 origin!=subagent 恒给 session 地址；
+     *  app 侧 parentId=「durable subagent 父」语义，非 subagent 不占用）。 */
+    @Test
+    fun `host session-added fork child without origin keeps parentId null`() {
+        val events = eventsOf(
+            DshEventMapper.mapFrame(
+                "host/session-added",
+                json.parseToJsonElement(
+                    """{"sessionId":"s-fork","cwd":"/w","parentSessionId":"s-parent","updatedAt":5}""",
+                ).let { it as JsonObject },
+                "",
+            ),
+        )
+        val created = events.filterIsInstance<SseEvent.SessionCreated>().single()
+        assertNull(created.info.parentId)
+    }
+
+    /** origin=subagent added 帧 → parentId 保留（#310① 既有 durable 语义回归钉）。 */
+    @Test
+    fun `host session-added subagent child keeps parentId`() {
+        val events = eventsOf(
+            DshEventMapper.mapFrame(
+                "host/session-added",
+                json.parseToJsonElement(
+                    """{"sessionId":"s-child","cwd":"/w","parentSessionId":"s-parent","origin":"subagent","updatedAt":5}""",
+                ).let { it as JsonObject },
+                "",
+            ),
+        )
+        val created = events.filterIsInstance<SseEvent.SessionCreated>().single()
+        assertEquals("s-parent", created.info.parentId)
+    }
+
     // ============ mux 帧面：连接信号 ============
 
     @Test

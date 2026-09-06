@@ -391,6 +391,13 @@ class DshMuxSynthesizer(
                     buildJsonObject {
                         put("sessionId", sid)
                         (summary["cwd"] as? JsonPrimitive)?.let { put("cwd", it) }
+                        // #331：added 摘要（SessionSummary）带 updatedAt（服务器
+                        // summaryFor 实证）——透传给 mapper 采真值，否则
+                        // SessionCreated.time.updated=epoch0 新行沉列表底部。
+                        (summary["updatedAt"] as? JsonPrimitive)?.let { put("updatedAt", it) }
+                        // #333：origin 透传（subagent 判别键——fork 子会话
+                        // parentSessionId 在但 origin 缺席，是普通会话）。
+                        (summary["origin"] as? JsonPrimitive)?.let { put("origin", it) }
                         // #310① A8 缺陷B修复：added 摘要是 SessionSummary——wire 键是
                         // parentSessionId（服务器 listFields 摊 header.parentSession）；
                         // parentSession 是 SessionWireHeader（follow snapshot 头）键。

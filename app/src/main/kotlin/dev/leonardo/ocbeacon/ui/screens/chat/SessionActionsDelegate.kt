@@ -656,12 +656,32 @@ internal class SessionActionsDelegate(
             try {
                 val session = manageSessionUseCase.forkSession(serverId, sessionId, anchorMessageId)
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "Forked session $sessionId@${anchorMessageId ?: "tail"} -> ${session.id}")
+                // #331：回执即插行——fork 回显只有 {sessionId}（0.1.2 schema），
+                // added 帧腿（updatedAt 透传修复后）可补真值，但两条腿都不落地的话
+                // 列表只能等下一次 session.list 基线（观测 ~3min）才见新行。目录/
+                // 标题继承父行；updated 已由 echoClock 补排序位（DshApiClient）。
+                insertForkReceiptRow(session)
                 onResult(session)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to fork session", e)
                 onResult(null)
             }
+        }
+    }
+
+    /** #331：回执行注入仓库（setSessions 合并语义——幂等，与 added 帧/基线共存）。 */
+    private suspend fun insertForkReceiptRow(receipt: Session) {
+        try {
+            val parent = chatRepository.getSessionsSnapshot().firstOrNull { it.id == sessionId }
+            val row = receipt.copy(
+                directory = receipt.directory.ifBlank { parent?.directory ?: "" },
+                title = receipt.title ?: parent?.title,
+            )
+            sessionRepository.setSessions(serverId, listOf(row))
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            AppLogger.w(TAG, "Fork receipt row insert failed (list will catch up on baseline): ${e.message}")
         }
     }
 

@@ -418,12 +418,18 @@ object DshEventMapper {
                 DshMappedEvent.Sse(
                     SseEvent.SessionCreated(
                         // 最小构造（任务裁决）：cwd→directory、parentSessionId→parentId；
-                        // 帧无时间字段 → time 必填以 epoch0 占位，#276 由 session.list 再基线
+                        // #331：added 摘要带 updatedAt（mux 合成帧透传）→ time.updated
+                        // 采真值（缺席保持 epoch0 占位，#276 由 session.list 再基线）。
+                        // #333：parentId 仅 origin=subagent 时置（app 侧 parentId=
+                        // 「durable subagent 父」语义；fork 子会话 parentSessionId 在
+                        // 但 origin 缺席，是普通会话——置 parentId 会被列表过滤 +
+                        // 发送误路由 subagents/prompt）。
                         Session(
                             id = sid,
                             directory = payload.str("cwd") ?: "",
-                            parentId = payload.str("parentSessionId"),
-                            time = Session.Time(created = 0L, updated = 0L),
+                            parentId = payload.str("parentSessionId")
+                                ?.takeIf { payload.str("origin") == "subagent" },
+                            time = Session.Time(created = 0L, updated = payload.long("updatedAt") ?: 0L),
                         )
                     )
                 )

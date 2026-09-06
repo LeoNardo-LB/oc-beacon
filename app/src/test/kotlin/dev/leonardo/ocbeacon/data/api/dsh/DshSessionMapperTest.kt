@@ -25,9 +25,11 @@ class DshSessionMapperTest {
 
     @Test
     fun `maps full item field by field`() {
+        // origin 唯一 wire 值是 "subagent"（服务器 listFields 仅 header.origin 在场时摊出，
+        // session 包 origin?: "subagent"）；#331 起 parentId 仅 subagent 行映射。
         val item = obj("""{
             "sessionId":"sess-0001","updatedAt":1788109000023,"running":true,"blank":false,
-            "parentSessionId":"sess-0000","origin":"user","cwd":"/home/user/project",
+            "parentSessionId":"sess-0000","origin":"subagent","cwd":"/home/user/project",
             "agentPreset":"code",
             "projections":{"asOfSeq":17,"values":{
                 "title":{"title":"fixture session"},
@@ -209,6 +211,31 @@ class DshSessionMapperTest {
         assertNull(session.contextPressure)
         assertNull(session.contextBreakdown)
         assertNull(session.sessionStats)
+    }
+
+    // ---- toSession：parentId origin 判别（#331）---------------------------
+    // Session.parentId 在 app 侧的语义 = durable subagent 父（ChatSendDelegate
+    // subagents/prompt 分流 / interruptByParent / 列表 parentId==null 过滤均按此
+    // 解释）；fork 子会话（parentSessionId 在、origin 缺席）是普通会话——不为它
+    // 置 parentId，否则行被列表滤除 + 发送误路由 subagents/prompt 被服务器拒
+    // （validateAddress: origin!=subagent 给 subagent 地址 → subagent/unauthorized）。
+
+    @Test
+    fun `toSession fork child without origin keeps parentId null`() {
+        val session = DshSessionMapper.toSession(
+            obj(FORK_CHILD_JSON),
+        )
+        assertEquals("s-fork", session.id)
+        assertNull(session.parentId)
+    }
+
+    @Test
+    fun `toSession subagent child maps parentId`() {
+        val session = DshSessionMapper.toSession(
+            obj(SUBAGENT_CHILD_JSON),
+        )
+        assertEquals("s-child", session.id)
+        assertEquals("s-parent", session.parentId)
     }
 
     // ---- DshSessionAddress.fromListItem origin 判别 #333 --------------------

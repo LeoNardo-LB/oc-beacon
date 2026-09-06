@@ -2249,6 +2249,41 @@ class DshApiClientTest {
         assertFalse(payload.containsKey("atSeq"))
     }
 
+    // ---- #331 回执时间戳：create/fork 回显无 updatedAt（0.1.2 schema 只有
+    // {sessionId, agentPreset?}/{sessionId}）→ 本地时钟补 updated（排序位），
+    // 防 epoch0 沉列表底部。
+
+    @Test
+    fun `v012 createSession echo without updatedAt stamps local clock`() = runTest {
+        val engine = MockEngine { respond(ok("""{"sessionId":"s-new"}"""), HttpStatusCode.OK, jsonHeaders()) }
+        val api = client(engine, DshWireProtocol.V012)
+        api.echoClock = { 1_788_626_112_891L }
+        val session = api.createSession(conn, title = null, parentId = null, directory = "/tmp")
+        assertEquals(1_788_626_112_891L, session.time.updated)
+    }
+
+    @Test
+    fun `v012 forkSession echo without updatedAt stamps local clock`() = runTest {
+        val engine = MockEngine { respond(ok("""{"sessionId":"session-fork-9"}"""), HttpStatusCode.OK, jsonHeaders()) }
+        val api = client(engine)
+        api.echoClock = { 1_788_626_112_892L }
+        val session = api.forkSession(conn, "s-1", null)
+        assertEquals("session-fork-9", session.id)
+        assertEquals(1_788_626_112_892L, session.time.updated)
+    }
+
+    /** 回显带 updatedAt（未来 0.1.2+ 或 V011 形态）→ 采真值不覆盖。 */
+    @Test
+    fun `echo with real updatedAt keeps wire value`() = runTest {
+        val engine = MockEngine {
+            respond(ok("""{"sessionId":"s-real","updatedAt":42}"""), HttpStatusCode.OK, jsonHeaders())
+        }
+        val api = client(engine)
+        api.echoClock = { 9_999L }
+        val session = api.forkSession(conn, "s-1", null)
+        assertEquals(42L, session.time.updated)
+    }
+
     /** 非 seq 形态 id（V2 msg_* 等）→ 不上 atSeq（安全降级为无锚点 fork，不发噬变量）。 */
     @Test
     fun `forkSession omits atSeq for non-seq messageId`() = runTest {

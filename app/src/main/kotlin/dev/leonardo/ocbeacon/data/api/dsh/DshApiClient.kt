@@ -124,6 +124,16 @@ class DshApiClient @Inject constructor(
     private fun protocolOf(conn: ServerConnection): DshWireProtocol =
         protocolSource.protocolOf(conn.baseUrl) ?: DshWireProtocol.V011
 
+    /**
+     * #331：create/fork/rename 回执时钟（测试注入；生产 System.currentTimeMillis）。
+     * 0.1.2 schema 的 session.create/session.fork 回显只有 {sessionId,(agentPreset?)}
+     * **无 updatedAt**（typert.host.js result schema 实证）——回执行若带 epoch0
+     * updated 入库，按 time.updated 倒序沉列表底部（观测「新会话行约 3 分钟才入
+     * 列表顶位」的回执腿）。以本地时钟补排序位；服务器真值由后续 session.list
+     * 基线 / added 帧 updatedAt 覆盖。
+     */
+    internal var echoClock: () -> Long = { System.currentTimeMillis() }
+
     private fun unsupported(method: String): Nothing =
         throw UnsupportedServerCapability(method, "Dsh")
 
@@ -1024,16 +1034,26 @@ class DshApiClient @Inject constructor(
             val mapped = DshSessionMapper.toSession(direct)
             val withBlank = if (blankByDefault && !direct.containsKey("blank")) mapped.copy(blank = true) else mapped
             // 回显形状可能不带 projections.title——请求参数里的 title 是权威回退
-            return if (withBlank.title == null && fallbackTitle != null) withBlank.copy(title = fallbackTitle) else withBlank
+            val withTitle = if (withBlank.title == null && fallbackTitle != null) withBlank.copy(title = fallbackTitle) else withBlank
+            // #331：回显无 updatedAt（0.1.2 schema）→ echoClock 补排序位（防 epoch0 沉底）
+            return stampEchoUpdated(withTitle)
         }
         AppLogger.w(TAG, "session echo shape unrecognized, falling back to minimal session: " + value.toString().take(120))
-        return Session(
-            id = direct?.dshStr("sessionId") ?: fallbackId,
-            title = fallbackTitle,
-            time = Session.Time(created = 0L, updated = 0L),
-            blank = blankByDefault,
+        return stampEchoUpdated(
+            Session(
+                id = direct?.dshStr("sessionId") ?: fallbackId,
+                title = fallbackTitle,
+                time = Session.Time(created = 0L, updated = 0L),
+                blank = blankByDefault,
+            )
         )
     }
+
+    /** #331：updated==0（wire 缺席哨兵）→ 本地时钟；真值在场原样保留。 */
+    private fun stampEchoUpdated(session: Session): Session =
+        if (session.time.updated == 0L) {
+            session.copy(time = session.time.copy(updated = echoClock()))
+        } else session
 
     // ============ MessageApi（session.prompt/history + /api/respond 回程） ============
 

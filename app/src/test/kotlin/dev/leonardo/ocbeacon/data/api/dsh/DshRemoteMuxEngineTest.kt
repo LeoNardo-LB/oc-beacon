@@ -82,6 +82,28 @@ class DshRemoteMuxEngineTest {
     }
 
     /**
+     * #331：added 摘要（SessionSummary）带 updatedAt（服务器 summaryFor 实证）——
+     * 合成帧必须透传，否则 SessionCreated.time.updated=epoch0 → 新会话行按
+     * time.updated 倒序沉列表底部（「约 3 分钟才入列表顶位」观测的 added 帧腿）；
+     * origin 一并透传（#333 origin 判别的下游消费键）。
+     */
+    @Test
+    fun emit_apiSessionAdded_forwardsUpdatedAtAndOrigin() {
+        val frames = mutableListOf<SynthFrame>()
+        val syn = synthesizer(frames, mutableListOf())
+        syn.onItem(
+            "evt",
+            Json.parseToJsonElement(
+                """{"type":"emit","event":"api-session/added","args":[{"sessionId":"s1","updatedAt":1788626112891,"running":false,"cwd":"/tmp","parentSessionId":"p1","origin":"subagent"}]}""",
+            ) as JsonObject,
+            ConcurrentHashMap(),
+        )
+        assertEquals("host/session-added", frames[0].method)
+        assertEquals("1788626112891", frames[0].payload.strField("updatedAt"))
+        assertEquals("subagent", frames[0].payload.strField("origin"))
+    }
+
+    /**
      * #310① A8 缺陷B根因钉：api-session/added 摘要是 SessionSummary（服务器
      * listFields 摊 header.parentSession 为 **parentSessionId** 键——index.js:1919）；
      * 旧实现误读 SessionWireHeader（follow snapshot 头）的 parentSession 键 →

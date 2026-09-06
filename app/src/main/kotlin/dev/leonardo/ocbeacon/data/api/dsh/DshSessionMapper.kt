@@ -36,7 +36,11 @@ object DshSessionMapper {
         return Session(
             id = item.dshStr("sessionId") ?: "",
             directory = item.dshStr("cwd") ?: "",
-            parentId = item.dshStr("parentSessionId"),
+            // #331/#333：parentId = durable subagent 父（app 侧语义——发送分流
+            // subagents/prompt / interruptByParent / 列表 parentId==null 过滤均按此
+            // 解释）；fork 子会话（parentSessionId 在、origin 缺席）是普通会话，
+            // 服务器 validateAddress 对其只收 {kind:session} 地址——不置 parentId。
+            parentId = item.dshStr("parentSessionId")?.takeIf { item.dshStr("origin") == "subagent" },
             title = title,
             time = Session.Time(
                 created = 0L,
