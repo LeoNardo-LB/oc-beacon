@@ -483,6 +483,7 @@
     <string name="session_details_diff">Diff</string>
     <string name="session_details_diff_summary">+%1$d −%2$d (%3$d fichiers)</string>
     <string name="chat_thinking_complete">Réflexion pendant %1$s</string>
+    <string name="chat_thinking_complete_unknown">Réflexion terminée</string>
     <string name="chat_token_usage_total">%,d jetons</string>
     <string name="chat_token_input">Entrée</string>
     <string name="chat_token_output">Sortie</string>

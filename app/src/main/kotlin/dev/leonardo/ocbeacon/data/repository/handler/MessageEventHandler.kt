@@ -116,6 +116,27 @@ class MessageEventHandler @Inject constructor(
 
     private val persistQueue = Channel<PersistRequest>(Channel.BUFFERED)
 
+    /**
+     * #338：会话时间域基准——最近观察到的该会话「消息/事件时刻」（DSH=服务器
+     * 信封时刻、V2=本地构造时刻——与该会话消息 created 腿**同钟域**）。
+     * [markSessionIdle] 回填 completed 时优先取该值，杜绝跨钟域回填：
+     * 真机实证（2026-09-06 E2E B4）DSH 工具宿主 completed 被本地钟回填成
+     * created+3.5h（resync 期回填），且 merge 语义 incoming ?: existing
+     * 使污染永久残留；DSH/V1 的 created 腿为服务器时刻，设备钟慢 207ms 时
+     * 流式 ticker 还会短暂显示负时长（同族症状）。
+     */
+    private val lastDomainEventTimeMs = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
+    /** #338：EventDispatcher 分发点采集（MessageUpdated.created / SessionIdle.time）。 */
+    fun recordDomainTime(sessionId: String, timeMs: Long) {
+        if (timeMs <= 0L) return
+        lastDomainEventTimeMs.merge(sessionId, timeMs) { old, new -> maxOf(old, new) }
+    }
+
+    /** #338：域内「现在」——有基准用基准（与 created 同域），无基准回退本地钟。 */
+    private fun domainNowMs(sessionId: String): Long =
+        lastDomainEventTimeMs[sessionId] ?: System.currentTimeMillis()
+
     /** N-1：persistQueue 满时 trySend 静默丢写的可观测性计数（内存视图不受影响，落盘由后续写补齐）。 */
     private var droppedPersistWrites = 0
 
@@ -813,6 +834,7 @@ class MessageEventHandler @Inject constructor(
         _messages.update { it - sessionId }
         _parts.update { it - messageIds }
         assistantMessageIds.removeAll(messageIds)
+        lastDomainEventTimeMs.remove(sessionId)
         // 可观测性（#89 验证）：记录清理量
         dev.leonardo.ocbeacon.logging.AppLogger.d(
             "MsgEvent",
@@ -833,6 +855,7 @@ class MessageEventHandler @Inject constructor(
         _messages.value = emptyMap()
         _parts.value = emptyMap()
         assistantMessageIds.clear()
+        lastDomainEventTimeMs.clear()
     }
 
     /**
@@ -845,14 +868,18 @@ class MessageEventHandler @Inject constructor(
      */
     fun markSessionIdle(sessionId: String, messageId: String = "") {
         var changedIds: List<String>? = null
+        // #338：completed 回填与 created 腿同钟域——优先取分发点采集的域内基准
+        //（DSH=服务器信封时刻），无基准回退本地钟（V2 本地构造域，语义不变）。
+        // 逐消息 max(基准, 自身 created) 兜底：骨架消息（本地钟）在设备钟快于
+        // 服务器时不产生负跨度（0 跨度由显示层按未知处理）。
+        val fillNow = domainNowMs(sessionId)
         _messages.update { current ->
             val sessionMessages = current[sessionId] ?: return@update current
-            val now = System.currentTimeMillis()
             val updated = sessionMessages.map { msg ->
                 if (msg is Message.Assistant && msg.time.completed == null &&
                     (messageId.isEmpty() || msg.id == messageId)
                 ) {
-                    msg.copy(time = msg.time.copy(completed = now))
+                    msg.copy(time = msg.time.copy(completed = maxOf(fillNow, msg.time.created)))
                 } else {
                     msg
                 }
@@ -881,22 +908,29 @@ class MessageEventHandler @Inject constructor(
             for (msgId in messageIds) {
                 val msgParts = updated[msgId] ?: continue
                 val updatedParts = msgParts.map { part ->
-                    val partEnd = System.currentTimeMillis()
+                    // #338：part end 同消息 completed 口径——域内基准（与 part start 同域）
+                    val partEnd = fillNow
                     when {
                         part is Part.Text && part.time?.end == null -> {
                             changed = true
+                            // #338：end 与 start 同域钳制（DSH part start=chunk 信封
+                            // 时刻，早于最后一条消息事件的域内基准时取 start——
+                            // 零跨度由显示层按未知处理，不产生负跨度）。
+                            val start = part.time?.start?.takeIf { it > 0 } ?: 0L
+                            val end = maxOf(partEnd, start)
                             part.copy(time = Part.Text.Time(
-                                start = part.time?.start ?: partEnd,
-                                end = partEnd
+                                start = start.takeIf { it > 0 } ?: end,
+                                end = end
                             ))
                         }
                         part is Part.Reasoning && part.time?.end == null -> {
                             changed = true
-                            // #263 round2：start 未知时不得伪造 start=end=partEnd（恒 0ms 症状）。
+                            // #263 round2：start 未知时不得伪造 start=end（恒 0ms 症状）。
                             // 0 = 未知哨兵，显示层走本地冻结实测时长，不显示伪造值。
+                            val rStart = part.time?.start?.takeIf { it > 0 } ?: 0L
                             part.copy(time = Part.Reasoning.Time(
-                                start = part.time?.start?.takeIf { it > 0 } ?: 0L,
-                                end = partEnd
+                                start = rStart,
+                                end = maxOf(partEnd, rStart)
                             ))
                         }
                         else -> part

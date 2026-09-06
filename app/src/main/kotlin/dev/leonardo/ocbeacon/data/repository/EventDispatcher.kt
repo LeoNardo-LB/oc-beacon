@@ -315,6 +315,16 @@ class EventDispatcher @Inject constructor(
         } else if (BuildConfig.DEBUG) {
             AppLogger.w(TAG, "No handler registered for ${event::class.simpleName}")
         }
+        // #338：会话时间域基准采集——先于 FSM forward（forceCompleteSession 的
+        // completed 回填即刻消费）：MessageUpdated.created（DSH=服务器信封时刻、
+        // V2=本地构造时刻——与该会话 created 腿同钟域）+ SessionIdle.time
+        //（DSH turn/end 信封时刻，回放携带原始时刻——resync 期回填不再用本地钟）。
+        if (event is SseEvent.MessageUpdated) {
+            messageHandler.recordDomainTime(event.info.sessionId, event.info.time.created)
+        }
+        if (event is SseEvent.SessionIdle && (event.time ?: 0L) > 0L) {
+            messageHandler.recordDomainTime(event.sessionId, event.time!!)
+        }
         forwardToSessionStateService(event, serverId)
 
         // #122（2026-08-18 接线）+ C7（2026-08-26）：PermissionAsked 自动批准——

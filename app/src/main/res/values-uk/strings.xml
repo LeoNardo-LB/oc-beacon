@@ -493,6 +493,7 @@
     <string name="session_details_diff">Diff</string>
     <string name="session_details_diff_summary">+%1$d −%2$d (%3$d файлів)</string>
     <string name="chat_thinking_complete">Думав %1$s</string>
+    <string name="chat_thinking_complete_unknown">Обдумування завершено</string>
     <string name="chat_token_usage_total">%,d токенів</string>
     <string name="chat_token_input">Ввід</string>
     <string name="chat_token_output">Вивід</string>

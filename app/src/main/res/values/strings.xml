@@ -231,6 +231,7 @@
     <string name="chat_status_updating_tasks">Updating tasks</string>
     <string name="chat_status_thinking">Thinking</string>
     <string name="chat_thinking_complete">Thought for %1$s</string>
+    <string name="chat_thinking_complete_unknown">Thought complete</string>
     <string name="chat_tool_running_command">Running command…</string>
     <string name="chat_hint_ask">Ask a question…</string>
     <string name="chat_hint_fix">Fix the bug in…</string>

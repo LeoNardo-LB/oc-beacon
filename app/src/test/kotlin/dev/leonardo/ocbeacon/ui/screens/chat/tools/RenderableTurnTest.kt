@@ -51,6 +51,31 @@ class RenderableTurnTest {
         assertEquals(1000L, t.turnStartMs)     // 首条 created，而非代表消息 a2 的 2500
     }
 
+    // ============ #338：零/负跨度 = 时长未知（null）============
+
+    @Test
+    fun `zero span turn yields null duration`() {
+        // DSH 整装事件 created=completed 同信封 → 单消息轮 0ms 实为未知
+        val t = compute(listOf(assistantMsg("a1", 1000L, 1000L)))
+        assertNull(t.durationMs)
+        assertEquals(1000L, t.turnStartMs)
+    }
+
+    @Test
+    fun `same-instant multi-message turn yields null duration`() {
+        // 多消息同毫秒（V2 本地构造同毫秒族）→ 跨度 0 同为未知
+        val msgs = listOf(assistantMsg("a1", 1000L, 1000L), assistantMsg("a2", 1000L, 1000L))
+        assertNull(compute(msgs).durationMs)
+    }
+
+    @Test
+    fun `negative span turn yields null duration`() {
+        // 跨钟域混腿（历史实证 -207ms 族）：null 而非负值
+        // 单消息 created=5000（本地钟腿）、completed=4793（服务器腿）→ -207ms
+        val msgs = listOf(assistantMsg("a1", 5000L, 4793L))
+        assertNull(compute(msgs).durationMs)
+    }
+
     @Test
     fun `streaming turn has null duration but stable turnStartMs`() {
         val msgs = listOf(assistantMsg("a1", 1000L, 2000L), assistantMsg("a2", 2500L, null))

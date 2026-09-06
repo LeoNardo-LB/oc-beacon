@@ -485,6 +485,7 @@
     <string name="session_details_diff">Diff</string>
     <string name="session_details_diff_summary">+%1$d −%2$d (파일 %3$d개)</string>
     <string name="chat_thinking_complete">%1$s 간 생각 완료</string>
+    <string name="chat_thinking_complete_unknown">생각 완료</string>
     <string name="chat_token_usage_total">%,d 토큰</string>
     <string name="chat_token_input">입력</string>
     <string name="chat_token_output">출력</string>

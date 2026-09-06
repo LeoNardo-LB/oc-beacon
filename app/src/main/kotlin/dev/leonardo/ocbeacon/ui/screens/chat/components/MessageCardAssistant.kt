@@ -482,7 +482,10 @@ private fun StreamingElapsedText(startMs: Long) {
     var elapsedText by remember { mutableStateOf("0s") }
     LaunchedEffect(startMs) {
         while (true) {
-            val elapsedMs = System.currentTimeMillis() - startMs
+            // #338：下限钳制 0——startMs 可能是服务器信封时刻（DSH created 腿），
+            // 设备钟慢于服务器时前 ~skew 窗口内差值为负（真机实证 -207ms 闪现）。
+            // 与 ReasoningBlock 计时器同款钳制（跨钟域差值不显示负数）。
+            val elapsedMs = (System.currentTimeMillis() - startMs).coerceAtLeast(0L)
             elapsedText = formatDuration(elapsedMs)
             delay(100)
         }

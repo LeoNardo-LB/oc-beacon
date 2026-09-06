@@ -485,6 +485,7 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="session_details_diff">Diff</string>
     <string name="session_details_diff_summary">+%1$d −%2$d (%3$d arquivos)</string>
     <string name="chat_thinking_complete">Pensou por %1$s</string>
+    <string name="chat_thinking_complete_unknown">Raciocínio concluído</string>
     <string name="chat_token_usage_total">%,d tokens</string>
     <string name="chat_token_input">Entrada</string>
     <string name="chat_token_output">Saída</string>

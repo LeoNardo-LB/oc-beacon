@@ -493,6 +493,7 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="session_details_diff">Diff</string>
     <string name="session_details_diff_summary">+%1$d −%2$d (%3$d plików)</string>
     <string name="chat_thinking_complete">Myślał przez %1$s</string>
+    <string name="chat_thinking_complete_unknown">Zastanawianie zakończone</string>
     <string name="chat_token_usage_total">%,d tokenów</string>
     <string name="chat_token_input">Wejście</string>
     <string name="chat_token_output">Wyjście</string>

@@ -501,6 +501,7 @@
     <string name="session_details_diff">Diff</string>
     <string name="session_details_diff_summary">+%1$d −%2$d (%3$d ملف)</string>
     <string name="chat_thinking_complete">تفكير لمدة %1$s</string>
+    <string name="chat_thinking_complete_unknown">اكتمل التفكير</string>
     <string name="chat_token_usage_total">%,d رمزي</string>
     <string name="chat_token_input">الإدخال</string>
     <string name="chat_token_output">الإخراج</string>

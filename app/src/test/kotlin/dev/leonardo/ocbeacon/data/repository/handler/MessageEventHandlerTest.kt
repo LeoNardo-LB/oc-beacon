@@ -476,7 +476,81 @@ class MessageEventHandlerTest {
         assertTrue((handler.parts.value["m1"]!![0] as Part.Tool).state is ToolState.Running)
     }
 
-    // ============ markSessionIdle（REST 降级：强制完成流式输出）============
+    // ============ #338：completed 回填与 created 腿同钟域 ============
+
+    @Test
+    fun `markSessionIdle fills completed from recorded domain time not local clock`() {
+        // DSH 域基准（服务器信封）= 5000，远小于本地钟 epoch → completed=5000
+        // 证伪本地钟回填（会得 ~1.7e12）及 resync 期回填污染（created+小时）
+        val msg = Message.Assistant(
+            id = "m1", sessionId = "s1", time = TimeInfo(created = 3000L), parentId = ""
+        )
+        handler.upsertMessages("s1", listOf(MessageWithParts(info = msg, parts = emptyList())), MergeStrategy.SSE_PRIORITY)
+        handler.recordDomainTime("s1", 5000L)
+        handler.markSessionIdle("s1")
+        val after = handler.messages.value["s1"]!!.first() as Message.Assistant
+        assertEquals(5000L, after.time.completed)
+    }
+
+    @Test
+    fun `markSessionIdle completed never below own created`() {
+        // 域基准 1000 < 消息 created 5000（骨架本地钟快于服务器族）→ 取 max 防负跨度
+        val msg = Message.Assistant(
+            id = "m1", sessionId = "s1", time = TimeInfo(created = 5000L), parentId = ""
+        )
+        handler.upsertMessages("s1", listOf(MessageWithParts(info = msg, parts = emptyList())), MergeStrategy.SSE_PRIORITY)
+        handler.recordDomainTime("s1", 1000L)
+        handler.markSessionIdle("s1")
+        val after = handler.messages.value["s1"]!!.first() as Message.Assistant
+        assertEquals(5000L, after.time.completed)
+    }
+
+    @Test
+    fun `markSessionIdle part end uses domain time and never below part start`() {
+        // part start=8000（DSH chunk 信封）> 域基准 1000 → end 钳到 8000
+        val msg = Message.Assistant(
+            id = "m1", sessionId = "s1", time = TimeInfo(created = 1000L), parentId = ""
+        )
+        val textPart = Part.Text(
+            id = "p1", sessionId = "s1", messageId = "m1", text = "streaming",
+            time = Part.Text.Time(start = 8000L, end = null)
+        )
+        handler.upsertMessages("s1", listOf(MessageWithParts(info = msg, parts = listOf(textPart))), MergeStrategy.SSE_PRIORITY)
+        handler.recordDomainTime("s1", 1000L)
+        handler.markSessionIdle("s1")
+        val textAfter = handler.parts.value["m1"]!!.first { it.id == "p1" } as Part.Text
+        assertEquals(8000L, textAfter.time?.end)
+    }
+
+    @Test
+    fun `recordDomainTime keeps max and ignores non-positive`() {
+        val msg = Message.Assistant(
+            id = "m1", sessionId = "s1", time = TimeInfo(created = 10L), parentId = ""
+        )
+        handler.upsertMessages("s1", listOf(MessageWithParts(info = msg, parts = emptyList())), MergeStrategy.SSE_PRIORITY)
+        handler.recordDomainTime("s1", 0L)
+        handler.recordDomainTime("s1", -5L)
+        handler.recordDomainTime("s1", 50L)
+        handler.recordDomainTime("s1", 100L)
+        handler.markSessionIdle("s1")
+        val after = handler.messages.value["s1"]!!.first() as Message.Assistant
+        assertEquals(100L, after.time.completed)
+    }
+
+    @Test
+    fun `markSessionIdle without domain baseline falls back to local clock`() {
+        // 纯本地构造会话（V2 域）：无基准回退本地钟（原行为不变）
+        val msg = Message.Assistant(
+            id = "m1", sessionId = "s1", time = TimeInfo(created = 1000L), parentId = ""
+        )
+        handler.upsertMessages("s1", listOf(MessageWithParts(info = msg, parts = emptyList())), MergeStrategy.SSE_PRIORITY)
+        val before = System.currentTimeMillis()
+        handler.markSessionIdle("s1")
+        val after = handler.messages.value["s1"]!!.first() as Message.Assistant
+        assertTrue(after.time.completed != null && after.time.completed!! >= before)
+    }
+
+        // ============ markSessionIdle（REST 降级：强制完成流式输出）============
 
     @Test
     fun `markSessionIdle sets time_end on incomplete Text and Reasoning parts`() {

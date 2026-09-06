@@ -246,6 +246,7 @@
     <string name="chat_status_updating_tasks">正在更新任务</string>
     <string name="chat_status_thinking">思考中</string>
     <string name="chat_thinking_complete">思考完毕 · %1$s</string>
+    <string name="chat_thinking_complete_unknown">思考完毕</string>
     <string name="chat_tool_running_command">正在运行命令…</string>
     <string name="chat_hint_ask">提问…</string>
     <string name="chat_hint_fix">修复…中的 bug</string>

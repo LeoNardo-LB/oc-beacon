@@ -128,7 +128,11 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
     }
     val headerText = when {
         isStreaming -> stringResource(R.string.chat_thinking_in_progress, formatReasoningDuration(elapsedMs.longValue))
-        isComplete -> stringResource(R.string.chat_thinking_complete, formatReasoningDuration(displayDurationMs ?: 0L))
+        // #338：时长未知（durationMs 零/负且无本地冻结样本——DSH 整装事件
+        // start=end 同信封族）→ 无时长变体，不显示伪造 0ms（#263 round2 哲学收口）。
+        isComplete -> displayDurationMs
+            ?.let { stringResource(R.string.chat_thinking_complete, formatReasoningDuration(it)) }
+            ?: stringResource(R.string.chat_thinking_complete_unknown)
         else -> stringResource(R.string.chat_status_thinking)
     }
 

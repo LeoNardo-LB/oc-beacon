@@ -494,6 +494,7 @@
     <string name="session_details_diff">Diff</string>
     <string name="session_details_diff_summary">+%1$d −%2$d (%3$d файлов)</string>
     <string name="chat_thinking_complete">Думал %1$s</string>
+    <string name="chat_thinking_complete_unknown">Размышление завершено</string>
     <string name="chat_token_usage_total">%,d токенов</string>
     <string name="chat_token_input">Вход</string>
     <string name="chat_token_output">Выход</string>

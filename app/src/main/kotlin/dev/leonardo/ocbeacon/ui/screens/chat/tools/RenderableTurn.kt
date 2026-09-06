@@ -218,7 +218,10 @@ fun computeRenderableTurn(
     // 仅当 turn 内所有 assistant 消息均 completed 时给值；任一仍流式 → null（流式 ticker 接管）。
     val completedTimes = assistantsForMeta.mapNotNull { it.time.completed }
     val durationMs: Long? = if (turnStartMs != null && completedTimes.size == assistantsForMeta.size) {
-        completedTimes.max() - turnStartMs
+        // #338：零/负跨度 = 时长未知（DSH 整装事件 created=completed 同信封、
+        // 被中断轮同款）——null（台账回落 "-"，宁缺毋谎，与 tokensTotal 缺席
+        // 即 null 同哲学），不以 0ms 冒充实测值。
+        (completedTimes.max() - turnStartMs).takeIf { it > 0 }
     } else {
         null
     }
