@@ -89,13 +89,10 @@
   - 裁决原文:「应该长按之后展示归档,而不是左划归档」——左划手势整体下线(SwipeToDismiss 组件连同 #342 修的揭示背景一并移除),归档仅保留长按菜单入口;长按菜单已有归档项,改动=删手势+回归 #342 红底断言转不适用
   - 关联:#342(左滑背景修复)随本卡废弃;#311①(归档功能本身)不受影响
 
-- [ ] **#348 忙碌中发送交互重定——对齐 opencode(源码已考据,形态待用户澄清)** `ui` `chat`
-  - 裁决原文:「DSH面应该跟opencode一样的逻辑,在消息输出的情况下,出现气泡选择框而不是直接归位队列消息」
-  - **opencode 源码考据(anomalyco/opencode dev)**:web 端 busy+submit 无选择框——`settings.general.followup`(取值 "queue"|"steer") 二值设置:
-    - "queue"= queueEnabled 判定(followup==queue && busy && !blocked && !childSession)→消息进 **followup dock**(composer 下方排队气泡,可编辑/暂停/移除,轮末自动发);
-    - "steer"=直接 session.prompt(服务器侧即时注入);abort=独立按钮/键,非发送菜单项。TUI 端 submit 恒直发无 busy 检查,ESC 双击=abort
-  - **待澄清(已列 grill)**:用户「气泡选择框」=(a)发送键弹选项菜单(排队/插话/中断)?还是 (b)opencode web 的 followup dock 排队气泡?(b) 有源码实证,(a) 无——两者实现形态差异大
-  - 关联:修订 #326(单键直排队);两种服务器统一采用(交互统一铁律,见 ui-conventions)
+- [ ] **#348 忙碌中发送交互重定——对齐 oc-beacon opencode 面(用户二次澄清,形态以审计定音)** `ui` `chat`
+  - 裁决链:「跟opencode一样的逻辑…出现气泡选择框而不是直接归位队列」+二次澄清「形态UIUX要跟opencode的一致(=oc-beacon 的 opencode 服务器面),背后的实现可以各自独立」——busy-send 形态以审计考据 app-opencode 面的既定交互为准(含 #326 前史),实现层 DSH 走服务器接口/opencode 走自实现
+  - opencode 官方端考据仅作参考(不作形态依据):web 端 busy+submit=followup 设置(queue|steer)+followup dock 排队气泡;TUI 恒直发,ESC 双击=abort
+  - 关联:修订 #326(单键直排队,#326 当时以 dsh web primaryStops 校准=参照系错位);两种服务器统一采用(交互统一铁律,ui-conventions)
 
 - [ ] **#349 subagent 工具卡可点击查看详情——直达子会话(用户走查裁决)** `ui` `subagent`
   - 裁决原文:「subagent卡片理应有点击查看详情的能力」——聊天中 subagent 工具卡(运行中/完结)点击→打开对应子会话(复用 #310① 的子会话路由与 durable 父址);现有入口 FAB→智能体 AgentSheet 保留
