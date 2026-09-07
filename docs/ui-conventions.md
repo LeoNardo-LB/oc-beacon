@@ -2,6 +2,13 @@
 
 > 本文件是 UI/主题约定的详细参考，由 AGENTS.md 索引。AGENTS.md 只保留索引行，细节在此维护。
 
+## 服务器类型交互统一铁律（2026-09-07 用户裁决）
+
+- **单一交互语言**：DSH 服务器面与 OpenCode 服务器面 UIUX 高度统一——服务器类型只产生**能力位差异**（某功能有无，经 `ServerCapabilities` 门控），**不产生交互模式差异**（同一功能在两种服务器上手势/形态/入口不同=违规）。
+- **参照系**：交互范式以 **opencode 官方客户端（web/desktop）** 为唯一参照（同为 GUI；移动布局取其 mobile 形态）；**禁止拿 DSH web 客户端当交互参照**（#326 曾以 dsh web primaryStops 校准单键行为——参照系错位教训）。DSH web 仅作**能力语义**参照（某 wire 域是什么意思）。
+- **DSH 独有能力的呈现**（agentPreset 向导/provider 目录/配对/goal 等 opencode 没有的）：用统一组件库的既有模式呈现（标准对话框/底部 sheet/长按菜单），不发明 DSH 专属交互；能力位门控隐藏即可，不为它改共享交互。
+- **考据纪律**：对齐 opencode 行为前先读 opencode 源码（packages/app=web、packages/tui）定音，不凭印象——实证例：busy-submit web 侧=`followup` 设置（"queue"|"steer"）+ followup dock 排队气泡，TUI=直发无选择框。
+
 ## Material 3 First
 
 - **优先使用 Material 3 原生组件和原生样式**。能用 `LinearProgressIndicator`、`CircularProgressIndicator`、`IconButton` 等原生组件解决的，不要自定义 Canvas 绘制。
