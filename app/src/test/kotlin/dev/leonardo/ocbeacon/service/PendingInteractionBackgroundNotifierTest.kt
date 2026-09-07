@@ -84,6 +84,23 @@ class PendingInteractionBackgroundNotifierTest {
         focusHolder.setAppInForeground(false)
     }
 
+    /** #344：带载荷变体——record 携带问题/权限原文后补发正文用它。 */
+    private fun goBackgroundWithPendingText(sid: String, kind: PendingInteractionKind, text: String?) {
+        focusHolder.setAppInForeground(true)
+        serverSessions.value = mapOf("server1" to setOf(sid))
+        store.record(sid, kind, text)
+        PendingInteractionBackgroundNotifier(
+            store = store,
+            sessionFocusHolder = focusHolder,
+            actions = port,
+            eventDispatcher = eventDispatcher,
+            settingsRepository = settingsRepository,
+            serverConfigRepository = serverConfigRepository,
+            appScope = CoroutineScope(testDispatcher + SupervisorJob()),
+        )
+        focusHolder.setAppInForeground(false)
+    }
+
     // ============ 补发主路径：前台→后台转换 + pending 存在 → 发 ============
 
     @Test
@@ -129,6 +146,26 @@ class PendingInteractionBackgroundNotifierTest {
             port.calls.toSet(),
         )
     }
+
+    @Test
+    fun `catch-up dispatch carries recorded question text as payload`() =
+        runTest(testDispatcher) {
+            // #344：补发不再空串走「最新用户消息」回退（曾把 <system-reminder>
+            // 注入语料行当正文）——记录时刻的问题原文即载荷
+            goBackgroundWithPendingText("s1", PendingInteractionKind.QUESTION, "For the instrument test, choose A or B.")
+            advanceUntilIdle()
+
+            assertEquals(listOf("showQuestionAsked:s1:For the instrument test, choose A or B."), port.calls)
+        }
+
+    @Test
+    fun `catch-up payload is sanitized before dispatch`() =
+        runTest(testDispatcher) {
+            goBackgroundWithPendingText("s1", PendingInteractionKind.QUESTION, "<system-reminder>skills</system-reminder>Q text")
+            advanceUntilIdle()
+
+            assertEquals(listOf("showQuestionAsked:s1:Q text"), port.calls)
+        }
 
     // ============ 无 pending 不发 ============
 

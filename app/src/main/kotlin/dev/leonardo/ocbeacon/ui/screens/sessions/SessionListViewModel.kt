@@ -606,8 +606,13 @@ class SessionListViewModel @Inject constructor(
         chatRepository.getAllQuestionsFlow().distinctUntilChanged(),
         // #311 Task4：待审批/提问指示（客户端本地域单源；StateFlow 自身去重）
         pendingInteractionStore.pendingBySession,
-    ) { core, questions, pendingInteractions ->
-        SessionDataPart(core.sessions, core.statuses, core.serverSessionMap, core.lastUserMessageTime, core.lastReplyTime, questions, pendingInteractions)
+    ) { core, questions, pendingEntries ->
+        // #344：store 条目化（kind+text）——行指示只取 kind，text 供通知补发载荷
+        SessionDataPart(
+            core.sessions, core.statuses, core.serverSessionMap,
+            core.lastUserMessageTime, core.lastReplyTime, questions,
+            pendingEntries.mapValues { it.value.kind },
+        )
     }
 
     /** 嵌套 combine 的中间载体（前 5 源）。 */

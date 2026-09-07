@@ -36,11 +36,14 @@ class PendingInteractionStoreTest {
         store.record("s1", PendingInteractionKind.APPROVAL)
         store.record("s2", PendingInteractionKind.QUESTION)
         assertEquals(
-            mapOf("s1" to PendingInteractionKind.APPROVAL, "s2" to PendingInteractionKind.QUESTION),
+            mapOf(
+                "s1" to PendingInteractionEntry(PendingInteractionKind.APPROVAL),
+                "s2" to PendingInteractionEntry(PendingInteractionKind.QUESTION),
+            ),
             store.pendingBySession.value,
         )
         store.record("s1", PendingInteractionKind.QUESTION)
-        assertEquals(PendingInteractionKind.QUESTION, store.pendingBySession.value["s1"])
+        assertEquals(PendingInteractionKind.QUESTION, store.pendingBySession.value["s1"]?.kind)
     }
 
     // ============ 清除① 本地应答成功（clearIfKind）============
@@ -58,7 +61,7 @@ class PendingInteractionStoreTest {
         val store = newStore()
         store.record("s1", PendingInteractionKind.APPROVAL)
         store.clearIfKind("s1", PendingInteractionKind.QUESTION)
-        assertEquals(PendingInteractionKind.APPROVAL, store.pendingBySession.value["s1"])
+        assertEquals(PendingInteractionKind.APPROVAL, store.pendingBySession.value["s1"]?.kind)
     }
 
     @Test
@@ -74,7 +77,7 @@ class PendingInteractionStoreTest {
         val store = newStore()
         store.record("s1", PendingInteractionKind.APPROVAL)
         store.clearIfKind("other", PendingInteractionKind.APPROVAL)
-        assertEquals(PendingInteractionKind.APPROVAL, store.pendingBySession.value["s1"])
+        assertEquals(PendingInteractionKind.APPROVAL, store.pendingBySession.value["s1"]?.kind)
     }
 
     // ============ #339：伪 Idle 边沿延后复核 ============
@@ -91,7 +94,7 @@ class PendingInteractionStoreTest {
         advanceTimeBy(100)  // 延后复核窗口内（<2s）
         statuses.value = mapOf("s1" to SessionStatus.Busy)  // 回放继续，边沿被覆盖
         advanceUntilIdle()
-        assertEquals(PendingInteractionKind.QUESTION, store.pendingBySession.value["s1"])
+        assertEquals(PendingInteractionKind.QUESTION, store.pendingBySession.value["s1"]?.kind)
     }
 
     @Test
@@ -114,7 +117,7 @@ class PendingInteractionStoreTest {
         store.record("s1", PendingInteractionKind.APPROVAL)
         statuses.value = mapOf("s1" to SessionStatus.Busy)
         advanceUntilIdle()
-        assertEquals(PendingInteractionKind.APPROVAL, store.pendingBySession.value["s1"])
+        assertEquals(PendingInteractionKind.APPROVAL, store.pendingBySession.value["s1"]?.kind)
 
         statuses.value = mapOf("s1" to SessionStatus.Idle)
         advanceUntilIdle()
@@ -127,7 +130,7 @@ class PendingInteractionStoreTest {
         store.record("s1", PendingInteractionKind.QUESTION)
         statuses.value = mapOf("s1" to SessionStatus.Busy)
         advanceUntilIdle()
-        assertEquals(PendingInteractionKind.QUESTION, store.pendingBySession.value["s1"])
+        assertEquals(PendingInteractionKind.QUESTION, store.pendingBySession.value["s1"]?.kind)
     }
 
     @Test
@@ -136,7 +139,7 @@ class PendingInteractionStoreTest {
         store.record("s1", PendingInteractionKind.QUESTION)
         statuses.value = mapOf("s1" to SessionStatus.Asking)
         advanceUntilIdle()
-        assertEquals(PendingInteractionKind.QUESTION, store.pendingBySession.value["s1"])
+        assertEquals(PendingInteractionKind.QUESTION, store.pendingBySession.value["s1"]?.kind)
 
         statuses.value = mapOf("s1" to SessionStatus.Idle)
         advanceUntilIdle()
@@ -150,7 +153,7 @@ class PendingInteractionStoreTest {
         // 首见即 Idle（无先前态）——非转移，不清
         statuses.value = mapOf("s1" to SessionStatus.Idle)
         advanceUntilIdle()
-        assertEquals(PendingInteractionKind.APPROVAL, store.pendingBySession.value["s1"])
+        assertEquals(PendingInteractionKind.APPROVAL, store.pendingBySession.value["s1"]?.kind)
     }
 
     @Test
@@ -161,7 +164,7 @@ class PendingInteractionStoreTest {
         advanceUntilIdle()
         statuses.value = mapOf("s1" to SessionStatus.Busy, "s2" to SessionStatus.Idle)
         advanceUntilIdle()
-        assertEquals(PendingInteractionKind.APPROVAL, store.pendingBySession.value["s1"])
+        assertEquals(PendingInteractionKind.APPROVAL, store.pendingBySession.value["s1"]?.kind)
     }
 
     // ============ 清除③ 会话删除级联 ============
@@ -173,7 +176,7 @@ class PendingInteractionStoreTest {
         store.record("s2", PendingInteractionKind.QUESTION)
         store.clearForSession("s1")
         assertNull(store.pendingBySession.value["s1"])
-        assertEquals(PendingInteractionKind.QUESTION, store.pendingBySession.value["s2"])
+        assertEquals(PendingInteractionKind.QUESTION, store.pendingBySession.value["s2"]?.kind)
     }
 
     @Test
@@ -181,7 +184,7 @@ class PendingInteractionStoreTest {
         val store = newStore()
         store.record("s1", PendingInteractionKind.APPROVAL)
         store.clearAll()
-        assertEquals(emptyMap<String, PendingInteractionKind>(), store.pendingBySession.value)
+        assertEquals(emptyMap<String, PendingInteractionEntry>(), store.pendingBySession.value)
     }
 
     // ============ #336：已通知槽（补发去重——「已发过的不重发」）============
@@ -250,5 +253,41 @@ class PendingInteractionStoreTest {
         //（防 SSE 冷启重放清槽 → 退后台重复补发）
         store.record("s1", PendingInteractionKind.APPROVAL)
         org.junit.Assert.assertTrue(store.isNotified("s1"))
+    }
+    // ============ #344：条目载荷文本（补发通知的正文源）============
+
+    @Test
+    fun `record carries payload text for catch-up notification`() {
+        val store = newStore()
+        store.record("s1", PendingInteractionKind.QUESTION, "For the instrument test, choose A or B.")
+        assertEquals("For the instrument test, choose A or B.", store.pendingBySession.value["s1"]?.text)
+        assertEquals(PendingInteractionKind.QUESTION, store.pendingBySession.value["s1"]?.kind)
+    }
+
+    @Test
+    fun `same kind re-record keeps existing text when new text null`() {
+        // 重放（SSE 冷启）不带载荷——不得抹掉既有补发正文源
+        val store = newStore()
+        store.record("s1", PendingInteractionKind.QUESTION, "Q1")
+        store.record("s1", PendingInteractionKind.QUESTION, null)
+        assertEquals("Q1", store.pendingBySession.value["s1"]?.text)
+    }
+
+    @Test
+    fun `same kind re-record with non-null text overwrites`() {
+        // 追加同类请求 last-wins——新问题正文可补发
+        val store = newStore()
+        store.record("s1", PendingInteractionKind.QUESTION, "Q1")
+        store.record("s1", PendingInteractionKind.QUESTION, "Q2")
+        assertEquals("Q2", store.pendingBySession.value["s1"]?.text)
+    }
+
+    @Test
+    fun `kind switch drops old payload text`() {
+        val store = newStore()
+        store.record("s1", PendingInteractionKind.APPROVAL, "bash touch")
+        store.record("s1", PendingInteractionKind.QUESTION, "New question")
+        assertEquals("New question", store.pendingBySession.value["s1"]?.text)
+        assertEquals(PendingInteractionKind.QUESTION, store.pendingBySession.value["s1"]?.kind)
     }
 }

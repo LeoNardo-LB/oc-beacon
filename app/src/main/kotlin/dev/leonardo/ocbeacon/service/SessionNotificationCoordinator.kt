@@ -35,6 +35,18 @@ internal fun sanitizeNotificationText(raw: String): String? =
         .trim()
         .takeIf { it.isNotEmpty() }
 
+/**
+ * #344：通知预览文本资格——消毒后仍有可读内容（且不以注入标记开头）。
+ * DSH 把 skill catalog / workspace 指引按 user/message 入库（与真 prompt 同刻、
+ * 毫秒级靠后），通知回退取「最新用户消息」时会命中注入行——选段谓词据此过滤：
+ * - 整条闭合注入块 → 剥离后空 → 不合格；
+ * - 闭合块 + 真文本（「<system-reminder>ctx</system-reminder>真问句」）→ 剥离
+ *   后有正文 → 合格（预览管线随后再剥一次，展示纯正文）；
+ * - 未闭合前缀（截断注入）→ 剥不动且仍以标记开头 → 不合格。
+ */
+internal fun isNotificationPreviewText(text: String): Boolean =
+    sanitizeNotificationText(text)?.let { it.trimStart().startsWith("<system-reminder>").not() } ?: false
+
 
 /** D2-L30（#112）：response-ready 收敛检查次数与间隔（无输出会话最坏多等 750ms）。 */
 private const val RESPONSE_READY_ATTEMPTS = 3

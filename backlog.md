@@ -81,14 +81,17 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#343 DSH 单消息轮次台账缺失——流式建行与完结行均零跨度 completed → durationMs=null 被门控吞行** `dsh` `ui` `bug`
+- [~] **#343 DSH 单消息轮次台账缺失——完结信号与时长测量被 durationMs 单字段承载,零跨度完结轮整行被吞** `dsh` `ui` `bug`
   - 仪器批取证(2026-09-07,journal §二十四):600 词纯文本轮完结后无「轮次 N」行;Room 直查 b7b3cdc1——流式建行 dsh-t3s1 与完结行 seq-1246 各自 created==completed(DSH 整包事件零跨度模式),仅多行轮(如含工具的轮1 16m38s)能凑出正跨度;MaybeTurnLedgerRow 的 durationMs==null 即 return 门控把零跨度轮整行吞掉——#338 的「时长未知→『-』」语义只在渲染层、到不了门控
-  - 反证:Host-4199(opencode V2)同 app 0 工具轮有台账(「轮次 2 · 30.4s · 1 步 · 0 个工具」)——DSH 映射层特有;修法方向:零跨度单行轮按 turn/end 信封时刻回填 completed,或门控改为「已知 turn 边界即渲染、时长缺省『-』」(与 #338 未知时长语义对齐)
-  - → 证据:/tmp/e2e-instr/db.db(cached_messages 双行零跨度)+ b3-final4.xml(轮3 无台账)+ i5-w-12.xml(4199 对照)
-- [ ] **#344 提问通知正文携带 system-reminder 前缀——净化器未覆盖 question 发布路径实例** `dsh` `notification` `bug`
-  - 仪器批取证(2026-09-07):b7b3cdc1 挂起问题触发的 opencode_questions 通知(id=-35536795)extras android.text 以「<system-reminder> A skill is a reusable set…」开头——#339④ 的 sanitizeNotificationText 剥离闭合块,该实例未命中(疑似无闭合标签或走了未消毒支路);标题正常
-  - 复现素材:zai glm-5.3 会话让模型调 ask_user_question→HOME→dumpsys notification 看 extras;修法方向:排查 question 发布支路消毒调用点+容忍未闭合标签的剥离策略
-  - → 证据:journal §二十四 I1 + 本会话 dumpsys 记录
+  - 反证:Host-4199(opencode V2)同 app 0 工具轮有台账(「轮次 2 · 30.4s · 1 步 · 0 个工具」)——DSH 映射层特有
+  - **已修复(根因=语义解耦)**:RenderableTurn 新增 allStepsCompleted 完结信号(≥1 assistant 且全部带 completed),durationMs 只答「跨度可测与否」;MaybeTurnLedgerRow/MaybeProducedFilesRow 门控改判完结信号——零跨度完结轮照常渲染、时长列回落「-」(#338 宁缺毋谎),流式中仍缺席(SSE 铁律不变);统计栏等 durationMs 消费面仅显示用途零改动
+  - **真机验证 ✔(2026-09-07)**:活体路径——新单消息轮轮末即现「轮次 3 · - · 1 步 · 0 个工具」(旧代码此场景无行);重载路径——历史 fold 双行(dsh-t3s1+seq-1246)凑出真实跨度 15.4s 正常呈现;RenderableTurnTest +4(零跨度/负跨度=完结,流式/空轮=未完结)
+  - → 证据:/tmp/e2e-instr/db.db(双行零跨度)+ v343-run-10.xml(活体「-」)+ v343-chat.xml(重载 15.4s)
+- [~] **#344 提问通知正文携带 system-reminder 前缀——补发空载荷走「最新用户消息」回退,捞到 DSH 注入语料行** `dsh` `notification` `bug`
+  - 根因链(仪器批+本批取证钉死):#336 退后台补发**故意传空串**→AppNotificationManager 回退 findLatestUserMessages(最新用户消息)——而 DSH 把 skill catalog/workspace 指引按 user/message 入库(晚于真 prompt 毫秒级,seq-13 恰为最新),回退正文=注入全文;服务器侧问题文本本身干净(seq-207 arguments 实证),#339 消毒器只挂在到达路径直发文本上,回退路径从未消毒
+  - **已修复(两层根因)**:①PendingInteractionStore 条目化(kind+text,记录时刻携带问题/权限原文,同 kind 空值不抹/非空覆盖)→补发携带真实载荷并消毒发布,不再走回退;②回退侧 findLatestUserMessages 选段谓词 isNotificationPreviewText(消毒后非空且不以标记开头——整条注入块/未闭合前缀拒收,嵌块+真文本放行)+预览管线统一 sanitizeNotificationText(嵌块剥除/全剥离跳行)
+  - **真机验证 ✔(2026-09-07)**:同场景复测(挂起问题→HOME→dumpsys)通知正文=「Verify six forty four.」(真实问题文本),非 system-reminder;作答后通知撤销 ✓;store/补发器/预览 +11 单测(载荷携带/重放不抹/消毒发布/注入过滤三态)
+  - → 证据:v344-q-1.xml(问题在场)+ dumpsys android.text 实录(修复前 system-reminder vs 修复后问题原文)
 
 
 - [~] **#325 DSH token 首次配对体验——dev 注入脚本/QR 扫码/SSH 通道/sameBackend username 修复** `dsh` `security` `ui`
@@ -117,10 +120,10 @@
 
 ## P3 — 观察与低价值改进
 
-- [ ] **#345 adb 注入 tap 间歇全灭态——APP 可 dump/键事件通,唯 tap 失效,冷启可复** `env` `device`
-  - 仪器批两次进入(2026-09-07):①HOME+am start 克隆任务(t4401)后;②新会话向导输入+连发失败后——共同点: Doubang IME 抬升期多次注入;恢复径:debug-entry 冷启或 BACK 退桌面后 am start。键事件(BACK/ESC)始终有效,uiautomator dump 正常(IME 抬起时恒 7 节点失明另计)
-  - 疑 MIUI 对注入输入的节流/安全态;真手指是否受影响未知(若不受影响则纯测试环境项)。待复现定性后决定是否需要 app 侧规避(如输入法切换建议)
-  - → 证据:journal §二十四 环境观察 + /tmp/e2e-instr/(str-state.png 等冻结态截图)
+- [ ] **#345 adb 注入 tap 间歇丢弃观察——MIUI 平台行为定性(非 app 缺陷),真手指未复现即不处理** `env` `device`
+  - 定性修正(2026-09-07 二查):原「两案全灭」重析后——**第二案翻案**:Doubang 输入法为浅色主题,screencap 下半屏与 app surface 同色族 (247,250,253),误判「无 IME」后 tap 实际全打在键盘上;7 节点 dump=输入法安全窗致盲(平台正常)。第一案(t4401 克隆任务后 composer 聚焦 tap 无响应)仍疑似 MIUI 注入丢弃家族(同 E4② shade 组卡先例);两案中键事件/焦点全程有效(`dumpsys input_method` mServedView 在场实证),app 侧无缺陷证据
+  - 本批定向复现未再现(IME 抬起+乱序 tap 串轰击后交互正常);缓解纪律已沉淀 real-device-testing.md(IME 判定用 dumpsys input_method 勿用像素分析;tap 失活二分定位;冷启恢复配方)。保持观察:真手指复现才升级为 app 卡
+  - → 证据:journal §二十五 #345 节 + /tmp/e2e-instr/r1-r3.xml(复现尝试全程交互正常)
 
 
 - [~] **#336 审批/提问通知「退后台补发」——已实现（279b7639+b95a2bc9）** `dsh` `ui`

@@ -334,7 +334,7 @@ class EventDispatcher @Inject constructor(
         if (event is SseEvent.PermissionAsked) {
             // #311 Task4：等待审批指示先于 auto-approve 记录（ok 路径随
             // removePermission 委托同点清除——clearIfKind 同族判定，净效果无指示）
-            pendingInteractionStore.record(event.sessionId, PendingInteractionKind.APPROVAL)
+            pendingInteractionStore.record(event.sessionId, PendingInteractionKind.APPROVAL, event.permission)
             permissionAutoApprover.maybeAutoApprove(event, serverId)
         }
 
@@ -345,6 +345,8 @@ class EventDispatcher @Inject constructor(
                 if (event.questions.any { q -> q.intent?.kind == "plan-review" })
                     PendingInteractionKind.PLAN_REVIEW
                 else PendingInteractionKind.QUESTION,
+                // #344：记录时刻携带问题原文（原始未消毒——补发载荷源）
+                event.questions.firstOrNull()?.question,
             )
         }
 

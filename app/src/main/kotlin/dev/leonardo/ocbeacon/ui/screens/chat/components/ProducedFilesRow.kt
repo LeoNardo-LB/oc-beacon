@@ -41,7 +41,7 @@ internal fun MaybeProducedFilesRow(
     onOpenFile: ((String) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    if (turn == null || turn.durationMs == null) return
+    if (turn == null || !turn.allStepsCompleted) return
     val files = turn.deliverableFiles
     if (files.isEmpty()) return
     ProducedFilesRow(files = files, onOpenFile = onOpenFile, modifier = modifier)

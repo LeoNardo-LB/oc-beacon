@@ -128,6 +128,8 @@ adb -s e69a99d8 shell am start -n dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeaco
 - 截图取证：`adb -s e69a99d8 exec-out screencap -p > x.png`（exec-out 避免换行污染）
 - **聊天页滚动方向**（2026-08-21 教训，曾致 0 帧误判两轮）：进入会话默认停在底部（最新消息）；**手指向下滑（如 `input swipe 600 500 600 1600`）才是看更旧消息**；`1600→500` 是向“最新以下”滑——无内容、列表不滚、gfxinfo 记 0 帧。滚动测量前先用「滑动前后 dump 可见时间戳 diff」或帧数 sanity（>100）确认真的滚了
 - **测试入口纪律**（2026-08-25 定规）：每轮真机测试开始一律 `./scripts/debug-entry.sh` 直达会话列表（见「标准测试入口」节）；force-stop/重启 adb/重装后**先跑脚本再继续**（reverse 会被清空）。禁止从 Settings 页手工点进会话列表
+- **IME 在场判定与注入陷阱**（2026-09-07 #345 定性沉淀）：Doubang 输入法为**浅色主题**——screencap 下半屏主色与 app surface 同族 (247,250,253)，像素分析无法区分键盘与界面，误判「无 IME」后 tap 全打在键盘上=看似失活。权威判定：`adb shell dumpsys input_method | grep mInputShown`。IME 抬起期 `uiautomator dump` 恒 ~7 节点（输入法安全窗致盲，正常现象勿当 UI 损坏）；此态下 composer 发送键在 (1086,1616)，IME 收起后在 (1086,2538)
+- **注入 tap 间歇丢弃**（MIUI 平台行为，#345）：注入 tap 可能被静默丢弃（shade 组卡子卡 E4② 先例；2026-09-07 疑似会话内两案，其一已翻案为浅色键盘误读）。tap「失活」时先 `dumpsys input_method`（IME 状态）+`keyevent 4`（键通道是否活）二分定位；确属注入丢弃 → `./scripts/debug-entry.sh` 冷启重置任务栈即恢复。勿据此立 app 缺陷卡，除非真手指复现
 
 ## V1 测试服务器快速搭建（2026-08-25 实战定稿）
 

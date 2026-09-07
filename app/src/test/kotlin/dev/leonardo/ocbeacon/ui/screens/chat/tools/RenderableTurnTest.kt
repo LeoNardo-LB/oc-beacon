@@ -5,7 +5,9 @@ import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RenderableTurnTest {
@@ -89,6 +91,40 @@ class RenderableTurnTest {
         val t = compute(listOf(assistantMsg("a1", 1000L, null)))
         assertNull(t.durationMs)
         assertEquals(1000L, t.turnStartMs)
+    }
+
+    // ============ #343：完结信号与时长解耦（allStepsCompleted）============
+
+    @Test
+    fun `zero span completed turn is marked complete despite null duration`() {
+        // DSH 整装单消息轮：created==completed 同信封——轮已完结、时长未知。
+        // 台账/产出行门控据此渲染（时长列回落「-」），不再被 durationMs==null 吞行。
+        val t = compute(listOf(assistantMsg("a1", 1000L, 1000L)))
+        assertNull(t.durationMs)
+        assertTrue(t.allStepsCompleted)
+    }
+
+    @Test
+    fun `negative span completed turn is marked complete`() {
+        // 跨钟域混腿：completed 在前也在场——完结信号不受时长可测性影响
+        val t = compute(listOf(assistantMsg("a1", 5000L, 4793L)))
+        assertNull(t.durationMs)
+        assertTrue(t.allStepsCompleted)
+    }
+
+    @Test
+    fun `streaming turn is not completed`() {
+        // 任一 assistant 消息 completed 缺席 → 未完结（SSE 铁律：流式中台账不出现）
+        val msgs = listOf(assistantMsg("a1", 1000L, 2000L), assistantMsg("a2", 2500L, null))
+        assertFalse(compute(msgs).allStepsCompleted)
+    }
+
+    @Test
+    fun `turn without assistant messages is not completed`() {
+        // 空轮（仅 synthetic/用户消息）不触发台账——assistantsForMeta 为空
+        val t = compute(listOf(syntheticMsg("s1", 3000L)))
+        assertFalse(t.allStepsCompleted)
+        assertNull(t.durationMs)
     }
 
     // ============ synthetic 嵌入气泡（2026-08-11）============

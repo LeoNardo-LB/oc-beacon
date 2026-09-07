@@ -162,9 +162,11 @@ private fun ToolNameChip(name: String) {
 /**
  * 台账装配门控：仅已完结轮次渲染。
  *
- * SSE 铁律：流式进行中轮次不显示——durationMs 仅在 turn 内全部 assistant
- * 消息 completed 时非空（computeRenderableTurn 语义），null 即缺席；
- * 序号未知（窗口外/分页瞬态）同样静默不渲染。
+ * SSE 铁律：流式进行中轮次不显示——完结判定用 allStepsCompleted
+ * （turn 内全部 assistant 消息带 completed，#343 与时长解耦）：
+ * 零跨度完结轮（DSH 整装事件 created==completed 同信封）照常渲染，
+ * 时长未知由 summary 回落 "-"（#338 宁缺毋谎语义）；序号未知
+ * （窗口外/分页瞬态）同样静默不渲染。
  */
 @Composable
 internal fun MaybeTurnLedgerRow(
@@ -176,7 +178,7 @@ internal fun MaybeTurnLedgerRow(
     onForkFromTurn: ((String) -> Unit)? = null,
 ) {
     if (turn == null || turnNumber == null) return
-    if (turn.durationMs == null) return
+    if (!turn.allStepsCompleted) return
     TurnLedgerRow(
         turnKey = "ledger_" + anchorMsgId,
         summary = turnLedgerSummary(turn, turnNumber),

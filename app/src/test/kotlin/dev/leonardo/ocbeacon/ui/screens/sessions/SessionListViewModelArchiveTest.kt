@@ -183,7 +183,7 @@ class SessionListViewModelArchiveTest {
             messageFtsIndex = mockk(relaxed = true),
             historySyncManager = mockk(relaxed = true),
             pendingInteractionStore = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingInteractionStore> {
-                io.mockk.every { pendingBySession } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap<String, dev.leonardo.ocbeacon.data.repository.PendingInteractionKind>())
+                io.mockk.every { pendingBySession } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap<String, dev.leonardo.ocbeacon.data.repository.PendingInteractionEntry>())
             },
             dshConnectionRegistry = mockk(relaxed = true),
         )

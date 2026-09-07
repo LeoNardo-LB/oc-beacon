@@ -1397,7 +1397,7 @@ fun ChatMessageList(
                                         )
                                         // #311 Task4 产出文件行：台账行之后（气泡下方），
                                         // 空产出/流式进行中不挂载（Maybe 内部以
-                                        // durationMs 判完结，SSE 铁律同台账）。
+                                        // allStepsCompleted 判完结，SSE 铁律同台账）。
                                         MaybeProducedFilesRow(
                                             turn = chunkTurn,
                                             onOpenFile = onOpenFile,
@@ -1683,7 +1683,7 @@ fun ChatMessageList(
                                     eventExpandedStates = eventCardExpandedStates,
                                 )
                                 // #310④ 台账行：轮次边界（气泡下方）。仅已完结轮次——
-                                // MaybeTurnLedgerRow 以 durationMs 判完结，流式进行中
+                                // MaybeTurnLedgerRow 以 allStepsCompleted 判完结，流式进行中
                                 // 轮次不显示（SSE 铁律；此处 !isStreamingMsg 为双保险）。
                                 if (!isStreamingMsg) {
                                     MaybeTurnLedgerRow(
@@ -1694,7 +1694,7 @@ fun ChatMessageList(
                                         onForkFromTurn = forkFromTurn,
                                     )
                                     // #311 Task4 产出文件行（台账行之后；空产出/
-                                    // 流式进行中不挂载——durationMs 完结判定同台账）
+                                    // 流式进行中不挂载——allStepsCompleted 完结判定同台账）
                                     MaybeProducedFilesRow(
                                         turn = renderableTurns[displayItemIndex],
                                         onOpenFile = onOpenFile,

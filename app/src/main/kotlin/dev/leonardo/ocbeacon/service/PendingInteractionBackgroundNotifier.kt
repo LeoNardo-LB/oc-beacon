@@ -29,9 +29,11 @@ private const val TAG = "PendingBgNotifier"
  *   question；子会话冒泡到父目标，镜像 SessionNotificationCoordinator 发布口径）；
  * - 去重 = store 已通知槽（「已发过的不重发」）：到达路径发布后同点标记
  *  （SessionNotificationCoordinator），本组件补发后也标记；槽随 pending 清除
- *  /kind 切换复位，下一轮可再补发。补发载荷为空串——AppNotificationManager
- *   侧回退最近用户消息/泛化文案；通知 id 走 (server, session, kind) 稳定槽位，
- *   与到达通知同 id 原位更新不堆叠（#320 契约）。
+ *  /kind 切换复位，下一轮可再补发。#344：补发载荷 = 记录时刻的问题/权限
+ *   原文（store 条目 text，发布前 sanitizeNotificationText 消毒）——旧「空串
+ *   +回退最近用户消息」路径会把 DSH <system-reminder> 注入语料行当正文；载荷
+ *   仍空时回退侧再兜底（findLatestUserMessages 已过滤注入语料）；通知 id 走
+ *   (server, session, kind) 稳定槽位，与到达通知同 id 原位更新不堆叠（#320 契约）。
  *
  * 订阅姿势与保活同 [PendingInteractionNotificationRevoker]（appScope init 订阅、
  * OpenCodeConnectionService 构造注入保活——连接服务运行期生效）。撤通知仍归
@@ -78,7 +80,7 @@ class PendingInteractionBackgroundNotifier @Inject constructor(
         // 门控与到达路径 maybeNotify 同门：通知总开关关闭时不补发（槽保持未标记）
         if (!settingsRepository.notificationsEnabled().first()) return
 
-        store.pendingBySession.value.forEach { (sessionId, kind) ->
+        store.pendingBySession.value.forEach { (sessionId, entry) ->
             // 已发过的不重发（到达发布点已标记 / 本组件补发后已标记）
             if (store.isNotified(sessionId)) return@forEach
             val servers = knownServersBySession[sessionId].orEmpty()
@@ -90,22 +92,25 @@ class PendingInteractionBackgroundNotifier @Inject constructor(
             // 子会话冒泡到父目标（#337 共享映射——与 SessionNotificationCoordinator 同一函数）
             val targetSessionId = bubbleToParentSessionTarget(sessionId, eventDispatcher.sessions.value)
             servers.forEach { server ->
-                when (SessionNotificationKind.forPendingInteraction(kind)) {
+                // #344：补发携带记录时刻的真实载荷（原始文本在此消毒——空则传
+                // 空串走 AppNotificationManager 回退，回退侧已过滤注入语料）
+                val payload = sanitizeNotificationText(entry.text ?: "") ?: ""
+                when (SessionNotificationKind.forPendingInteraction(entry.kind)) {
                     SessionNotificationKind.PERMISSION ->
-                        actions.showPermissionAsked(server, targetSessionId, "")
+                        actions.showPermissionAsked(server, targetSessionId, payload)
                     SessionNotificationKind.QUESTION ->
-                        actions.showQuestionAsked(server, targetSessionId, "")
+                        actions.showQuestionAsked(server, targetSessionId, payload)
                     else -> return@forEach
                 }
                 AppLogger.i(
                     TAG,
-                    "Background re-dispatch ${kind.name} notification for session $sessionId " +
+                    "Background re-dispatch ${entry.kind.name} notification for session $sessionId " +
                         "(target=$targetSessionId, server=${server.id})",
                 )
             }
             // 补发后同点标记（键=store 键——原始事件 sessionId；同 sessionId 多服务器
             // 归属为 #311 单键域既有取舍，一次标记覆盖）
-            store.markNotified(sessionId, kind)
+            store.markNotified(sessionId, entry.kind)
         }
     }
 }

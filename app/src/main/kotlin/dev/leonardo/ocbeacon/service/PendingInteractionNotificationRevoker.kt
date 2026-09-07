@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.service
 
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
+import dev.leonardo.ocbeacon.data.repository.PendingInteractionEntry
 import dev.leonardo.ocbeacon.data.repository.PendingInteractionKind
 import dev.leonardo.ocbeacon.data.repository.PendingInteractionStore
 import dev.leonardo.ocbeacon.di.ApplicationScope
@@ -81,15 +82,16 @@ class PendingInteractionNotificationRevoker @Inject constructor(
                 }
             }
         }
-        // 撤通知 diff：清除/kind 切换 → 撤旧 kind 槽位
+        // 撤通知 diff：清除/kind 切换 → 撤旧 kind 槽位（#344：条目含载荷文本——
+        // diff 只比 kind，同 kind 载荷更新不触发撤除）
         appScope.launch {
-            var prev: Map<String, PendingInteractionKind> = emptyMap()
+            var prev: Map<String, PendingInteractionEntry> = emptyMap()
             store.pendingBySession.collect { curr ->
                 (prev.keys + curr.keys).forEach sid@{ sessionId ->
                     val was = prev[sessionId] ?: return@sid // 新增记录：发布归 SSE 管线
                     val now = curr[sessionId]
-                    if (was != now) {
-                        revoke(sessionId, was)
+                    if (was.kind != now?.kind) {
+                        revoke(sessionId, was.kind)
                     }
                 }
                 prev = curr

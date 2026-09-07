@@ -143,4 +143,48 @@ class FindUserMessagesTest {
         assertEquals("Message 8", result[0].text)
         assertEquals("Message 10", result[2].text)
     }
+
+    // ============ #344：服务器注入语料不进通知预览 ============
+
+    @Test
+    fun `skips system-reminder injection row and falls back to real prompt`() {
+        // DSH 实证形态：skill catalog 注入行（seq-13）晚于真 prompt（seq-10）
+        // 毫秒级——「最新用户消息」恰好命中注入行
+        every { eventDispatcher.messages.value } returns mapOf(
+            "session1" to listOf(userMessage("u1", 100), userMessage("u2", 101))
+        )
+        every { eventDispatcher.parts.value } returns mapOf(
+            "u1" to listOf(textPart("u1", "Please use your ask_user_question tool")),
+            "u2" to listOf(textPart("u2", "<system-reminder>\nA skill is a reusable set…")),
+        )
+        val result = manager.findLatestUserMessages("session1", 1)
+        assertEquals(1, result.size)
+        assertEquals("Please use your ask_user_question tool", result[0].text)
+    }
+
+    @Test
+    fun `strips embedded reminder block from preview text`() {
+        // 嵌闭合块的合法消息：剥块后取余文
+        every { eventDispatcher.messages.value } returns mapOf(
+            "session1" to listOf(userMessage("u1", 100))
+        )
+        every { eventDispatcher.parts.value } returns mapOf(
+            "u1" to listOf(textPart("u1", "<system-reminder>ctx</system-reminder>Real question"))
+        )
+        val result = manager.findLatestUserMessages("session1", 1)
+        assertEquals(1, result.size)
+        assertEquals("Real question", result[0].text)
+    }
+
+    @Test
+    fun `message that is entirely reminder corpus is skipped`() {
+        every { eventDispatcher.messages.value } returns mapOf(
+            "session1" to listOf(userMessage("u1", 100))
+        )
+        every { eventDispatcher.parts.value } returns mapOf(
+            "u1" to listOf(textPart("u1", "<system-reminder>only corpus</system-reminder>"))
+        )
+        val result = manager.findLatestUserMessages("session1", 5)
+        assertTrue(result.isEmpty())
+    }
 }

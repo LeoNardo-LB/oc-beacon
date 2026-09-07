@@ -535,7 +535,9 @@ class AppNotificationManager @Inject constructor(
 
     /**
      * 提取最新的 N 条用户消息（非合成）用于通知正文预览（InboxStyle/纯文本）。
-     * 消息按从旧到新排序。
+     * 消息按从旧到新排序。#344：跳过服务器注入语料（<system-reminder> 前缀的
+     * 用户行——DSH 把 skill catalog / workspace 指引按 user/message 入库，晚于
+     * 真 prompt 毫秒级，恰好成为「最新用户消息」，通知回退曾把它当正文）。
      */
     fun findLatestUserMessages(sessionId: String, limit: Int): List<UserMessagePreview> {
         val sessionMessages = eventDispatcher.messages.value[sessionId] ?: return emptyList()
@@ -547,10 +549,12 @@ class AppNotificationManager @Inject constructor(
                 val parts = partsMap[userMsg.id] ?: return@mapNotNull null
                 val text = parts
                     .filterIsInstance<Part.Text>()
-                    .firstOrNull { it.synthetic != true && it.ignored != true && it.text.isNotBlank() }
+                    .firstOrNull { it.synthetic != true && it.ignored != true && isNotificationPreviewText(it.text) }
                     ?.text
                     ?: return@mapNotNull null
-                val cleanText = text.replace("\n", " ").trim()
+                // #344：预览管线统一消毒（嵌闭合块剥除；全剥离→空 → 跳过该行）
+                val cleanText = sanitizeNotificationText(text)?.replace("\n", " ")?.trim()
+                    ?: return@mapNotNull null
                 UserMessagePreview(
                     text = if (cleanText.length > 100) cleanText.take(100) + "…" else cleanText,
                     timestamp = userMsg.time.created

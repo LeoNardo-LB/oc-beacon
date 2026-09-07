@@ -31,6 +31,20 @@ val PendingInteractionKind.isQuestionFamily: Boolean
     get() = this == PendingInteractionKind.QUESTION || this == PendingInteractionKind.PLAN_REVIEW
 
 /**
+ * #344：待交互条目 = 种类 + 载荷文本（记录时刻的问题/权限摘要，原始未消毒）。
+ *
+ * 动机：#336 退后台补发曾以空串发布、由 AppNotificationManager 回退「最近
+ * 用户消息」——而 DSH 会把 skill catalog / workspace 指引等 <system-reminder>
+ * 注入语料作为用户消息入库（晚于真 prompt 毫秒级 → 恰为「最新」），补发正文
+ * 因此成了系统注入全文。条目携带真实载荷后补发不再走回退；文本消毒仍在
+ * 通知边缘（sanitizeNotificationText）——store 保持原始值（数据层不掺展示策略）。
+ */
+data class PendingInteractionEntry(
+    val kind: PendingInteractionKind,
+    val text: String? = null,
+)
+
+/**
  * #339：径② 清除延后复核窗口——重连 resync 重放历史的瞬态 Busy→Idle 边沿
  * （回放交错产物，间隔毫秒级）在窗口内被后续状态覆盖；真实轮末 Idle 持续
  * 在场不受影响。2s 兼顾回放交错跨度（实证 <50ms）与轮末清除时延感知。
@@ -64,10 +78,10 @@ class PendingInteractionStore @Inject constructor(
     private val sessionStateRepository: SessionStateRepository,
     @ApplicationScope private val appScope: CoroutineScope,
 ) {
-    private val _pendingBySession = MutableStateFlow<Map<String, PendingInteractionKind>>(emptyMap())
+    private val _pendingBySession = MutableStateFlow<Map<String, PendingInteractionEntry>>(emptyMap())
 
-    /** sessionId → 待交互种类（单值 last-wins）。 */
-    val pendingBySession: StateFlow<Map<String, PendingInteractionKind>> = _pendingBySession.asStateFlow()
+    /** sessionId → 待交互条目（单值 last-wins；kind 供行指示，text 供补发载荷）。 */
+    val pendingBySession: StateFlow<Map<String, PendingInteractionEntry>> = _pendingBySession.asStateFlow()
 
     /**
      * #336：sessionId → 已通知槽（该会话当前挂起等待态的系统通知已发布过）。
@@ -112,9 +126,21 @@ class PendingInteractionStore @Inject constructor(
         }
     }
 
-    /** 分发点旁路记录（所有权去重后调用——双配置同后端只记一次）。 */
-    fun record(sessionId: String, kind: PendingInteractionKind) {
-        _pendingBySession.update { it + (sessionId to kind) }
+    /**
+     * 分发点旁路记录（所有权去重后调用——双配置同后端只记一次）。
+     * #344：text = 记录时刻的问题/权限摘要（原始未消毒）；同 kind 再记录时
+     * 非空新值覆盖（追加同类请求 last-wins），空值保留既有（重放不抹载荷）。
+     */
+    fun record(sessionId: String, kind: PendingInteractionKind, text: String? = null) {
+        _pendingBySession.update { all ->
+            val existing = all[sessionId]
+            val entry = when {
+                existing != null && existing.kind == kind ->
+                    existing.copy(text = text ?: existing.text)
+                else -> PendingInteractionEntry(kind, text)
+            }
+            all + (sessionId to entry)
+        }
         // #336：kind 切换 = 新等待态 → 已通知槽复位（通知机会重置）；
         // 同 kind 再记录保留槽（等待态延续，防重放重复补发）。
         notifiedBySession.update { notified ->
@@ -129,7 +155,7 @@ class PendingInteractionStore @Inject constructor(
     /** 清除①同点调用：仅当记录种类同族时移除（question 族互清——plan-review 归并）。 */
     fun clearIfKind(sessionId: String, kind: PendingInteractionKind) {
         _pendingBySession.update { all ->
-            val current = all[sessionId]
+            val current = all[sessionId]?.kind
             if (current != null && (current == kind || (current.isQuestionFamily && kind.isQuestionFamily))) {
                 all - sessionId
             } else {

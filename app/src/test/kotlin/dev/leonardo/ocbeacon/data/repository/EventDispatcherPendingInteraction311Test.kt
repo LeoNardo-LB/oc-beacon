@@ -83,19 +83,19 @@ class EventDispatcherPendingInteraction311Test {
     @Test
     fun `permission asked records approval indicator`() {
         dispatcher.processEvent(asked, "srv")
-        assertEquals(PendingInteractionKind.APPROVAL, store.pendingBySession.value["ses-1"])
+        assertEquals(PendingInteractionKind.APPROVAL, store.pendingBySession.value["ses-1"]?.kind)
     }
 
     @Test
     fun `question asked records question indicator`() {
         dispatcher.processEvent(question("q-1"), "srv")
-        assertEquals(PendingInteractionKind.QUESTION, store.pendingBySession.value["ses-1"])
+        assertEquals(PendingInteractionKind.QUESTION, store.pendingBySession.value["ses-1"]?.kind)
     }
 
     @Test
     fun `plan-review question records plan-review kind`() {
         dispatcher.processEvent(question("q-1", intentKind = "plan-review"), "srv")
-        assertEquals(PendingInteractionKind.PLAN_REVIEW, store.pendingBySession.value["ses-1"])
+        assertEquals(PendingInteractionKind.PLAN_REVIEW, store.pendingBySession.value["ses-1"]?.kind)
     }
 
     // ============ 清除① 本地应答（removePermission/removeQuestion 委托同点）============
@@ -112,7 +112,7 @@ class EventDispatcherPendingInteraction311Test {
         dispatcher.processEvent(asked, "srv")
         dispatcher.processEvent(asked.copy(id = "perm-2"), "srv")
         dispatcher.removePermission("perm-1")
-        assertEquals(PendingInteractionKind.APPROVAL, store.pendingBySession.value["ses-1"])
+        assertEquals(PendingInteractionKind.APPROVAL, store.pendingBySession.value["ses-1"]?.kind)
         dispatcher.removePermission("perm-2")
         assertNull(store.pendingBySession.value["ses-1"])
     }

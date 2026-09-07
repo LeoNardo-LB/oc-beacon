@@ -27,6 +27,14 @@ data class RenderableTurn(
     val modelId: String?,
     val durationMs: Long?,
     val turnStartMs: Long?,
+    /**
+     * #343 完结信号（与时长解耦）：turn 内存在 assistant 消息且全部带
+     * completed（computeRenderableTurn 语义）。durationMs 只回答「跨度
+     * 可测与否」——DSH 整装事件 created==completed 同信封（零跨度）时
+     * 轮已完结但时长未知（null → 台账"-"），被中断轮同款。此前台账/产出行
+     * 门控用 durationMs==null 兼当完结判定，把零跨度完结轮整行吞掉。
+     */
+    val allStepsCompleted: Boolean = false,
     val stepFinishes: List<Part.StepFinish>,
     val taskAgentName: String?,
     val copyText: String?,
@@ -215,9 +223,11 @@ fun computeRenderableTurn(
     val turnStartMs: Long? = assistantsForMeta.minOfOrNull { it.time.created }
 
     // 时长 —— turn 级跨度：首条 created → 末条 completed。
-    // 仅当 turn 内所有 assistant 消息均 completed 时给值；任一仍流式 → null（流式 ticker 接管）。
+    // 完结信号与时长测量解耦（#343）：allStepsCompleted 回答「轮是否完结」
+    // （全部 assistant 消息带 completed），durationMs 只回答「跨度可测与否」。
     val completedTimes = assistantsForMeta.mapNotNull { it.time.completed }
-    val durationMs: Long? = if (turnStartMs != null && completedTimes.size == assistantsForMeta.size) {
+    val allStepsCompleted = assistantsForMeta.isNotEmpty() && completedTimes.size == assistantsForMeta.size
+    val durationMs: Long? = if (turnStartMs != null && allStepsCompleted) {
         // #338：零/负跨度 = 时长未知（DSH 整装事件 created=completed 同信封、
         // 被中断轮同款）——null（台账回落 "-"，宁缺毋谎，与 tokensTotal 缺席
         // 即 null 同哲学），不以 0ms 冒充实测值。
@@ -268,6 +278,7 @@ fun computeRenderableTurn(
         modelId = modelId,
         durationMs = durationMs,
         turnStartMs = turnStartMs,
+        allStepsCompleted = allStepsCompleted,
         stepFinishes = stepFinishes,
         taskAgentName = taskAgentName,
         copyText = copyText,
