@@ -64,10 +64,6 @@ import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Surface
-import androidx.compose.material3.SwipeToDismissBoxState
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -107,7 +103,7 @@ internal fun SessionRow(
     syncState: dev.leonardo.ocbeacon.data.local.SessionSyncEntity? = null,
     onRequestSync: () -> Unit = {},
     onCancelSync: () -> Unit = {},
-    // #311 归档：归档集合成员位 + 能力位门控 + 归档动作（行菜单项/左滑共用）
+    // #311 归档：归档集合成员位 + 能力位门控 + 归档动作（#347 后唯一入口=行菜单项）
     isArchived: Boolean = false,
     archiveSupported: Boolean = false,
     onArchive: () -> Unit = {},
@@ -122,24 +118,10 @@ internal fun SessionRow(
         sessionRowMenuActions(archiveSupported, isArchived)
     }
 
-    // #311 左滑归档：仅未归档行 + 能力位内可滑；右滑不动作。confirmValueChange
-    // 恒 false（否决回弹）——行去留以服务器回执（workspace/follow 增量 → 快照流）
-    // 响应式为准，不做乐观移除；失败行保持原位（snackbar 提示）。
-    val canSwipeToArchive = archiveSupported && !isArchived
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart && canSwipeToArchive) onArchive()
-            false
-        },
-    )
-
+    // #347（2026-09-07 用户裁决）：左滑归档手势下线——归档唯一入口=长按行菜单
+    //（统一审计：交互模式归一，能力位只控菜单项显隐）。原 SwipeToDismissBox
+    // 包装随 #342 揭示背景一并移除。
     Box(modifier = modifier.fillMaxWidth()) {
-    SwipeToDismissBox(
-        state = dismissState,
-        enableDismissFromStartToEnd = false,
-        enableDismissFromEndToStart = canSwipeToArchive,
-        backgroundContent = { SwipeToArchiveBackground(dismissState) },
-    ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -351,7 +333,6 @@ internal fun SessionRow(
             )
         }
     }
-    }
 
     // #311 长按行菜单（详情/重命名/归档——显隐纯函数见 SessionRowMenu.kt；
     // 已归档行只留详情：归档单向契约，无 wire 级恢复动词）
@@ -413,51 +394,6 @@ internal fun SessionRow(
     }
 }
 
-/**
- * #342 归档揭示背景的绘制判定（纯函数，可单测）：仅负向位移（左滑揭示中）
- * 绘制。[SwipeToArchiveBackground] 的 rest 态遮蔽依据。
- */
-internal fun shouldRevealArchiveBackground(offset: Float): Boolean = offset < -1f
-
-/**
- * #311 左滑归档背景（M3 errorContainer 形态）——左滑过程中从右侧揭示。
- *
- * #342 根因修复（2026-09-07 真机实证红列表）：M3 SwipeToDismissBox 的
- * backgroundContent **无条件全尺寸常驻**在内容后方，而 SessionRow 前景
- * Row 无底色（透明）→ errorContainer 恒透出 = 整列表红底（自 #311 Task2
- * 2026-09-05 上线起恒在；XML dump 验收色盲 + 「左滑手感」人工项未做双漏）。
- * 修复：rest/复位态不绘制（透出列表 surface），仅在真实左滑位移时绘制。
- */
-@Composable
-private fun SwipeToArchiveBackground(state: SwipeToDismissBoxState, modifier: Modifier = Modifier) {
-    val offset = runCatching { state.requireOffset() }.getOrDefault(0f)
-    if (!shouldRevealArchiveBackground(offset)) {
-        // rest 态：完全透明占位（保持 backgroundContent 槽位/测量稳定）
-        Spacer(modifier = modifier.fillMaxSize())
-        return
-    }
-    Row(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.errorContainer)
-            .padding(end = SpacingTokens.LG.dp),
-        horizontalArrangement = Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = Icons.Outlined.Archive,
-            contentDescription = stringResource(R.string.session_menu_archive),
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.onErrorContainer,
-        )
-        Spacer(modifier = Modifier.width(SpacingTokens.SM.dp))
-        Text(
-            text = stringResource(R.string.session_menu_archive),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onErrorContainer,
-        )
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable

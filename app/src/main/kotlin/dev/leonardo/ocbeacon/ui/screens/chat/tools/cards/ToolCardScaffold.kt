@@ -92,6 +92,12 @@ internal fun ToolCardScaffold(
     isAmoled: Boolean,
     onToggleExpand: () -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * #349：标题行点击覆盖槽——非 null 时本体点击执行它（如 subagent 卡直达
+     * 子会话）而非展开；调用方需自带展开替代入口（chevron）。null=默认契约
+     * （#215 批2：本体点击=唯一展开入口）。
+     */
+    onCardClick: (() -> Unit)? = null,
     rightSideExtras: @Composable (RowScope.() -> Unit)? = null,
     trailingExtras: @Composable (RowScope.() -> Unit)? = null,
     titleContent: (@Composable RowScope.() -> Unit)? = null,
@@ -130,9 +136,9 @@ internal fun ToolCardScaffold(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .weight(1f)
-                            .clickable(enabled = hasContent) {
+                            .clickable(enabled = hasContent || onCardClick != null) {
                                 performHaptic(hapticView, hapticOn)
-                                onToggleExpand()
+                                onCardClick?.invoke() ?: onToggleExpand()
                             }
                     ) {
                         titleContent(this)
@@ -143,9 +149,9 @@ internal fun ToolCardScaffold(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .weight(1f)
-                            .clickable(enabled = hasContent) {
+                            .clickable(enabled = hasContent || onCardClick != null) {
                                 performHaptic(hapticView, hapticOn)
-                                onToggleExpand()
+                                onCardClick?.invoke() ?: onToggleExpand()
                             }
                     ) {
                         Icon(

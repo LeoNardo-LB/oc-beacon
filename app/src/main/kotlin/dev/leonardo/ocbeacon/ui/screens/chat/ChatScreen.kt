@@ -993,6 +993,15 @@ fun ChatScreen(
                       goalPhase = goalState?.goal?.phase,
                       queueCount = queueItemsForFab.size,
                       onOpenEntry = { toolbarSheet = it },
+                      // 统一审计批1：FAB 入口按能力位门控（GOAL=DSH、SHELL=V1/V2；
+                      // TODO/AGENT 两面通用；QUEUE 待 #348 堆积链定去留）
+                      entries = buildList {
+                          add(ChatToolbarEntry.TODO)
+                          add(ChatToolbarEntry.AGENT)
+                          if (serverCapabilities.goalSupported) add(ChatToolbarEntry.GOAL)
+                          if (serverCapabilities.terminalSupported) add(ChatToolbarEntry.SHELL)
+                          add(ChatToolbarEntry.QUEUE)
+                      },
                       // 2026-08-29 基线对齐：菜单 08-27 稳定 API 复刻把按钮钉底（内部
                       // 底距移除）后，与 ⬇ FAB 的 padding(bottom=16dp) 失配 16dp——
                       // 实测图标中心差 48px。此处补对称底距恢复「双 FAB 同基线」。

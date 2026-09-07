@@ -85,7 +85,6 @@ internal val FabSlideTopMargin: Dp = 8.dp
 private val FabMenuItemHeight: Dp = 44.dp
 private val FabMenuItemSpacingVertical: Dp = 4.dp
 private val FabMenuPaddingBottomToken: Dp = 8.dp
-private const val FabMenuItemCount = 6
 
 /**
  * #194 D1 展开溢出量计算（纯函数，单测覆盖）——全稳定量版（无 stagger 竞态）。
@@ -243,6 +242,11 @@ internal fun ChatFabMenu(
     goalPhase: String? = null,
     onOpenEntry: (ChatToolbarEntry) -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * 统一审计批1：可见入口按能力位过滤（GOAL=goalSupported、SHELL=terminalSupported）。
+     * 默认全量（预览/测试兼容）；ChatScreen 按 ServerCapabilities 传入。
+     */
+    entries: List<ChatToolbarEntry> = ChatToolbarEntry.entries.toList(),
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val slideState = rememberFabEdgeSlideState()
@@ -253,8 +257,8 @@ internal fun ChatFabMenu(
     val marginPx = with(density) { FabSlideTopMargin.toPx() }
     // 全静态菜单几何（Q3：tap 瞬时可算，无竞态）：span = N×44dp + (N−1)×4dp
     val menuSpanPx = with(density) {
-        (FabMenuItemHeight * FabMenuItemCount +
-            FabMenuItemSpacingVertical * (FabMenuItemCount - 1)).toPx()
+        (FabMenuItemHeight * entries.size +
+            FabMenuItemSpacingVertical * (entries.size - 1)).toPx()
     }
     val menuPadPx = with(density) { FabMenuPaddingBottomToken.toPx() }
 
@@ -341,50 +345,51 @@ internal fun ChatFabMenu(
                 exit = shrinkVertically(animationSpec = tween(ExpandShiftAnimMs)) + fadeOut(),
             ) {
                 Column(horizontalAlignment = Alignment.End) {
-                    FabMenuEntry(
-                        icon = Icons.Default.Checklist,
-                        label = stringResource(R.string.pending_tab_todo_plain),
-                        count = todoPendingCount,
-                        onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.TODO) },
-                    )
-                    Spacer(Modifier.height(FabMenuItemSpacingVertical))
-                    FabMenuEntry(
-                        icon = Icons.Default.AccountTree,
-                        label = stringResource(R.string.toolbar_agent),
-                        count = agentRunningCount,
-                        onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.AGENT) },
-                    )
-                    Spacer(Modifier.height(FabMenuItemSpacingVertical))
-                    FabMenuEntry(
-                        icon = Icons.Default.Flag,
-                        label = stringResource(R.string.toolbar_goal),
-                        count = 0,
-                        // #286：目标菜单项角标（phase 色；blocked 警示色 error）——
-                        // complete/无 goal 不渲染角标（Web 语义：完成态不渲染条目）
-                        badgeColor = when (goalPhase) {
-                            "blocked" -> MaterialTheme.colorScheme.error
-                            "active" -> MaterialTheme.colorScheme.primary
-                            "paused" -> MaterialTheme.colorScheme.secondary
-                            else -> null
-                        },
-                        onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.GOAL) },
-                    )
-                    Spacer(Modifier.height(FabMenuItemSpacingVertical))
-                    FabMenuEntry(
-                        icon = Icons.Default.Terminal,
-                        label = stringResource(R.string.toolbar_shell),
-                        count = shellRunningCount,
-                        onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.SHELL) },
-                    )
-                    Spacer(Modifier.height(FabMenuItemSpacingVertical))
-                    // #313：队列面板进 FAB 体系（用户「能力→容器」映射裁决）——
-                    // 取代输入条上方 QueueDock 条（对 DSH Web dock 布局的照搬，退役）
-                    FabMenuEntry(
-                        icon = Icons.Default.Schedule,
-                        label = stringResource(R.string.queue_title),
-                        count = queueCount,
-                        onClick = { expanded = false; onOpenEntry(ChatToolbarEntry.QUEUE) },
-                    )
+                    // 统一审计批1：动态条目（能力位过滤后的 entries；顺序=列表序）
+                    entries.forEachIndexed { index, entry ->
+                        if (index > 0) Spacer(Modifier.height(FabMenuItemSpacingVertical))
+                        when (entry) {
+                            ChatToolbarEntry.TODO -> FabMenuEntry(
+                                icon = Icons.Default.Checklist,
+                                label = stringResource(R.string.pending_tab_todo_plain),
+                                count = todoPendingCount,
+                                onClick = { expanded = false; onOpenEntry(entry) },
+                            )
+                            ChatToolbarEntry.AGENT -> FabMenuEntry(
+                                icon = Icons.Default.AccountTree,
+                                label = stringResource(R.string.toolbar_agent),
+                                count = agentRunningCount,
+                                onClick = { expanded = false; onOpenEntry(entry) },
+                            )
+                            ChatToolbarEntry.GOAL -> FabMenuEntry(
+                                icon = Icons.Default.Flag,
+                                label = stringResource(R.string.toolbar_goal),
+                                count = 0,
+                                // #286：目标菜单项角标（phase 色；blocked 警示色 error）——
+                                // complete/无 goal 不渲染角标（Web 语义：完成态不渲染条目）
+                                badgeColor = when (goalPhase) {
+                                    "blocked" -> MaterialTheme.colorScheme.error
+                                    "active" -> MaterialTheme.colorScheme.primary
+                                    "paused" -> MaterialTheme.colorScheme.secondary
+                                    else -> null
+                                },
+                                onClick = { expanded = false; onOpenEntry(entry) },
+                            )
+                            ChatToolbarEntry.SHELL -> FabMenuEntry(
+                                icon = Icons.Default.Terminal,
+                                label = stringResource(R.string.toolbar_shell),
+                                count = shellRunningCount,
+                                onClick = { expanded = false; onOpenEntry(entry) },
+                            )
+                            ChatToolbarEntry.QUEUE -> FabMenuEntry(
+                                // #313：队列面板进 FAB 体系（用户「能力→容器」映射裁决）
+                                icon = Icons.Default.Schedule,
+                                label = stringResource(R.string.queue_title),
+                                count = queueCount,
+                                onClick = { expanded = false; onOpenEntry(entry) },
+                            )
+                        }
+                    }
                     // 列底距（FabMenuPaddingBottom token，与 #194 D2 溢出计算的
                     // menuPadPx 同源）：items 与 button 的间距
                     Spacer(Modifier.height(FabMenuPaddingBottomToken))

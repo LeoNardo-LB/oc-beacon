@@ -15,6 +15,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccountTree
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -114,12 +116,29 @@ internal fun TaskToolCard(
         hasContent = if (showNavArrow) true else hasOutput,
         isAmoled = isAmoled,
         onToggleExpand = onToggleExpand,
+        // #349（2026-09-07 用户裁决）：本体点击=直达子会话查看详情（Running 期
+        // 拿到 id 即可达，#180 语义前移到主点击位）；展开职责移交右侧 chevron
         // #181 演进注记：原「标题行=导航 + chevron=展开」并存方案随 #215 批2
-        // 契约统一收束——标题行回归=展开，导航职责全部交给右侧箭头按钮
+        // 契约统一收束；2026-09-07 用户裁决再演进——导航回归主点击位
         // 2026-08-11 用户反馈：subagent 卡片保持原背景（蓝底改动撤销——
         // "蓝色基调不用改"，原设计即为默认背景 + primary 蓝色图标）
+        onCardClick = navTarget?.let { id -> { viewSub?.invoke(id) } },
         rightSideExtras = if (showNavArrow && navTarget != null && viewSub != null) {
             {
+                // #349：本体点击移交导航后，展开入口以紧凑 chevron 回归（样式对齐
+                // 复制钮 22dp/MUTED；仅有输出可展开时在场）
+                if (hasOutput) {
+                    IconButton(onClick = onToggleExpand, modifier = Modifier.size(22.dp)) {
+                        Icon(
+                            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = stringResource(
+                                if (isExpanded) R.string.a11y_icon_collapse else R.string.a11y_icon_expand
+                            ),
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+                        )
+                    }
+                }
                 IconButton(
                     onClick = { viewSub.invoke(navTarget) },
                     modifier = Modifier.size(22.dp)
