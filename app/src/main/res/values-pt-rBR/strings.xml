@@ -803,6 +803,8 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="server_settings_default_permission">Permissão padrão de novas sessões</string>
     <string name="agent_preset_locked">Preset de agente bloqueado para esta sessão</string>
     <string name="agent_preset_switch_failed">Falha ao trocar preset de agente</string>
+    <string name="sessions_new_dialog_preset_label">Preset de agente</string>
+    <string name="sessions_new_dialog_preset_default">Padrão</string>
     <string name="agent_preset_cards_title">Escolher preset de agente</string>
     <string name="server_settings_default_agent_preset">Preset de agente padrão de novas sessões</string>
     <string name="session_details_agent_preset">Preset de agente</string>

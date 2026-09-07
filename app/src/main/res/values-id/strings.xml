@@ -809,6 +809,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="server_settings_default_permission">Izin default sesi baru</string>
     <string name="agent_preset_locked">Preset agen terkunci untuk sesi ini</string>
     <string name="agent_preset_switch_failed">Gagal mengganti preset agen</string>
+    <string name="sessions_new_dialog_preset_label">Preset agen</string>
+    <string name="sessions_new_dialog_preset_default">Default</string>
     <string name="agent_preset_cards_title">Pilih preset agen</string>
     <string name="server_settings_default_agent_preset">Preset agen default sesi baru</string>
     <string name="session_details_agent_preset">Preset agen</string>

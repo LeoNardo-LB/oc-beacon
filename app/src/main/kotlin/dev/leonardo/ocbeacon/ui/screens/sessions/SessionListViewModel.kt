@@ -1202,7 +1202,7 @@ class SessionListViewModel @Inject constructor(
      * - stray/回退条目（workspaceId=null）：目录导航懒建（现行为）。
      * 复用候选来自 [ChatRepository.listSessionsIncludingBlank]（列表流滤除 blank）。
      */
-    fun connectWorkspaceEntry(entry: WorkspaceDialogEntry) {
+    fun connectWorkspaceEntry(entry: WorkspaceDialogEntry, presetId: String? = null) {
         val workspaceId = entry.workspaceId
         if (workspaceId == null) {
             _newSessionNavigation.tryEmit(NewSessionNavigation.ToDirectory(entry.path))
@@ -1226,6 +1226,7 @@ class SessionListViewModel @Inject constructor(
             val reuse = findReusableBlankSession(workspace, candidates, snapshot.archivedSessionIds.toSet())
             if (reuse != null) {
                 AppLogger.i(TAG_SESSION_LIST_VM, "connectWorkspace reused blank session " + reuse.id + " for " + workspaceId)
+                applyDialogPreset(reuse.id, presetId)
                 _newSessionNavigation.tryEmit(NewSessionNavigation.ToSession(reuse.id))
                 return@launch
             }
@@ -1242,6 +1243,7 @@ class SessionListViewModel @Inject constructor(
                     // 注入仓库：列表立即可见（注册表 sessionIds 由 upsert 增量帧补真）
                     sessionRepository.setSessions(serverId, listOf(session))
                     AppLogger.i(TAG_SESSION_LIST_VM, "connectWorkspace created session " + session.id + " in " + workspaceId)
+                    applyDialogPreset(session.id, presetId)
                     _newSessionNavigation.tryEmit(NewSessionNavigation.ToSession(session.id))
                 }
                 .onFailure { e ->
@@ -1249,6 +1251,22 @@ class SessionListViewModel @Inject constructor(
                     _error.value = e.message ?: "Failed to create session"
                 }
         }
+    }
+
+    /**
+     * 批 3（§三-3 快速对话框内联预设选择）：[connectWorkspaceEntry] 的预设应用腿。
+     * 软失败——locked/网络失败只记日志不阻断导航（会话内空态预设卡仍是改选通道）。
+     */
+    private suspend fun applyDialogPreset(sessionId: String, presetId: String?) {
+        if (presetId == null) return
+        chatRepository.selectAgentPreset(serverId, sessionId, presetId)
+            .onSuccess { ok ->
+                if (!ok) AppLogger.w(TAG_SESSION_LIST_VM, "dialog preset select rejected for " + sessionId)
+            }
+            .onFailure { e ->
+                if (e is CancellationException) throw e
+                AppLogger.w(TAG_SESSION_LIST_VM, "dialog preset select failed for " + sessionId + ": " + e.message)
+            }
     }
 
     fun renameSession(sessionId: String, newTitle: String) {

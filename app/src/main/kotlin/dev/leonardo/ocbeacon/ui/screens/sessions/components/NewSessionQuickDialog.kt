@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -15,6 +16,8 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Workspaces
 import androidx.compose.material3.BasicAlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -22,7 +25,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -30,7 +36,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.material.icons.filled.ArrowDropDown
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.domain.model.AgentPreset
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.ui.components.amoledDialogParams
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
@@ -90,9 +98,10 @@ internal fun recentSessionDirectories(
 internal fun NewSessionQuickDialog(
     entries: List<WorkspaceDialogEntry>,
     limit: Int,
-    onSelectEntry: (WorkspaceDialogEntry) -> Unit,
+    onSelectEntry: (WorkspaceDialogEntry, presetId: String?) -> Unit,
     onBrowse: () -> Unit,
     onDismiss: () -> Unit,
+    agentPresets: List<AgentPreset> = emptyList(),
 ) {
     // 行序快照：仅在本对话框进入组合（打开）那一刻计算一次 —— 对话框存活期内
     // live 流重发（后台刷新 / 异步加载完成的重排窗口）不再改动已显示的行序，
@@ -101,6 +110,16 @@ internal fun NewSessionQuickDialog(
     // 列表变化（如另一端新建会话）→ 行序应保持不变。
     val rows = remember { entries.take(limit) }
     val params = amoledDialogParams(shape = ShapeTokens.largeMedium)
+
+    // 批 3（§三-3）：预设选择行——agentPresets 非空（DSH）时在场，与 workspace
+    // 条目同屏一步完成「选工作区+选预设+连接」；默认 = 不预选（服务器默认档，
+    // 现行为）。opencode 面 roster 恒空表 → 行不渲染，无能力位分支。
+    var presetMenuExpanded by remember { mutableStateOf(false) }
+    var selectedPresetId by remember { mutableStateOf<String?>(null) }
+    val presetLabel = stringResource(R.string.sessions_new_dialog_preset_label)
+    val presetDefaultLabel = stringResource(R.string.sessions_new_dialog_preset_default)
+    val selectedPresetName = agentPresets.firstOrNull { it.id == selectedPresetId }?.name
+        ?: presetDefaultLabel
 
     BasicAlertDialog(
         onDismissRequest = onDismiss,
@@ -120,6 +139,58 @@ internal fun NewSessionQuickDialog(
                     modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = SpacingTokens.MD.dp),
                 )
 
+                if (agentPresets.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 20.dp, end = 20.dp, bottom = SpacingTokens.SM.dp)
+                            .clickable { presetMenuExpanded = true }
+                            .padding(vertical = SpacingTokens.XS.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = presetLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            text = selectedPresetName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Icon(
+                            Icons.Default.ArrowDropDown,
+                            contentDescription = presetLabel,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
+                        )
+                        DropdownMenu(
+                            expanded = presetMenuExpanded,
+                            onDismissRequest = { presetMenuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(presetDefaultLabel) },
+                                onClick = {
+                                    selectedPresetId = null
+                                    presetMenuExpanded = false
+                                },
+                            )
+                            agentPresets.forEach { preset ->
+                                DropdownMenuItem(
+                                    text = { Text(preset.name) },
+                                    onClick = {
+                                        selectedPresetId = preset.id
+                                        presetMenuExpanded = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -129,7 +200,7 @@ internal fun NewSessionQuickDialog(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onSelectEntry(entry) }
+                                .clickable { onSelectEntry(entry, selectedPresetId) }
                                 .padding(horizontal = 20.dp, vertical = SpacingTokens.MD.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp),

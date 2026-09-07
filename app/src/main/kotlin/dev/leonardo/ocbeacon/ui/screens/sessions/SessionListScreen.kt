@@ -662,20 +662,24 @@ viewModel.consumePendingReadSessionId()
     }
 
     // 快速新建会话对话框（#311 Task3：workspace 真建模条目——V012 快照 /
-    // V011 listProjects 回退 / 非 DSH 最近目录；连接语义在 VM）
+    // V011 listProjects 回退 / 非 DSH 最近目录；连接语义在 VM）。
+    // 批 3（§三-3）：DSH 预设 roster 在场时对话框内联预设选择行（同屏一步
+    // 选工作区+预设）；opencode 面 roster 恒空表行不渲染。
     if (showQuickNewSession) {
+        val dialogAgentPresets by viewModel.agentPresetsList.collectAsStateWithLifecycle()
         NewSessionQuickDialog(
             entries = newSessionDialogEntries,
             limit = recentDirectoryCount,
-            onSelectEntry = { entry ->
+            onSelectEntry = { entry, presetId ->
                 showQuickNewSession = false
-                viewModel.connectWorkspaceEntry(entry)
+                viewModel.connectWorkspaceEntry(entry, presetId)
             },
             onBrowse = {
                 showQuickNewSession = false
                 showOpenProject = true
             },
-            onDismiss = { showQuickNewSession = false }
+            onDismiss = { showQuickNewSession = false },
+            agentPresets = dialogAgentPresets,
         )
     }
 

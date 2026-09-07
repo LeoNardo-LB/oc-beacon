@@ -803,6 +803,8 @@
     <string name="server_settings_default_permission">新規セッションのデフォルト権限</string>
     <string name="agent_preset_locked">このセッションのエージェントプリセットはロックされています</string>
     <string name="agent_preset_switch_failed">エージェントプリセットの切り替えに失敗しました</string>
+    <string name="sessions_new_dialog_preset_label">エージェントプリセット</string>
+    <string name="sessions_new_dialog_preset_default">デフォルト</string>
     <string name="agent_preset_cards_title">エージェントプリセットを選択</string>
     <string name="server_settings_default_agent_preset">新規セッションのデフォルトエージェントプリセット</string>
     <string name="session_details_agent_preset">エージェントプリセット</string>

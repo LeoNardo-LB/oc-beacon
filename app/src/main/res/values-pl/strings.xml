@@ -811,6 +811,8 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="server_settings_default_permission">Domyślne uprawnienia nowych sesji</string>
     <string name="agent_preset_locked">Preset agenta jest zablokowany dla tej sesji</string>
     <string name="agent_preset_switch_failed">Nie udało się zmienić presetu agenta</string>
+    <string name="sessions_new_dialog_preset_label">Preset agenta</string>
+    <string name="sessions_new_dialog_preset_default">Domyślny</string>
     <string name="agent_preset_cards_title">Wybierz preset agenta</string>
     <string name="server_settings_default_agent_preset">Domyślny preset agenta nowych sesji</string>
     <string name="session_details_agent_preset">Preset agenta</string>

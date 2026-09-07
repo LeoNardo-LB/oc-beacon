@@ -200,6 +200,101 @@ class SessionListViewModelWorkspaceConnectTest {
         }
     }
 
+    // ============ 批 3（§三-3）：对话框内联预设选择的应用腿 ============
+
+    @Test
+    fun `connect applies dialog preset after create then navigates`() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            workspaceFlow.value = WorkspaceSnapshot(
+                workspaces = listOf(Workspace("ws-1", "/w", "W", sessionIds = listOf("s-1"))),
+            )
+            coEvery { chatRepository.listSessionsIncludingBlank("srv1") } returns Result.success(
+                listOf(session("s-1", "/w", blank = false)),
+            )
+            coEvery { manageSessionUseCase.createSession("srv1", null, "ws-1") } returns
+                session("s-new", "/w")
+            coEvery { chatRepository.selectAgentPreset("srv1", "s-new", "preset-1") } returns
+                Result.success(true)
+            val vm = createViewModel()
+            val nav = mutableListOf<SessionListViewModel.NewSessionNavigation>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.newSessionNavigation.collect { nav.add(it) } }
+
+            vm.connectWorkspaceEntry(workspaceEntry("ws-1", "/w"), presetId = "preset-1")
+            testScheduler.advanceUntilIdle()
+
+            // 新建→选预设→跳转（顺序由 coVerify 序隐含；select 成功不阻断导航）
+            coVerify(exactly = 1) { chatRepository.selectAgentPreset("srv1", "s-new", "preset-1") }
+            assertEquals(
+                listOf(SessionListViewModel.NewSessionNavigation.ToSession("s-new")),
+                nav,
+            )
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `connect applies dialog preset on reused blank session too`() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            workspaceFlow.value = WorkspaceSnapshot(
+                workspaces = listOf(Workspace("ws-1", "/w", "W", sessionIds = listOf("s-2"))),
+            )
+            coEvery { chatRepository.listSessionsIncludingBlank("srv1") } returns Result.success(
+                listOf(session("s-2", "/w", blank = true)),
+            )
+            coEvery { chatRepository.selectAgentPreset("srv1", "s-2", "preset-1") } returns
+                Result.success(true)
+            val vm = createViewModel()
+            val nav = mutableListOf<SessionListViewModel.NewSessionNavigation>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.newSessionNavigation.collect { nav.add(it) } }
+
+            vm.connectWorkspaceEntry(workspaceEntry("ws-1", "/w"), presetId = "preset-1")
+            testScheduler.advanceUntilIdle()
+
+            coVerify(exactly = 1) { chatRepository.selectAgentPreset("srv1", "s-2", "preset-1") }
+            assertEquals(
+                listOf(SessionListViewModel.NewSessionNavigation.ToSession("s-2")),
+                nav,
+            )
+            coVerify(exactly = 0) { manageSessionUseCase.createSession(any(), any(), any()) }
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun `preset select failure is soft and navigation proceeds`() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            workspaceFlow.value = WorkspaceSnapshot(
+                workspaces = listOf(Workspace("ws-1", "/w", "W", sessionIds = listOf("s-1"))),
+            )
+            coEvery { chatRepository.listSessionsIncludingBlank("srv1") } returns Result.success(
+                listOf(session("s-1", "/w", blank = false)),
+            )
+            coEvery { manageSessionUseCase.createSession("srv1", null, "ws-1") } returns
+                session("s-new", "/w")
+            coEvery { chatRepository.selectAgentPreset("srv1", "s-new", "preset-1") } returns
+                Result.failure(IllegalStateException("locked"))
+            val vm = createViewModel()
+            val nav = mutableListOf<SessionListViewModel.NewSessionNavigation>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.newSessionNavigation.collect { nav.add(it) } }
+
+            vm.connectWorkspaceEntry(workspaceEntry("ws-1", "/w"), presetId = "preset-1")
+            testScheduler.advanceUntilIdle()
+
+            // 软失败：预设被拒仍导航（会话内空态预设卡是改选通道）
+            assertEquals(
+                listOf(SessionListViewModel.NewSessionNavigation.ToSession("s-new")),
+                nav,
+            )
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     @Test
     fun `connect falls back to directory navigation when workspace vanished from snapshot`() = runTest {
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))

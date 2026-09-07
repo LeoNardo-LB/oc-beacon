@@ -812,6 +812,8 @@
     <string name="server_settings_default_permission">Разрешение по умолчанию для новых сессий</string>
     <string name="agent_preset_locked">Пресет агента заблокирован для этой сессии</string>
     <string name="agent_preset_switch_failed">Не удалось сменить пресет агента</string>
+    <string name="sessions_new_dialog_preset_label">Пресет агента</string>
+    <string name="sessions_new_dialog_preset_default">По умолчанию</string>
     <string name="agent_preset_cards_title">Выберите пресет агента</string>
     <string name="server_settings_default_agent_preset">Пресет агента по умолчанию для новых сессий</string>
     <string name="session_details_agent_preset">Пресет агента</string>

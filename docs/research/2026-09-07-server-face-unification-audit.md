@@ -87,9 +87,9 @@
 
 GOAL/SHELL（及 TODO 若 V2 无域）按 ServerCapabilities 隐藏；QUEUE 随 §三-1 定。可直接做。
 
-### 3. DSH 新建会话向导形态（矩阵 C-7）
+### 3. DSH 新建会话向导形态（矩阵 C-7）——已实施(2026-09-07 批 3)
 
-保留「开始会话」向导（preset 是服务器契约必选）但换统一组件形态？还是压进快速对话框一步完成（workspace+preset+模型同屏）？倾向后者（减少一层模态）。
+裁决（用户倾向）：压进快速对话框一步完成。落地：NewSessionQuickDialog 在 DSH roster 非空时于标题下渲染**内联预设选择行**（「智能体预设 | 默认 ▼」DropdownMenu，标准组件）——workspace 条目与预设同屏，选条目即连接（默认=不预选=现行为）；connectWorkspaceEntry 增 presetId 腿（创建/复用后 selectAgentPreset，软失败不阻断导航）；会话内空态预设卡保留为改选通道；模型仍由 composer chip 承载（两面同构，audit F-3 OK 位）。opencode 面 roster 恒空表→行不渲染（结构保证：默认参 emptyList + isNotEmpty 门控 + 仓库契约）。真机：预设行在场、下拉四档、选「标准模式」+连接 workspace → 服务器侧新会话 agentPreset=standard 落位。
 
 ### 4. 空闲长按发送键的语义分裂（矩阵 A-4）
 
