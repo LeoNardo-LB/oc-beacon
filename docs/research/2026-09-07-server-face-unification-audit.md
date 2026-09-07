@@ -100,4 +100,4 @@ V2=shell / DSH=steer。维持（能力位分派）还是给 steer 独立入口�
 - 批 1（无裁决依赖）：FAB 能力位门控（§三-2）；#347 左划下线；#349 subagent 卡点击。
 - 批 2（§三-1 裁决后）：#348 busy-send+队列统一面（含 QUEUE 入口去留、opencode 自实现队列、DSH 走 server queue）。
 - 批 3（§三-3 裁决后）：新建会话向导统一化。
-- 批 4：V2 archive 接入（上游已有，顺带统一归档面）——低优先。
+- 批 4：V2 archive 接入（上游已有，顺带统一归档面）——低优先。**暂缓→backlog #350(P4)**：4199 服务器 opencode2 坏装(Exec format error)+外网断,实测纪律不可满足。
