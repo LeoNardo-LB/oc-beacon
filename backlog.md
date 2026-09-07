@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#343**。
+**编号**：全局递增，不回收。下一编号：**#346**（2026-09-07 仪器批登记 #343/#344/#345）。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -81,6 +81,16 @@
 
 ## P2 — 优化与锦上添花
 
+- [ ] **#343 DSH 单消息轮次台账缺失——流式建行与完结行均零跨度 completed → durationMs=null 被门控吞行** `dsh` `ui` `bug`
+  - 仪器批取证(2026-09-07,journal §二十四):600 词纯文本轮完结后无「轮次 N」行;Room 直查 b7b3cdc1——流式建行 dsh-t3s1 与完结行 seq-1246 各自 created==completed(DSH 整包事件零跨度模式),仅多行轮(如含工具的轮1 16m38s)能凑出正跨度;MaybeTurnLedgerRow 的 durationMs==null 即 return 门控把零跨度轮整行吞掉——#338 的「时长未知→『-』」语义只在渲染层、到不了门控
+  - 反证:Host-4199(opencode V2)同 app 0 工具轮有台账(「轮次 2 · 30.4s · 1 步 · 0 个工具」)——DSH 映射层特有;修法方向:零跨度单行轮按 turn/end 信封时刻回填 completed,或门控改为「已知 turn 边界即渲染、时长缺省『-』」(与 #338 未知时长语义对齐)
+  - → 证据:/tmp/e2e-instr/db.db(cached_messages 双行零跨度)+ b3-final4.xml(轮3 无台账)+ i5-w-12.xml(4199 对照)
+- [ ] **#344 提问通知正文携带 system-reminder 前缀——净化器未覆盖 question 发布路径实例** `dsh` `notification` `bug`
+  - 仪器批取证(2026-09-07):b7b3cdc1 挂起问题触发的 opencode_questions 通知(id=-35536795)extras android.text 以「<system-reminder> A skill is a reusable set…」开头——#339④ 的 sanitizeNotificationText 剥离闭合块,该实例未命中(疑似无闭合标签或走了未消毒支路);标题正常
+  - 复现素材:zai glm-5.3 会话让模型调 ask_user_question→HOME→dumpsys notification 看 extras;修法方向:排查 question 发布支路消毒调用点+容忍未闭合标签的剥离策略
+  - → 证据:journal §二十四 I1 + 本会话 dumpsys 记录
+
+
 - [~] **#325 DSH token 首次配对体验——dev 注入脚本/QR 扫码/SSH 通道/sameBackend username 修复** `dsh` `security` `ui`
   - 四通道裁决落地（9ad9bb03+7a31a788）:adb 注入实现（dsh-pair.sh）/QR=深链降级（ocbeacon://pair 预填,验收 ✔ 终轮 E1-r2——根因=adb & 转义伪影+静默拒绝已修）/sameBackend username 修复✔/**SSH 裁决否决(2026-09-06)**:用户裁定暂不引入 sshj(~1.5MB 新依赖红线),配对维持 adb 注入+QR 深链双通道(局域网全覆盖),远程 SSH 场景出现再议;**UIUX 待人工**
   - 调研实证:token 仅存进程内存(重启轮换/不落盘/不可配置),无 LAN 静默发现途径(设计使然);cookie 365 天/authority——自动发现=首次配对问题;宿主 dsh-url 工具已带 QR 输出,app 粘贴框现成
@@ -106,6 +116,12 @@
   - → `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md` §四 · `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §12.3
 
 ## P3 — 观察与低价值改进
+
+- [ ] **#345 adb 注入 tap 间歇全灭态——APP 可 dump/键事件通,唯 tap 失效,冷启可复** `env` `device`
+  - 仪器批两次进入(2026-09-07):①HOME+am start 克隆任务(t4401)后;②新会话向导输入+连发失败后——共同点: Doubang IME 抬升期多次注入;恢复径:debug-entry 冷启或 BACK 退桌面后 am start。键事件(BACK/ESC)始终有效,uiautomator dump 正常(IME 抬起时恒 7 节点失明另计)
+  - 疑 MIUI 对注入输入的节流/安全态;真手指是否受影响未知(若不受影响则纯测试环境项)。待复现定性后决定是否需要 app 侧规避(如输入法切换建议)
+  - → 证据:journal §二十四 环境观察 + /tmp/e2e-instr/(str-state.png 等冻结态截图)
+
 
 - [~] **#336 审批/提问通知「退后台补发」——已实现（279b7639+b95a2bc9）** `dsh` `ui`
   - 已实现:fg→bg 转换沿扫描 pending 已通知槽去重防重放;验收 ✔（终验 A4 三段链:前台抑制→HOME 补发在场→面板点按直达→应答撤）;#337 顺修（revoker 父槽镜像+共享冒泡函数三侧统一）;**UIUX 待人工**（通知域汇总已含）
