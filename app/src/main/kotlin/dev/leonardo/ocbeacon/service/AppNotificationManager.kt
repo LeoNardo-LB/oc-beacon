@@ -334,6 +334,10 @@ class AppNotificationManager @Inject constructor(
         val notifId = eventNotificationId(server.id, sessionId, 1000)
         val pendingIntent = createSessionPendingIntent(server, sessionId, notifId)
 
+        // #346：权限类退出 server 分组——组汇总挂在 LOW 重要度 tasks_silent
+        // 通道，MIUI 整组折叠成一行静默项，高重要度子卡不可见（用户实测「没看到
+        // 问题通知」而 dumpsys 在场）；独立卡形态同时解决组卡子项 tap 不可达
+        //（E4②）。轮完成（静默流）保留分组语义。
         val notification = NotificationCompat.Builder(appContext, NOTIFICATION_CHANNEL_PERMISSIONS_ID)
             .setContentTitle(title)
             .setContentText(contentText)
@@ -343,12 +347,10 @@ class AppNotificationManager @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setVibrate(longArrayOf(0, 300, 100, 300))
-            .setGroup("server_${server.id}")
             .build()
 
         markPermissionNotified(server.id, sessionId, permission)
         systemNotificationManager.notify(notifId, notification)
-        showServerGroupSummary(server)
     }
 
     fun showQuestionNotification(
@@ -374,6 +376,7 @@ class AppNotificationManager @Inject constructor(
         val notifId = eventNotificationId(server.id, sessionId, 2000)
         val pendingIntent = createSessionPendingIntent(server, sessionId, notifId)
 
+        // #346：同权限——问题类退出 server 分组（静默组汇总埋卡，见权限处注释）
         val notification = NotificationCompat.Builder(appContext, NOTIFICATION_CHANNEL_QUESTIONS_ID)
             .setContentTitle(title)
             .setContentText(contentText)
@@ -383,12 +386,10 @@ class AppNotificationManager @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setVibrate(longArrayOf(0, 300, 100, 300))
-            .setGroup("server_${server.id}")
             .build()
 
         markQuestionNotified(server.id, sessionId, questionText)
         systemNotificationManager.notify(notifId, notification)
-        showServerGroupSummary(server)
     }
 
     /**
@@ -461,6 +462,7 @@ class AppNotificationManager @Inject constructor(
         val notifId = eventNotificationId(server.id, sessionId, 3000)
         val pendingIntent = createSessionPendingIntent(server, sessionId, notifId)
 
+        // #346：错误类同退组（需关注族——静默组汇总埋卡，见权限处注释）
         val notification = NotificationCompat.Builder(appContext, NOTIFICATION_CHANNEL_TASKS_ID)
             .setContentTitle(title)
             .setContentText(contentText)
@@ -469,12 +471,10 @@ class AppNotificationManager @Inject constructor(
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
-            .setGroup("server_${server.id}")
             .build()
 
         if (sessionFocusHolder.shouldSuppress(server.id, sessionId)) return
         systemNotificationManager.notify(notifId, notification)
-        showServerGroupSummary(server)
     }
 
     // ============ 通知去重 / 会话辅助方法 ============
