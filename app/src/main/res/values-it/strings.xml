@@ -915,4 +915,13 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <!-- #324④ skills 触发组 -->
     <string name="slash_skills_group">Skill</string>
     <string name="slash_skill_model_invocable">Skill invocabile dal modello</string>
+    <string name="chat_busy_menu_send_now">Invia ora</string>
+    <string name="chat_busy_menu_send_now_desc">In coda sul server, visibile subito, non annullabile</string>
+    <string name="chat_busy_menu_stack">Accoda messaggio</string>
+    <string name="chat_busy_menu_stack_desc">Conservato localmente, inviato automaticamente al termine di questo turno</string>
+    <string name="chat_busy_menu_stack_no_attachments">I messaggi con allegati devono essere inviati ora</string>
+    <string name="chat_stacked_send_now">Invia ora</string>
+    <string name="chat_stacked_remove">Rimuovi messaggio in coda</string>
+    <string name="chat_stacked_edit_title">Modifica messaggio in coda</string>
+    <string name="chat_stacked_save">Salva</string>
 </resources>

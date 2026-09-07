@@ -918,4 +918,13 @@
     <!-- #324④ skills 触发组 -->
     <string name="slash_skills_group">技能</string>
     <string name="slash_skill_model_invocable">模型可自主调用的技能</string>
+    <string name="chat_busy_menu_send_now">立即发送</string>
+    <string name="chat_busy_menu_send_now_desc">排队到服务器，立即可见且无法撤销</string>
+    <string name="chat_busy_menu_stack">堆积消息</string>
+    <string name="chat_busy_menu_stack_desc">本地保存，本轮结束后自动发送</string>
+    <string name="chat_busy_menu_stack_no_attachments">带附件的消息请立即发送</string>
+    <string name="chat_stacked_send_now">立即发送</string>
+    <string name="chat_stacked_remove">移除堆积消息</string>
+    <string name="chat_stacked_edit_title">编辑堆积消息</string>
+    <string name="chat_stacked_save">保存</string>
 </resources>

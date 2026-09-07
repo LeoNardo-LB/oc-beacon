@@ -69,6 +69,7 @@ class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val scrollSignal: dev.leonardo.ocbeacon.ui.screens.sessions.SessionScrollSignal,
     private val unreadBadgeService: dev.leonardo.ocbeacon.data.repository.UnreadBadgeService,
+    private val stackedMessageStore: dev.leonardo.ocbeacon.data.repository.StackedMessageStore,
     private val sendMessageUseCase: SendMessageUseCase,
     private val manageSessionUseCase: ManageSessionUseCase,
     private val managePermissionUseCase: ManagePermissionUseCase,
@@ -1274,6 +1275,35 @@ class ChatViewModel @Inject constructor(
         if (fastFailIfLinkBlocked()) return
         sendDelegate.sendMessage(text, attachments, steer)
     }
+
+    // ============ #348 堆积消息（本地排队）门面 ============
+
+    /** 当前会话的堆积消息（时间序）。 */
+    val stackedMessages = combine(
+        stackedMessageStore.stackedBySession,
+        sessionLifecycle.sessionIdFlow,
+    ) { all, sid -> all[sid] ?: emptyList() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** 当前会话是否正在发送堆积消息（chips「发送中」态）。 */
+    val stackedDraining = stackedMessageStore.drainingSessions
+        .combine(sessionLifecycle.sessionIdFlow) { draining, sid -> sid in draining }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /** 「堆积消息」入口：入队 + 清草稿（输入框清空由 UI 侧随 enqueue 完成）。 */
+    fun stackMessage(text: String) {
+        val sid = sessionLifecycle.sessionId
+        if (sid.isBlank() || text.isBlank()) return
+        stackedMessageStore.enqueue(serverId, sid, text.trim())
+        viewModelScope.launch { draftRepository.clearDraft(sid) }
+    }
+
+    fun removeStackedMessage(id: String) = stackedMessageStore.remove(sessionLifecycle.sessionId, id)
+
+    fun updateStackedMessage(id: String, text: String) =
+        stackedMessageStore.updateText(sessionLifecycle.sessionId, id, text)
+
+    fun sendStackedMessageNow() = stackedMessageStore.sendOneNow(sessionLifecycle.sessionId)
 
     fun sendMessage(promptParts: List<PromptPart>, attachments: List<PromptPart>, rawText: String, steer: Boolean = false) {
         if (fastFailIfLinkBlocked()) return

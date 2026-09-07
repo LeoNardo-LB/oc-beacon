@@ -915,4 +915,13 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <!-- #324④ skills 触发组 -->
     <string name="slash_skills_group">Skills</string>
     <string name="slash_skill_model_invocable">Skill invocável pelo modelo</string>
+    <string name="chat_busy_menu_send_now">Enviar agora</string>
+    <string name="chat_busy_menu_send_now_desc">Enfileirado no servidor, visível imediatamente, não pode ser desfeito</string>
+    <string name="chat_busy_menu_stack">Acumular mensagem</string>
+    <string name="chat_busy_menu_stack_desc">Mantida localmente, enviada automaticamente ao fim desta rodada</string>
+    <string name="chat_busy_menu_stack_no_attachments">Mensagens com anexos devem ser enviadas agora</string>
+    <string name="chat_stacked_send_now">Enviar agora</string>
+    <string name="chat_stacked_remove">Remover mensagem acumulada</string>
+    <string name="chat_stacked_edit_title">Editar mensagem acumulada</string>
+    <string name="chat_stacked_save">Salvar</string>
 </resources>

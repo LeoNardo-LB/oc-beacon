@@ -915,4 +915,13 @@
     <!-- #324④ skills 触发组 -->
     <string name="slash_skills_group">スキル</string>
     <string name="slash_skill_model_invocable">モデルが自律呼び出し可能なスキル</string>
+    <string name="chat_busy_menu_send_now">今すぐ送信</string>
+    <string name="chat_busy_menu_send_now_desc">サーバーのキューに入り、即時に表示され、取り消せません</string>
+    <string name="chat_busy_menu_stack">メッセージをスタック</string>
+    <string name="chat_busy_menu_stack_desc">ローカルに保持され、このターン終了後に自動送信されます</string>
+    <string name="chat_busy_menu_stack_no_attachments">添付ファイル付きメッセージは今すぐ送信してください</string>
+    <string name="chat_stacked_send_now">今すぐ送信</string>
+    <string name="chat_stacked_remove">スタック済みメッセージを削除</string>
+    <string name="chat_stacked_edit_title">スタック済みメッセージを編集</string>
+    <string name="chat_stacked_save">保存</string>
 </resources>

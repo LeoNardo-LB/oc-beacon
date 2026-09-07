@@ -915,4 +915,13 @@
     <!-- #324④ skills 触发组 -->
     <string name="slash_skills_group">스킬</string>
     <string name="slash_skill_model_invocable">모델이 호출 가능한 스킬</string>
+    <string name="chat_busy_menu_send_now">지금 보내기</string>
+    <string name="chat_busy_menu_send_now_desc">서버 대기열에 추가되어 즉시 표시되며 취소할 수 없습니다</string>
+    <string name="chat_busy_menu_stack">메시지 스택</string>
+    <string name="chat_busy_menu_stack_desc">로컬에 보관되며 이번 턴이 끝나면 자동으로 전송됩니다</string>
+    <string name="chat_busy_menu_stack_no_attachments">첨부파일이 있는 메시지는 지금 보내야 합니다</string>
+    <string name="chat_stacked_send_now">지금 보내기</string>
+    <string name="chat_stacked_remove">스택된 메시지 제거</string>
+    <string name="chat_stacked_edit_title">스택된 메시지 편집</string>
+    <string name="chat_stacked_save">저장</string>
 </resources>

@@ -921,4 +921,13 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <!-- #324④ skills 触发组 -->
     <string name="slash_skills_group">Skill</string>
     <string name="slash_skill_model_invocable">Skill yang dapat dipanggil model</string>
+    <string name="chat_busy_menu_send_now">Kirim sekarang</string>
+    <string name="chat_busy_menu_send_now_desc">Masuk antrean server, langsung terlihat, tidak dapat dibatalkan</string>
+    <string name="chat_busy_menu_stack">Tumpuk pesan</string>
+    <string name="chat_busy_menu_stack_desc">Disimpan lokal, terkirim otomatis saat giliran ini berakhir</string>
+    <string name="chat_busy_menu_stack_no_attachments">Pesan dengan lampiran harus dikirim sekarang</string>
+    <string name="chat_stacked_send_now">Kirim sekarang</string>
+    <string name="chat_stacked_remove">Hapus pesan tertumpuk</string>
+    <string name="chat_stacked_edit_title">Edit pesan tertumpuk</string>
+    <string name="chat_stacked_save">Simpan</string>
 </resources>

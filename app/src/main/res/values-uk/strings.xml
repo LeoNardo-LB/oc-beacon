@@ -923,4 +923,13 @@
     <!-- #324④ skills 触发组 -->
     <string name="slash_skills_group">Навички</string>
     <string name="slash_skill_model_invocable">Навичка, яку може викликати модель</string>
+    <string name="chat_busy_menu_send_now">Надіслати зараз</string>
+    <string name="chat_busy_menu_send_now_desc">Потрапляє в чергу сервера, одразу видно, скасувати не можна</string>
+    <string name="chat_busy_menu_stack">Відкласти повідомлення</string>
+    <string name="chat_busy_menu_stack_desc">Зберігається локально, надсилається автоматично після завершення цього ходу</string>
+    <string name="chat_busy_menu_stack_no_attachments">Повідомлення з вкладеннями потрібно надіслати зараз</string>
+    <string name="chat_stacked_send_now">Надіслати зараз</string>
+    <string name="chat_stacked_remove">Видалити відкладене повідомлення</string>
+    <string name="chat_stacked_edit_title">Змінити відкладене повідомлення</string>
+    <string name="chat_stacked_save">Зберегти</string>
 </resources>

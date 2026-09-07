@@ -931,4 +931,13 @@
     <!-- #324④ skills 触发组 -->
     <string name="slash_skills_group">المهارات</string>
     <string name="slash_skill_model_invocable">مهارة يستدعيها النموذج</string>
+    <string name="chat_busy_menu_send_now">إرسال الآن</string>
+    <string name="chat_busy_menu_send_now_desc">يوضع في قائمة الانتظار على الخادم ويظهر فورًا ولا يمكن التراجع عنه</string>
+    <string name="chat_busy_menu_stack">وضع الرسالة في قائمة الانتظار</string>
+    <string name="chat_busy_menu_stack_desc">تُحفظ محليًا وتُرسل تلقائيًا عند انتهاء هذا الدور</string>
+    <string name="chat_busy_menu_stack_no_attachments">الرسائل ذات المرفقات يجب إرسالها الآن</string>
+    <string name="chat_stacked_send_now">إرسال الآن</string>
+    <string name="chat_stacked_remove">إزالة الرسالة المؤجلة</string>
+    <string name="chat_stacked_edit_title">تعديل الرسالة المؤجلة</string>
+    <string name="chat_stacked_save">حفظ</string>
 </resources>

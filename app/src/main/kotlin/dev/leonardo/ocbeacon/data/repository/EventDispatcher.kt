@@ -59,6 +59,7 @@ class EventDispatcher @Inject constructor(
     // #311 Task4：等待审批/提问状态点本地域（wire 契约④——真服务器不推
     // approvals/questions 状态；PermissionAsked/QuestionAsked 分发点旁路记录）
     private val pendingInteractionStore: PendingInteractionStore,
+    private val stackedMessageStore: StackedMessageStore,
     // #271：Provider 打破 HistorySyncManager→SessionRepository→EventDispatcher 环
     private val historySyncManagerProvider: javax.inject.Provider<HistorySyncManager>,
 ) {
@@ -375,6 +376,8 @@ class EventDispatcher @Inject constructor(
             questionHandler.clearForSession(deletedSessionId)
             // #311 Task4：待审批/提问指示级联清除（③）
             pendingInteractionStore.clearForSession(deletedSessionId)
+            // #348：堆积消息级联清除（会话没了，本地队列无意义）
+            stackedMessageStore.onSessionDeleted(deletedSessionId)
             miscHandler.clearForSession(deletedSessionId)
             sessionNextHandler.clearForSession(deletedSessionId)
             shellJobsHandler.clearForSession(deletedSessionId)

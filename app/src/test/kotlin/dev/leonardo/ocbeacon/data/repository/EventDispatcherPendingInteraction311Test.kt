@@ -56,6 +56,7 @@ class EventDispatcherPendingInteraction311Test {
         ownershipRegistry = StreamingOwnershipRegistry(),
         permissionAutoApprover = mockk(relaxed = true),
         pendingInteractionStore = store,
+            stackedMessageStore = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.StackedMessageStore>(relaxed = true),
         historySyncManagerProvider = javax.inject.Provider { mockk<HistorySyncManager>(relaxed = true) },
     )
 

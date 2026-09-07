@@ -48,6 +48,7 @@ class EventDispatcherOwnership303Test {
             ownershipRegistry = StreamingOwnershipRegistry(),
             permissionAutoApprover = mockk(relaxed = true),
             pendingInteractionStore = mockk(relaxed = true),
+            stackedMessageStore = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.StackedMessageStore>(relaxed = true),
             historySyncManagerProvider = { mockk(relaxed = true) },
             dshJobsHandler = mockk(relaxed = true),
             dshQueueHandler = DshQueueHandler(mockk(relaxed = true)),

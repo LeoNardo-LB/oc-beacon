@@ -915,4 +915,13 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <!-- #324④ skills 触发组 -->
     <string name="slash_skills_group">Skills</string>
     <string name="slash_skill_model_invocable">Modellaufrufbare Skill</string>
+    <string name="chat_busy_menu_send_now">Jetzt senden</string>
+    <string name="chat_busy_menu_send_now_desc">In Server-Warteschlange, sofort sichtbar, nicht widerrufbar</string>
+    <string name="chat_busy_menu_stack">Nachricht zurückstellen</string>
+    <string name="chat_busy_menu_stack_desc">Lokal gespeichert, automatisch nach Ende dieses Durchgangs gesendet</string>
+    <string name="chat_busy_menu_stack_no_attachments">Nachrichten mit Anhängen müssen jetzt gesendet werden</string>
+    <string name="chat_stacked_send_now">Jetzt senden</string>
+    <string name="chat_stacked_remove">Zurückgestellte Nachricht entfernen</string>
+    <string name="chat_stacked_edit_title">Zurückgestellte Nachricht bearbeiten</string>
+    <string name="chat_stacked_save">Speichern</string>
 </resources>

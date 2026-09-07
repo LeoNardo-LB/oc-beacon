@@ -997,4 +997,13 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <!-- #324④ skills 触发组 -->
     <string name="slash_skills_group">Skills</string>
     <string name="slash_skill_model_invocable">Model-invocable skill</string>
+    <string name="chat_busy_menu_send_now">Send now</string>
+    <string name="chat_busy_menu_send_now_desc">Queued on server, visible immediately, cannot be undone</string>
+    <string name="chat_busy_menu_stack">Stack message</string>
+    <string name="chat_busy_menu_stack_desc">Kept locally, sent automatically when this turn ends</string>
+    <string name="chat_busy_menu_stack_no_attachments">Messages with attachments must be sent now</string>
+    <string name="chat_stacked_send_now">Send now</string>
+    <string name="chat_stacked_remove">Remove stacked message</string>
+    <string name="chat_stacked_edit_title">Edit stacked message</string>
+    <string name="chat_stacked_save">Save</string>
 </resources>
