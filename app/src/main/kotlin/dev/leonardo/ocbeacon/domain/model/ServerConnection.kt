@@ -102,6 +102,13 @@ data class ServerCapabilities(
      * snackbar 哨兵（同写操作先例，不假成功）。
      */
     val archiveSupported: Boolean,
+    /**
+     * 服务端排队可见性（#351 2026-09-07 用户裁决）：DSH queue 域（session/queue
+     * 快照 + updateQueue）→ QueueSheet 有数据；OpenCode V1/V2 排队为服务端静默
+     * 语义（无可见域）→ FAB QUEUE 入口隐藏（空态不泄漏）。本地堆积 chips 条
+     * 两面恒在场（StackedMessageStore，与本地/服务端排队语义互补）。
+     */
+    val queueSupported: Boolean,
 ) {
     companion object {
         /**
@@ -134,6 +141,7 @@ data class ServerCapabilities(
                     shellCommandSupported = false,
                     exportIsArchive = true,
                     archiveSupported = true,
+                    queueSupported = true,
                 )
                 ServerType.OpenCode -> ofOpenCode(apiVersion)
             }
@@ -164,6 +172,7 @@ data class ServerCapabilities(
                 shellCommandSupported = true,
                 exportIsArchive = false,
                 archiveSupported = false,
+                queueSupported = false,
             )
             else -> ServerCapabilities( /* V1 / UNKNOWN / null：全开放 */
                 shareSupported = true,
@@ -187,6 +196,7 @@ data class ServerCapabilities(
                 shellCommandSupported = true,
                 exportIsArchive = false,
                 archiveSupported = false,
+                queueSupported = false,
             )
         }
     }

@@ -88,6 +88,8 @@ fun NavGraph(
 ) {
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
+    // #339：通知深链的重连腿——Activity 级 HomeViewModel（binder + connectToServer）
+    val homeViewModel: dev.leonardo.ocbeacon.ui.screens.home.HomeViewModel = hiltViewModel()
 
     // 默认使用原生 UI（WebView 为旧版实现）
     val useNativeUi = true
@@ -218,6 +220,18 @@ fun NavGraph(
                     ?: deepLink.sessionId.takeIf { it.isNotBlank() }
 
                 if (sessionId != null) {
+                    // #339（2026-09-07 用户裁决）：挂起通知点击时服务器可能已断开——
+                    // 先尝试重连（幂等；已连接则直通），连得上才进会话，
+                    // 连不上退回服务器选择页（通知本体按裁决保持滞留）。
+                    val reachable = homeViewModel.awaitServerReachable(deepLink.serverId)
+                    if (!reachable) {
+                        AppLogger.i(TAG, "Deep-link reconnect failed → server selection page: " + deepLink.serverId)
+                        navController.navigate(HomeNav.route) {
+                            popUpTo(HomeNav.route) { inclusive = false }
+                            launchSingleTop = true
+                        }
+                        return@collect
+                    }
                     val route = ChatNav.createRoute(
                         serverId = deepLink.serverId,
                         sessionId = sessionId

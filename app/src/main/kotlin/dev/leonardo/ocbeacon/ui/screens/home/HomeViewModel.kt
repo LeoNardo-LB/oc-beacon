@@ -24,6 +24,7 @@ import dev.leonardo.ocbeacon.service.OpenCodeConnectionService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -405,6 +406,40 @@ class HomeViewModel @Inject constructor(
                 connectJobs.remove(serverId)
             }
         }
+    }
+
+    /**
+     * #339（2026-09-07 用户裁决）：通知点击的重连腿——目标服务器未连接时先触发
+     * [connectToServer]，在短窗内等待连接结果。
+     *
+     * 冷启动容忍：先等服务器条目水化（init 的 loadServers 异步）再判断/触发；
+     * 已连接/连接中不重复触发（connectToServer 幂等同判）。终态判定：
+     * connectedServerIds 命中=true；connectionErrors 命中/超时=false。
+     *
+     * @return true=已连接（可进会话）；false=连不上（调用方退回服务器选择页）
+     */
+    suspend fun awaitServerReachable(serverId: String, timeoutMs: Long = 10_000L): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        // 冷启动：服务器清单未水化前先等（深链可能早于 loadServers 完成）
+        while (_uiState.value.servers.none { it.id == serverId } &&
+            System.currentTimeMillis() < deadline
+        ) {
+            delay(150)
+        }
+        if (_uiState.value.servers.none { it.id == serverId }) return false
+        if (serverId !in _uiState.value.connectedServerIds &&
+            serverId !in _uiState.value.connectingServerIds
+        ) {
+            connectToServer(serverId)
+        }
+        while (System.currentTimeMillis() < deadline) {
+            val state = _uiState.value
+            if (serverId in state.connectedServerIds) return true
+            // 健康检查失败/异常：connectionErrors 命中且 connecting 已撤=终态失败
+            if (serverId in state.connectionErrors && serverId !in state.connectingServerIds) return false
+            delay(250)
+        }
+        return serverId in _uiState.value.connectedServerIds
     }
 
     /**
