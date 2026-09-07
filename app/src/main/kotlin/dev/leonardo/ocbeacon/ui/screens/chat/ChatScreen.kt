@@ -1028,9 +1028,15 @@ fun ChatScreen(
         onConfirmSend = {
             pendingSendAction?.invoke()
             pendingSendAction = null
+            // #341：确认后必须复位弹窗标志——SendConfirmDialog 按钮仅回调
+            // onConfirm/onDismiss，本侧不置 false 则对话框永不离开（真机实证
+            // 「免疫弹窗」：发送成功后驻留，点击/BACK 均似失效）。
+            showSendConfirmDialog = false
         },
         onDismissSendConfirm = {
             pendingSendAction = null
+            // #341：同上——取消/外点/BACK 路径复位
+            showSendConfirmDialog = false
         },
         providers = modelConfig.providers,
         selectedProviderId = modelConfig.selectedProviderId,
