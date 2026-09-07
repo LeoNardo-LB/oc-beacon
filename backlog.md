@@ -97,7 +97,9 @@
   - **已实现+真机全链验证 (2026-09-07)**:StackedMessageStore(DataStore JSON 持久化,T1心跳/T2入队即查/T3 Idle转移三触发,at-least-once,护栏=非Idle/待处理/无归属)+chips条(编辑/移除/立即发送)+气泡菜单(i18n x15);真机六腿:忙时点发送弹菜单(两轮复现)/空闲直发无误弹/堆积清输入+chip在场/忙时滞留/轮末自动drain(消息入转录+chip消失)/轮已结束堆积即时发出;附带实证 #343 零跨度台账(轮次6·-);单测 +9(心跳虚拟时钟门 disableCompensationHeartbeat——OOM 根因=无限delay x advanceUntilIdle 时钟无限推进)
 - [~] **#349 subagent 工具卡可点击查看详情——直达子会话(用户走查裁决)** `ui` `subagent`
   - 裁决原文:「subagent卡片理应有点击查看详情的能力」——聊天中 subagent 工具卡(运行中/完结)点击→打开对应子会话(复用 #310① 的子会话路由与 durable 父址);现有入口 FAB→智能体 AgentSheet 保留
-  - **已实现(2026-09-07)**:ToolCardScaffold 新增 onCardClick 覆盖槽(默认契约不变);TaskToolCard 本体点击=直达子会话(navTarget 在场时),展开职责移交右侧紧凑 chevron(仅有输出时);编译+全量单测绿;**真机卡点击腿待补**(需 subagent 会话素材)
+  - **已实现(2026-09-07)**:ToolCardScaffold 新增 onCardClick 覆盖槽(默认契约不变);TaskToolCard 本体点击=直达子会话(navTarget 在场时),展开职责移交右侧紧凑 chevron(仅有输出时);编译+全量单测绿
+  - **DSH 面根因修复+真机全链验证(2026-09-07 晚)**:DSH wire 上子代理派发被 run_code 包裹且 childSessionId 无结构化字段——mapper 升格 subagent 族 code-dispatch 为子代理卡(bg="started subagent <uuid>" 即得 id;fg=根 tool/result 信封关联,含服务器双份信封形态的 firstJsonObjectOf 深度扫描);**顺带根因修复 DshMessageAssembler 同 id part 按到达序 append 的历史双份 bug**(每张 DSH 工具卡在历史页携带全部中间态副本→×N 角标+陈旧首份胜出);真机:卡体点击→子会话「This is a connectivity test」直达+BACK 回父会话,箭头在场=metadata 落位;单测 mapper+6/管线+3(bg 链 id 即得/fg 信封关联/装配合并)
+  - 交付物:DshEventMapper(code-dispatch 映射+信封关联+firstJsonObjectOf)/DshMessageAssembler(mergePart 同 id 合并)/DshSubagentCard349PipelineTest(dispatcher 与 fold+assemble 双路径)
 
 
 - [~] **#343 DSH 单消息轮次台账缺失——完结信号与时长测量被 durationMs 单字段承载,零跨度完结轮整行被吞** `dsh` `ui` `bug`

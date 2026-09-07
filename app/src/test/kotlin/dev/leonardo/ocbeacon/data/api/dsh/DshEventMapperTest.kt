@@ -723,6 +723,150 @@ class DshEventMapperTest {
         assertEquals("exit 1", error.error)
     }
 
+    // ============ #349：subagent 族 code-dispatch 子代理卡 ============
+
+    /** code-dispatch-start(subagent) → Running 卡（key={root}:subagent，arguments→input）。 */
+    @Test
+    fun `code dispatch start maps subagent to running card on root keyed host`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "fixture-0001",
+            sessionEvent(
+                "tool/code-dispatch-start",
+                """{"rootCallId":"call_r1","parentCallId":"call_r1","subCallId":"call_r1:code:1","name":"subagent","arguments":{"description":"Run trivial subagent test","prompt":"do it"}}""",
+            ),
+        )
+        assertEquals(2, mapped.size)
+        val host = ((mapped[0] as DshMappedEvent.Sse).event as SseEvent.MessageUpdated).info as Message.Assistant
+        assertEquals("dsh-call-call_r1:subagent", host.id)
+        val tool = ((mapped[1] as DshMappedEvent.Sse).event as SseEvent.MessagePartUpdated).part as Part.Tool
+        assertEquals("call_r1:subagent", tool.id)
+        assertEquals("subagent", tool.tool)
+        val running = tool.state as ToolState.Running
+        assertEquals(setOf("description", "prompt"), running.input.keys)
+    }
+
+    /** 非子代理内层工具（bash/ask_user_question 等）维持 CODE_DISPATCH 忽略。 */
+    @Test
+    fun `non subagent code dispatch stays ignored`() {
+        listOf("bash", "ask_user_question", "read").forEach { name ->
+            val mapped = DshEventMapper.mapSessionEvent(
+                "fixture-0001",
+                sessionEvent(
+                    "tool/code-dispatch",
+                    """{"rootCallId":"call_r1","subCallId":"call_r1:code:1","name":"$name","arguments":{},"content":[{"type":"text","text":"ok"}]}""",
+                ),
+            )
+            assertEquals("name=$name", listOf(DshMappedEvent.Ignored(DshIgnoreReason.CODE_DISPATCH)), mapped)
+        }
+    }
+
+    /** bg 回执 "started subagent <uuid>" → Completed + metadata sessionId/sessionID 双写。 */
+    @Test
+    fun `background code dispatch completes card with started subagent run id`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "fixture-0001",
+            sessionEvent(
+                "tool/code-dispatch",
+                """{"rootCallId":"call_r1","subCallId":"call_r1:code:1","name":"subagent","arguments":{"description":"Count slowly"},"isError":false,"content":[{"type":"text","text":"started subagent bd5a33c9-cd05-4d73-baff-2319c036681e"}]}""",
+            ),
+        )
+        val tool = (eventsOf(mapped).filterIsInstance<SseEvent.MessagePartUpdated>().single().part as Part.Tool)
+        assertEquals("call_r1:subagent", tool.id)
+        val completed = tool.state as ToolState.Completed
+        assertEquals("started subagent bd5a33c9-cd05-4d73-baff-2319c036681e", completed.output)
+        assertEquals(
+            "bd5a33c9-cd05-4d73-baff-2319c036681e",
+            (completed.metadata?.get("sessionId") as kotlinx.serialization.json.JsonPrimitive).content,
+        )
+        assertEquals(
+            "bd5a33c9-cd05-4d73-baff-2319c036681e",
+            (completed.metadata?.get("sessionID") as kotlinx.serialization.json.JsonPrimitive).content,
+        )
+    }
+
+    /** fg 回执 = 子代理报告（无 id）→ Completed 无 metadata（id 由根信封关联补写）。 */
+    @Test
+    fun `foreground code dispatch completes card without session id`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "fixture-0001",
+            sessionEvent(
+                "tool/code-dispatch",
+                """{"rootCallId":"call_r1","subCallId":"call_r1:code:1","name":"subagent","arguments":{},"content":[{"type":"text","text":"1. 17 × 23 = 391"}]}""",
+            ),
+        )
+        val tool = (eventsOf(mapped).filterIsInstance<SseEvent.MessagePartUpdated>().single().part as Part.Tool)
+        val completed = tool.state as ToolState.Completed
+        assertEquals("1. 17 × 23 = 391", completed.output)
+        assertEquals(null, completed.metadata)
+    }
+
+    /** fg 根 tool/result 信封 {kind:foreground,runId,output} → 追加子卡 metadata 补写事件。 */
+    @Test
+    fun `foreground root tool result envelope links subagent card metadata`() {
+        val envelope = "{\\\"kind\\\":\\\"foreground\\\",\\\"runId\\\":\\\"219905a7-5819-4d06-872f-f4df1f60f5e4\\\",\\\"output\\\":[{\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"Done: 391\\\"}]}"
+        val mapped = DshEventMapper.mapSessionEvent(
+            "fixture-0001",
+            sessionEvent(
+                "tool/result",
+                """{"turn":8,"step":1,"message":{"source":{"kind":"tool","callId":"call_r1"},"content":[{"type":"tool-result","toolCallId":"call_r1","content":[{"type":"text","text":"$envelope"}]}]}}""",
+            ),
+        )
+        assertEquals("根卡 + 子卡补写共 2 个 part 事件", 2, eventsOf(mapped).filterIsInstance<SseEvent.MessagePartUpdated>().size)
+        val sub = eventsOf(mapped).filterIsInstance<SseEvent.MessagePartUpdated>()
+            .map { it.part as Part.Tool }
+            .first { it.id == "call_r1:subagent" }
+        assertEquals("", sub.tool) // 名缺席——mergePart 保留 existing 名
+        val completed = sub.state as ToolState.Completed
+        assertEquals("Done: 391", completed.output)
+        assertEquals(
+            "219905a7-5819-4d06-872f-f4df1f60f5e4",
+            (completed.metadata?.get("sessionId") as kotlinx.serialization.json.JsonPrimitive).content,
+        )
+    }
+
+    /** 真机形态（fb650391 seq12556）：信封连发两份 "{…}\n{…}" → 取首份关联。 */
+    @Test
+    fun `doubled envelope text still links via first object extraction`() {
+        val one = "{\\\"kind\\\":\\\"foreground\\\",\\\"runId\\\":\\\"219905a7-5819-4d06-872f-f4df1f60f5e4\\\",\\\"output\\\":[{\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"Done\\\"}]}"
+        val doubled = one + "\\n" + one
+        val mapped = DshEventMapper.mapSessionEvent(
+            "fixture-0001",
+            sessionEvent(
+                "tool/result",
+                """{"turn":8,"step":1,"message":{"source":{"kind":"tool","callId":"call_r1"},"content":[{"type":"tool-result","toolCallId":"call_r1","content":[{"type":"text","text":"$doubled"}]}]}}""",
+            ),
+        )
+        val sub = eventsOf(mapped).filterIsInstance<SseEvent.MessagePartUpdated>()
+            .map { it.part as Part.Tool }
+            .first { it.id == "call_r1:subagent" }
+        val completed = sub.state as ToolState.Completed
+        assertEquals(
+            "219905a7-5819-4d06-872f-f4df1f60f5e4",
+            (completed.metadata?.get("sessionId") as kotlinx.serialization.json.JsonPrimitive).content,
+        )
+    }
+
+    /** bg 信封（kind=background）与普通 run_code 文本结果都不触发子卡补写。 */
+    @Test
+    fun `background envelope and plain result emit no subagent link events`() {
+        val bg = DshEventMapper.mapSessionEvent(
+            "fixture-0001",
+            sessionEvent(
+                "tool/result",
+                """{"turn":8,"step":1,"message":{"source":{"kind":"tool","callId":"call_r1"},"content":[{"type":"tool-result","toolCallId":"call_r1","content":[{"type":"text","text":"{\\\"kind\\\":\\\"background\\\",\\\"runId\\\":\\\"abc\\\",\\\"output\\\":[]}"}]}]}}""",
+            ),
+        )
+        assertEquals(1, eventsOf(bg).filterIsInstance<SseEvent.MessagePartUpdated>().size)
+        val plain = DshEventMapper.mapSessionEvent(
+            "fixture-0001",
+            sessionEvent(
+                "tool/result",
+                """{"turn":8,"step":1,"message":{"source":{"kind":"tool","callId":"call_r1"},"content":[{"type":"tool-result","toolCallId":"call_r1","content":[{"type":"text","text":"3.14159"}]}]}}""",
+            ),
+        )
+        assertEquals(1, eventsOf(plain).filterIsInstance<SseEvent.MessagePartUpdated>().size)
+    }
+
     // ============ SessionEvent 内层：会话态族 ============
 
     @Test

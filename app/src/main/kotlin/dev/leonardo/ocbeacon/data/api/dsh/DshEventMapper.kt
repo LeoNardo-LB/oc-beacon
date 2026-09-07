@@ -585,7 +585,7 @@ object DshEventMapper {
             "user/message" -> mapUserMessage(sessionId, seq, time, data)
             "assistant/message" -> mapAssistantMessage(sessionId, seq, time, data)
             "tool/call" -> mapToolCall(sessionId, time, data)
-            "tool/result" -> mapToolResult(sessionId, data)
+            "tool/result" -> mapToolResult(sessionId, time, data)
             "assistant/chunk" -> mapChunk(sessionId, time, data)
             // turn/step start → busy（重复 busy 的节流/FSM 去重留给 #276 编排层）
             "turn/start", "step/start" ->
@@ -744,9 +744,15 @@ object DshEventMapper {
             // check 交换不持久（a8r2.log "history fold refused rebuild …" 135+451 次）。
             "model/selection", "subagent/model-selection-policy",
                 -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.LOG_ONLY))
-            // 工具卡由 tool/call|result 承载；code-dispatch 是渲染伴生事件（实测 ~66,690 次）
-            "tool/code-dispatch", "tool/code-dispatch-start" ->
-                listOf(DshMappedEvent.Ignored(DshIgnoreReason.CODE_DISPATCH))
+            // #349（2026-09-07 真机实证）：subagent 族 code-dispatch 升格为子代理卡
+            // 真源——DSH wire 上子代理派发被 run_code 包裹（tool/call 名恒=run_code，
+            // 子会话 id 不在 tool/call|result 的结构化字段），childSessionId 仅存于
+            // 两处：code-dispatch 回执（bg："started subagent <uuid>"）与根
+            // tool/result 信封（fg：{kind:"foreground",runId,output}）。其余内层工具
+            // （bash/read/ask_user_question…，实测 ~66,690 次）维持忽略——run_code
+            // 根卡已承载，平铺会双份。
+            "tool/code-dispatch-start" -> mapCodeDispatchStart(sessionId, time, data)
+            "tool/code-dispatch" -> mapCodeDispatch(sessionId, time, data)
             // durable 审批面：实况弹窗由 mux approval/requested|resolved 承载（本组件），
             // 历史重放 asked 会造成重复弹窗——#276 裁决是否补充重放语义
             "approval/asked", "approval/decided" ->
@@ -949,7 +955,7 @@ object DshEventMapper {
     }
 
     /** tool/result → 同 callId 工具卡终态（Completed/Error；input 由 mergePart 保留）。 */
-    private fun mapToolResult(sessionId: String, data: JsonObject): List<DshMappedEvent> {
+    private fun mapToolResult(sessionId: String, time: Long, data: JsonObject): List<DshMappedEvent> {
         val message = data.obj("message")
         val callId = message?.obj("source")?.str("callId")
             ?: (message?.arr("content") ?: emptyList()).firstNotNullOfOrNull { el ->
@@ -958,10 +964,11 @@ object DshEventMapper {
             ?: return listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
         val hostId = toolHostMessageId(callId)
         val errorElem = data["error"] ?: message?.get("error")
+        val rootOutput = flattenToolResultOutput(message)
         val state = if (errorElem != null && errorElem !is JsonNull) {
             ToolState.Error(error = errorElem.errorText())
         } else {
-            ToolState.Completed(output = flattenToolResultOutput(message))
+            ToolState.Completed(output = rootOutput)
         }
         return listOf(
             DshMappedEvent.Sse(
@@ -977,6 +984,207 @@ object DshEventMapper {
                     )
                 )
             )
+        ) + subAgentEnvelopeLinkEvents(sessionId, time, callId, rootOutput)
+    }
+
+    // ---- #349（2026-09-07）：subagent 族 code-dispatch 子代理卡 ----
+
+    /**
+     * subagent 卡键："{rootCallId}:subagent"——同一 run_code 根调用下唯一稳定键。
+     *
+     * 为什么不用 wire subCallId（"{root}:code:{n}"）：fg 派发的子会话 id 只出现在
+     * 根 tool/result 信封里（信封只有 rootCallId），无状态映射下两事件要汇合到
+     * 同一 part，键必须由 rootCallId 单侧可推导。副作用：一个 run_code 内多次
+     * 子代理派发共享一卡（后者覆盖前者，run_code 根卡仍保全量输出）——罕见
+     * 场景的取舍，注释存档。
+     */
+    private fun subAgentCardKey(rootCallId: String): String = rootCallId + ":subagent"
+
+    /** 仅 subagent / subagent_fork 内层派发升格为卡；其余内层工具维持忽略。 */
+    private fun isSubAgentDispatchName(name: String?): Boolean =
+        name == "subagent" || name == "subagent_fork"
+
+    /** bg 派发回执文本："started subagent <uuid>"（runId 即派发即得）。 */
+    private val STARTED_SUBAGENT_RUN_ID = Regex("started subagent ([A-Za-z0-9-]+)")
+
+    /**
+     * 首个完整 JSON 对象提取：整串直试，失败则花括号深度扫描切前缀再解析。
+     *
+     * 动机（2026-09-07 真机实证 fb650391 seq12556）：run_code 根回执 text 可把
+     * 子代理信封**连发两份**（"{…}\n{…}"，959 字符 = 2×~480）——整串 parse 恒
+     * 失败致 fg 关联静默丢失。深度扫描尊重字符串/转义内的花括号，取首个
+     * 完整对象（两份同源，取首即可）。
+     */
+    private fun firstJsonObjectOf(text: String): JsonObject? {
+        runCatching { json.parseToJsonElement(text) as? JsonObject }.getOrNull()?.let { return it }
+        var depth = 0
+        var inString = false
+        var escaped = false
+        for ((i, ch) in text.withIndex()) {
+            when {
+                escaped -> escaped = false
+                ch == '\\' && inString -> escaped = true
+                ch == '"' -> inString = !inString
+                !inString && ch == '{' -> depth++
+                !inString && ch == '}' -> {
+                    depth--
+                    if (depth == 0) {
+                        return runCatching {
+                            json.parseToJsonElement(text.substring(0, i + 1)) as? JsonObject
+                        }.getOrNull()
+                    }
+                }
+            }
+        }
+        return null
+    }
+
+    /** code-dispatch-start → 子代理卡 Running（arguments → input → 描述行）。 */
+    private fun mapCodeDispatchStart(sessionId: String, time: Long, data: JsonObject): List<DshMappedEvent> {
+        val name = data.str("name")
+        if (!isSubAgentDispatchName(name)) {
+            return listOf(DshMappedEvent.Ignored(DshIgnoreReason.CODE_DISPATCH))
+        }
+        val root = data.str("rootCallId")
+            ?: return listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+        val key = subAgentCardKey(root)
+        val input = data.obj("arguments") ?: JsonObject(emptyMap())
+        return listOf(
+            DshMappedEvent.Sse(
+                SseEvent.MessageUpdated(
+                    Message.Assistant(
+                        id = toolHostMessageId(key),
+                        sessionId = sessionId,
+                        time = TimeInfo(created = time),
+                        parentId = "",
+                    )
+                )
+            ),
+            DshMappedEvent.Sse(
+                SseEvent.MessagePartUpdated(
+                    Part.Tool(
+                        id = key,
+                        sessionId = sessionId,
+                        messageId = toolHostMessageId(key),
+                        callId = key,
+                        tool = name ?: "subagent",
+                        state = ToolState.Running(
+                            input = input,
+                            time = ToolState.Running.Time(start = time),
+                        ),
+                    )
+                )
+            ),
+        )
+    }
+
+    /**
+     * code-dispatch → 子代理卡终态。
+     *
+     * - bg：content 首行 "started subagent <uuid>" → runId 即 metadata（导航即达，
+     *   卡片完结而子代理后台续跑——DSH 语义：派发完成 ≠ 子代理完成）；
+     * - fg：content = 子代理最终报告（无 id）——runId 由随后的根 tool/result 信封
+     *   关联补写（[subAgentEnvelopeLinkEvents]）。
+     */
+    private fun mapCodeDispatch(sessionId: String, time: Long, data: JsonObject): List<DshMappedEvent> {
+        val name = data.str("name")
+        if (!isSubAgentDispatchName(name)) {
+            return listOf(DshMappedEvent.Ignored(DshIgnoreReason.CODE_DISPATCH))
+        }
+        val root = data.str("rootCallId")
+            ?: return listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+        val key = subAgentCardKey(root)
+        val output = (data.arr("content") ?: emptyList()).mapNotNull { el ->
+            (el as? JsonObject)?.str("text")
+        }.filter { it.isNotEmpty() }.joinToString("\n")
+        val isError = data.bool("isError") == true
+        val runId = STARTED_SUBAGENT_RUN_ID.find(output)?.groupValues?.get(1)
+        val metadata = runId?.let {
+            mapOf("sessionId" to JsonPrimitive(it), "sessionID" to JsonPrimitive(it))
+        }
+        val state = if (isError) {
+            ToolState.Error(error = output, metadata = metadata)
+        } else {
+            ToolState.Completed(
+                output = output,
+                metadata = metadata,
+                time = ToolState.Completed.Time(start = time, end = time),
+            )
+        }
+        return listOf(
+            // 宿主重申（幂等 upsert）：防实况/回放边界上 start 帧缺席导致孤儿 part
+            DshMappedEvent.Sse(
+                SseEvent.MessageUpdated(
+                    Message.Assistant(
+                        id = toolHostMessageId(key),
+                        sessionId = sessionId,
+                        time = TimeInfo(created = time),
+                        parentId = "",
+                    )
+                )
+            ),
+            DshMappedEvent.Sse(
+                SseEvent.MessagePartUpdated(
+                    Part.Tool(
+                        id = key,
+                        sessionId = sessionId,
+                        messageId = toolHostMessageId(key),
+                        callId = key,
+                        tool = name ?: "subagent",
+                        state = state,
+                    )
+                )
+            ),
+        )
+    }
+
+    /**
+     * #349 fg 关联：根 tool/result 信封 {kind:"foreground", runId, output:[…]} →
+     * 给 "{root}:subagent" 卡补写 metadata（bg 已在 dispatch 带上，且 bg 信封
+     * kind≠foreground 不进本分支——两路互补不互踩）。非信封返回值（普通 run_code
+     * 结果）静默空集。output 取信封内层 text 块展平（与 dispatch 报告同源内容）。
+     */
+    private fun subAgentEnvelopeLinkEvents(
+        sessionId: String,
+        time: Long,
+        rootCallId: String,
+        rootOutput: String,
+    ): List<DshMappedEvent> {
+        val envelope = firstJsonObjectOf(rootOutput)
+        if (envelope?.str("kind") != "foreground") return emptyList()
+        val runId = envelope.str("runId")?.takeIf { it.isNotBlank() } ?: return emptyList()
+        if (envelope["output"] !is JsonArray) return emptyList()
+        val key = subAgentCardKey(rootCallId)
+        val report = (envelope["output"] as JsonArray).mapNotNull { el ->
+            (el as? JsonObject)?.str("text")
+        }.filter { it.isNotEmpty() }.joinToString("\n\n")
+        return listOf(
+            DshMappedEvent.Sse(
+                SseEvent.MessageUpdated(
+                    Message.Assistant(
+                        id = toolHostMessageId(key),
+                        sessionId = sessionId,
+                        time = TimeInfo(created = time),
+                        parentId = "",
+                    )
+                )
+            ),
+            DshMappedEvent.Sse(
+                SseEvent.MessagePartUpdated(
+                    Part.Tool(
+                        id = key,
+                        sessionId = sessionId,
+                        messageId = toolHostMessageId(key),
+                        callId = key,
+                        // 工具名缺席：mergePart 保留 existing 名 + input
+                        tool = "",
+                        state = ToolState.Completed(
+                            output = report,
+                            metadata = mapOf("sessionId" to JsonPrimitive(runId), "sessionID" to JsonPrimitive(runId)),
+                        ),
+                    )
+                )
+            ),
         )
     }
 
