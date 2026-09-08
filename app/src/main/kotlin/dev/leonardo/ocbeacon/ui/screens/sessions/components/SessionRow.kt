@@ -2,7 +2,6 @@ package dev.leonardo.ocbeacon.ui.screens.sessions.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,12 +36,9 @@ import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -115,14 +111,9 @@ internal fun SessionRow(
     val delColor = DiffRemoved
 
     var showDetailsDialog by remember { mutableStateOf(false) }
-    var showRowMenu by remember { mutableStateOf(false) }
-    val menuActions = remember(archiveSupported, isArchived) {
-        sessionRowMenuActions(archiveSupported, isArchived)
-    }
 
-    // #347（2026-09-07 用户裁决）：左滑归档手势下线——归档唯一入口=长按行菜单
-    //（统一审计：交互模式归一，能力位只控菜单项显隐）。原 SwipeToDismissBox
-    // 包装随 #342 揭示背景一并移除。
+    // #347（2026-09-07 用户裁决）：左滑归档手势下线——归档入口收敛进行内动作。
+    // #353 终型（2026-09-09）：长按直达「会话详情」对话框（动作收进详情、去重）。
     Box(modifier = modifier.fillMaxWidth()) {
     Row(
         modifier = Modifier
@@ -130,7 +121,7 @@ internal fun SessionRow(
             .defaultMinSize(minHeight = 64.dp)
             .combinedClickable(
                 onClick = onClick,
-                onLongClick = { showRowMenu = true },
+                onLongClick = { showDetailsDialog = true },
             )
             .padding(start = if (showDirectory) SpacingTokens.MD.dp else 28.dp, end = SpacingTokens.SM.dp)
             .padding(vertical = 5.dp),
@@ -336,69 +327,11 @@ internal fun SessionRow(
         }
     }
 
-    // #311 长按行菜单（详情/重命名/归档——显隐纯函数见 SessionRowMenu.kt；
-    // 已归档行只留详情：归档单向契约，无 wire 级恢复动词）
-    // #353（2026-09-09 用户裁决）：活动行长按直达弹窗（ModalBottomSheet）而非
-    // DropdownMenu 选择列表；已归档折叠区保持原下拉形态（用户「仅折叠区没问题」——
-    // 该区只余详情单项，下拉即达无列表感）。
-    if (isArchived) {
-        DropdownMenu(
-            expanded = showRowMenu,
-            onDismissRequest = { showRowMenu = false },
-        ) {
-            menuActions.forEach { action ->
-                val (labelRes, icon) = when (action) {
-                    SessionRowMenuAction.DETAILS -> R.string.session_session_details to Icons.Outlined.Info
-                    SessionRowMenuAction.RENAME -> R.string.session_rename to Icons.Outlined.Edit
-                    SessionRowMenuAction.ARCHIVE -> R.string.session_menu_archive to Icons.Outlined.Archive
-                }
-                DropdownMenuItem(
-                    text = { Text(stringResource(labelRes)) },
-                    leadingIcon = { Icon(icon, contentDescription = null) },
-                    onClick = {
-                        showRowMenu = false
-                        when (action) {
-                            SessionRowMenuAction.DETAILS -> showDetailsDialog = true
-                            SessionRowMenuAction.RENAME -> onRename()
-                            SessionRowMenuAction.ARCHIVE -> onArchive()
-                        }
-                    },
-                )
-            }
-        }
-    } else if (showRowMenu) {
-        ModalBottomSheet(onDismissRequest = { showRowMenu = false }) {
-            menuActions.forEach { action ->
-                val (labelRes, icon) = when (action) {
-                    SessionRowMenuAction.DETAILS -> R.string.session_session_details to Icons.Outlined.Info
-                    SessionRowMenuAction.RENAME -> R.string.session_rename to Icons.Outlined.Edit
-                    SessionRowMenuAction.ARCHIVE -> R.string.session_menu_archive to Icons.Outlined.Archive
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            showRowMenu = false
-                            when (action) {
-                                SessionRowMenuAction.DETAILS -> showDetailsDialog = true
-                                SessionRowMenuAction.RENAME -> onRename()
-                                SessionRowMenuAction.ARCHIVE -> onArchive()
-                            }
-                        }
-                        .padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text(
-                        text = stringResource(labelRes),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-    }
+    // #353 终型（2026-09-09 用户二次裁决）：长按直接打开「会话详情」对话框——
+    // 动作按钮收进详情（去重：不再有独立菜单/sheet 层）；删除优先、归档仅在没有
+    // 删除接口的面顶替（DSH）；已归档行同样直达详情（动作区仅保留复制 ID——
+    // 归档单向契约，无恢复动词）。菜单/sheet 中间形态（DropdownMenu→
+    // ModalBottomSheet）随之退役，sessionRowMenuActions 纯函数一并移除。
     }
 
     // 带操作按钮的详情对话框
@@ -422,7 +355,13 @@ internal fun SessionRow(
                 showDetailsDialog = false
                 onAssignCategory()
             },
+            onArchive = {
+                showDetailsDialog = false
+                onArchive()
+            },
             deleteSupported = deleteSupported,
+            archiveSupported = archiveSupported,
+            isArchived = isArchived,
             agentPresetSupported = agentPresetSupported,
             agentPresetNames = agentPresetNames,
             syncState = syncState,
@@ -443,7 +382,12 @@ private fun SessionDetailsDialog(
     onDelete: () -> Unit,
     onCopyId: () -> Unit,
     onAssignCategory: () -> Unit,
+    onArchive: () -> Unit = {},
     deleteSupported: Boolean,
+    // #353 终型：归档动作（仅无删除接口的面——DSH；与删除互斥呈现）
+    archiveSupported: Boolean = false,
+    // 已归档行：动作区仅保留复制 ID（归档单向契约）
+    isArchived: Boolean = false,
     // UI-B：Agent 预设只读标签（DSH 专属）
     agentPresetSupported: Boolean,
     agentPresetNames: Map<String, String>,
@@ -611,6 +555,17 @@ private fun SessionDetailsDialog(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
                 ) {
+                    if (isArchived) {
+                        // #353 终型：已归档行——仅复制 ID（归档单向契约，无恢复动词）
+                        Button(
+                            onClick = { onCopyId() },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonTokens.filledColors(),
+                            border = ButtonTokens.amoledBorder(),
+                        ) {
+                            Text(stringResource(R.string.menu_copy_session_id))
+                        }
+                    } else {
                     // 第一行：复制会话 ID + 重命名会话
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -648,7 +603,8 @@ private fun SessionDetailsDialog(
                     ) {
                         Text(stringResource(R.string.assign_tag))
                     }
-                    // 第三行：删除（#276 能力位门控：DSH 无 session.delete——隐藏）
+                    // 第三行：移除动作（#353 终型用户裁决：删除优先——有删除接口的
+                    // 面用删除；归档仅在没有删除接口的面顶替〔DSH〕，二者互斥）
                     if (deleteSupported) {
                         Button(
                             onClick = {
@@ -661,6 +617,19 @@ private fun SessionDetailsDialog(
                         ) {
                             Text(stringResource(R.string.session_delete))
                         }
+                    } else if (archiveSupported) {
+                        Button(
+                            onClick = {
+                                onDismiss()
+                                onArchive()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonTokens.dangerColors(),
+                            border = ButtonTokens.amoledBorder(),
+                        ) {
+                            Text(stringResource(R.string.session_menu_archive))
+                        }
+                    }
                     }
                 }
             }
