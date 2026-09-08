@@ -55,7 +55,7 @@ wait_logcat() { # $1=grep 模式 $2=超时秒
 
 inject_opencode() { # $1=port $2=name $3=password [$4=username]
     local port=$1 name=$2 pw=$3 user=${4:-opencode}
-    adb -s "$SERIAL" reverse "tcp:$port" "tcp:$port"
+    adb -s "$SERIAL" reverse "tcp:$port" "tcp:$port" >/dev/null 2>&1
     adb -s "$SERIAL" logcat -c
     adb -s "$SERIAL" shell am force-stop "$PKG" 2>/dev/null || true
     sleep 1
@@ -132,7 +132,7 @@ ensure_v1_running() {
 import json, sqlite3, sys
 db, out = sys.argv[1], sys.argv[2]
 row = sqlite3.connect(db).execute(
-    "SELECT value FROM credential WHERE integration_id='zhipuai-coding-plan' AND active=1 ORDER BY time_updated DESC LIMIT 1").fetchone()
+    "SELECT value FROM credential WHERE integration_id='zhipuai-coding-plan' ORDER BY time_updated DESC LIMIT 1").fetchone()
 if row:
     key = json.loads(row[0]).get('key') or json.loads(row[0]).get('apiKey')
     if key:
@@ -186,10 +186,12 @@ cmd_v1() {
 cmd_dsh012() {
     [ "${1:-}" ] && SERIAL=$1
     if ! docker inspect "$DSH012_NAME" >/dev/null 2>&1; then
-        echo "[*] 容器不存在——重建（$DSH012_IMG，0.0.0.0:$DSH012_PORT）…"
-        docker run -d --name "$DSH012_NAME" -p ${DSH012_PORT}:${DSH012_PORT} \
+        echo "[*] 容器不存在——重建（$DSH012_IMG，host-network 127.0.0.1:$DSH012_PORT）…"
+        # 0.1.2 拒绝 --host 0.0.0.0（RCE 安全红线）——用 --network host + 127.0.0.1
+        # （adb reverse 连宿主 loopback，等效可达；容器内无需暴露网卡）
+        docker run -d --name "$DSH012_NAME" --network host \
             --entrypoint bash "$DSH012_IMG" -c \
-            'export DSH_HOME=/e2e/dsh-home; exec dsh web --patch /e2e/e2e-overlay.yml --host 0.0.0.0 --port ${DSH012_PORT}' \
+            'export DSH_HOME=/e2e/dsh-home; exec dsh web --host 127.0.0.1 --port '"$DSH012_PORT" \
             >/dev/null
     elif ! docker inspect -f '{{.State.Running}}' "$DSH012_NAME" 2>/dev/null | grep -q true; then
         echo "[*] 容器已停——docker start…"
@@ -206,7 +208,7 @@ cmd_dsh012() {
         echo "FAIL: docker logs 无 token=（0.1.1 无鉴权版无需配对；或启动失败——docker logs $DSH012_NAME）" >&2; exit 1
     fi
     echo "[*] token 已提取（${#token} 字符，容器重启后需重跑）"
-    adb -s "$SERIAL" reverse tcp:$DSH012_PORT tcp:$DSH012_PORT
+    adb -s "$SERIAL" reverse tcp:$DSH012_PORT tcp:$DSH012_PORT >/dev/null 2>&1
     adb -s "$SERIAL" logcat -c
     adb -s "$SERIAL" shell am force-stop "$PKG" 2>/dev/null || true
     sleep 1
