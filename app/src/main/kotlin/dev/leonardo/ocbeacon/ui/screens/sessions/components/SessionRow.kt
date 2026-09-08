@@ -473,83 +473,57 @@ private fun SessionDetailsDialog(
                                 stringResource(R.string.session_details_diff_summary, summary.additions, summary.deletions, summary.files)
                             )
                         }
-                    }
-                }
-                // #271：同步详情区——状态（未同步/同步中/已同步/失败·原因）+
-                // lastSyncAt + 已入库提示 + 「同步全部历史」/「取消同步」按钮。
-                // drain 静默后台运行，完成无提示（spec §2.5 四轮定稿）。
-                Spacer(Modifier.height(16.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)) {
-                    Text(
-                        text = stringResource(R.string.session_sync_section),
-                        style = MaterialTheme.typography.titleSmall,
-                    )
-                    val state = syncState?.state
-                    val statusColor = when (state) {
-                        dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCING -> MaterialTheme.colorScheme.primary
-                        dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCED -> DiffAdded
-                        dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_FAILED -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                    DetailRow(
-                        stringResource(R.string.session_details_status),
-                        stringResource(
-                            when (state) {
-                                dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCING -> R.string.session_sync_state_syncing
-                                dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCED -> R.string.session_sync_state_synced
-                                dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_FAILED -> R.string.session_sync_state_failed
-                                else -> R.string.session_sync_state_none
-                            }
-                        ),
-                    )
-                    Text(
-                        text = run {
-                            if (state == dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_FAILED && !syncState?.errorMessage.isNullOrBlank()) {
-                                stringResource(R.string.session_sync_failed_reason, syncState?.errorMessage.orEmpty())
-                            } else {
-                                stringResource(
-                                    if (state == dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCED) {
-                                        R.string.session_sync_hint_synced
-                                    } else {
-                                        R.string.session_sync_hint_partial
-                                    }
-                                )
-                            }
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = statusColor,
-                    )
-                    val lastSyncAt = syncState?.lastSyncAt
-                    if (state == dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCED && lastSyncAt != null) {
-                        Text(
-                            text = stringResource(R.string.session_sync_last_at, dateFormat.format(Date(lastSyncAt))),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+                        // #353 打磨（2026-09-09 用户裁决）：同步状态并入详情信息区
+                        //（去独立 box 与「状态」重名——以「历史同步」为行标签）
+                        val syncStateValue = syncState?.state
+                        DetailRow(
+                            stringResource(R.string.session_sync_section),
+                            stringResource(
+                                when (syncStateValue) {
+                                    dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCING -> R.string.session_sync_state_syncing
+                                    dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCED -> R.string.session_sync_state_synced
+                                    dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_FAILED -> R.string.session_sync_state_failed
+                                    else -> R.string.session_sync_state_none
+                                }
+                            ),
                         )
                     }
-                    if (state == dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCING) {
-                        // 同步中 → 显示「取消同步」（可打断 drain，状态回未同步）
-                        Button(
-                            onClick = onCancelSync,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonTokens.filledColors(),
-                            border = ButtonTokens.amoledBorder(),
-                        ) {
-                            Text(stringResource(R.string.session_sync_cancel))
-                        }
-                    } else {
-                        // 已同步 → 禁用（drain 已全量，重复触发无意义）；其余状态可手动触发
-                        Button(
-                            onClick = onRequestSync,
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = state != dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCED,
-                            colors = ButtonTokens.filledColors(),
-                            border = ButtonTokens.amoledBorder(),
-                        ) {
-                            Text(stringResource(R.string.session_sync_action))
-                        }
-                    }
                 }
+                // 同步提示行（失败原因/入库提示/最近同步时刻）——紧随信息区，小字着色
+                val syncStateValue2 = syncState?.state
+                val syncStatusColor = when (syncStateValue2) {
+                    dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCING -> MaterialTheme.colorScheme.primary
+                    dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCED -> DiffAdded
+                    dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_FAILED -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                Text(
+                    text = run {
+                        if (syncStateValue2 == dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_FAILED && !syncState?.errorMessage.isNullOrBlank()) {
+                            stringResource(R.string.session_sync_failed_reason, syncState?.errorMessage.orEmpty())
+                        } else {
+                            stringResource(
+                                if (syncStateValue2 == dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCED) {
+                                    R.string.session_sync_hint_synced
+                                } else {
+                                    R.string.session_sync_hint_partial
+                                }
+                            )
+                        }
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = syncStatusColor,
+                )
+                val lastSyncAt = syncState?.lastSyncAt
+                if (syncStateValue2 == dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCED && lastSyncAt != null) {
+                    Text(
+                        text = stringResource(R.string.session_sync_last_at, dateFormat.format(Date(lastSyncAt))),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+                    )
+                }
+                // #353 打磨（2026-09-09 用户裁决）：同步动作并入下方动作栈——
+                // 去独立 box（状态/提示行已上移详情信息区），间距由栈统一。
                 Spacer(Modifier.height(16.dp))
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -602,6 +576,28 @@ private fun SessionDetailsDialog(
                         border = ButtonTokens.amoledBorder(),
                     ) {
                         Text(stringResource(R.string.assign_tag))
+                    }
+                    // 同步动作（#353 打磨并入动作栈）：同步中→「取消同步」可打断；
+                    // 已同步→禁用（drain 已全量）；其余→「同步全部历史」可触发
+                    if (syncStateValue2 == dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCING) {
+                        Button(
+                            onClick = onCancelSync,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonTokens.filledColors(),
+                            border = ButtonTokens.amoledBorder(),
+                        ) {
+                            Text(stringResource(R.string.session_sync_cancel))
+                        }
+                    } else {
+                        Button(
+                            onClick = onRequestSync,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = syncStateValue2 != dev.leonardo.ocbeacon.data.local.SessionSyncEntity.STATE_SYNCED,
+                            colors = ButtonTokens.filledColors(),
+                            border = ButtonTokens.amoledBorder(),
+                        ) {
+                            Text(stringResource(R.string.session_sync_action))
+                        }
                     }
                     // 第三行：移除动作（#353 终型用户裁决：删除优先——有删除接口的
                     // 面用删除；归档仅在没有删除接口的面顶替〔DSH〕，二者互斥）
