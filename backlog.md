@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#353**（2026-09-07 深夜 #351/#339 裁决落地、#352 取消归档 wire 阻塞登记）。
+**编号**：全局递增，不回收。下一编号：**#360**（2026-09-08 走查反馈批2登记 #353-#359）。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -51,9 +51,20 @@
 
 ## P0 — 主流程阻塞
 
+- [ ] **#357 子会话进出崩溃——streaming markdown AST 与空文本失配（走查反馈⑥）** `ui` `crash` `markdown`
+  - 用户:「正常进出好像就崩溃了」；crash 栈已存证(2026-09-08 10:20 crash buffer):StringIndexOutOfBoundsException begin 0 end 53 length 0 @ ASTUtilKt.getTextInNode→buildMarkdownAnnotatedString→buildClickableMarkdown→**StreamingMarkdownSuccess**——markdown AST 节点偏移超出当前文本长度(会话切换后 text 清空而流式 state 的 AST 残留)；#349 卡体直达子会话使会话切换高频化后暴露
+- [ ] **#358 斜杠命令与@文件发送失败——DSH prompt wire 校验拒绝（走查反馈⑦）** `dsh` `bug` `send`
+  - 用户:「斜杠与@文件都发送失败（界面显示）」；logcat 已存证(2026-09-08 10:21):DshApiError gateway/input-invalid——session/prompt wire field request failed boundary validation——含命令/@文件载荷的 prompt 被服务器 schema 拒收(promptContentPart 映射面或空 content);需深查 ChatSendDelegate→DshApiClient.promptAsync 载荷链
+
+
 （#308 已完结迁 journal：2026-09-05 AI 真机验收关卡，见 `docs/journal/2026-09-04-fix-308-always-326-327.md` §十一）
 
 ## P1 — 核心功能需求
+
+- [ ] **#356 队列语义重构——对齐 opencode「上屏+queue 徽标」与服务端排队列表（走查反馈③⑤）** `queue` `send` `ui`
+  - 用户核心:①命名「堆积消息」→「消息排队」;②**立即发送=消息立即上屏+queue 徽标(已送达服务端)**——opencode 原生,DSH 亦有同款,两面应一致;③**排队消息=进「排队消息列表」,本轮次结束后才再发一条**——DSH web 可实现=服务器有保存到队列/查询排队消息接口,调研后重实现;④当前输入区 chips 条(小工具 tag 式)形态**不符合预期**,废弃
+  - 调研面:DSH session.prompt mode:queue 与 session/queue 域(query/updateQueue);V2 followup 队列徽标 wire 形态;QueueSheet 去留随新形态定
+
 - [~] **#346 需关注类通知被静默组汇总埋没——问题/权限/错误退出 server 分组独立成卡** `dsh` `notification` `bug`
   - 走查反馈取证(2026-09-07):用户 HOME 后「没看到有问题通知」,而 dumpsys 实证通知在场(id=724696787,importance=4,文案正确)——根因=三类高重要度通知 setGroup(server_x) 挂在 **LOW 重要度 tasks_silent 组汇总**下,MIUI 整组折叠成一行静默项,子卡不可见(同 E4② 组卡现象);独立卡正常(E4 实证)
   - 已修复:权限/问题/错误三构建器移除 setGroup+组汇总发布(轮完成静默流保留分组语义);顺带消解 E4②「组卡子项 tap 不可达」(不再有组卡)。**真机验证 ✔**:resync 重放 QuestionAsked→到达发布→groupKey=自身独立键(原 g:server_…),静默组汇总消失;cancel 后撤销链保持(通知消失)
@@ -85,6 +96,14 @@
   - → `docs/journal/2026-09-03-fix-308-dsh-respond-wire.md` §七（裁决记录 + 批 1 审计）；**主体已落地**（审计+验收：FAB 五入口/QueueSheet 三动作/QueueDock 已删/i18n ×15/映射原则遵守——`docs/research/2026-09-05-audit-309-313.md` + #327 验收报告）；最后断点（角标数据链）已由 #327 修复并真机全绿（角标 1/2/清零全生命周期）→ **UIUX 卡待人工验收**（与 #326 同域汇总）
 
 ## P2 — 优化与锦上添花
+
+- [ ] **#354 快速对话框预设选择不生效+会话详情缺 agent 模式（走查反馈②）** `dsh` `bug` `ui`
+  - 用户:「点击预设在会话中不起作用」——批3 对话框选预设→连接后空态卡未高亮/未生效(实现链 selectAgentPreset 时机或回显面待查;注意 9-07 深夜 RPC 实证 agentPreset=standard 曾落位——真机 UI 面回归);「长按→会话详情看不到当前的 agent 模式」——详情页补 agentPreset 显示
+- [ ] **#355 会话/消息搜索重设计（走查反馈②）** `search` `ui`
+  - 用户:检索结果为**对话内容**→显示属于哪个会话;为**会话标题**→正常会话 list;可筛选;**已归档不展示**;筛选**不要 tag 形式,要标准列表筛选样式**;对**所有服务器生效(含 opencode V1/V2)**
+- [ ] **#353 长按会话行应直接弹窗而非选择列表（走查反馈②）** `ui`
+  - 用户:「应该长按直接弹窗而不是出现选择列表」——现行 DropdownMenu 列表形态改为弹窗(bottom sheet/对话框);「仅折叠区没问题」=已归档折叠区保持
+
 - [~] **#351 FAB QUEUE 入口去留——统一审计 §三-4/§三-1 尾项** `ui` `fab` `queue`
   - **已裁决+实现(2026-09-07)**:用户「按照我之前说的做」=#313 路由裁决(队列 UI 归 FAB 能力→容器)延续——保留入口,新增 queueSupported 能力位(DSH=true/V1V2=false,同 GOAL/SHELL 先例)门控 ChatScreen FAB;chips(本地堆积两面同构)与 QueueSheet(DSH 服务端排队)语义互补。真机:DSH 面 QUEUE 在场/opencode 面 QUEUE 消失
 
@@ -143,6 +162,10 @@
   - → `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md` §四 · `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §12.3
 
 ## P3 — 观察与低价值改进
+
+- [ ] **#359 三条重配服务器凭据探查+自动输入方案调研（走查反馈⑨）** `infra`
+  - 用户:「是否有方案探查到凭据然后自动输入?」——192.168.110.248:248/V1-4198/dsh012-a5 三条;调研宿主可探查面(配置文件/env/密钥链)→可行则脚本注入,不可行则如实报告边界
+
 
 - [ ] **#345 adb 注入 tap 间歇丢弃观察——MIUI 平台行为定性(非 app 缺陷),真手指未复现即不处理** `env` `device`
   - 定性修正(2026-09-07 二查):原「两案全灭」重析后——**第二案翻案**:Doubang 输入法为浅色主题,screencap 下半屏与 app surface 同色族 (247,250,253),误判「无 IME」后 tap 实际全打在键盘上;7 节点 dump=输入法安全窗致盲(平台正常)。第一案(t4401 克隆任务后 composer 聚焦 tap 无响应)仍疑似 MIUI 注入丢弃家族(同 E4② shade 组卡先例);两案中键事件/焦点全程有效(`dumpsys input_method` mServedView 在场实证),app 侧无缺陷证据
