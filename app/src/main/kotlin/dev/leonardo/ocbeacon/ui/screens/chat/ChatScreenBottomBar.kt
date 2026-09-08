@@ -556,25 +556,11 @@ internal fun ChatScreenBottomBar(
                                 onInputModeChange(ChatInputMode.SHELL.name)
                             }
                         }
-                        "review" -> {
-                            onForceScroll()
-                            viewModel.executeCommand("review") { ok ->
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(
-                                        if (ok) cmdExecutedTpl.format("review") else cmdFailedTpl.format("review")
-                                    )
-                                }
-                            }
-                        }
+                        // #380 死代码清理（2026-09-09）：#372 回填铁律后 onSlashCommand 仅收
+                        // client 型（九注册名全部显式分支）；原 "review" 分支（review 从不在
+                        // client 注册表）与 else 服务端派遣分支均不可达——移除。未知 client
+                        // 命令 no-op（注册表扩展时须显式加分支）。
                         else -> {
-                            onForceScroll()
-                            viewModel.executeCommand(cmd.name) { ok ->
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(
-                                        if (ok) cmdExecutedTpl.format(cmd.name) else cmdFailedTpl.format(cmd.name)
-                                    )
-                                }
-                            }
                         }
                     }
                 },
