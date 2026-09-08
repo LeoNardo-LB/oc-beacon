@@ -180,6 +180,7 @@ class SessionListViewModelArchiveTest {
             sessionTagRepository = mockk(relaxed = true),
             serverRepository = mockk(relaxed = true),
             chatRepository = chatRepository,
+            eventDispatcher = io.mockk.mockk(relaxed = true),
             messageFtsIndex = mockk(relaxed = true),
             historySyncManager = mockk(relaxed = true),
             pendingInteractionStore = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingInteractionStore> {

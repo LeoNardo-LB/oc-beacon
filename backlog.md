@@ -65,7 +65,7 @@
 
 - [~] **#356 队列语义重构——对齐 opencode「上屏+queue 徽标」与服务端排队列表（走查反馈③⑤）** `queue` `send` `ui`
   - 主实现落地（2026-09-08）：busy 菜单反转（立即发送=steer 注入当轮/消息排队=queue 轮末派发，V1 仅前者）；DSH V012 受理即 echo 播种（pending-<requestId>→上屏+既有 QUEUED 徽标，持久 user/message source.rpcId 同批 MessageRemoved 原子换装）；V2 prompt 带 delivery + GET/DELETE/steer inbox 三端点 + queueSupported(V2) 翻真 + QueueSheet 复用（edit 按位隐藏）；chips 条/StackedMessageStore 整体退役；i18n 15 语言改名。V2 真机全链路 ✔（菜单/双档上屏+徽标/QueueSheet/编辑门控/轮末派发）。
-  - 遗留：DSH 面 busy 菜单 E2E 被网关供应商全瘫阻塞（Console Go MissingSessionID 400→轮次 2-5s 即死，deepseek-official 欠费）——echo 播种/门控行为已分别实证（[send-seed]+插桩 stable 读值正确），供应商恢复后补一轮即可；V2 QueueSheet 陈旧性（提升后面板不自动刷新——打开/变更时拉取已覆盖）。详见 journal 2026-09-08-2 §二/§三。
+  - 遗留：V2 QueueSheet 陈旧性（提升后面板不自动刷新——打开/变更时拉取已覆盖）。**DSH 面 busy 菜单已补验 ✔**（2026-09-08 竞速法：菜单双项+steer echo 400ms 上屏+queue 上屏；插桩证实 stable 读值无误——供应商全瘫纯环境阻塞，GLM-5.3-Flash 亦撞 Console Go 400，待服务端修复后正常使用即可复走）。详见 journal 2026-09-08-2 §二/三/四。
 
 - [~] **#346 需关注类通知被静默组汇总埋没——问题/权限/错误退出 server 分组独立成卡** `dsh` `notification` `bug`
   - 走查反馈取证(2026-09-07):用户 HOME 后「没看到有问题通知」,而 dumpsys 实证通知在场(id=724696787,importance=4,文案正确)——根因=三类高重要度通知 setGroup(server_x) 挂在 **LOW 重要度 tasks_silent 组汇总**下,MIUI 整组折叠成一行静默项,子卡不可见(同 E4② 组卡现象);独立卡正常(E4 实证)
@@ -99,12 +99,9 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#354 快速对话框预设选择不生效+会话详情缺 agent 模式（走查反馈②）** `dsh` `bug` `ui`
-  - 用户:「点击预设在会话中不起作用」——批3 对话框选预设→连接后空态卡未高亮/未生效(实现链 selectAgentPreset 时机或回显面待查;注意 9-07 深夜 RPC 实证 agentPreset=standard 曾落位——真机 UI 面回归);「长按→会话详情看不到当前的 agent 模式」——详情页补 agentPreset 显示
-- [ ] **#355 会话/消息搜索重设计（走查反馈②）** `search` `ui`
-  - 用户:检索结果为**对话内容**→显示属于哪个会话;为**会话标题**→正常会话 list;可筛选;**已归档不展示**;筛选**不要 tag 形式,要标准列表筛选样式**;对**所有服务器生效(含 opencode V1/V2)**
-- [ ] **#353 长按会话行应直接弹窗而非选择列表（走查反馈②）** `ui`
-  - 用户:「应该长按直接弹窗而不是出现选择列表」——现行 DropdownMenu 列表形态改为弹窗(bottom sheet/对话框);「仅折叠区没问题」=已归档折叠区保持
+- [~] **#354 快速对话框预设选择不生效+会话详情缺 agent 模式（走查反馈②）** `dsh` `bug` `ui`
+  - **已修复(2026-09-08)**:三层根因（session.list 基线不回带 agentPreset〔RPC 直探 195 项 0 携带〕+agent-preset/selected 事件竞丢〔mux 无消费端实证〕+blank 会话被 filterByDirectory 滤出基线→事件折叠恒 no-op）；三腿修复：create 直传 agentPreset（回显入槽，真机零 select RPC）/复用分支先注入 store/select 乐观回显合成事件。
+  - 真机终验 ✔:对话框选 PTC→建会话→发消息→详情行 **「Agent 预设 | PTC 模式」**（原「—」）；会话内预设卡高亮同源修复。详情行 UI 本就存在（SessionRow UI-B）——缺失观感即本根因。详见 journal 2026-09-08-2 §四。
 
 - [~] **#351 FAB QUEUE 入口去留——统一审计 §三-4/§三-1 尾项** `ui` `fab` `queue`
   - **已裁决+实现(2026-09-07)**:用户「按照我之前说的做」=#313 路由裁决(队列 UI 归 FAB 能力→容器)延续——保留入口,新增 queueSupported 能力位(DSH=true/V1V2=false,同 GOAL/SHELL 先例)门控 ChatScreen FAB;chips(本地堆积两面同构)与 QueueSheet(DSH 服务端排队)语义互补。真机:DSH 面 QUEUE 在场/opencode 面 QUEUE 消失

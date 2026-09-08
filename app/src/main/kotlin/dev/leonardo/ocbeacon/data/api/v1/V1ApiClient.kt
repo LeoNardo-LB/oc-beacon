@@ -154,7 +154,8 @@ class V1ApiClient @Inject constructor(
         title: String?,
         parentId: String?,
         directory: String?,
-        workspaceId: String?
+        workspaceId: String?,
+        agentPreset: String?,
     ): Session {
         // workspaceId：DSH V012 专属（SessionCreateRequest.workspaceId，#311）——V1 忽略
         val body = buildMap<String, String> {

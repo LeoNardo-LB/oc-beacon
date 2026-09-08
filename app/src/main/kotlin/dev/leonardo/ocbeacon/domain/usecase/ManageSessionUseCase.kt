@@ -22,10 +22,12 @@ class ManageSessionUseCase @Inject constructor(
         serverId: String,
         directory: String?,
         workspaceId: String? = null,
+        agentPreset: String? = null,
     ): Session {
         val opts = dev.leonardo.ocbeacon.domain.model.CreateSessionOpts(
             directory = directory,
             workspaceId = workspaceId,
+            agentPreset = agentPreset,
         )
         return sessionRepository.createSession(serverId, opts).getOrThrow()
     }

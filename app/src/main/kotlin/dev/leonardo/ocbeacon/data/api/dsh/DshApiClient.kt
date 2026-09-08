@@ -239,6 +239,7 @@ class DshApiClient @Inject constructor(
         parentId: String?,
         directory: String?,
         workspaceId: String?,
+        agentPreset: String?,
     ): Session {
         if (protocolOf(conn) == DshWireProtocol.V012) {
             // 0.1.2 schema {workspaceId?,cwd?,sessionId?,agentPreset?}——无 title/
@@ -250,6 +251,10 @@ class DshApiClient @Inject constructor(
                 // #311 ①-d：SessionCreateRequest.workspaceId（入组 workspace）——与 cwd
                 // 可并存（都给时服务器按 workspaceId 归属），缺席走 cwd 归属。
                 workspaceId?.let { put("workspaceId", it) }
+                // #354：agentPreset 创建即带（SessionCreateRequest.agentPreset）——
+                // 回显 agentPreset 经 mapSessionEcho 入槽，根治 create-then-select
+                // 竞态（session.list 基线实测不回带该字段）。
+                agentPreset?.let { put("agentPreset", it) }
             }
             val value = rpc.call(conn, "session.create", payload) { it }.getOrElse { e -> throw e }
             val session = mapSessionEcho(value, fallbackTitle = title, blankByDefault = true)

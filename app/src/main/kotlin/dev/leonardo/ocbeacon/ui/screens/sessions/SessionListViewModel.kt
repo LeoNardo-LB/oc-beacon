@@ -97,6 +97,10 @@ class SessionListViewModel @Inject constructor(
     private val serverRepository: ServerRepository,
     private val unreadBadgeService: dev.leonardo.ocbeacon.data.repository.UnreadBadgeService,
     private val chatRepository: ChatRepository,
+    // #354：对话框预设乐观回显（SessionAgentPresetChanged 合成事件注入——
+    // ChatViewModel 同款先例；session.list 基线不回带 agentPreset，事件竞丢
+    // 即永久丢失，select 成功后必须本地落槽）。
+    private val eventDispatcher: dev.leonardo.ocbeacon.data.repository.EventDispatcher,
     // #311 Task4：会话行待审批/提问指示单源（PermissionAsked/QuestionAsked 分发点旁路记录）
     private val pendingInteractionStore: dev.leonardo.ocbeacon.data.repository.PendingInteractionStore,
     // #176/#177：堆积队列手动「继续」入口（详情对话框）+ 计数可见性
@@ -1226,13 +1230,23 @@ class SessionListViewModel @Inject constructor(
             val reuse = findReusableBlankSession(workspace, candidates, snapshot.archivedSessionIds.toSet())
             if (reuse != null) {
                 AppLogger.i(TAG_SESSION_LIST_VM, "connectWorkspace reused blank session " + reuse.id + " for " + workspaceId)
+                // #354：blank 会话不在常规列表基线（filterByDirectory 滤 blank）→
+                // 先注入 store 再 select——否则乐观回显/真事件的 updateSession 恒
+                // no-op，agentPreset 永不落槽（详情行「—」+ 预设卡零高亮，13:46
+                // 真机实证）。create 分支同款注入。
+                sessionRepository.setSessions(serverId, listOf(reuse))
                 applyDialogPreset(reuse.id, presetId)
                 _newSessionNavigation.tryEmit(NewSessionNavigation.ToSession(reuse.id))
                 return@launch
             }
             val created = try {
                 Result.success(
-                    manageSessionUseCase.createSession(serverId, directory = null, workspaceId = workspaceId),
+                    // #354：agentPreset 创建即带（SessionCreateRequest.agentPreset）——
+                    // 回显入槽，绕开 create-then-select 竞态；无预设（默认档）时缺席。
+                    manageSessionUseCase.createSession(
+                        serverId, directory = null, workspaceId = workspaceId,
+                        agentPreset = presetId,
+                    ),
                 )
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
@@ -1243,7 +1257,6 @@ class SessionListViewModel @Inject constructor(
                     // 注入仓库：列表立即可见（注册表 sessionIds 由 upsert 增量帧补真）
                     sessionRepository.setSessions(serverId, listOf(session))
                     AppLogger.i(TAG_SESSION_LIST_VM, "connectWorkspace created session " + session.id + " in " + workspaceId)
-                    applyDialogPreset(session.id, presetId)
                     _newSessionNavigation.tryEmit(NewSessionNavigation.ToSession(session.id))
                 }
                 .onFailure { e ->
@@ -1254,14 +1267,29 @@ class SessionListViewModel @Inject constructor(
     }
 
     /**
-     * 批 3（§三-3 快速对话框内联预设选择）：[connectWorkspaceEntry] 的预设应用腿。
+     * 批 3（§三-3 快速对话框内联预设选择）：[connectWorkspaceEntry] 复用分支的
+     * 预设应用腿（create 分支已改为创建即带 preset，不经此路）。
+     * #354 根治：select 成功即注入合成 SessionAgentPresetChanged 走既有折叠管线
+     * （ChatViewModel.selectAgentPreset 2026-08-31 乐观回显同款）——session.list
+     * 基线实测不回带 agentPreset，agent-preset/selected 真事件在新会话懒订阅期
+     * 可竞丢（mux 无消费端实证），丢失后无补齐来源。
      * 软失败——locked/网络失败只记日志不阻断导航（会话内空态预设卡仍是改选通道）。
      */
     private suspend fun applyDialogPreset(sessionId: String, presetId: String?) {
         if (presetId == null) return
         chatRepository.selectAgentPreset(serverId, sessionId, presetId)
             .onSuccess { ok ->
-                if (!ok) AppLogger.w(TAG_SESSION_LIST_VM, "dialog preset select rejected for " + sessionId)
+                if (!ok) {
+                    AppLogger.w(TAG_SESSION_LIST_VM, "dialog preset select rejected for " + sessionId)
+                } else {
+                    eventDispatcher.processEvent(
+                        dev.leonardo.ocbeacon.domain.model.SseEvent.SessionAgentPresetChanged(
+                            sessionId = sessionId,
+                            agentPreset = presetId,
+                        ),
+                        serverId,
+                    )
+                }
             }
             .onFailure { e ->
                 if (e is CancellationException) throw e

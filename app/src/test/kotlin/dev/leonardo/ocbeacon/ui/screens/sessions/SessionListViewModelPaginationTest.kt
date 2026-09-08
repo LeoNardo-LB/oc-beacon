@@ -169,6 +169,7 @@ class SessionListViewModelPaginationTest {
             sessionTagRepository = mockk(relaxed = true),
             serverRepository = mockk(relaxed = true),
             chatRepository = mockk(relaxed = true),
+            eventDispatcher = io.mockk.mockk(relaxed = true),
             messageFtsIndex = mockk(relaxed = true),
             historySyncManager = mockk(relaxed = true),
             pendingInteractionStore = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingInteractionStore> {

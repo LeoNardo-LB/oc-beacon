@@ -217,6 +217,8 @@ class SessionRepositoryImpl @Inject constructor(
             directory = opts.directory,
             // #311 ①-d：入组 workspace（DSH V012 专属；其余后端忽略）
             workspaceId = opts.workspaceId,
+            // #354：创建即带预设（DSH V012 专属；其余后端忽略）
+            agentPreset = opts.agentPreset,
         )
     }
 

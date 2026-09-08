@@ -209,6 +209,7 @@ class SessionListViewModelServerSearchTest {
                 io.mockk.every { allReadAt(any()) } returns kotlinx.coroutines.flow.flowOf(0L)
             },
             chatRepository = chatRepository,
+            eventDispatcher = io.mockk.mockk(relaxed = true),
             messageFtsIndex = ftsIndex,
             historySyncManager = mockk(relaxed = true),
             pendingInteractionStore = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingInteractionStore> {

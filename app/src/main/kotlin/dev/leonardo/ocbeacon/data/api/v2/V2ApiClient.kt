@@ -196,7 +196,8 @@ class V2ApiClient @Inject constructor(
         title: String?,
         parentId: String?,
         directory: String?,
-        workspaceId: String?
+        workspaceId: String?,
+        agentPreset: String?,
     ): Session {
         // workspaceId：DSH V012 专属（SessionCreateRequest.workspaceId，#311）——V2 忽略
         // 使用 JsonObject 构造避免 kotlinx 序列化的混合类型推断问题

@@ -261,6 +261,41 @@ class DshApiClientTest {
     }
 
     /**
+     * #354：agentPreset 创建即带（SessionCreateRequest.agentPreset）——回显
+     * agentPreset 经 mapSessionEcho 入槽（根治 create-then-select 竞态：
+     * session.list 基线实测不回带该字段，agent-preset/selected 事件可竞丢）。
+     */
+    @Test
+    fun `v012 createSession with agentPreset posts and maps echo preset`() = runTest {
+        val engine = MockEngine {
+            respond(
+                ok("""{"sessionId":"s-ptc","agentPreset":"ptc"}"""),
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        val api = client(engine, DshWireProtocol.V012)
+        val session = api.createSession(conn, title = null, parentId = null, directory = "/w", workspaceId = "ws-1", agentPreset = "ptc")
+        assertEquals("ptc", session.agentPreset)
+        // V012 WRAPPED 线面：{args:{request:{workspaceId, cwd, agentPreset}}}
+        val payload = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single()))
+            .jsonObject["payload"]!!.jsonObject["args"]!!.jsonObject["request"]!!.jsonObject
+        assertEquals("ptc", payload["agentPreset"]!!.jsonPrimitive.content)
+        assertEquals("ws-1", payload["workspaceId"]!!.jsonPrimitive.content)
+    }
+
+    /** 无预设（默认档）→ 载荷缺席 agentPreset（服务器默认语义不变）。 */
+    @Test
+    fun `v012 createSession omits agentPreset when null`() = runTest {
+        val engine = MockEngine {
+            respond(ok("""{"sessionId":"s-plain"}"""), HttpStatusCode.OK, jsonHeaders())
+        }
+        client(engine, DshWireProtocol.V012).createSession(conn, title = null, parentId = null, directory = "/w", workspaceId = null, agentPreset = null)
+        val payload = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single()))
+            .jsonObject["payload"]!!.jsonObject["args"]!!.jsonObject["request"]!!.jsonObject
+        assertFalse(payload.containsKey("agentPreset"))
+    }
+
+    /**
      * #276 后端接口补充 + #297 通道勘误：compact 走 commands/execute 命令通道
      * （部署版 session.prompt 无斜杠派发——prompt 文本块 "/compact" 会变
      * user/message 进模型；官方先例 client.js:7366 同走 commands/execute）。

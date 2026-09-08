@@ -75,6 +75,7 @@ class SessionListViewModelWorkspaceConnectTest {
     private val manageSessionUseCase: ManageSessionUseCase = mockk()
     private val deleteSessionUseCase: DeleteSessionUseCase = mockk()
     private val chatRepository: ChatRepository = mockk(relaxed = true)
+    private val eventDispatcher: dev.leonardo.ocbeacon.data.repository.EventDispatcher = mockk(relaxed = true)
     private val serverRepository: ServerRepository = mockk(relaxed = true)
     private val getSettingsFlowUseCase: GetSettingsFlowUseCase = mockk()
 
@@ -157,7 +158,7 @@ class SessionListViewModelWorkspaceConnectTest {
                 listOf(SessionListViewModel.NewSessionNavigation.ToSession("s-2")),
                 nav,
             )
-            coVerify(exactly = 0) { manageSessionUseCase.createSession(any(), any(), any()) }
+            coVerify(exactly = 0) { manageSessionUseCase.createSession(any(), any(), any(), any()) }
         } finally {
             Dispatchers.resetMain()
         }
@@ -203,7 +204,7 @@ class SessionListViewModelWorkspaceConnectTest {
     // ============ 批 3（§三-3）：对话框内联预设选择的应用腿 ============
 
     @Test
-    fun `connect applies dialog preset after create then navigates`() = runTest {
+    fun `connect carries dialog preset into create and skips select rpc`() = runTest {
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
         try {
             workspaceFlow.value = WorkspaceSnapshot(
@@ -212,10 +213,10 @@ class SessionListViewModelWorkspaceConnectTest {
             coEvery { chatRepository.listSessionsIncludingBlank("srv1") } returns Result.success(
                 listOf(session("s-1", "/w", blank = false)),
             )
-            coEvery { manageSessionUseCase.createSession("srv1", null, "ws-1") } returns
+            // #354：预设创建即带（SessionCreateRequest.agentPreset）——回显入槽，
+            // create-then-select 竞态（事件竞丢+list 基线不回带）整体绕开。
+            coEvery { manageSessionUseCase.createSession("srv1", null, "ws-1", "preset-1") } returns
                 session("s-new", "/w")
-            coEvery { chatRepository.selectAgentPreset("srv1", "s-new", "preset-1") } returns
-                Result.success(true)
             val vm = createViewModel()
             val nav = mutableListOf<SessionListViewModel.NewSessionNavigation>()
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.newSessionNavigation.collect { nav.add(it) } }
@@ -223,8 +224,9 @@ class SessionListViewModelWorkspaceConnectTest {
             vm.connectWorkspaceEntry(workspaceEntry("ws-1", "/w"), presetId = "preset-1")
             testScheduler.advanceUntilIdle()
 
-            // 新建→选预设→跳转（顺序由 coVerify 序隐含；select 成功不阻断导航）
-            coVerify(exactly = 1) { chatRepository.selectAgentPreset("srv1", "s-new", "preset-1") }
+            // create 直传预设；select RPC 不再发出
+            coVerify(exactly = 1) { manageSessionUseCase.createSession("srv1", null, "ws-1", "preset-1") }
+            coVerify(exactly = 0) { chatRepository.selectAgentPreset(any(), any(), any()) }
             assertEquals(
                 listOf(SessionListViewModel.NewSessionNavigation.ToSession("s-new")),
                 nav,
@@ -254,29 +256,38 @@ class SessionListViewModelWorkspaceConnectTest {
             testScheduler.advanceUntilIdle()
 
             coVerify(exactly = 1) { chatRepository.selectAgentPreset("srv1", "s-2", "preset-1") }
+            // #354：blank 复用会话先注入 store（filterByDirectory 滤 blank——
+            // 不注入则事件折叠恒 no-op，agentPreset 永不落槽）
+            coVerify(atLeast = 1) { sessionRepository.setSessions("srv1", any()) }
+            // #354：select 成功即乐观回显（session.list 基线不回带 agentPreset，
+            // 真事件竞丢后无补齐来源——合成事件走既有折叠管线）
+            coVerify(exactly = 1) {
+                eventDispatcher.processEvent(
+                    dev.leonardo.ocbeacon.domain.model.SseEvent.SessionAgentPresetChanged("s-2", "preset-1"),
+                    "srv1",
+                )
+            }
             assertEquals(
                 listOf(SessionListViewModel.NewSessionNavigation.ToSession("s-2")),
                 nav,
             )
-            coVerify(exactly = 0) { manageSessionUseCase.createSession(any(), any(), any()) }
+            coVerify(exactly = 0) { manageSessionUseCase.createSession(any(), any(), any(), any()) }
         } finally {
             Dispatchers.resetMain()
         }
     }
 
     @Test
-    fun `preset select failure is soft and navigation proceeds`() = runTest {
+    fun `preset select failure on reuse is soft and navigation proceeds`() = runTest {
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
         try {
             workspaceFlow.value = WorkspaceSnapshot(
-                workspaces = listOf(Workspace("ws-1", "/w", "W", sessionIds = listOf("s-1"))),
+                workspaces = listOf(Workspace("ws-1", "/w", "W", sessionIds = listOf("s-2"))),
             )
             coEvery { chatRepository.listSessionsIncludingBlank("srv1") } returns Result.success(
-                listOf(session("s-1", "/w", blank = false)),
+                listOf(session("s-2", "/w", blank = true)),
             )
-            coEvery { manageSessionUseCase.createSession("srv1", null, "ws-1") } returns
-                session("s-new", "/w")
-            coEvery { chatRepository.selectAgentPreset("srv1", "s-new", "preset-1") } returns
+            coEvery { chatRepository.selectAgentPreset("srv1", "s-2", "preset-1") } returns
                 Result.failure(IllegalStateException("locked"))
             val vm = createViewModel()
             val nav = mutableListOf<SessionListViewModel.NewSessionNavigation>()
@@ -285,9 +296,17 @@ class SessionListViewModelWorkspaceConnectTest {
             vm.connectWorkspaceEntry(workspaceEntry("ws-1", "/w"), presetId = "preset-1")
             testScheduler.advanceUntilIdle()
 
-            // 软失败：预设被拒仍导航（会话内空态预设卡是改选通道）
+            // 软失败：预设被拒仍导航（会话内空态预设卡是改选通道）；
+            // 失败路径不注入乐观回显事件
+            coVerify(exactly = 1) { chatRepository.selectAgentPreset("srv1", "s-2", "preset-1") }
+            coVerify(exactly = 0) {
+                eventDispatcher.processEvent(
+                    dev.leonardo.ocbeacon.domain.model.SseEvent.SessionAgentPresetChanged("s-2", "preset-1"),
+                    "srv1",
+                )
+            }
             assertEquals(
-                listOf(SessionListViewModel.NewSessionNavigation.ToSession("s-new")),
+                listOf(SessionListViewModel.NewSessionNavigation.ToSession("s-2")),
                 nav,
             )
         } finally {
@@ -312,7 +331,7 @@ class SessionListViewModelWorkspaceConnectTest {
                 listOf(SessionListViewModel.NewSessionNavigation.ToDirectory("/w")),
                 nav,
             )
-            coVerify(exactly = 0) { manageSessionUseCase.createSession(any(), any(), any()) }
+            coVerify(exactly = 0) { manageSessionUseCase.createSession(any(), any(), any(), any()) }
         } finally {
             Dispatchers.resetMain()
         }
@@ -334,7 +353,7 @@ class SessionListViewModelWorkspaceConnectTest {
                 nav,
             )
             coVerify(exactly = 0) { chatRepository.listSessionsIncludingBlank(any()) }
-            coVerify(exactly = 0) { manageSessionUseCase.createSession(any(), any(), any()) }
+            coVerify(exactly = 0) { manageSessionUseCase.createSession(any(), any(), any(), any()) }
         } finally {
             Dispatchers.resetMain()
         }
@@ -500,6 +519,7 @@ class SessionListViewModelWorkspaceConnectTest {
             sessionTagRepository = mockk(relaxed = true),
             serverRepository = serverRepository,
             chatRepository = chatRepository,
+            eventDispatcher = eventDispatcher,
             messageFtsIndex = mockk(relaxed = true),
             historySyncManager = mockk(relaxed = true),
             pendingInteractionStore = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingInteractionStore> {
