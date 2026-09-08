@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.ui.screens.sessions.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,6 +42,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -336,28 +338,65 @@ internal fun SessionRow(
 
     // #311 长按行菜单（详情/重命名/归档——显隐纯函数见 SessionRowMenu.kt；
     // 已归档行只留详情：归档单向契约，无 wire 级恢复动词）
-    DropdownMenu(
-        expanded = showRowMenu,
-        onDismissRequest = { showRowMenu = false },
-    ) {
-        menuActions.forEach { action ->
-            val (labelRes, icon) = when (action) {
-                SessionRowMenuAction.DETAILS -> R.string.session_session_details to Icons.Outlined.Info
-                SessionRowMenuAction.RENAME -> R.string.session_rename to Icons.Outlined.Edit
-                SessionRowMenuAction.ARCHIVE -> R.string.session_menu_archive to Icons.Outlined.Archive
+    // #353（2026-09-09 用户裁决）：活动行长按直达弹窗（ModalBottomSheet）而非
+    // DropdownMenu 选择列表；已归档折叠区保持原下拉形态（用户「仅折叠区没问题」——
+    // 该区只余详情单项，下拉即达无列表感）。
+    if (isArchived) {
+        DropdownMenu(
+            expanded = showRowMenu,
+            onDismissRequest = { showRowMenu = false },
+        ) {
+            menuActions.forEach { action ->
+                val (labelRes, icon) = when (action) {
+                    SessionRowMenuAction.DETAILS -> R.string.session_session_details to Icons.Outlined.Info
+                    SessionRowMenuAction.RENAME -> R.string.session_rename to Icons.Outlined.Edit
+                    SessionRowMenuAction.ARCHIVE -> R.string.session_menu_archive to Icons.Outlined.Archive
+                }
+                DropdownMenuItem(
+                    text = { Text(stringResource(labelRes)) },
+                    leadingIcon = { Icon(icon, contentDescription = null) },
+                    onClick = {
+                        showRowMenu = false
+                        when (action) {
+                            SessionRowMenuAction.DETAILS -> showDetailsDialog = true
+                            SessionRowMenuAction.RENAME -> onRename()
+                            SessionRowMenuAction.ARCHIVE -> onArchive()
+                        }
+                    },
+                )
             }
-            DropdownMenuItem(
-                text = { Text(stringResource(labelRes)) },
-                leadingIcon = { Icon(icon, contentDescription = null) },
-                onClick = {
-                    showRowMenu = false
-                    when (action) {
-                        SessionRowMenuAction.DETAILS -> showDetailsDialog = true
-                        SessionRowMenuAction.RENAME -> onRename()
-                        SessionRowMenuAction.ARCHIVE -> onArchive()
-                    }
-                },
-            )
+        }
+    } else if (showRowMenu) {
+        ModalBottomSheet(onDismissRequest = { showRowMenu = false }) {
+            menuActions.forEach { action ->
+                val (labelRes, icon) = when (action) {
+                    SessionRowMenuAction.DETAILS -> R.string.session_session_details to Icons.Outlined.Info
+                    SessionRowMenuAction.RENAME -> R.string.session_rename to Icons.Outlined.Edit
+                    SessionRowMenuAction.ARCHIVE -> R.string.session_menu_archive to Icons.Outlined.Archive
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showRowMenu = false
+                            when (action) {
+                                SessionRowMenuAction.DETAILS -> showDetailsDialog = true
+                                SessionRowMenuAction.RENAME -> onRename()
+                                SessionRowMenuAction.ARCHIVE -> onArchive()
+                            }
+                        }
+                        .padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = stringResource(labelRes),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
     }
