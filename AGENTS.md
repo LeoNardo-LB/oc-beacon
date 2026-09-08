@@ -138,7 +138,7 @@ SSE → UI 管线：**48ms token 批处理 → 高度补偿 → 渲染**。违�
 - 用户明确说"后面再做 / 以后做"的需求
 - 任务中顺带发现、但与当前任务无关的 bug / 死代码 / 改进点（只登记，不跑题去修）
 
-开始新任务前扫一眼 backlog 避免重复登记/重复实现。**批次开工用 `./scripts/backlog-new-batch.sh "<批次名>"` 创建 journal 文件**；过程中的取证/验证证据写 journal 不写卡片；条目完结（用户验收）**当场迁入 journal**。格式细节（优先级/Tag/状态流转/spec 与 journal 约定）以 `backlog.md` 首段为准；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。
+开始新任务前扫一眼 backlog 避免重复登记/重复实现。**批次开工用 `./scripts/backlog-new-batch.sh "<批次名>"` 创建 journal 文件**；过程中的取证/验证证据写 journal 不写卡片；条目完结（用户验收）**当场迁入 journal**。格式细节（优先级/Tag/状态流转/spec 与 journal 约定）以 `backlog.md` 首段为准；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**backlog/journal 脚本化操作（2026-09-09 定规）**：卡片登记/明细/状态/迁移与 journal 追加一律经 `./scripts/backlog.sh`（add/note/status/migrate/journal append）——禁手工直编卡片区、禁全量覆写 journal（2026-09-09 覆写丢章事故）；同域多项裁决以最新为准。
 
 ## 其他
 
