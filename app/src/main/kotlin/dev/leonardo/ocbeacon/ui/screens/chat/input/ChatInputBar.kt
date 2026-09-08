@@ -199,13 +199,17 @@ internal fun ChatInputBar(
                     onTextFieldValueChange(TextFieldValue(skillText, TextRange(skillText.length)))
                 },
                 onCommandClick = { cmd ->
-                    if (cmd.requiresInput) {
-                        // DSH commands/list input.hint 非空：填入输入框待用户补参数（对齐 Web 选即填）
-                        val cmdText = "/" + cmd.name + " "
-                        onTextFieldValueChange(TextFieldValue(cmdText, TextRange(cmdText.length)))
-                    } else {
+                    if (cmd.type == "client") {
+                        // 客户端本地动作（rename 对话框/shell 模式等）：tap 直达保持
                         onTextFieldValueChange(TextFieldValue(""))
                         onSlashCommand(cmd)
+                    } else {
+                        // #372（2026-09-09 用户裁决）：三面服务器命令后端均支持参数
+                        //（V1/V2 /command arguments 字段、DSH commands/execute 整行
+                        // line）——面板 tap 统一回填 "/name " 待补参后手动发送；
+                        // 废除「无 input.hint 即直达」分叉（requiresInput 仅作提示）。
+                        val cmdText = "/" + cmd.name + " "
+                        onTextFieldValueChange(TextFieldValue(cmdText, TextRange(cmdText.length)))
                     }
                 }
             )
