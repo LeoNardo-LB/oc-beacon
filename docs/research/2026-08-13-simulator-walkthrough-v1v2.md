@@ -1,5 +1,7 @@
 # V1/V2 版本探测修复 — 模拟器走查清单
 
+> **归档注记（2026-09-09，#382 文档整合）**：本文件为一次性走查实例，自 docs/ 移入 research/ 归档；长效走查方法见 docs/verification.md 与 docs/probing.md。
+
 > 关联：backlog #83（版本误判修复）· 2026-08-13
 > 目的：验证 ApiVersionDetector 版本交叉验证修复生效 + 全链路无回归
 > 看图工具：智谱 `analyze_image`（image_source=截图路径, prompt=描述内容）
