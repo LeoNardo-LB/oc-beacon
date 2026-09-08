@@ -1311,11 +1311,15 @@ class V2ApiClient @Inject constructor(
                 if (item["type"]?.jsonPrimitive?.contentOrNull != "user") return@mapNotNull null
                 val itemId = item["id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
                 val text = item["payload"]?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
-                val placement = item["delivery"]?.jsonPrimitive?.contentOrNull
+                // V2 wire delivery（queue|steer）→ DSH 对位 placement（queued|steering）
+                // ——域模型单一定义（QueueSheet/isQueuedPlacement 共用）。
+                val placement = when (item["delivery"]?.jsonPrimitive?.contentOrNull) {
+                    "steer" -> dev.leonardo.ocbeacon.domain.model.QueuedInboxItem.PLACEMENT_STEERING
+                    else -> dev.leonardo.ocbeacon.domain.model.QueuedInboxItem.PLACEMENT_QUEUED
+                }
                 dev.leonardo.ocbeacon.domain.model.QueuedInboxItem(
                     id = itemId,
-                    placement = placement
-                        ?: dev.leonardo.ocbeacon.domain.model.QueuedInboxItem.PLACEMENT_QUEUED,
+                    placement = placement,
                     preview = text.orEmpty(),
                     text = text,
                 )

@@ -83,7 +83,6 @@ class DshSubagentCard349PipelineTest {
             ownershipRegistry = StreamingOwnershipRegistry(),
             permissionAutoApprover = mockk(relaxed = true),
             pendingInteractionStore = mockk(relaxed = true),
-            stackedMessageStore = mockk(relaxed = true),
             historySyncManagerProvider = Provider { mockk<HistorySyncManager>(relaxed = true) },
             dshJobsHandler = mockk(relaxed = true),
             dshQueueHandler = mockk(relaxed = true),

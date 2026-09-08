@@ -249,6 +249,80 @@ class V2ApiClientTest {
         assertEquals("test message", result?.text)
     }
 
+    /** #356：delivery 档位（Session.Inbox.Delivery = steer|queue）顶层字段——
+     * busy 菜单「立即发送=steer / 消息排队=queue」双档直发。 */
+    @Test
+    fun `prompt posts delivery field when provided`() = runTest {
+        val engine = MockEngine {
+            respond("""{"data":{"id":"msg_d1","sessionID":"sess_1","payload":{"text":"x"},"delivery":"steer"}}""",
+                HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("application/json")))
+        }
+        val api = buildClient(engine)
+        assertNotNull(api.prompt(v2Conn, "sess_1", "steer me", delivery = "steer"))
+        val body = (engine.requestHistory.single().body as io.ktor.http.content.TextContent).text
+        assertTrue(body.contains("\"delivery\":\"steer\""))
+    }
+
+    /** #356：promptAsync steer 参数映射为 delivery=steer（busy 立即发送档）。 */
+    @Test
+    fun `promptAsync steer maps to delivery steer`() = runTest {
+        val engine = MockEngine {
+            respond("""{"data":{"id":"msg_d2","sessionID":"sess_1","payload":{"text":"x"},"delivery":"steer"}}""",
+                HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("application/json")))
+        }
+        val api = buildClient(engine)
+        api.promptAsync(
+            v2Conn, "sess_1",
+            listOf(dev.leonardo.ocbeacon.data.dto.request.PromptPart(type = "text", text = "go")),
+            steer = true,
+        )
+        val body = (engine.requestHistory.single().body as io.ktor.http.content.TextContent).text
+        assertTrue(body.contains("\"delivery\":\"steer\""))
+    }
+
+    /** #356：GET inbox → 仅 type=user 项映射（placement=delivery，缺省 queued）。 */
+    @Test
+    fun `listInbox maps user items with delivery placement`() = runTest {
+        val engine = MockEngine {
+            respond(
+                """{"data":[{"id":"msg_q1","sessionID":"sess_1","timeCreated":1,"type":"user","payload":{"text":"queued note"},"delivery":"queue"},{"id":"msg_s1","sessionID":"sess_1","timeCreated":2,"type":"synthetic","payload":{}}]}""",
+                HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("application/json")))
+        }
+        val api = buildClient(engine)
+        val items = api.listInbox(v2Conn, "sess_1")
+        assertEquals(1, items?.size)
+        val item = items!!.single()
+        assertEquals("msg_q1", item.id)
+        assertEquals("queued", item.placement)
+        assertEquals("queued note", item.text)
+    }
+
+    /** #356：REMOVE=DELETE /inbox/{id}；STEER=POST /inbox/{id}/steer；EDIT 无动词 → Failed。 */
+    @Test
+    fun `updateQueue remove and steer hit inbox endpoints, edit unsupported`() = runTest {
+        val engine = MockEngine { respond("", HttpStatusCode.OK) }
+        val api = buildClient(engine)
+        assertEquals(
+            dev.leonardo.ocbeacon.domain.model.QueueMutationResult.Accepted,
+            api.updateQueue(v2Conn, "sess_1", "msg_q1", dev.leonardo.ocbeacon.domain.model.QueueActionKind.REMOVE),
+        )
+        assertEquals("/api/session/sess_1/inbox/msg_q1", engine.requestHistory[0].url.encodedPath)
+        assertEquals("DELETE", engine.requestHistory[0].method.value)
+        assertEquals(
+            dev.leonardo.ocbeacon.domain.model.QueueMutationResult.Accepted,
+            api.updateQueue(v2Conn, "sess_1", "msg_q2", dev.leonardo.ocbeacon.domain.model.QueueActionKind.STEER),
+        )
+        assertEquals("/api/session/sess_1/inbox/msg_q2/steer", engine.requestHistory[1].url.encodedPath)
+        assertEquals("POST", engine.requestHistory[1].method.value)
+        val edit = api.updateQueue(
+            v2Conn, "sess_1", "msg_q3", dev.leonardo.ocbeacon.domain.model.QueueActionKind.EDIT, editText = "x",
+        )
+        assertTrue(edit is dev.leonardo.ocbeacon.domain.model.QueueMutationResult.Failed)
+        assertEquals(2, engine.requestHistory.size) // EDIT 不发请求
+    }
     @Test
     fun `prompt returns null on non-success status`() = runTest {
         val engine = MockEngine { request ->

@@ -99,6 +99,26 @@ class ServerCapabilitiesDshTest {
     }
 
     /**
+     * #356 队列能力位（三面矩阵）：
+     * - queueSupported：DSH 帧（session/queue）与 V2 inbox 域（beta-19086 起
+     *   GET/DELETE/steer + prompt delivery，OpenAPI 实证）为 true；V1 服务端
+     *   静默排队无可见域为 false；
+     * - queueEditSupported：仅 DSH updateQueue edit（text-only 契约）；V2 inbox
+     *   只有 remove/steer 转换动词为 false。
+     */
+    @Test
+    fun `queue bits are dsh and v2 visible, edit verb dsh only`() {
+        for (version in ApiVersion.entries) {
+            assertTrue("queueSupported DSH v=$version", ServerCapabilities.of(ServerType.Dsh, version).queueSupported)
+            assertTrue("queueEditSupported DSH v=$version", ServerCapabilities.of(ServerType.Dsh, version).queueEditSupported)
+        }
+        assertTrue(ServerCapabilities.of(ServerType.OpenCode, ApiVersion.V2).queueSupported)
+        assertFalse(ServerCapabilities.of(ServerType.OpenCode, ApiVersion.V2).queueEditSupported)
+        assertFalse(ServerCapabilities.of(ServerType.OpenCode, ApiVersion.V1).queueSupported)
+        assertFalse(ServerCapabilities.of(ServerType.OpenCode, ApiVersion.V1).queueEditSupported)
+        assertFalse(ServerCapabilities.of(ServerType.OpenCode, null).queueSupported)
+    }
+    /**
      * #276 终验 V6：DSH session.export 响应体是 ZIP 流（§5 P-4 非信封入口），
      * SAF 落盘须 .zip 命名；OpenCode 导出是 JSON 文档（{"info","messages"}），
      * 维持 .json——位区分两族导出格式。

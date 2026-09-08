@@ -238,6 +238,29 @@ class DshApiClientTest {
     }
 
     /**
+     * #356：V012 受理即本地 echo 播种——admission id=pending-<requestId>（经
+     * ChatRepositoryImpl 现有播种链上屏+排队徽标；持久 user/message source.rpcId
+     * 到达时 mapper 补发 MessageRemoved 换装，见 DshQueueEcho356Test）。
+     */
+    @Test
+    fun `promptAsync v012 admission seeds pending echo`() = runTest {
+        val engine = MockEngine { respond(ok("{}"), HttpStatusCode.OK, jsonHeaders()) }
+        val admission = client(engine, DshWireProtocol.V012).promptAsync(
+            conn, "s-1",
+            listOf(dev.leonardo.ocbeacon.data.dto.request.PromptPart(type = "text", text = "busy note")),
+        )
+        assertNotNull(admission)
+        assertTrue(admission!!.id.startsWith("pending-"))
+        assertEquals("s-1", admission.sessionId)
+        assertEquals("busy note", admission.text)
+        // V012 WRAPPED 线面（DshWireAdapter 风格表）：{args:{request:{…}}}
+        val payload = json.parseToJsonElement(bodyTextOf(captureRequests(engine).single()))
+            .jsonObject["payload"]!!.jsonObject["args"]!!.jsonObject["request"]!!.jsonObject
+        assertNotNull(payload["requestId"])
+        assertEquals("queue", payload["mode"]!!.jsonPrimitive.content)
+    }
+
+    /**
      * #276 后端接口补充 + #297 通道勘误：compact 走 commands/execute 命令通道
      * （部署版 session.prompt 无斜杠派发——prompt 文本块 "/compact" 会变
      * user/message 进模型；官方先例 client.js:7366 同走 commands/execute）。

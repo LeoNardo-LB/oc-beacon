@@ -63,9 +63,9 @@
 
 ## P1 — 核心功能需求
 
-- [ ] **#356 队列语义重构——对齐 opencode「上屏+queue 徽标」与服务端排队列表（走查反馈③⑤）** `queue` `send` `ui`
-  - 用户核心:①命名「堆积消息」→「消息排队」;②**立即发送=消息立即上屏+queue 徽标(已送达服务端)**——opencode 原生,DSH 亦有同款,两面应一致;③**排队消息=进「排队消息列表」,本轮次结束后才再发一条**——DSH web 可实现=服务器有保存到队列/查询排队消息接口,调研后重实现;④当前输入区 chips 条(小工具 tag 式)形态**不符合预期**,废弃
-  - 调研面:DSH session.prompt mode:queue 与 session/queue 域(query/updateQueue);V2 followup 队列徽标 wire 形态;QueueSheet 去留随新形态定
+- [~] **#356 队列语义重构——对齐 opencode「上屏+queue 徽标」与服务端排队列表（走查反馈③⑤）** `queue` `send` `ui`
+  - 主实现落地（2026-09-08）：busy 菜单反转（立即发送=steer 注入当轮/消息排队=queue 轮末派发，V1 仅前者）；DSH V012 受理即 echo 播种（pending-<requestId>→上屏+既有 QUEUED 徽标，持久 user/message source.rpcId 同批 MessageRemoved 原子换装）；V2 prompt 带 delivery + GET/DELETE/steer inbox 三端点 + queueSupported(V2) 翻真 + QueueSheet 复用（edit 按位隐藏）；chips 条/StackedMessageStore 整体退役；i18n 15 语言改名。V2 真机全链路 ✔（菜单/双档上屏+徽标/QueueSheet/编辑门控/轮末派发）。
+  - 遗留：DSH 面 busy 菜单 E2E 被网关供应商全瘫阻塞（Console Go MissingSessionID 400→轮次 2-5s 即死，deepseek-official 欠费）——echo 播种/门控行为已分别实证（[send-seed]+插桩 stable 读值正确），供应商恢复后补一轮即可；V2 QueueSheet 陈旧性（提升后面板不自动刷新——打开/变更时拉取已覆盖）。详见 journal 2026-09-08-2 §二/§三。
 
 - [~] **#346 需关注类通知被静默组汇总埋没——问题/权限/错误退出 server 分组独立成卡** `dsh` `notification` `bug`
   - 走查反馈取证(2026-09-07):用户 HOME 后「没看到有问题通知」,而 dumpsys 实证通知在场(id=724696787,importance=4,文案正确)——根因=三类高重要度通知 setGroup(server_x) 挂在 **LOW 重要度 tasks_silent 组汇总**下,MIUI 整组折叠成一行静默项,子卡不可见(同 E4② 组卡现象);独立卡正常(E4 实证)
