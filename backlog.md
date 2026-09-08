@@ -121,9 +121,10 @@
 
 ## P2 — 优化与锦上添花
 
-- [~] **#372 三面斜杠面板 tap 行为统一——裁决「后端支持参数则回填」；三面均支持（V1/V2 arguments 字段·DSH 整行 line）→ 统一回填（2026-09-09 演示裁决）** `ui` `command`
+- [~] **#372 命令选择回填铁律——三面所有指令统一回填可补参（2026-09-09 用户裁决，已持久化 docs/ui-conventions.md）** `ui` `command`
   - **已实现(2026-09-09)**：ChatInputBar onCommandClick——server 型命令 tap 统一回填 "/name "（废除无 hint 即直达分叉）；client 本地动作（rename 对话框/shell 模式）保持直达；skill 节本就回填——三面一致，待重演验收
-  - 史：r1 观察 V1 回填/V2·DSH 直达分叉 → 用户裁决「支持加参数就按回填」→ 后端核证三面全支持 → 回填统一
+  - **全指令清查(2026-09-09)**：文本命令选择面唯一=斜杠面板（已统一）；其余派遣点均为专用快捷钮（plan-off chip :731/权限预设切换/review 钮 :561）=铁律例外类；:561 review 特例与 :571 else 分支现仅收 client 型（server 型不再经 onSlashCommand）——review 特例成死代码待清理；V1 空会话 clientCmds 兜底面板（fork/share 等派往服务器被吞）归 #373 邻域
+  - 史：r1 观察 V1 回填/V2·DSH 直达分叉 → 用户裁决「支持加参数就按回填」+「所有命令参数都这么处理+持久化」→ 后端核证三面全支持 → 回填统一+铁律入 ui-conventions
 
 - [ ] **#379 抽屉手柄统一+内部滑动不致收起——fling 消费修正（2026-09-09 用户裁决）** `ui` `refactor`
   - 裁决原文:「任何在抽屉内的滑动（拖拽或 fling）都不应该让抽屉收起，只有拖动手柄/点外/返回手势才收起；所有抽屉需统一的小样式手柄（行高很小）」；问：M3 是否天然支持手柄自定义——**是**：ModalBottomSheet 有 dragHandle 槽位（默认 32×4dp 圆角条，可替换任意 composable）；fling 收起根因=内容未消费嵌套滚动（列表需 nestedScroll 到顶才传递给 sheet）——全 sheet 盘点统一

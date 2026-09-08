@@ -10,6 +10,13 @@
 - **DSH 独有能力的呈现**（agentPreset 向导/provider 目录/配对/goal 等 opencode 面没有的）：用统一组件库的既有模式呈现（标准对话框/底部 sheet/长按菜单），不发明 DSH 专属交互；能力位门控隐藏即可，不为它改共享交互。
 - **考据纪律**：断言「opencode 面的行为」前以**本仓库代码/git 史**为准（那是参照本体）；opencode/DSH 官方客户端源码仅作实现接口与能力语义参照。
 
+## 命令选择回填铁律（2026-09-09 用户裁决，#372）
+
+- **面板/建议列表中选择命令一律回填输入框**（"/name " 带尾空格、光标置尾），由用户补参数后手动发送——**不得 tap 即直达派遣**。适用范围：三面（OpenCode V1/V2、DSH）一切 server 型命令与 skill 节；例外仅两类：client 本地动作（/rename 对话框、/shell 模式切换等非文本命令）与参数恒空的专用快捷钮（plan-off chip、权限预设切换等独立 UI 动作）。
+- **依据**：三面后端命令均支持参数（V1/V2 `/command` arguments 字段、DSH `commands/execute` 整行 line）——回填永不丧失直达能力（直接发送即直达），反之直达丧失补参机会。
+- **requiresInput（input.hint）位仅作提示展示**（如占位提示可带参数），不改变选择行为。
+- 新增命令入口（面板/快捷键/语音等）一律遵守本规则；违例=交互模式差异，同「服务器类型交互统一铁律」处置。
+
 ## Material 3 First
 
 - **优先使用 Material 3 原生组件和原生样式**。能用 `LinearProgressIndicator`、`CircularProgressIndicator`、`IconButton` 等原生组件解决的，不要自定义 Canvas 绘制。
