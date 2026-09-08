@@ -34,6 +34,21 @@ class ServerCapabilitiesDshTest {
         ServerCapabilities::shellCommandSupported,
     )
 
+
+    /**
+     * #366：消息 👍/👎 反馈位——DSH feedback/record 域独有（原 ChatMessageList/
+     * ChatViewModel 裸 serverType 特判收敛为能力位）。
+     */
+    @Test
+    fun `message feedback bit is dsh only`() {
+        for (version in ApiVersion.entries) {
+            assertTrue("dsh v=$version", ServerCapabilities.of(ServerType.Dsh, version).messageFeedbackSupported)
+        }
+        assertFalse("v2", ServerCapabilities.of(ApiVersion.V2).messageFeedbackSupported)
+        assertFalse("v1", ServerCapabilities.of(ApiVersion.V1).messageFeedbackSupported)
+        assertFalse("unknown", ServerCapabilities.of(ApiVersion.UNKNOWN).messageFeedbackSupported)
+        assertFalse("null", ServerCapabilities.of(null as ApiVersion?).messageFeedbackSupported)
+    }
     @Test
     fun `dsh matrix is all false regardless of apiVersion`() {
         for (version in ApiVersion.entries) {

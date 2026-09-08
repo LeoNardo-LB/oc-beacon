@@ -87,6 +87,13 @@ data class ServerCapabilities(
     val revertSupported: Boolean,
     /** 消息删除（DELETE message 端点；DSH 无对应——当前无 UI 入口，防御位）。 */
     val messageDeleteSupported: Boolean,
+    /**
+     * 消息 👍/👎 反馈（#310②；#366 能力位化）：DSH feedback/record 域（list 种子 +
+     * rating 转换）；OpenCode V1/V2 无对应域 → false（消息卡脚部动作行按位隐藏——
+     * 原 ChatMessageList/ChatViewModel 裸 serverType 特判收敛为位，对齐
+     * 「UI 入口按能力位隐藏」约定）。
+     */
+    val messageFeedbackSupported: Boolean,
     /** shell 命令（session.shell 域；DSH 无对应——shell 命令栏与 ！ 前缀通道按位隐藏）。 */
     val shellCommandSupported: Boolean,
     /**
@@ -144,6 +151,7 @@ data class ServerCapabilities(
                     goalSupported = true,
                     revertSupported = false,
                     messageDeleteSupported = false,
+                    messageFeedbackSupported = true,
                     shellCommandSupported = false,
                     exportIsArchive = true,
                     archiveSupported = true,
@@ -182,6 +190,7 @@ data class ServerCapabilities(
                 // #356：V2 inbox 域在场（GET/DELETE/steer + prompt delivery）。
                 queueSupported = true,
                 queueEditSupported = false,
+                messageFeedbackSupported = false,
             )
             else -> ServerCapabilities( /* V1 / UNKNOWN / null：全开放 */
                 shareSupported = true,
@@ -207,6 +216,7 @@ data class ServerCapabilities(
                 archiveSupported = false,
                 queueSupported = false,
                 queueEditSupported = false,
+                messageFeedbackSupported = false,
             )
         }
     }

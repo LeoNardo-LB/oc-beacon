@@ -244,10 +244,10 @@ fun ChatMessageList(
     // 撤销、压缩分割线撤销、RevertBanner 重做）按能力位整体隐藏。
     val serverCapabilities by viewModel.serverCapabilities.collectAsStateWithLifecycle()
     val revertSupported = serverCapabilities.revertSupported
-    // ============ #310② 消息反馈 👍/👎（DSH serverType 门控） ============
-    val feedbackServerType by viewModel.serverType.collectAsStateWithLifecycle()
+    // ============ #310② 消息反馈 👍/👎 ============
+    // #366：能力位门控（原裸 serverType 特判收敛——「UI 入口按能力位隐藏」约定）
     val messageFeedbackMap by viewModel.messageFeedbackItems.collectAsStateWithLifecycle()
-    val feedbackEnabled = feedbackServerType == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh
+    val feedbackEnabled = serverCapabilities.messageFeedbackSupported
 
     /**
      * 点击动作：toggle（裁决+冲突重试在委托内建）→ outcome 映射

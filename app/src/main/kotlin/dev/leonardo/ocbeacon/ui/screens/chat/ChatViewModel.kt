@@ -746,13 +746,13 @@ class ChatViewModel @Inject constructor(
         messageFeedbackDelegate.items
 
     init {
-        // sid+serverType 变化即重拉种子（进入/切换会话、探测落定后）；
-        // 失败告警保留旧值。
+        // sid+能力位变化即重拉种子（进入/切换会话、探测落定后）；
+        // 失败告警保留旧值。#366：serverType 特判收敛为 messageFeedbackSupported 位。
         viewModelScope.launch {
-            combine(sessionLifecycle.sessionIdFlow, serverType) { sid, type -> sid to type }
+            combine(sessionLifecycle.sessionIdFlow, serverCapabilities) { sid, caps -> sid to caps }
                 .distinctUntilChanged()
-                .collect { (sid, type) ->
-                    if (type == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
+                .collect { (sid, caps) ->
+                    if (caps.messageFeedbackSupported) {
                         messageFeedbackDelegate.seed(sid)
                     } else {
                         messageFeedbackDelegate.reset()

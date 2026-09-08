@@ -105,11 +105,13 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#366 👍/👎 反馈门控能力位化——feedbackEnabled 走裸 serverType 特判违背「UI 入口按能力位隐藏」约定（UIUX 三面审计 D8）** `refactor` `dsh`
-  - ChatMessageList.kt:247-276 / ChatViewModel.kt:748-762 直判 type==Dsh；功能缺口合法（OpenCode 无评分域）但应建 feedbackSupported 能力位（同 #351 queueSupported 先例）→ 本批实现
+- [~] **#366 👍/👎 反馈门控能力位化——feedbackEnabled 走裸 serverType 特判违背「UI 入口按能力位隐藏」约定（UIUX 三面审计 D8）** `refactor` `dsh`
+  - **已实现(2026-09-09)**：messageFeedbackSupported 位（DSH 独有）+ ChatMessageList/ChatViewModel 两处特判收敛 + 矩阵测试；编译+定向单测 ✔ → journal §三（同批文件）
+  - ChatMessageList.kt:247-276 / ChatViewModel.kt:748-762 直判 type==Dsh；功能缺口合法（OpenCode 无评分域）但应建 feedbackSupported 能力位（同 #351 queueSupported 先例）
 
-- [ ] **#367 ServerSettingsContent 潜伏耦合——DSH 配置/插件节嵌在 agentPresetSupported 分支内（UIUX 三面审计 D10）** `refactor` `dsh`
-  - ServerSettingsContent.kt:99-126：DshServerConfigSection+DshPluginInventorySection 悬挂在预设位 if 内，今日两比特同值无症状、结构错——解耦为并列条件 → 本批实现
+- [~] **#367 ServerSettingsContent 潜伏耦合——DSH 配置/插件节嵌在 agentPresetSupported 分支内（UIUX 三面审计 D10）** `refactor` `dsh`
+  - **已实现(2026-09-09)**：两 item 移出嵌套（空数据自门控，行为零变化）；编译 ✔ → journal §三（同批文件）
+  - ServerSettingsContent.kt:99-126：DshServerConfigSection+DshPluginInventorySection 悬挂在预设位 if 内，今日两比特同值无症状、结构错——解耦为并列条件
 
 - [~] **#353 长按会话行应直接弹窗而非选择列表（走查反馈②；2026-09-09 重登记——卡片曾在 fb9f4d75 误随 #354 迁移丢失，用户裁定「可以直接修复」）** `ui`
   - 用户:「应该长按直接弹窗而不是出现选择列表」——现行 DropdownMenu 列表形态改为弹窗(bottom sheet/对话框);「仅折叠区没问题」=已归档折叠区保持
@@ -178,7 +180,8 @@
 
 ## P3 — 观察与低价值改进
 
-- [ ] **#359 三条重配服务器凭据探查+自动输入方案调研（走查反馈⑨）** `infra`
+- [~] **#359 三条重配服务器凭据探查+自动输入方案调研（走查反馈⑨）** `infra`
+  - **已实现+实机闭环(2026-09-09)**：cred-probe.sh（v1/dsh012 两路径真机注入全绿：V1-4198 连接+LLM 回流 / dsh012-a5 token 交换+cookie 持久化）；248 边界=宿主零痕迹不可探查（用户裁定重启或弃用）→ `docs/research/2026-09-09-credential-probe-359.md` + journal §三
   - 用户:「是否有方案探查到凭据然后自动输入?」——192.168.110.248:248/V1-4198/dsh012-a5 三条;调研宿主可探查面(配置文件/env/密钥链)→可行则脚本注入,不可行则如实报告边界
 
 

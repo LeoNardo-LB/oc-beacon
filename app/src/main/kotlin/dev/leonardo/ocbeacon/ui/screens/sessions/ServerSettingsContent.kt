@@ -109,8 +109,11 @@ fun ServerSettingsContent(
                     onDeletePreset = onDeleteAgentPreset,
                 )
             }
+        }
 
-        // #324④：服务器配置（动态表单）+ 插件清单（DSH 门控；调用方传空即隐）
+        // #324④：服务器配置（动态表单）+ 插件清单——与预设位解耦（#367：
+        // 原嵌在 agentPresetSupported 分支内为潜伏耦合，今日两比特同值无症状、
+        // 结构错；两区块自门控——空表单/空清单即整块不渲染）。
         item {
             DshServerConfigSection(
                 forms = settingsForms,
@@ -122,7 +125,6 @@ fun ServerSettingsContent(
 
         item {
             DshPluginInventorySection(inventory = pluginInventory)
-        }
         }
 
         // 区块标题：MCP 服务器
