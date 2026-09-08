@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#360**（2026-09-08 走查反馈批2登记 #353-#359）。
+**编号**：全局递增，不回收。下一编号：**#364**（2026-09-08 演示验收批登记 #360-#363）。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -63,9 +63,32 @@
 
 ## P1 — 核心功能需求
 
+- [ ] **#363〔主诉推翻 2026-09-08 三重证据〕转录渲染/滚动异常残留小件——轮次编号漂移、loadOlder 同窗循环、跳转列表重复行** `ui` `pagination`
+  - 原主诉「重启后用户气泡不渲染+列表钉死」被推翻：①用户肉眼确认正常；②像素扫描（bubble_scan.py）在视口顶部发现 primaryContainer 蓝色气泡矩形；③glm-5.3-flash 多模态识图（video-analyzer 视觉通道）确认气泡/过程卡/文件行全部正常渲染且滚动有效——「空白」实为 **uiautomator 对该 Compose 节点的语义盲区**（dump 不报文本，误导仪器判读；对 adb E2E 方法论是真实限制，对用户零影响）。
+  - 残留待查（小件）：① app 台账「轮次 5/6」vs 服务器 turnOutline 3/4 编号漂移（疑 steer 续写段计入）；② logcat「V1 loaded 32 (limit=30)」同窗重复 3+ 次+auto-load effect 反复重启（幂等无害，但白耗）；③ 旧会话快速定位列表出现重复用户行（QUEUE-proper-test ×2——昨日 echo 播种时代的数据残留，Room 有重复行）。
+  - 取证资产：/tmp/e2e-instr/{ocb363.db, rpc.mjs, page.mjs, bubble_scan.py, shots/363-*.png}；JVM 复现测试证实 fold+assemble 保 user parts（8/8 带非空文本）。
+  - 关联：#362（派发消息入转录已由本卡取证链完整证实——服务器 page+Room+渲染三面一致）。
+
 - [~] **#356 队列语义重构——对齐 opencode「上屏+queue 徽标」与服务端排队列表（走查反馈③⑤）** `queue` `send` `ui`
   - 主实现落地（2026-09-08）：busy 菜单反转（立即发送=steer 注入当轮/消息排队=queue 轮末派发，V1 仅前者）；DSH V012 受理即 echo 播种（pending-<requestId>→上屏+既有 QUEUED 徽标，持久 user/message source.rpcId 同批 MessageRemoved 原子换装）；V2 prompt 带 delivery + GET/DELETE/steer inbox 三端点 + queueSupported(V2) 翻真 + QueueSheet 复用（edit 按位隐藏）；chips 条/StackedMessageStore 整体退役；i18n 15 语言改名。V2 真机全链路 ✔（菜单/双档上屏+徽标/QueueSheet/编辑门控/轮末派发）。
   - 遗留：V2 QueueSheet 陈旧性（提升后面板不自动刷新——打开/变更时拉取已覆盖）。**DSH 面 busy 菜单正式 E2E ✔**（2026-09-08 傍晚，zai-coding-cn Flash 长轮次：菜单双项+steer/queue 双双上屏+排队中徽标+QueueSheet 帧实时 (1)+移除即清+轮末派发）。勘误：早前「Flash 亦瘫」为误测 opencode-go 组（2x usage 档）——该组 Console Go 路由服务端缺陷，zai 组正常（用户指正确认）。详见 journal 2026-09-08-2 §二/三/四/五。
+  - **验收演示发现（2026-09-08）**：「排队中」徽标对 steer 消息语义误导 → 拆出 #360。
+
+- [ ] **#362 queue 消息呈现语义修正——排队消息应只入队列 UI 不上屏，轮末每轮恰消费 1 条（#356 演示反馈③，源码级证实）** `queue` `dsh` `ui`
+  - 用户裁决语境（2026-09-08 演示节点 2 预告时）：「消息排队不应该让消息上屏，而是让消息进入队列，入队的消息每个轮次结束后仅消费 1 条」；「DSH 有原生接口，opencode 是我们 ocbeacon 自己实现，但 UIUX 行为体现都一样」。
+  - **DSH 源码证实**（/…/dsh-agent lib index.js Inbox）：队列=转录外瞬态收件箱（inbox.nextTurn=queued / nextStep=steering|context，session/queue 帧投影，持久化仅为 splice 事件）；`claim("next-turn")` 轮末**恰好取 1 条**（mutate(0,1)）；steer 在下一**步**边界全量并入当轮（durable user/message 落地才进转录，queue-mirror.acceptDurable 退役瞬态行）。
+  - **现状差距**：#356 把 queue 消息 echo 播种上屏+「排队中」徽标（ChatRepositoryImpl pending-<requestId> 播种链）——与原生语义冲突。轮末 1 条/轮的消费语义 wire 层服务器原生保证，客户端自动正确。
+  - 修复范围：① queue 模式撤 echo 播种（仅 steer 保留上屏，节点 1 已验收）；排队消息仅 QueueSheet 呈现（DshQueueStore 帧已有）；轮末派发后 durable user/message 自然进转录（既有消息管线，零改）。② V2 面对齐：验证 opencode inbox 派发节奏是否同为 1 条/轮末，不等则客户端补齐；V2 上屏呈现同步撤。③ 菜单副标题「本轮结束后自动发送」措辞复核（多条时逐轮派发语义）。④ #360 徽标问题随本卡大幅收窄（排队消息不在转录=无徽标可言）。
+  - 关联：#356（语义重开）、#348（旧堆积条呈现先例——chips 在 composer 上方而非转录）。
+
+- [ ] **#361 busy 菜单弹出强收键盘——Popup focusable=true 抢焦点致 IME 收起，应保持键盘原状态（#356 演示反馈②）** `ui` `chat` `keyboard`
+  - 用户裁决语境（2026-09-08 演示节点 1）：「出现菜单双项的时候，不应该把键盘收起，应该保持键盘的状态（收起或展开都保持其原有状态即可）」——仪器证据：菜单弹出瞬间输入框从键盘开位(y1612)跳到收起位(y2530)。
+  - 根因：ChatScreenBottomBar.kt:698 `PopupProperties(focusable = true)`——可聚焦弹窗夺取窗口焦点→TextField 失焦→IME 收起。修复方向：focusable=false（不夺焦）+ 验证点外/返回关闭路径在非聚焦态仍可达（必要时透明遮罩承接点外）；菜单项自身可点性不受影响（非聚焦窗仍可触摸）。
+
+- [ ] **#360 QUEUED 徽标不区分 steer/queue——「立即发送」消息理论上可误戴「排队中」标（#356 验收演示反馈①，严重度修正：实践降级）** `queue` `ui` `chat`
+  - 用户裁决语境（2026-09-08 演示节点 1 前）：「立刻发送不应该加入排队队列，两个功能是相互对立的！」——wire 层确实互斥（steer=注入当轮/queue=轮末派发，QueueSheet 仅收 queue 项，steer 不进面板）；但 MessageDataDelegate 的 queuedMessageIds 为**位置派生**（busy 期间 pending assistant 之后所有 user 消息一律戴标，Idle 清空，L243-261），无 mode 维度 → steer 消息也显示「排队中」（chat_queued）。
+  - **实践修正（2026-09-08 演示实测）**：steer 后服务器立即在其下方开新 pending assistant 段（「思考中…」/续写流），位置派生的 indexOfLast(pending assistant) 落在 steer 消息之后 → 徽标实际不出现（dump 双证：消息卡无排队中文本节点）。#360 降级为边缘态：echo 落位与续写段开启之间的瞬态窗口、或续写段不开新 assistant 消息的形态。
+  - 修复方向待用户拍板：A) steer 消息无徽标（干净，推荐）B) steer 换独立标签（如「已注入本轮」，需 i18n ×15）C) 保持现状。判据来源：演示验收判据 v1→v2 改写记录（journal 2026-09-08-2 §六）。
 
 - [~] **#346 需关注类通知被静默组汇总埋没——问题/权限/错误退出 server 分组独立成卡** `dsh` `notification` `bug`
   - 走查反馈取证(2026-09-07):用户 HOME 后「没看到有问题通知」,而 dumpsys 实证通知在场(id=724696787,importance=4,文案正确)——根因=三类高重要度通知 setGroup(server_x) 挂在 **LOW 重要度 tasks_silent 组汇总**下,MIUI 整组折叠成一行静默项,子卡不可见(同 E4② 组卡现象);独立卡正常(E4 实证)
