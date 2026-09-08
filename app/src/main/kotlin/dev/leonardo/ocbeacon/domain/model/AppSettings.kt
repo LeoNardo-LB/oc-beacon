@@ -19,7 +19,7 @@ data class AppSettings(
     val initialMessageCount: Int = 30,
     /** 快捷新建会话对话框中显示的最近目录数量上限。范围 5..50。 */
     val recentDirectoryCount: Int = 20,
-    /** 隐藏目录 glob 模式（如 /tmp/*）：命中的项目/会话目录从列表中过滤。空 = 不过滤（默认）。 */
+    /** 隐藏目录 glob 模式（例如「/tmp」尾接通配星号的写法）：命中的项目/会话目录从列表中过滤。空 = 不过滤（默认）。 */
     val hiddenDirectoryPatterns: List<String> = emptyList(),
     val confirmBeforeSend: Boolean = false,
     val compactMessages: Boolean = false,
