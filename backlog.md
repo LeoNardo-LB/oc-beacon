@@ -65,7 +65,7 @@
 
 - [~] **#356 队列语义重构——对齐 opencode「上屏+queue 徽标」与服务端排队列表（走查反馈③⑤）** `queue` `send` `ui`
   - 主实现落地（2026-09-08）：busy 菜单反转（立即发送=steer 注入当轮/消息排队=queue 轮末派发，V1 仅前者）；DSH V012 受理即 echo 播种（pending-<requestId>→上屏+既有 QUEUED 徽标，持久 user/message source.rpcId 同批 MessageRemoved 原子换装）；V2 prompt 带 delivery + GET/DELETE/steer inbox 三端点 + queueSupported(V2) 翻真 + QueueSheet 复用（edit 按位隐藏）；chips 条/StackedMessageStore 整体退役；i18n 15 语言改名。V2 真机全链路 ✔（菜单/双档上屏+徽标/QueueSheet/编辑门控/轮末派发）。
-  - 遗留：V2 QueueSheet 陈旧性（提升后面板不自动刷新——打开/变更时拉取已覆盖）。**DSH 面 busy 菜单已补验 ✔**（2026-09-08 竞速法：菜单双项+steer echo 400ms 上屏+queue 上屏；插桩证实 stable 读值无误——供应商全瘫纯环境阻塞，GLM-5.3-Flash 亦撞 Console Go 400，待服务端修复后正常使用即可复走）。详见 journal 2026-09-08-2 §二/三/四。
+  - 遗留：V2 QueueSheet 陈旧性（提升后面板不自动刷新——打开/变更时拉取已覆盖）。**DSH 面 busy 菜单正式 E2E ✔**（2026-09-08 傍晚，zai-coding-cn Flash 长轮次：菜单双项+steer/queue 双双上屏+排队中徽标+QueueSheet 帧实时 (1)+移除即清+轮末派发）。勘误：早前「Flash 亦瘫」为误测 opencode-go 组（2x usage 档）——该组 Console Go 路由服务端缺陷，zai 组正常（用户指正确认）。详见 journal 2026-09-08-2 §二/三/四/五。
 
 - [~] **#346 需关注类通知被静默组汇总埋没——问题/权限/错误退出 server 分组独立成卡** `dsh` `notification` `bug`
   - 走查反馈取证(2026-09-07):用户 HOME 后「没看到有问题通知」,而 dumpsys 实证通知在场(id=724696787,importance=4,文案正确)——根因=三类高重要度通知 setGroup(server_x) 挂在 **LOW 重要度 tasks_silent 组汇总**下,MIUI 整组折叠成一行静默项,子卡不可见(同 E4② 组卡现象);独立卡正常(E4 实证)
