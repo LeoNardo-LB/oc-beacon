@@ -13,16 +13,14 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 | 🔴 MUST | [`docs/release-workflow.md`](docs/release-workflow.md) | 发版唯一权威指南（版本规则/CHANGELOG/脚本/签名体系） | 任何发版、bump、tag、Release 操作前 |
 | 🟡 SHOULD | [`docs/release-notes-template.md`](docs/release-notes-template.md) | GitHub Release 说明模板与写作规则 | 撰写发版说明前 |
 | 🔴 MUST | [`docs/chatscreen-editing-protocol.md`](docs/chatscreen-editing-protocol.md) | ChatScreen.kt 编辑协议 | 编辑 ChatScreen.kt 前 |
-| 🔴 MUST | [`docs/verification-requirements.md`](docs/verification-requirements.md) | 完整 4+1 维验证框架 | 完成开发、声称"完成"前 |
-| 🟡 SHOULD | [`docs/real-device-testing.md`](docs/real-device-testing.md) | 真机 runbook：pm install 静默装包、adb reverse 连通、debug intent 配置、签名备忘 | 任何真机测试/E2E/装包前（2026-08-20 方针：真机优先） |
-| 🟡 SHOULD | [`docs/qa-methodology.md`](docs/qa-methodology.md) | QA 方法论：交叉验证（≥2 维互证）、证据链、并行验证委派 | 修复/功能完成前的验证设计 |
+| 🔴 MUST | [`docs/verification.md`](docs/verification.md) | 验证权威：V1-V6 框架+方法论（交叉验证/证据链/关闭门槛；#382 整合自 verification-requirements+qa-methodology） | 完成开发、声称"完成"前 |
+| 🟡 SHOULD | [`docs/device-testing.md`](docs/device-testing.md) | 测试环境 runbook：真机（pm install 静默/reverse/debug intent/签名）+模拟器（#382 合并 real-device+e2e-workflow 环境节） | 任何真机/模拟器测试/E2E/装包前（2026-08-20 方针：真机优先） |
+| 🟡 SHOULD | [`docs/probing.md`](docs/probing.md) | 观测与探测手册：logcat/Room 直查/网络观测/dump/像素/vision/Maestro/GC-内存性能（#382 三合一） | 代码改动验证与仪器取证 |
 | 🟡 SHOULD | [`docs/ai-acceptance-workflow.md`](docs/ai-acceptance-workflow.md) | AI 真机验收三步法（生成→纯净审查→纯净执行）+ 真机串行纪律 + 关闭权限 | 任何 backlog 卡片交付验收前（2026-09-04 裁决） |
 | 🟡 SHOULD | [`docs/regression-guide.md`](docs/regression-guide.md) | 回归指南：变更分类、12 能力域清单 | 重构/接口变更/存储渲染层改动前 |
 | 🟡 SHOULD | [`docs/dialogue-e2e-test-plan.md`](docs/dialogue-e2e-test-plan.md) | 会话全生命周期 E2E 期望文档 | 会话相关改动/发版前的 E2E 设计 |
 | 🟡 SHOULD | [`docs/dialogue-e2e-test-runbook.md`](docs/dialogue-e2e-test-runbook.md) | 会话 E2E 实操记录与差异分析 | E2E 执行中实时记录 |
-| 🟡 SHOULD | [`docs/observability-verification-guide.md`](docs/observability-verification-guide.md) | Logcat 规范、Room 直查、SSE 事件流、标准观测流程 | 代码改动验证（配合 verification 维度 3） |
 | 🟡 SHOULD | [`docs/v1-v2-differences.md`](docs/v1-v2-differences.md) | V1/V2 功能与 API 差异完整清单 | V1/V2 兼容开发、版本探测、功能适配前 |
-| 🟡 SHOULD | [`docs/simulator-walkthrough-v1v2.md`](docs/simulator-walkthrough-v1v2.md) | 版本探测修复模拟器走查清单 | 探测/兼容类改动后的走查 |
 | 🟡 SHOULD | [`docs/opencode-api-reference-v1.md`](docs/opencode-api-reference-v1.md) | OpenCode **V1** Server API 参考（129 端点 + 89 SSE 事件） | 新功能开发、接口调试前（V2 端点以实测为准） |
 | 🟡 SHOULD | [`docs/architecture.md`](docs/architecture.md) | 架构分层、目录职责、关键模式、承重规则 | 理解/修改跨层结构、SessionStateService、导航前 |
 | 🟡 SHOULD | [`docs/chat-ui-event-lifecycle.md`](docs/chat-ui-event-lifecycle.md) | 触摸传播、SSE 流式更新、消息状态机、竞态 | 修改 ChatScreen 内部机制、排查交互竞态时 |
@@ -84,7 +82,7 @@ Clean Architecture, 3 layers. **Dependency direction: UI → Domain ← Data.** 
 | 相对路径 | `PathUtils.relativePath(path, prefix)` | 手工 `removePrefix` |
 
 ### 签名
-Release keystore 位于 `app/keystore/`（gitignore，仅本地文件与 CI Secrets 存在）；`signing.properties` 不存在时 release 构建回退 debug 签名——**禁止**无条件覆盖为 debug，否则 release keystore 永不生效。CI Secrets 配置命令、签名编年史、签名覆盖矩阵（本地↔CI 互不覆盖，切换需卸载重装）见 [`docs/release-workflow.md`](docs/release-workflow.md) §9；真机跨签名源切换唯一例外见 [`docs/real-device-testing.md`](docs/real-device-testing.md)。
+Release keystore 位于 `app/keystore/`（gitignore，仅本地文件与 CI Secrets 存在）；`signing.properties` 不存在时 release 构建回退 debug 签名——**禁止**无条件覆盖为 debug，否则 release keystore 永不生效。CI Secrets 配置命令、签名编年史、签名覆盖矩阵（本地↔CI 互不覆盖，切换需卸载重装）见 [`docs/release-workflow.md`](docs/release-workflow.md) §9；真机跨签名源切换唯一例外见 [`docs/device-testing.md`](docs/device-testing.md)。
 
 ### Version Management（发版）
 
@@ -96,11 +94,11 @@ Release keystore 位于 `app/keystore/`（gitignore，仅本地文件与 CI Secr
 
 ### 验证与测试
 
-**任何完成声明前必须加载 `verification-before-completion` skill**。铁律：没有新鲜的验证证据就不能声称完成。完整验证框架（V1-V6，旧称 4+1 维；编号见 [numbering-charter](docs/numbering-charter.md)）见 [`docs/verification-requirements.md`](docs/verification-requirements.md)——验收分类**按仪器可验证性而非「是否 UIUX」**（ai-acceptance-workflow §1）：仪器可断言的（含 UI 结构/流程/色值/时间性可量化面）AI 真机验证即收；仅**真手指体感/用户凭据/数日观察/主观拍板**四类必须提供人工验证清单（V6）并请用户验证后才能声称完成。
+**任何完成声明前必须加载 `verification-before-completion` skill**。铁律：没有新鲜的验证证据就不能声称完成。完整验证框架（V1-V6，旧称 4+1 维；编号见 [numbering-charter](docs/numbering-charter.md)）见 [`docs/verification.md`](docs/verification.md)——验收分类**按仪器可验证性而非「是否 UIUX」**（ai-acceptance-workflow §1）：仪器可断言的（含 UI 结构/流程/色值/时间性可量化面）AI 真机验证即收；仅**真手指体感/用户凭据/数日观察/主观拍板**四类必须提供人工验证清单（V6）并请用户验证后才能声称完成。
 
 - 测试栈（JUnit4/MockK/Turbine/coroutines-test、HiltTestRunner、Maestro）与版本以 `app/build.gradle.kts`、`androidTest/`、`maestro/` 为准；`isReturnDefaultValues = true` 的 mock 返回默认值，可能掩盖 bug
 - 环境：opencode server 端口 **4199**，用户名 `opencode`，密码在配置文件 `/persistent/home/leo-tkp/.config/opencode/service.json`（`password` 字段，**不是环境变量**）
-- **真机测试优先**（2026-08-20 方针）：小米 houji serial `e69a99d8`，静默装包/服务器连通/debug intent 配置见 [`docs/real-device-testing.md`](docs/real-device-testing.md)。**测试入口一律 `./scripts/debug-entry.sh`**（debug intent 直达会话列表，2026-08-25 定规）——禁止从 Settings 页手工点进会话列表（坐标易错/BACK 退桌面/dump 陈旧三坑）
+- **真机测试优先**（2026-08-20 方针）：小米 houji serial `e69a99d8`，静默装包/服务器连通/debug intent 配置见 [`docs/device-testing.md`](docs/device-testing.md)。**测试入口一律 `./scripts/debug-entry.sh`**（debug intent 直达会话列表，2026-08-25 定规）——禁止从 Settings 页手工点进会话列表（坐标易错/BACK 退桌面/dump 陈旧三坑）
 - 模拟器访问宿主机 `10.0.2.2`；模拟器 UI 调试（tap/截图/logcat）派 subagent 执行，避免主会话上下文溢出
 
 ### SSE 滚动稳定性（铁律）

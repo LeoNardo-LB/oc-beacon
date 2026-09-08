@@ -10,12 +10,12 @@
 
 | 文档 | 角色 | 关系 |
 |------|------|------|
-| `docs/verification-requirements.md` | **验证总纲**——何时声称完成、4+1 维强制框架 | 上位文档，本文档遵守其铁律 |
+| `docs/verification.md` | **验证总纲**——何时声称完成、V1-V6 强制框架+方法论（#382 整合：原 verification-requirements + qa-methodology） | 上位文档，本文档遵守其铁律 |
 | **本文档** | **回归执行指南**——变更后如何系统验证既有能力 | 总纲的实践细则 |
 | `backlog.md` | 未决工作项卡片清单 | 非阻塞问题登记处（详情与证据写 journal 批次文件） |
 | `docs/chatscreen-editing-protocol.md` | ChatScreen 编辑协议 | 涉及 ChatScreen 时叠加遵守 |
 
-**核心原则**：verification-requirements.md 回答"完成前必须做什么"；本文档回答"变更后既有能力如何系统验证"。
+**核心原则**：verification.md 回答"完成前必须做什么"；本文档回答"变更后既有能力如何系统验证"。
 
 ### 1.2 变更分类与回归级别
 
@@ -34,7 +34,7 @@
 ### 1.3 触发时机
 
 - 任何 PR 合入前
-- 任何"声称完成"前（对齐 verification-requirements.md 铁律）
+- 任何"声称完成"前（对齐 verification.md 铁律）
 - 发版前（叠加 `docs/release-workflow.md`）
 - 跨层重构收尾
 
@@ -42,7 +42,7 @@
 
 ## 2. 验证维度框架（D0-D4）
 
-> 命令细节、超时、通过标准见 `docs/verification-requirements.md`。本节只规定**何时必须**与**回归专属要点**。
+> 命令细节、超时、通过标准见 `docs/verification.md`。本节只规定**何时必须**与**回归专属要点**。
 
 | 维度 | 内容 | 何时必须 | 通过标准 | 引用 |
 |------|------|----------|----------|------|
@@ -327,8 +327,8 @@ adb shell dumpsys dropbox --print
 
 | 文档 | 关系 | 引用要点 |
 |------|------|----------|
-| `docs/verification-requirements.md` | 上位总纲 | 本文档遵守其铁律与 4+1 维框架，不重复命令细节 |
-| `docs/qa-methodology.md` | 方法论层 | 交叉验证矩阵（≥2 独立维度互证）、证据链完整性、可复现清单模板、并行验证节点委派 |
+| `docs/verification.md` | 上位总纲+方法论 | 铁律与 V1-V6 框架、交叉验证矩阵（≥2 独立维度互证）、证据链完整性、可复现清单模板、并行验证节点委派（#382 整合：原 verification-requirements + qa-methodology 两行合一） |
+| `docs/probing.md` | 观测与探测手册 | logcat/Room/网络/dump/像素/vision/GC-内存观测（原 observability + ui-probing + simulator-perf） |
 | `AGENTS.md` | 项目规则源 | 本文档遵守验证铁律、backlog 纪律、ChatScreen 编辑协议、SSE 铁律 |
 | `backlog.md` | 未决工作项卡片清单 | §4 流程的非阻塞问题登记处 |
 | `docs/chatscreen-editing-protocol.md` | ChatScreen 编辑叠加协议 | §3.4 / §3.8 触及 ChatScreen 时叠加 |
@@ -340,7 +340,7 @@ adb shell dumpsys dropbox --print
 
 按 `docs/agents-file-design.md` §3.5 判定：本文档建议 **🟡 SHOULD**（非 🔴 MUST）。
 
-- **理由**：MUST 必须稀缺（≤5-7 条，索引表已用满）；本文档触发场景是"涉及已有能力变更"而非所有开发（纯新增功能走 verification-requirements.md 即可）
+- **理由**：MUST 必须稀缺（≤5-7 条，索引表已用满）；本文档触发场景是"涉及已有能力变更"而非所有开发（纯新增功能走 verification.md 即可）
 - **Use when**：重构 / 接口变更 / 存储改造 / 性能优化 / bug 修复后，需系统验证既有能力时
 - **索引表条目**（建议追加）：
 
@@ -350,4 +350,4 @@ adb shell dumpsys dropbox --print
 
 ---
 
-*本文档是 verification-requirements.md 的实践细则，不替代其铁律。维护：随项目能力域演进更新 §3 清单。*
+*本文档是 verification.md 的实践细则，不替代其铁律。维护：随项目能力域演进更新 §3 清单。*

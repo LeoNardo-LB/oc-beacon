@@ -2,7 +2,7 @@
 
 > **定位**：backlog 卡片交付验收的唯一操作协议（2026-09-04 用户裁决，/grill-me 定稿）。
 > 目标：最大限度减少人工介入——凡 AI 可通过仪器与真机自动化完成的验收，全部由 AI 完成。
-> 配套：[backlog.md](../backlog.md) 验证方针（分类判据本源，2026-09-03 定规）· [qa-methodology.md](qa-methodology.md) §4.4（关闭门槛）· [verification-requirements.md](verification-requirements.md) V6 · [real-device-testing.md](real-device-testing.md)（真机 runbook）· [regression-guide.md](regression-guide.md)（回归域）
+> 配套：[backlog.md](../backlog.md) 验证方针（分类判据本源，2026-09-03 定规）· [verification.md](verification.md)（验证框架+方法论：关闭门槛 §4.4 / V6）· [device-testing.md](device-testing.md)（测试环境 runbook：真机+模拟器）· [probing.md](probing.md)（观测与探测手册）· [regression-guide.md](regression-guide.md)（回归域）
 
 ---
 
@@ -52,7 +52,7 @@
 
 ### 步骤 3 · 验收执行（纯净上下文 subagent，持真机锁）
 
-- 委派**新的**干净上下文 subagent，只给：checklist 路径、真机 runbook 路径（real-device-testing.md + android-ui-probing-guide.md）、设备 serial、待测 APK 路径/已装版本。
+- 委派**新的**干净上下文 subagent，只给：checklist 路径、环境 runbook 路径（device-testing.md + probing.md）、设备 serial、待测 APK 路径/已装版本。
 - **执行纪律**：
   1. **一个 item 一个 item依次执行**，禁止跳项、禁止合并多项一次做。
   2. 每项完成立即在 checklist 对应 item 的`实测记录`区打 ✔ 或 ✘，并**忠实记录一切可观测内容**：logcat 关键行、dump 节点、截图/录屏路径、时间戳、实际现象描述。
@@ -67,7 +67,7 @@
 
 ## 3. 验收前的开发流程（不变式）
 
-每卡仍走既有开发/修复流程：journal 批次记录（backlog-new-batch.sh）→ 红→绿测试 → `compileDevDebugKotlin` → `testDevDebugUnitTest --rerun` → 装真机（real-device-testing runbook）→ 进入 §2 三步验收 → commit（feat:/fix: 前缀强制）。ChatScreen.kt 编辑协议、SSE 滚动铁律、i18n 15 语言等专项纪律在任何卡内继续生效。
+每卡仍走既有开发/修复流程：journal 批次记录（backlog-new-batch.sh）→ 红→绿测试 → `compileDevDebugKotlin` → `testDevDebugUnitTest --rerun` → 装真机（device-testing runbook）→ 进入 §2 三步验收 → commit（feat:/fix: 前缀强制）。ChatScreen.kt 编辑协议、SSE 滚动铁律、i18n 15 语言等专项纪律在任何卡内继续生效。
 
 ## 4. 过程发现的新问题入队策略（2026-09-04 用户裁决）
 
@@ -94,9 +94,9 @@
 
 ## 7. 与既有文档的关系
 
-- qa-methodology §4.4：本文件 §1 细化其关闭门槛（仪器优先、例外人工——仅 §1 四类人工项）。
-- verification-requirements V6：触发条件不变，执行形态=域边界汇总清单 + 录屏前置证据。
-- real-device-testing.md：真机操作 runbook，本文件 §5 引用其入口。
+- verification.md 方法论章（原 qa-methodology §4.4）：本文件 §1 细化其关闭门槛（仪器优先、例外人工——仅 §1 四类人工项）。
+- verification.md V6：触发条件不变，执行形态=域边界汇总清单 + 录屏前置证据。
+- device-testing.md：测试环境 runbook（真机+模拟器），本文件 §5 引用其入口。
 - regression-guide：§2 步骤1 的回归域选择依据。
 
 ### 自动化输入坑（2026-09-06 #334 改判沉淀）
@@ -150,7 +150,7 @@
 ```
 你是真机验收执行员。步骤：
 1) 读 docs/acceptance/<file>.md（含每项判定标准）。
-2) 读 docs/real-device-testing.md 与 docs/android-ui-probing-guide.md 的相关章节，设备 serial=<serial>，被测构建=<apk 或已装版本>。
+2) 读 docs/device-testing.md 与 docs/probing.md 的相关章节，设备 serial=<serial>，被测构建=<apk 或已装版本>。
 3) 按 checklist 顺序一个 item 一个 item执行：准备前置→执行操作→按判定观测→在文件该项「实测记录」区写入 ✔/✘/BLocked + 全部可观测事实（logcat 行、dump 节点、截图路径、时间戳）。
 纪律：禁止跳项/合并执行；禁止分析、归因、修复、改产品代码；失败项记录后继续后续独立项，依赖项标 BLOCKED-by-<id>。
 4) 所有 item 到终态后：汇总一句每项结果清单返回。
@@ -158,4 +158,4 @@
 
 ---
 
-*本文件是操作协议层；关闭门槛的理论依据在 qa-methodology §4.4，验证维度定义在 verification-requirements。*
+*本文件是操作协议层；关闭门槛的理论依据与验证维度定义在 verification.md（2026-09-09 #382 整合：原 qa-methodology + verification-requirements）。*

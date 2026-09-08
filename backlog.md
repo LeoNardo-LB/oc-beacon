@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#382**（2026-09-09 演示批六 #381）。
+**编号**：全局递增，不回收。下一编号：**#383**（2026-09-09 #382 质量保证文档按工作流合并（14→9））。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。
 
@@ -136,6 +136,11 @@
 
 （#372/#366/#367/#353 已完结迁 journal：2026-09-09 演示批过验，见 `docs/journal/2026-09-09-365-353-359-uiux-consistency.md` §八）
 
+- [~] **#382 质量保证文档按工作流合并（14→9）——verification 框架权威化(V1-V6)/probing 观测探测手册/device-testing 真机+模拟器环境 runbook；simulator-walkthrough 归档 research；被并文档留 tombstone** `refactor`
+  - 2026-09-09 用户裁决采纳四点：目标结构/维度统一 V1-V6/walkthrough 归档/tombstone 保留
+  - live 引用改链+AGENTS.md 索引收敛；journal-acceptance 历史引用靠 tombstone 不断链
+  - **已实施(2026-09-09)**：三合并+tombstone×7+全仓改链+AGENTS 索引收敛（5 旧行→3 新行）——journal §一；验证=残留扫描 0+backlog-check 通过；待用户抽验合并文档内容后关闭
+
 - [ ] **#379 抽屉手柄统一+内部滑动不致收起——fling 消费修正（2026-09-09 用户裁决）** `ui` `refactor`
   - 裁决原文:「任何在抽屉内的滑动（拖拽或 fling）都不应该让抽屉收起，只有拖动手柄/点外/返回手势才收起；所有抽屉需统一的小样式手柄（行高很小）」；问：M3 是否天然支持手柄自定义——**是**：ModalBottomSheet 有 dragHandle 槽位（默认 32×4dp 圆角条，可替换任意 composable）；fling 收起根因=内容未消费嵌套滚动（列表需 nestedScroll 到顶才传递给 sheet）——全 sheet 盘点统一
 
@@ -221,7 +226,7 @@
 
 - [ ] **#345 adb 注入 tap 间歇丢弃观察——MIUI 平台行为定性(非 app 缺陷),真手指未复现即不处理** `env` `device`
   - 定性修正(2026-09-07 二查):原「两案全灭」重析后——**第二案翻案**:Doubang 输入法为浅色主题,screencap 下半屏与 app surface 同色族 (247,250,253),误判「无 IME」后 tap 实际全打在键盘上;7 节点 dump=输入法安全窗致盲(平台正常)。第一案(t4401 克隆任务后 composer 聚焦 tap 无响应)仍疑似 MIUI 注入丢弃家族(同 E4② shade 组卡先例);两案中键事件/焦点全程有效(`dumpsys input_method` mServedView 在场实证),app 侧无缺陷证据
-  - 本批定向复现未再现(IME 抬起+乱序 tap 串轰击后交互正常);缓解纪律已沉淀 real-device-testing.md(IME 判定用 dumpsys input_method 勿用像素分析;tap 失活二分定位;冷启恢复配方)。保持观察:真手指复现才升级为 app 卡
+  - 本批定向复现未再现(IME 抬起+乱序 tap 串轰击后交互正常);缓解纪律已沉淀 device-testing.md(IME 判定用 dumpsys input_method 勿用像素分析;tap 失活二分定位;冷启恢复配方)。保持观察:真手指复现才升级为 app 卡
   - → 证据:journal §二十五 #345 节 + /tmp/e2e-instr/r1-r3.xml(复现尝试全程交互正常)
 
 

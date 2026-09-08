@@ -76,7 +76,7 @@ MAJOR.MINOR.PATCH[-dev.NUMBER]     # dev：线内迭代，有序号
 - `VERSION_NAME`：显示字符串，遵循上述 SemVer 格式。
 - `app/build.gradle.kts` 从 `version.properties` 读取 — 禁止在 build.gradle.kts 中硬编码版本号。
 - CI 通过 grep `version.properties` 提取版本 — **不要改变文件格式**。
-- **dev flavor 例外（2026-08-13 用户决策）**：`dev` 的 `versionCode` 用 **Unix 时间戳**（`app/build.gradle.kts`：`(System.currentTimeMillis() / 1000L).toInt()`——秒级 ~17.8 亿 < Int.MAX 21.4 亿，单调递增，不回拨时钟即可）→ 每次构建自动递增，`adb install -r` 直接覆盖安装（**保留 App 数据/服务器配置，禁止卸载重装**）。`version.properties` 仅 beta/stable 使用，不受 dev 构建影响。覆盖安装报 `INSTALL_FAILED_UPDATE_INCOMPATIBLE` 时先核对签名源（处置见 [`docs/real-device-testing.md`](real-device-testing.md)）。
+- **dev flavor 例外（2026-08-13 用户决策）**：`dev` 的 `versionCode` 用 **Unix 时间戳**（`app/build.gradle.kts`：`(System.currentTimeMillis() / 1000L).toInt()`——秒级 ~17.8 亿 < Int.MAX 21.4 亿，单调递增，不回拨时钟即可）→ 每次构建自动递增，`adb install -r` 直接覆盖安装（**保留 App 数据/服务器配置，禁止卸载重装**）。`version.properties` 仅 beta/stable 使用，不受 dev 构建影响。覆盖安装报 `INSTALL_FAILED_UPDATE_INCOMPATIBLE` 时先核对签名源（处置见 [`docs/device-testing.md`](device-testing.md)）。
 
 ### 2.5 三级递进规则（强制）
 
@@ -360,4 +360,4 @@ MAJOR.MINOR.PATCH[-dev.NUMBER]     # dev：线内迭代，有序号
 | CI release 签名 | ✅ `install -r` | ❌ 卸载重装 |
 | 本地 debug 签名 | ❌ 卸载重装 | ✅ `install -r` |
 
-唯一例外（2026-08-17 用户决策）：真机 dev 包跨签名源切换允许卸载重装，代价仅重新录入服务器配置；同签名源（本地↔本地）仍禁止。细则见 [`docs/real-device-testing.md`](real-device-testing.md)。
+唯一例外（2026-08-17 用户决策）：真机 dev 包跨签名源切换允许卸载重装，代价仅重新录入服务器配置；同签名源（本地↔本地）仍禁止。细则见 [`docs/device-testing.md`](device-testing.md)。

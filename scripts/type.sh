@@ -1,6 +1,6 @@
 #!/bin/bash
 # ASCII 打字脚本（纯 keyevent）：真机 E2E 打字专用。
-# 背景：禁 `input text`（合成键盘事件触发预测性 back 伪影——见 docs/real-device-testing.md E2E 纪律）；
+# 背景：禁 `input text`（合成键盘事件触发预测性 back 伪影——见 docs/device-testing.md E2E 纪律）；
 # 此前唯一副本放 /tmp 曾随重启丢失，2026-08-21 入库（同 miui-install.sh 模式）。
 # 用法: ./scripts/type.sh "text" [serial]   支持 a-z 0-9 空格 逗号 句点 斜杠 连字符（中文/其他特殊字符走 intent 传参绕过）
 S=${2:-e69a99d8}

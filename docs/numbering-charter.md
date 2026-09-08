@@ -32,10 +32,10 @@
 |---|---|
 | docs/numbering-charter.md | 新建（本草案定稿版 + 新旧映射表 + 局部标签规则） |
 | AGENTS.md | 「4+1 维验证」表述 → 「V1-V6 验证（4+1 框架）」对照注 |
-| docs/verification-requirements.md | 全文维度 1/2/2b/2c/3/5 → V1-V6（首现标注旧名） |
-| docs/qa-methodology.md | 维度交叉引用迁移 |
+| docs/verification-requirements.md | 全文维度 1/2/2b/2c/3/5 → V1-V6（首现标注旧名）——2026-09-09 #382 并入 docs/verification.md |
+| docs/qa-methodology.md | 维度交叉引用迁移——2026-09-09 #382 并入 docs/verification.md |
 | docs/regression-guide.md | D0-D4 → R0-R4（表头+正文）；§D1 单测分层 → R1 |
-| docs/e2e-testing-workflow.md | l1-l5 叙述 → F1-F5（文件名不动） |
+| docs/e2e-testing-workflow.md | l1-l5 叙述 → F1-F5（文件名不动）——2026-09-09 #382 环境节并入 docs/device-testing.md |
 | maestro/README.md | 层级表加 F 系对照列（文件名不动） |
 | docs/dialogue-e2e-*.md | 随整册会话化一并迁移编号 |
 | **历史豁免** | docs/journal/archive/旧 audit 报告不重写——charter 映射表回溯 |

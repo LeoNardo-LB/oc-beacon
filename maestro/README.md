@@ -18,7 +18,7 @@
 
 > 2026-08-06：`e2e-phase234-full.yaml` 已删除（`e2e-phase234-combined.yaml` 的冗余子集）。
 
-## E2E 两档标准（维度 2c，见 docs/verification-requirements.md）
+## E2E 两档标准（V4 维度，见 docs/verification.md——#382 整合自 verification-requirements）
 
 ### 档位 A：冒烟测试（Smoke）—— 每阶段收尾 / 发版前置
 

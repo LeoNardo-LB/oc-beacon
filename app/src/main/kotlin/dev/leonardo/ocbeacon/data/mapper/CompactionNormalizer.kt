@@ -7,7 +7,7 @@ import dev.leonardo.ocbeacon.domain.model.Part
 /**
  * #224（2026-08-25，用户指令「V1/V2 压缩形态做成一致」）：V1 压缩消息归一化。
  *
- * 服务器语义差异（实测，docs/real-device-testing.md「V1 测试服务器快速搭建」）：
+ * 服务器语义差异（实测，docs/device-testing.md「V1 测试服务器快速搭建」）：
  * - V2：compact 产物是独立 type=compaction 消息（role="compaction"），
  *   V2Mappers 生成 [Part.Compaction] → UI 渲染分割线形态；
  * - V1：compact 产物是**常规 assistant 消息**（agent="compaction"，
