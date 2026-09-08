@@ -267,13 +267,18 @@ internal fun ChatScreenBottomBar(
                             return@doSend
                         }
                         // 检测斜杠命令（例如 /skillname arguments）
-                        // #276 能力位门控：DSH 无 command 域——"/xxx" 按普通消息发送
+                        // #365（2026-09-08 用户裁决）：**只有注册在册的原生命令**
+                        //（commands/list：compact/export/feedback/goal/permission/plan
+                        // 等会话操作类）走命令通道；技能斜杠（/calculator 等，不在
+                        // 命令注册表）一律按普通消息发送——上屏入转录，由会话 agent
+                        // 调起技能（服务器实证：消息面 → run_code → bash → python3
+                        // 技能脚本 → 回复可见；命令通道对未注册名受理即蒸发）。
                         if (slashCommandsSupported &&
                             rawText.startsWith("/") && !rawText.startsWith("/ ") && confirmedFilePaths.isEmpty()) {
                             val parts = rawText.trim().split(WHITESPACE_SPLIT_REGEX, 2)
                             val commandName = parts[0].removePrefix("/")
                             val commandArgs = parts.getOrElse(1) { "" }
-                            if (commandName.isNotBlank()) {
+                            if (commandName.isNotBlank() && modelConfig.commands.any { it.name == commandName }) {
                                 viewModel.executeCommand(commandName, commandArgs) { ok ->
                                     coroutineScope.launch {
                                         snackbarHostState.showSnackbar(
