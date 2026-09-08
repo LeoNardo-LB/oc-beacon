@@ -34,6 +34,6 @@ EOF
 
 echo "已创建: $FILE"
 echo "提醒："
-echo "  1. backlog.md 加卡片：用 ./scripts/backlog.sh add -p Pn -t "<标题>" -g "<tags>" -s "<摘要行>"（自动编号/置顶/计数器，收尾自动 check）；卡片写在对应 Pn 节内——头部编号行与优先级定义表之间不放卡"
+echo "  1. backlog.md 加卡片：用 ./scripts/backlog.sh add -p Pn -t \"<标题>\" -g \"<tags>\" -s \"<摘要行>\"（自动编号/置顶/计数器，收尾自动 check）；卡片写在对应 Pn 节内——头部编号行与优先级定义表之间不放卡"
 echo "  2. 完结（用户验收）后：条目当场从 backlog 迁入本文件，并更新本文件状态行"
 echo "  3. 跑 ./scripts/backlog-check.sh 校验"
