@@ -8,11 +8,13 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -426,27 +428,49 @@ internal fun ChatFabMenu(
                 }
                 if (!expanded && goalActive) {
                     // #286：goal 运行点角标（blocked 用警示色）——取代数字角标
-                    BadgedBox(
-                        badge = {
-                            Badge(
-                                containerColor = if (goalPhase == "blocked") {
-                                    MaterialTheme.colorScheme.error
-                                } else {
-                                    MaterialTheme.colorScheme.primary
-                                },
-                            ) {}
-                        }
+                    // #364：圆点尺寸 8dp（与新增消息点统一，M3 Badge 默认偏大）。
+                    FabDotBadge(
+                        color = if (goalPhase == "blocked") {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
                     ) { fabIcon() }
-                } else if (!expanded && totalBadge > 0) {
-                    BadgedBox(
-                        badge = { Badge { Text(totalBadge.coerceAtMost(99).toString()) } }
-                    ) { fabIcon() }
+                } else if (!expanded && (totalBadge > 0 || queueCount > 0)) {
+                    // #364（2026-09-08 用户裁决）：FAB 按钮角标=**圆点**（只提示有新
+                    // 消息，不展示条数）；TODO/智能体/Shell/排队队列任一非零即亮。
+                    FabDotBadge(color = MaterialTheme.colorScheme.primary) { fabIcon() }
                 } else {
                     fabIcon()
                 }
             }
         }
     }
+}
+
+/**
+ * #364：FAB 按钮圆点角标（8dp + surface 描边）——M3 空 Badge 默认尺寸偏大，
+ * 用户裁决缩小一号；goal 运行点与「有新消息」点共用同款保持同位一致。
+ */
+@Composable
+private fun FabDotBadge(
+    color: Color,
+    content: @Composable () -> Unit,
+) {
+    BadgedBox(
+        badge = {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(color, androidx.compose.foundation.shape.CircleShape)
+                    .border(
+                        1.dp,
+                        MaterialTheme.colorScheme.surface,
+                        androidx.compose.foundation.shape.CircleShape,
+                    ),
+            )
+        },
+    ) { content() }
 }
 
 /** FAB 菜单入口项（M3 全默认：56dp primaryContainer 药丸/titleMedium/24dp 图标；角标挂 icon）。 */
@@ -480,7 +504,27 @@ private fun FabMenuEntry(
         ) {
             if (count > 0) {
                 BadgedBox(
-                    badge = { Badge { Text(count.coerceAtMost(99).toString()) } }
+                    // #364（2026-09-08 用户裁决）：菜单项计数角标缩小一号——
+                    // M3 默认 Badge(16dp/labelSmall) → 13dp 圆 + 8sp 数字（9+ 封顶）。
+                    badge = {
+                        Box(
+                            modifier = Modifier
+                                .size(13.dp)
+                                .background(MaterialTheme.colorScheme.error, androidx.compose.foundation.shape.CircleShape)
+                                .border(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.surface,
+                                    androidx.compose.foundation.shape.CircleShape,
+                                ),
+                            contentAlignment = androidx.compose.ui.Alignment.Center,
+                        ) {
+                            Text(
+                                text = if (count > 9) "9+" else count.toString(),
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
+                                color = MaterialTheme.colorScheme.onError,
+                            )
+                        }
+                    }
                 ) {
                     Icon(icon, contentDescription = null)
                 }

@@ -35,6 +35,11 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
 
     private val _sessions = MutableStateFlow<List<Session>>(emptyList())
 
+    /** #354：早于 session.list 基线到达的 agentPreset 暂存（control 投影基线竞态）。
+     *  setSessions 合并命中的 id 时补投并出队；session.list 基线不携带该字段，
+     *  服务器真源在 session/control 投影流。 */
+    private val pendingAgentPresets = LinkedHashMap<String, String>()
+
     /** 2026-08-15：已压缩会话 id 集合（SessionCompacted 事件累积）——UI 监听触发刷新。 */
     /** #217 R3 修复（2026-08-24）：Set → per-session 压缩计数。原 Set 判变在同会话
      * 第二次压缩时不发射 → ChatViewModel 刷新/通知双双跳过（真机 round 3 实证
@@ -208,7 +213,14 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
      * 会话尚未入列表（事件早于 session.list 基线）时 no-op——基线随后补齐。
      */
     private fun handleSessionAgentPresetChanged(event: SseEvent.SessionAgentPresetChanged) {
-        updateSession(event.sessionId) { it.copy(agentPreset = event.agentPreset) }
+        // #354（R3 复验发现持久性缺口）：session/control 投影基线可能在 session.list
+        // 基线之前到达——会话尚不在列表时暂存，setSessions 合并时补投。
+        val known = _sessions.value.any { it.id == event.sessionId }
+        if (known) {
+            updateSession(event.sessionId) { it.copy(agentPreset = event.agentPreset) }
+        } else {
+            synchronized(pendingAgentPresets) { pendingAgentPresets[event.sessionId] = event.agentPreset }
+        }
     }
 
     /**
@@ -325,14 +337,25 @@ class SessionEventHandler @Inject constructor() : SseEventHandler {
             val existing = current[serverId] ?: emptySet()
             current + (serverId to (existing + sessionIds))
         }
+        // #354（R3 复验）：①补投早到的 agentPreset 暂存；②基线不携带预设——
+        // 替换已存在会话时保留本地已回填值（防列表刷新抹除）。
+        val stashed = synchronized(pendingAgentPresets) {
+            val hit = newSessions.mapNotNull { s -> pendingAgentPresets[s.id]?.let { s.id to it } }.toMap()
+            pendingAgentPresets.keys.removeAll(hit.keys)
+            hit
+        }
         _sessions.update { current ->
             val updated = current.toMutableList()
             for (session in newSessions) {
-                val idx = updated.indexOfFirst { it.id == session.id }
+                val merged = stashed[session.id]?.let { session.copy(agentPreset = it) } ?: session
+                val idx = updated.indexOfFirst { it.id == merged.id }
                 if (idx >= 0) {
-                    updated[idx] = session
+                    val old = updated[idx]
+                    updated[idx] = if (merged.agentPreset == null && old.agentPreset != null) {
+                        merged.copy(agentPreset = old.agentPreset)
+                    } else merged
                 } else {
-                    updated.add(session)
+                    updated.add(merged)
                 }
             }
             updated.sortedByDescending { it.time.updated }

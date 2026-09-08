@@ -1,5 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,15 +11,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.material3.Text
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
@@ -604,6 +610,10 @@ internal fun ChatScreenBottomBar(
                 },
             )
             // #356 busy 气泡菜单（Popup 锚 composer 右下、气泡上弹；点外/返回关闭）
+            // #361（2026-09-08 用户二度裁决）：菜单弹出**不得收键盘**——
+            // Popup focusable=false（不夺窗口焦点，IME 保持）；返回键改由
+            // BackHandler 承接（非聚焦弹窗收不到 key 事件，见下）。
+            BackHandler(enabled = showBusyMenu) { showBusyMenu = false }
             if (showBusyMenu) {
                 BusySendMenuPopup(
                     hasAttachments = attachments.isNotEmpty(),
@@ -691,36 +701,65 @@ private fun BusySendMenuPopup(
     onSendNow: () -> Unit,
     onQueue: () -> Unit,
 ) {
+    // #361+#348 设计还原（2026-09-08 用户三度裁决）：气泡形态（Surface+
+    // 指向尾巴）嵌套列表，锚 composer **上方右对齐**——不覆盖发送按钮/输入行；
+    // 键盘保持原状态（focusable=false 不夺窗口焦点）。
+    // 自测锚：onSizeChanged 实测气泡高度 → offset 上移（首帧用估值消除闪烁）。
+    var bubbleHeight by remember { androidx.compose.runtime.mutableIntStateOf(265) }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val tailHeightPx = with(density) { 8.dp.toPx() }.toInt()
+    val anchorGapPx = with(density) { 6.dp.toPx() }.toInt()
     androidx.compose.ui.window.Popup(
-        alignment = androidx.compose.ui.Alignment.BottomEnd,
-        offset = androidx.compose.ui.unit.IntOffset(16, 190),
+        alignment = androidx.compose.ui.Alignment.TopEnd,
+        offset = androidx.compose.ui.unit.IntOffset(
+            16,
+            -(bubbleHeight + tailHeightPx + anchorGapPx),
+        ),
         onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.PopupProperties(focusable = true),
+        properties = androidx.compose.ui.window.PopupProperties(focusable = false),
     ) {
-        androidx.compose.material3.Surface(
-            shape = androidx.compose.material3.MaterialTheme.shapes.medium,
-            tonalElevation = 6.dp,
-            shadowElevation = 8.dp,
-        ) {
-            Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                BusyMenuItem(
-                    title = stringResource(R.string.chat_busy_menu_send_now),
-                    subtitle = stringResource(R.string.chat_busy_menu_send_now_desc),
-                    enabled = true,
-                    onClick = onSendNow,
-                )
-                if (showQueueOption) {
+        Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+            androidx.compose.material3.Surface(
+                shape = androidx.compose.material3.MaterialTheme.shapes.medium,
+                tonalElevation = 6.dp,
+                shadowElevation = 8.dp,
+                modifier = Modifier.onSizeChanged { bubbleHeight = it.height },
+            ) {
+                Column(modifier = Modifier.padding(vertical = 4.dp)) {
                     BusyMenuItem(
-                        title = stringResource(R.string.chat_busy_menu_queue),
-                        subtitle = if (hasAttachments) {
-                            stringResource(R.string.chat_busy_menu_queue_no_attachments)
-                        } else {
-                            stringResource(R.string.chat_busy_menu_queue_desc)
-                        },
-                        enabled = !hasAttachments,
-                        onClick = onQueue,
+                        title = stringResource(R.string.chat_busy_menu_send_now),
+                        subtitle = stringResource(R.string.chat_busy_menu_send_now_desc),
+                        enabled = true,
+                        onClick = onSendNow,
                     )
+                    if (showQueueOption) {
+                        BusyMenuItem(
+                            title = stringResource(R.string.chat_busy_menu_queue),
+                            subtitle = if (hasAttachments) {
+                                stringResource(R.string.chat_busy_menu_queue_no_attachments)
+                            } else {
+                                stringResource(R.string.chat_busy_menu_queue_desc)
+                            },
+                            enabled = !hasAttachments,
+                            onClick = onQueue,
+                        )
+                    }
                 }
+            }
+            // 气泡尾巴：指向下方发送按钮（右对齐留边，同 Surface 色系）
+            val tailColor = MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp)
+            androidx.compose.foundation.Canvas(
+                modifier = Modifier
+                    .padding(end = 30.dp)
+                    .size(16.dp, 8.dp),
+            ) {
+                val path = androidx.compose.ui.graphics.Path().apply {
+                    moveTo(0f, 0f)
+                    lineTo(size.width, 0f)
+                    lineTo(size.width / 2f, size.height)
+                    close()
+                }
+                drawPath(path, tailColor)
             }
         }
     }

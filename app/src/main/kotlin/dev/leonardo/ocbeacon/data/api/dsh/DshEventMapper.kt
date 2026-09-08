@@ -232,6 +232,19 @@ object DshEventMapper {
                         else -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
                     }
                 }
+                // #354 持久修复（2026-09-08 R3 复验发现「重启后回落—」）：create 携带的
+                // 预设不进会话事件日志（仅 select RPC append），但 **session/control
+                // 基线 projections 每会话携带 agentPreset**（投影面）且变更实时推
+                // projection 帧——此前此 key 落 Ignored → 重启后无来源。映射到既有
+                // SessionAgentPresetChanged（下游 handler/store/详情页同链复用）。
+                "agentPreset" -> when (val value = payload["value"]) {
+                    is JsonPrimitive -> listOf(
+                        DshMappedEvent.Sse(
+                            SseEvent.SessionAgentPresetChanged(sessionId = sid, agentPreset = value.content)
+                        )
+                    )
+                    else -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+                }
                 "contextPressure" -> {
                     val value = payload.obj("value")
                     if (value == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
