@@ -806,4 +806,9 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="crash_notice_body_no_time">Ocurrió un cierre inesperado en la última sesión. Consulta los detalles en diagnósticos.</string>
     <string name="crash_notice_view">Ver</string>
     <string name="crash_notice_dismiss">Descartar</string>
+    <string name="settings_hidden_directories">Directorios ocultos</string>
+    <string name="settings_hidden_directories_desc">Patrones glob, uno por línea: los directorios de proyectos y sesiones coincidentes se ocultan</string>
+    <string name="settings_hidden_directories_none">Desactivado</string>
+    <string name="settings_hidden_directories_hint">Un patrón por línea. * coincide con todo. Ejemplo: /tmp/*</string>
+    <string name="a11y_settings_hidden_directories">Directorios ocultos</string>
 </resources>

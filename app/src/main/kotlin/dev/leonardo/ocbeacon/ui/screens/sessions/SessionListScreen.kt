@@ -85,6 +85,7 @@ fun SessionListScreen(
     val content by viewModel.contentState.collectAsStateWithLifecycle()
     val shell by viewModel.shellState.collectAsStateWithLifecycle()
     val recentDirectoryCount by viewModel.recentDirectoryCount.collectAsStateWithLifecycle()
+    val hiddenDirectoryPatterns by viewModel.hiddenDirectoryPatterns.collectAsStateWithLifecycle()
     val isAmoled = isAmoledTheme()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -520,6 +521,7 @@ viewModel.consumePendingReadSessionId()
         NewSessionQuickDialog(
             sessions = content.sessions,
             limit = recentDirectoryCount,
+            hiddenPatterns = hiddenDirectoryPatterns,
             onSelectDirectory = { directory ->
                 showQuickNewSession = false
                 onNavigateToNewChat(directory)

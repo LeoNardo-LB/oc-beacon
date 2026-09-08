@@ -814,4 +814,9 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="crash_notice_body_no_time">W poprzedniej sesji wystąpił nieoczekiwany błąd. Szczegóły znajdziesz w diagnostyce.</string>
     <string name="crash_notice_view">Zobacz</string>
     <string name="crash_notice_dismiss">Odrzuć</string>
+    <string name="settings_hidden_directories">Ukryte katalogi</string>
+    <string name="settings_hidden_directories_desc">Wzorce glob, jeden w wierszu — pasujące katalogi projektów i sesji są ukrywane</string>
+    <string name="settings_hidden_directories_none">Wył.</string>
+    <string name="settings_hidden_directories_hint">Jeden wzorzec na wiersz. * dopasowuje wszystko. Przykład: /tmp/*</string>
+    <string name="a11y_settings_hidden_directories">Ukryte katalogi</string>
 </resources>

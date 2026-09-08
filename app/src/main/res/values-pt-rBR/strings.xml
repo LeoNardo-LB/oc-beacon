@@ -806,4 +806,9 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="crash_notice_body_no_time">Ocorreu um encerramento inesperado na última sessão. Veja os detalhes nos diagnósticos.</string>
     <string name="crash_notice_view">Ver</string>
     <string name="crash_notice_dismiss">Dispensar</string>
+    <string name="settings_hidden_directories">Diretórios ocultos</string>
+    <string name="settings_hidden_directories_desc">Padrões glob, um por linha — diretórios de projetos e sessões correspondentes ficam ocultos</string>
+    <string name="settings_hidden_directories_none">Desativado</string>
+    <string name="settings_hidden_directories_hint">Um padrão por linha. * corresponde a qualquer caractere. Exemplo: /tmp/*</string>
+    <string name="a11y_settings_hidden_directories">Diretórios ocultos</string>
 </resources>

@@ -806,4 +806,9 @@
     <string name="crash_notice_body_no_time">前回のセッションで予期しないクラッシュが発生しました。詳細は診断で確認できます。</string>
     <string name="crash_notice_view">表示</string>
     <string name="crash_notice_dismiss">閉じる</string>
+    <string name="settings_hidden_directories">非表示ディレクトリ</string>
+    <string name="settings_hidden_directories_desc">glob パターンを1行に1つ。一致するプロジェクト/セッションディレクトリを非表示にします</string>
+    <string name="settings_hidden_directories_none">オフ</string>
+    <string name="settings_hidden_directories_hint">1行に1パターン。* は任意の文字に一致。例: /tmp/*</string>
+    <string name="a11y_settings_hidden_directories">非表示ディレクトリ</string>
 </resources>

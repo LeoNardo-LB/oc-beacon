@@ -812,4 +812,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="crash_notice_body_no_time">Terjadi crash tak terduga pada sesi terakhir. Detailnya tersedia di diagnostik.</string>
     <string name="crash_notice_view">Lihat</string>
     <string name="crash_notice_dismiss">Tutup</string>
+    <string name="settings_hidden_directories">Direktori tersembunyi</string>
+    <string name="settings_hidden_directories_desc">Pola glob, satu per baris — direktori proyek dan sesi yang cocok disembunyikan</string>
+    <string name="settings_hidden_directories_none">Nonaktif</string>
+    <string name="settings_hidden_directories_hint">Satu pola per baris. * cocok dengan apa pun. Contoh: /tmp/*</string>
+    <string name="a11y_settings_hidden_directories">Direktori tersembunyi</string>
 </resources>

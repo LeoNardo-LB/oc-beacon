@@ -35,6 +35,7 @@ import dev.leonardo.ocbeacon.ui.components.amoledDialogParams
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
+import dev.leonardo.ocbeacon.util.HiddenDirectories
 
 internal data class RecentSessionDirectory(
     val directory: String,
@@ -50,11 +51,14 @@ internal data class RecentSessionDirectory(
 internal fun recentSessionDirectories(
     sessions: List<Session>,
     limit: Int = 20,
+    hiddenPatterns: Collection<String> = emptyList(),
 ): List<RecentSessionDirectory> = sessions
     // 防御：V2 服务器存在 location.directory 为 "/" 的会话（实测 ses_005890631ffe...），
     // "/" 经 trimEnd('/') 后为空 → 分组 key 空 → 产生"空目录"条目（2026-08-13 用户反馈）。
     // 根目录无法作为新建会话目标，过滤（按 trim 后判断，覆盖 "" 与 "/" 两种形态）
     .filter { it.directory.replace('\\', '/').trimEnd('/').isNotBlank() }
+    // hidden-directories 过滤：命中模式的目录不进入快速新建列表（空模式 = 不过滤）
+    .filter { !HiddenDirectories.isHidden(it.directory, hiddenPatterns) }
     .groupBy { it.directory.replace('\\', '/').trimEnd('/') }
     .map { (directory, items) ->
         RecentSessionDirectory(
@@ -84,6 +88,7 @@ internal fun recentSessionDirectories(
 internal fun NewSessionQuickDialog(
     sessions: List<Session>,
     limit: Int,
+    hiddenPatterns: Collection<String> = emptyList(),
     onSelectDirectory: (String) -> Unit,
     onBrowse: () -> Unit,
     onDismiss: () -> Unit,
@@ -93,7 +98,7 @@ internal fun NewSessionQuickDialog(
     // 消除点选时目标行漂移导致的落位错行（DSH E2E 发现，人类用户同样可命中邻行）。
     // 关闭后重新打开会重新组合，自然取到最新列表。手验：打开对话框 → 后台触发
     // 列表变化（如另一端新建会话）→ 行序应保持不变。
-    val dirEntries = remember(limit) { recentSessionDirectories(sessions, limit) }
+    val dirEntries = remember(limit, hiddenPatterns) { recentSessionDirectories(sessions, limit, hiddenPatterns) }
     val params = amoledDialogParams(shape = ShapeTokens.largeMedium)
 
     BasicAlertDialog(

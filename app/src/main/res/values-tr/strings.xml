@@ -806,4 +806,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="crash_notice_body_no_time">Son oturumda beklenmeyen bir çökme yaşandı. Ayrıntılar tanılama bölümünde.</string>
     <string name="crash_notice_view">Görüntüle</string>
     <string name="crash_notice_dismiss">Kapat</string>
+    <string name="settings_hidden_directories">Gizli dizinler</string>
+    <string name="settings_hidden_directories_desc">Her satıra bir glob deseni — eşleşen proje ve oturum dizinleri gizlenir</string>
+    <string name="settings_hidden_directories_none">Kapalı</string>
+    <string name="settings_hidden_directories_hint">Her satıra bir desen. * her şeyle eşleşir. Örnek: /tmp/*</string>
+    <string name="a11y_settings_hidden_directories">Gizli dizinler</string>
 </resources>

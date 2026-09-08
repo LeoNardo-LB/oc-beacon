@@ -806,4 +806,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="crash_notice_body_no_time">Die App ist bei der letzten Sitzung unerwartet abgestürzt. Details findest du in der Diagnose.</string>
     <string name="crash_notice_view">Ansehen</string>
     <string name="crash_notice_dismiss">Verwerfen</string>
+    <string name="settings_hidden_directories">Ausgeblendete Verzeichnisse</string>
+    <string name="settings_hidden_directories_desc">Glob-Muster, eines pro Zeile — passende Projekt- und Sitzungsverzeichnisse werden ausgeblendet</string>
+    <string name="settings_hidden_directories_none">Aus</string>
+    <string name="settings_hidden_directories_hint">Ein Muster pro Zeile. * passt auf alles. Beispiel: /tmp/*</string>
+    <string name="a11y_settings_hidden_directories">Ausgeblendete Verzeichnisse</string>
 </resources>

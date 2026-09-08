@@ -39,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.screens.settings.components.ClearArchiveConfirmDialog
+import dev.leonardo.ocbeacon.ui.screens.settings.components.HiddenDirectoriesDialog
 import dev.leonardo.ocbeacon.ui.screens.settings.components.ImageCompressionMaxSideDialog
 import dev.leonardo.ocbeacon.ui.screens.settings.components.ImageCompressionQualityDialog
 import dev.leonardo.ocbeacon.ui.screens.settings.components.LanguagePickerDialog
@@ -73,6 +74,7 @@ fun SettingsScreen(
 
     val initialMessageCount by viewModel.initialMessageCount.collectAsStateWithLifecycle()
     val recentDirectoryCount by viewModel.recentDirectoryCount.collectAsStateWithLifecycle()
+    val hiddenDirectoryPatterns by viewModel.hiddenDirectoryPatterns.collectAsStateWithLifecycle()
     val reconnectMode by viewModel.reconnectMode.collectAsStateWithLifecycle()
     val terminalFontSize by viewModel.terminalFontSize.collectAsStateWithLifecycle()
     val imageAttachmentMaxLongSide by viewModel.imageAttachmentMaxLongSide.collectAsStateWithLifecycle()
@@ -83,6 +85,7 @@ fun SettingsScreen(
     var showChatDensityPicker by remember { mutableStateOf(false) }
     var showMessageCountDialog by remember { mutableStateOf(false) }
     var showRecentDirectoryCountDialog by remember { mutableStateOf(false) }
+    var showHiddenDirectoriesDialog by remember { mutableStateOf(false) }
     var showReconnectModeDialog by remember { mutableStateOf(false) }
     var showTerminalFontSizeDialog by remember { mutableStateOf(false) }
     var showImageMaxSideDialog by remember { mutableStateOf(false) }
@@ -154,6 +157,7 @@ fun SettingsScreen(
                 onShowImageQualityDialog = { showImageQualityDialog = true },
                 onShowTerminalFontSizeDialog = { showTerminalFontSizeDialog = true },
                 onShowRecentDirectoryCountDialog = { showRecentDirectoryCountDialog = true },
+                onShowHiddenDirectoriesDialog = { showHiddenDirectoriesDialog = true },
             )
 
             // ======== 存储占用（#271） ========
@@ -256,6 +260,17 @@ fun SettingsScreen(
                     showRecentDirectoryCountDialog = false
                 },
                 onDismiss = { showRecentDirectoryCountDialog = false }
+            )
+        }
+
+        if (showHiddenDirectoriesDialog) {
+            HiddenDirectoriesDialog(
+                currentPatterns = hiddenDirectoryPatterns,
+                onPatternsSaved = { patterns ->
+                    viewModel.setHiddenDirectoryPatterns(patterns)
+                    showHiddenDirectoriesDialog = false
+                },
+                onDismiss = { showHiddenDirectoriesDialog = false }
             )
         }
 
