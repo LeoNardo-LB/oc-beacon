@@ -822,4 +822,9 @@
     <string name="crash_notice_body_no_time">حدث تعطل غير متوقع في الجلسة السابقة. التفاصيل متاحة في قسم التشخيص.</string>
     <string name="crash_notice_view">عرض</string>
     <string name="crash_notice_dismiss">تجاهل</string>
+    <string name="settings_hidden_directories">الدلائل المخفية</string>
+    <string name="settings_hidden_directories_desc">أنماط glob، نمط لكل سطر — تُخفى دلائل المشاريع والجلسات المطابقة</string>
+    <string name="settings_hidden_directories_none">إيقاف</string>
+    <string name="settings_hidden_directories_hint">نمط واحد لكل سطر. * يطابق أي شيء. مثال: /tmp/*</string>
+    <string name="a11y_settings_hidden_directories">الدلائل المخفية</string>
 </resources>

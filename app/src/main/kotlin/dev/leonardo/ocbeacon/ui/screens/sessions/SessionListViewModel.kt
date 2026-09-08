@@ -63,6 +63,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import dev.leonardo.ocbeacon.util.HiddenDirectories
 import dev.leonardo.ocbeacon.util.copyToClipboard
 import javax.inject.Inject
 
@@ -535,6 +536,11 @@ class SessionListViewModel @Inject constructor(
         .map { it.recentDirectoryCount }
         .stateIn(viewModelScope, WhileSubscribed5s, 20)
 
+    /** 隐藏目录 glob 模式（hidden-directories 过滤器）；空列表 = 不过滤。 */
+    val hiddenDirectoryPatterns: StateFlow<List<String>> = getSettingsFlowUseCase()
+        .map { it.hiddenDirectoryPatterns }
+        .stateIn(viewModelScope, WhileSubscribed5s, emptyList())
+
     init {
         loadSessions()
     }
@@ -793,14 +799,22 @@ class SessionListViewModel @Inject constructor(
      * @return 失败时的错误信息（成功为 null）。
      */
     private suspend fun fetchAllSessions(): String? = try {
-        val projects = listProjectsUseCase(serverId).getOrThrow()
+        val allProjects = listProjectsUseCase(serverId).getOrThrow()
+        // hidden-directories 过滤：命中模式的项目目录不加载、不显示（空模式列表 = 全部保留）。
+        // 注意：设置变更在下次 load/refresh 时生效（不在此处观察设置流，避免编辑模式时反复拉取）。
+        val patterns = hiddenDirectoryPatterns.value
+        val projects = if (patterns.isEmpty()) allProjects
+        else allProjects.filter { !HiddenDirectories.isHidden(it.worktree, patterns) }
         _projects.value = projects
-        if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Loaded ${projects.size} projects for multi-project session fetch")
+        if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Loaded ${projects.size} projects for multi-project session fetch (${allProjects.size - projects.size} hidden by patterns)")
 
-        if (projects.isEmpty()) {
+        if (allProjects.isEmpty()) {
             val sessions = listSessionsUseCase(serverId, search = _searchQuery.value)
             sessionRepository.setSessions(serverId, sessions)
             if (BuildConfig.DEBUG) AppLogger.d(TAG_SESSION_LIST_VM, "Loaded ${sessions.size} sessions (no projects)")
+        } else if (projects.isEmpty()) {
+            // 服务器有项目但全部被隐藏：清空列表（用户显式配置的结果）
+            sessionRepository.setSessions(serverId, emptyList())
         } else {
             var totalSessions = 0
             for (project in projects) {

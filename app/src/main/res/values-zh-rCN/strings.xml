@@ -809,4 +809,9 @@
     <string name="crash_notice_body_no_time">上次运行出现意外崩溃，可在诊断中查看详情。</string>
     <string name="crash_notice_view">查看</string>
     <string name="crash_notice_dismiss">忽略</string>
+    <string name="settings_hidden_directories">隐藏目录</string>
+    <string name="settings_hidden_directories_desc">glob 模式，每行一个——命中的项目与会话目录将被隐藏</string>
+    <string name="settings_hidden_directories_none">关闭</string>
+    <string name="settings_hidden_directories_hint">每行一个模式。* 匹配任意字符。示例：/tmp/*</string>
+    <string name="a11y_settings_hidden_directories">隐藏目录</string>
 </resources>

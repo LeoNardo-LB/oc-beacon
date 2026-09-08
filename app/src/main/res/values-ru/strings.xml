@@ -815,4 +815,9 @@
     <string name="crash_notice_body_no_time">В прошлом сеансе произошёл неожиданный сбой. Подробности — в разделе диагностики.</string>
     <string name="crash_notice_view">Открыть</string>
     <string name="crash_notice_dismiss">Скрыть</string>
+    <string name="settings_hidden_directories">Скрытые каталоги</string>
+    <string name="settings_hidden_directories_desc">Glob-шаблоны, по одному в строке — совпадающие каталоги проектов и сессий скрываются</string>
+    <string name="settings_hidden_directories_none">Выкл.</string>
+    <string name="settings_hidden_directories_hint">Один шаблон на строку. * соответствует любым символам. Пример: /tmp/*</string>
+    <string name="a11y_settings_hidden_directories">Скрытые каталоги</string>
 </resources>

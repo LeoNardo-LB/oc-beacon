@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.PhotoSizeSelectLarge
 import androidx.compose.material.icons.filled.ScreenLockPortrait
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -34,12 +35,14 @@ fun ChatBehaviorSection(
     viewModel: SettingsViewModel,
     onShowMessageCountDialog: () -> Unit,
     onShowRecentDirectoryCountDialog: () -> Unit,
+    onShowHiddenDirectoriesDialog: () -> Unit,
     onShowImageMaxSideDialog: () -> Unit,
     onShowImageQualityDialog: () -> Unit,
     onShowTerminalFontSizeDialog: () -> Unit,
 ) {
     val initialMessageCount by viewModel.initialMessageCount.collectAsStateWithLifecycle()
     val recentDirectoryCount by viewModel.recentDirectoryCount.collectAsStateWithLifecycle()
+    val hiddenDirectoryPatterns by viewModel.hiddenDirectoryPatterns.collectAsStateWithLifecycle()
     val confirmBeforeSend by viewModel.confirmBeforeSend.collectAsStateWithLifecycle()
     val hapticFeedback by viewModel.hapticFeedback.collectAsStateWithLifecycle()
     val keepScreenOn by viewModel.keepScreenOn.collectAsStateWithLifecycle()
@@ -70,6 +73,22 @@ fun ChatBehaviorSection(
             Icon(Icons.Default.Folder, contentDescription = stringResource(R.string.a11y_settings_recent_directory_count))
         },
         modifier = Modifier.clickable { onShowRecentDirectoryCountDialog() }.padding(ListItemTokens.ContentPaddingMedium)
+    )
+
+    // 隐藏目录（hidden-directories 过滤）
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.settings_hidden_directories)) },
+        supportingContent = { Text(stringResource(R.string.settings_hidden_directories_desc)) },
+        trailingContent = {
+            Text(
+                if (hiddenDirectoryPatterns.isEmpty()) stringResource(R.string.settings_hidden_directories_none)
+                else hiddenDirectoryPatterns.size.toString()
+            )
+        },
+        leadingContent = {
+            Icon(Icons.Default.VisibilityOff, contentDescription = stringResource(R.string.a11y_settings_hidden_directories))
+        },
+        modifier = Modifier.clickable { onShowHiddenDirectoriesDialog() }.padding(ListItemTokens.ContentPaddingMedium)
     )
 
     // 发送前确认

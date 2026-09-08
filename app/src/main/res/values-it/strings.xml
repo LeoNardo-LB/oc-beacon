@@ -806,4 +806,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="crash_notice_body_no_time">Si è verificato un arresto anomalo imprevisto nell\'ultima sessione. Dettagli nella sezione diagnostica.</string>
     <string name="crash_notice_view">Visualizza</string>
     <string name="crash_notice_dismiss">Ignora</string>
+    <string name="settings_hidden_directories">Directory nascoste</string>
+    <string name="settings_hidden_directories_desc">Pattern glob, uno per riga — le directory di progetti e sessioni corrispondenti vengono nascoste</string>
+    <string name="settings_hidden_directories_none">Disattivato</string>
+    <string name="settings_hidden_directories_hint">Un pattern per riga. * corrisponde a qualsiasi carattere. Esempio: /tmp/*</string>
+    <string name="a11y_settings_hidden_directories">Directory nascoste</string>
 </resources>

@@ -39,6 +39,7 @@ class SettingsDataStore @Inject constructor(
 
         private val INITIAL_MESSAGE_COUNT_KEY = intPreferencesKey("initial_message_count")
         private val RECENT_DIRECTORY_COUNT_KEY = intPreferencesKey("recent_directory_count")
+        private val HIDDEN_DIRECTORY_PATTERNS_KEY = stringSetPreferencesKey("hidden_directory_patterns")
         private val CONFIRM_BEFORE_SEND_KEY = booleanPreferencesKey("confirm_before_send")
         private val AMOLED_DARK_KEY = booleanPreferencesKey("amoled_dark")
         private val COMPACT_MESSAGES_KEY = booleanPreferencesKey("compact_messages")
@@ -203,6 +204,7 @@ class SettingsDataStore @Inject constructor(
             prefs[CHAT_DENSITY_KEY] = settings.chatDensity
             prefs[INITIAL_MESSAGE_COUNT_KEY] = settings.initialMessageCount
             prefs[RECENT_DIRECTORY_COUNT_KEY] = settings.recentDirectoryCount
+            prefs[HIDDEN_DIRECTORY_PATTERNS_KEY] = settings.hiddenDirectoryPatterns.toSet()
             prefs[CONFIRM_BEFORE_SEND_KEY] = settings.confirmBeforeSend
             prefs[COMPACT_MESSAGES_KEY] = settings.compactMessages
             prefs[AUTO_EXPAND_TOOLS_KEY] = settings.autoExpandTools
@@ -303,6 +305,15 @@ class SettingsDataStore @Inject constructor(
         setPref(RECENT_DIRECTORY_COUNT_KEY, count.coerceIn(5, 50))
     }
 
+    /** 隐藏目录 glob 模式（hidden-directories 过滤器）。排序后返回，保证渲染稳定。 */
+    val hiddenDirectoryPatterns: Flow<List<String>> = dataStore.data.map { preferences ->
+        (preferences[HIDDEN_DIRECTORY_PATTERNS_KEY] ?: emptySet()).toList().sorted()
+    }
+
+    suspend fun setHiddenDirectoryPatterns(patterns: List<String>) {
+        setPref(HIDDEN_DIRECTORY_PATTERNS_KEY, patterns.toSet())
+    }
+
     // ============ 图片附件 ============
 
     /** 图片附件发送前是否优化（缩放 + WebP）。默认：true。 */
@@ -388,6 +399,7 @@ class SettingsDataStore @Inject constructor(
             ),
             initialMessageCount = prefs[INITIAL_MESSAGE_COUNT_KEY] ?: 30,
             recentDirectoryCount = (prefs[RECENT_DIRECTORY_COUNT_KEY] ?: 20).coerceIn(5, 50),
+            hiddenDirectoryPatterns = (prefs[HIDDEN_DIRECTORY_PATTERNS_KEY] ?: emptySet()).toList().sorted(),
             confirmBeforeSend = prefs[CONFIRM_BEFORE_SEND_KEY] ?: false,
             compactMessages = prefs[COMPACT_MESSAGES_KEY] ?: false,
             autoExpandTools = prefs[AUTO_EXPAND_TOOLS_KEY] ?: prefs[LEGACY_COLLAPSE_TOOLS_KEY] ?: false,

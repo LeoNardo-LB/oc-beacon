@@ -814,4 +814,9 @@
     <string name="crash_notice_body_no_time">У попередньому сеансі стався неочікуваний збій. Подробиці — у розділі діагностики.</string>
     <string name="crash_notice_view">Переглянути</string>
     <string name="crash_notice_dismiss">Закрити</string>
+    <string name="settings_hidden_directories">Приховані каталоги</string>
+    <string name="settings_hidden_directories_desc">Glob-шаблони, по одному в рядку — збігані каталоги проєктів і сесій приховуються</string>
+    <string name="settings_hidden_directories_none">Вимк.</string>
+    <string name="settings_hidden_directories_hint">Один шаблон на рядок. * відповідає будь-яким символам. Приклад: /tmp/*</string>
+    <string name="a11y_settings_hidden_directories">Приховані каталоги</string>
 </resources>

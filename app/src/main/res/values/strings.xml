@@ -889,4 +889,9 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="crash_notice_body_no_time">An unexpected crash occurred during the last session. Details are available in diagnostics.</string>
     <string name="crash_notice_view">View</string>
     <string name="crash_notice_dismiss">Dismiss</string>
+    <string name="settings_hidden_directories">Hidden directories</string>
+    <string name="settings_hidden_directories_desc">Glob patterns, one per line — matching project and session directories are hidden</string>
+    <string name="settings_hidden_directories_none">Off</string>
+    <string name="settings_hidden_directories_hint">One pattern per line. * matches anything. Example: /tmp/*</string>
+    <string name="a11y_settings_hidden_directories">Hidden directories</string>
 </resources>
