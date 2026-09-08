@@ -112,13 +112,20 @@ object CompactionDividerPolicy {
     // ===== ④ 尾部兜底分割线 =====
 
     /** 尾部兜底分割线认领：active 且对应消息未入列（messageId 不在 id 集、
-     *  且无 V1 摘要消息入列）时返回 [CompactionDividerSpec.Tail]，否则 null。 */
+     *  且无 V1 摘要消息入列）时返回 [CompactionDividerSpec.Tail]，否则 null。
+     *
+     * #374（2026-09-09 用户演示裁决）：DSH /compact 期间压缩全程由命令反馈卡
+     * 承载（受理→执行中→终态单卡演化）——**活 compact 命令卡在场时尾部
+     * 进行中分割线让位**，不再双轨呈现；V2 compact（无命令卡）分割线照旧。 */
     fun tailSpec(
         compaction: CompactionStateInfo?,
         displayItemMessageIds: Set<String>,
         v1SummaryInList: Boolean,
+        suppressByLiveCompactCommand: Boolean = false,
     ): CompactionDividerSpec.Tail? {
         val active = compaction?.takeIf { it.isActive } ?: return null
+        // #374：命令卡承载让位（见上）
+        if (suppressByLiveCompactCommand) return null
         // #226：V1 摘要消息入列后由消息流内活跃线承担（V1 本地置态 messageId
         // 为空串永不命中对位判据，此前尾部线全程在场 → 与摘要线/气泡三元素同屏）
         if (active.messageId in displayItemMessageIds || v1SummaryInList) return null

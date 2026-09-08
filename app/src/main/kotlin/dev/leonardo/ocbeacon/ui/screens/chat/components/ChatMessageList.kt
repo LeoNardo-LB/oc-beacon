@@ -1150,8 +1150,14 @@ fun ChatMessageList(
                     // #217 分割线包揽（2026-08-24）：压缩进行中 = 进行中分割线，插在
                     // 消息流尾部；完成态由消息流内 compaction 消息的 CompactionCard 承担。
                     // 尾部兜底认领（去重/让位判定）在 CompactionDividerPolicy.tailSpec（C4）。
+                    // #374（2026-09-09 用户演示裁决）：DSH /compact 期间活命令反馈卡
+                    // 在场（受理/执行中）→ 进行中分割线让位——单卡承载全程，不双轨。
+                    val compactCommandCardLive = commandFeedbackRows.any {
+                        it.name == "compact" && it.done == null
+                    }
                     val tailCompaction = CompactionDividerPolicy.tailSpec(
                         currentCompaction, displayItemMessageIds, v1CompactionSummaryInList,
+                        suppressByLiveCompactCommand = compactCommandCardLive,
                     )
                     if (tailCompaction != null) {
                         item(key = "compaction_banner") {

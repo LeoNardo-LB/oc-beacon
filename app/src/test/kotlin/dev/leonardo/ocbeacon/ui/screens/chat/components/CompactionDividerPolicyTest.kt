@@ -244,6 +244,21 @@ class CompactionDividerPolicyTest {
     }
 
     @Test
+    fun tailSpec_374活compact命令卡让位() {
+        // #374（2026-09-09 用户演示裁决）：DSH /compact 期间命令反馈卡承载全程
+        // ——活命令卡在场（受理/执行中）时尾部进行中分割线让位；参数缺席时行为不变。
+        val state = activeState("m9")
+        assertNull(
+            "活命令卡让位——即使消息未入列也不出线",
+            CompactionDividerPolicy.tailSpec(state, setOf("a"), v1SummaryInList = false, suppressByLiveCompactCommand = true),
+        )
+        assertNotNull(
+            "默认参数（无命令卡面，如 V2 compact）兜底照旧",
+            CompactionDividerPolicy.tailSpec(state, setOf("a"), v1SummaryInList = false),
+        )
+    }
+
+    @Test
     fun tailSpec_展开键V2真实id_V1固定键() {
         assertEquals("m9", CompactionDividerPolicy.tailSpec(activeState("m9"), emptySet(), false)!!.expansionKey)
         assertEquals(
