@@ -124,27 +124,10 @@
 
 ## P2 — 优化与锦上添花
 
-- [~] **#372 命令选择回填铁律——三面所有指令统一回填可补参（2026-09-09 用户裁决，已持久化 docs/ui-conventions.md）** `ui` `command`
-  - **已实现(2026-09-09)**：ChatInputBar onCommandClick——server 型命令 tap 统一回填 "/name "（废除无 hint 即直达分叉）；client 本地动作（rename 对话框/shell 模式）保持直达；skill 节本就回填——三面一致，待重演验收
-  - **全指令清查(2026-09-09)**：文本命令选择面唯一=斜杠面板（已统一）；其余派遣点均为专用快捷钮（plan-off chip :731/权限预设切换/review 钮 :561）=铁律例外类；:561 review 特例与 :571 else 分支现仅收 client 型（server 型不再经 onSlashCommand）——review 特例成死代码待清理；V1 空会话 clientCmds 兜底面板（fork/share 等派往服务器被吞）归 #373 邻域
-  - **真机重演 ✔(2026-09-09)**：DSH 面 tap 面板项→输入框回填「/export 」+零派遣（用户判定「过」）；底层按接口系统性校准 → #380
-  - 史：r1 观察 V1 回填/V2·DSH 直达分叉 → 用户裁决「支持加参数就按回填」+「所有命令参数都这么处理+持久化」→ 后端核证三面全支持 → 回填统一+铁律入 ui-conventions
+（#372/#366/#367/#353 已完结迁 journal：2026-09-09 演示批过验，见 `docs/journal/2026-09-09-365-353-359-uiux-consistency.md` §八）
 
 - [ ] **#379 抽屉手柄统一+内部滑动不致收起——fling 消费修正（2026-09-09 用户裁决）** `ui` `refactor`
   - 裁决原文:「任何在抽屉内的滑动（拖拽或 fling）都不应该让抽屉收起，只有拖动手柄/点外/返回手势才收起；所有抽屉需统一的小样式手柄（行高很小）」；问：M3 是否天然支持手柄自定义——**是**：ModalBottomSheet 有 dragHandle 槽位（默认 32×4dp 圆角条，可替换任意 composable）；fling 收起根因=内容未消费嵌套滚动（列表需 nestedScroll 到顶才传递给 sheet）——全 sheet 盘点统一
-
-- [~] **#366 👍/👎 反馈门控能力位化——feedbackEnabled 走裸 serverType 特判违背「UI 入口按能力位隐藏」约定（UIUX 三面审计 D8）** `refactor` `dsh`
-  - **已实现(2026-09-09)**：messageFeedbackSupported 位（DSH 独有）+ ChatMessageList/ChatViewModel 两处特判收敛 + 矩阵测试；编译+定向单测 ✔ → journal §三（同批文件）
-  - ChatMessageList.kt:247-276 / ChatViewModel.kt:748-762 直判 type==Dsh；功能缺口合法（OpenCode 无评分域）但应建 feedbackSupported 能力位（同 #351 queueSupported 先例）
-
-- [~] **#367 ServerSettingsContent 潜伏耦合——DSH 配置/插件节嵌在 agentPresetSupported 分支内（UIUX 三面审计 D10）** `refactor` `dsh`
-  - **已实现(2026-09-09)**：两 item 移出嵌套（空数据自门控，行为零变化）；编译 ✔ → journal §三（同批文件）
-  - ServerSettingsContent.kt:99-126：DshServerConfigSection+DshPluginInventorySection 悬挂在预设位 if 内，今日两比特同值无症状、结构错——解耦为并列条件
-
-- [~] **#353 长按直达「会话详情」——动作按钮收进详情+去重+删除/归档互斥（走查反馈② → 2026-09-09 演示二次裁决终型）** `ui`
-  - **终型裁决（2026-09-09 演示）**：「直接将功能按钮放到会话详情中…功能按钮去重（抽屉有重命名则详情不再放）」「删除有直接接口就不需要归档——归档只在删除无 API 的面使用」——长按=直达详情对话框；V1/V2 详情含删除（危险色）、DSH 详情含归档（互斥顶替）；已归档行动作区仅复制 ID
-  - **已实现终型(2026-09-09, commit 2c255ee6)**：菜单/sheet 中间形态退役（ee1b879a 的 sheet 为中间态）；编译+定向单测 ✔ 待重演验收 → `docs/journal/2026-09-09-365-353-359-uiux-consistency.md` §六
-  - 史：走查「直接弹窗而非选择列表」→ sheet 中间态 → 终型直开详情（三次裁决链全记录）
 
 - [ ] **#355 会话/消息搜索重设计（走查反馈②；2026-09-09 重登记——卡片曾在 fb9f4d75 误随 #354 迁移丢失）** `search` `ui`
   - 用户:检索结果为**对话内容**→显示属于哪个会话;为**会话标题**→正常会话 list;可筛选;**已归档不展示**;筛选**不要 tag 形式,要标准列表筛选样式**;对**所有服务器生效(含 opencode V1/V2)**
@@ -209,16 +192,10 @@
 
 ## P3 — 观察与低价值改进
 
-- [ ] **#372 三面斜杠面板 tap 行为不一致——V1 回填输入框需手动发送 / V2 tap 直接执行 / DSH 未测（#365 验收 r1 观察）** `ui` `command`
-  - 同一「面板选择命令」交互三面语义分叉；以最新逻辑为标准统一（需先定标准：回填可改参更安全 vs 直达更快）——DSH 面 tap 路径补测后裁决
+（#359 已完结迁 journal：2026-09-09 演示批（§八）；旧「#372 三面面板 tap 行为不一致」观察卡系 #372 裁决前登记的重复卡，随终卡一并迁出清理）
 
 - [ ] **#373 V1 空 scratch 会话面板 tap 静默清空输入+无执行，伴随 /session//todo 400 空 sid 请求（#365 验收 r1 附带发现）** `v1` `bug`
   - 无服务端会话时 slash 面板 tap 清空 composer 且零执行；logcat 见空 sessionId 打到 /session//todo（#250 空 sid 404 同族——面板路径未挂 ensureSession）
-
-- [~] **#359 三条重配服务器凭据探查+自动输入方案调研（走查反馈⑨）** `infra`
-  - **已实现+实机闭环(2026-09-09)**：cred-probe.sh（v1/dsh012 两路径真机注入全绿：V1-4198 连接+LLM 回流 / dsh012-a5 token 交换+cookie 持久化）；248 边界=宿主零痕迹不可探查（用户裁定重启或弃用）→ `docs/research/2026-09-09-credential-probe-359.md` + journal §三
-  - 用户:「是否有方案探查到凭据然后自动输入?」——192.168.110.248:248/V1-4198/dsh012-a5 三条;调研宿主可探查面(配置文件/env/密钥链)→可行则脚本注入,不可行则如实报告边界
-
 
 - [ ] **#368 V2 时钟域对齐调研——V2SseMapper 设备钟盖戳 created/completed vs V1/DSH 服务器信封钟（UIUX 三面审计 D4）** `sse` `v2` `data`
   - V2SseMapper.kt:129/166-171（2026-08-26 旧实现）盖 System.currentTimeMillis()——台账时长/未读水位随设备钟漂移；以最新逻辑（DSH 域一致钟，#338 09-07）为标准，先探 V2 wire 信封时间可得性再对齐
