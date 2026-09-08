@@ -823,6 +823,12 @@ fun ChatScreen(
                 .padding(padding)
                 .consumeWindowInsets(padding)
         ) {
+            // #365：命令反馈行在场时不得落入空态 hero——受理/反馈卡是
+            // ChatMessageList 的 LazyColumn item，空转录 hero 会整块替换
+            // 消息区致卡不可见（2026-08-19 pending 卡片同款先例延伸）。
+            val commandFeedbackForSession by viewModel.chatRepositoryExposed
+                .getCommandFeedbackForSession(viewModel.sessionId)
+                .collectAsStateWithLifecycle(initialValue = emptyList())
             when {
                 isTerminalMode -> {
                     ChatTerminalView(
@@ -860,7 +866,8 @@ fun ChatScreen(
                 // agent 首轮就要权限/提问，3 分钟无人应答即超时）。有 pending 卡片
                 // 时走完整消息列表分支（空消息 + 卡片 item，LazyColumn 正常渲染）。
                 messageState.messages.isEmpty() && !interaction.isLoading &&
-                    interaction.pendingQuestions.isEmpty() && interaction.pendingPermissions.isEmpty() -> {
+                    interaction.pendingQuestions.isEmpty() && interaction.pendingPermissions.isEmpty() &&
+                    commandFeedbackForSession.isEmpty() -> {
                     ChatEmptyState(
                         modifier = Modifier.align(Alignment.Center)
                     )

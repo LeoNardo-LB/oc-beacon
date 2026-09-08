@@ -1181,8 +1181,19 @@ class V2ApiClient @Inject constructor(
         variant: String?,
         parts: List<Map<String, String>>?
     ): Boolean {
-        // #200 F03：可选字段非空才进请求体（2026-08-23 实测 V2 beta-17963 接受同字段族）
-        val body = mutableMapOf<String, Any>("command" to command, "arguments" to arguments)
+        // #200 F03：可选字段非空才进请求体（2026-08-23 实测 V2 beta-17963 接受同字段族）。
+        // #365（2026-09-09 实测勘误）：V2 beta-19086 起 /command 校验 text 键——
+        // 缺即 400 Missing key at ["text"]（command 仍必需；两者齐发 204 实证）。
+        // text=完整命令行（斜杠形式，与 web 端输入框语义一致）。
+        val commandLine = buildString {
+            append('/').append(command)
+            if (arguments.isNotBlank()) append(' ').append(arguments)
+        }
+        val body = mutableMapOf<String, Any>(
+            "command" to command,
+            "arguments" to arguments,
+            "text" to commandLine,
+        )
         agent?.let { body["agent"] = it }
         model?.let { body["model"] = it }
         variant?.let { body["variant"] = it }

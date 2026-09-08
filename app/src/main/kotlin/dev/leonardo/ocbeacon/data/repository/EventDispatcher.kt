@@ -243,9 +243,13 @@ class EventDispatcher @Inject constructor(
     /** #323：斜杠命令执行反馈行（sessionId → 卡态列表，seq 升序；commandId 配对原位更新）。 */
     val commandFeedback: StateFlow<Map<String, List<CommandFeedback>>> get() = miscHandler.commandFeedback
 
-    /** #365：命令受理即知——本地合成反馈行写入（commands/execute ok 后调用）。 */
+    /** #365：命令受理即知——派发时本地合成反馈行写入（不等 RPC 返回）。 */
     fun recordLocalCommandAcceptance(sessionId: String, name: String, args: String?) =
         miscHandler.recordLocalAcceptance(sessionId, name, args)
+
+    /** #365：派发失败——同名占位翻 error 终态。 */
+    fun recordLocalCommandFailure(sessionId: String, name: String) =
+        miscHandler.recordLocalFailure(sessionId, name)
     val gapDetected: StateFlow<Set<String>> get() = sessionNextHandler.gapDetected
 
     // ============ 事件处理 ============

@@ -137,6 +137,20 @@ class CommandFeedbackFolderTest {
     }
 
     @Test
+    fun `local failure flips the latest same-name placeholder to error terminal`() {
+        var states = CommandFeedbackFolder.onLocalAcceptance(emptyList(), "compact", null, now = 1000)
+        states = CommandFeedbackFolder.onLocalAcceptance(states, "plan", "off", now = 1100)
+        states = CommandFeedbackFolder.onLocalFailure(states, "compact")
+        assertEquals(2, states.size)
+        val flipped = states.first { it.name == "compact" }
+        assertEquals("error", flipped.done!!.kind)
+        assertEquals("失败终态后不再可被 run 配对升级", true, flipped.done != null && flipped.localAccepted)
+        // 未终态占位保持可升级
+        states = CommandFeedbackFolder.onRun(states, run("wire-1", "plan", seq = 9, time = 1200))
+        assertEquals("wire-1", states.first { it.name == "plan" }.commandId)
+    }
+
+    @Test
     fun `done pairs by commandId and never touches local placeholders`() {
         var states = CommandFeedbackFolder.onLocalAcceptance(emptyList(), "compact", null, now = 1000)
         states = CommandFeedbackFolder.onRun(states, run("wire-1", "plan", seq = 9, time = 1100))

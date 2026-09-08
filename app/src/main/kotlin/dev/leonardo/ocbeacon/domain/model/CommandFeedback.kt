@@ -71,6 +71,18 @@ object CommandFeedbackFolder {
         localAccepted = true,
     )
 
+    /**
+     * #365：派发失败终态化——同名最近的未终态本地占位翻为 error 终态
+     * （受理即知在派发时插入；RPC 失败/异常时占位不留悬空「已受理」）。
+     */
+    fun onLocalFailure(states: List<CommandFeedback>, name: String): List<CommandFeedback> {
+        val index = states.indexOfLast { it.localAccepted && it.done == null && it.name == name }
+        if (index < 0) return states
+        return states.toMutableList().apply {
+            set(index, states[index].copy(done = CommandFeedback.Done(kind = "error")))
+        }
+    }
+
     fun onRun(states: List<CommandFeedback>, event: SseEvent.CommandRunStarted): List<CommandFeedback> {
         val state = CommandFeedback(
             commandId = event.commandId,

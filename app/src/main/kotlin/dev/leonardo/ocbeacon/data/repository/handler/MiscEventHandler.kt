@@ -50,14 +50,23 @@ class MiscEventHandler @Inject constructor() : SseEventHandler {
     }
 
     /**
-     * #365：本地受理占位（受理即知）——commands/execute 受理成功即追加，
-     * 不等服务器事件；command/run 到达后由 Folder.onRun 同名占位原位升级。
+     * #365：本地受理占位（受理即知）——派发时即追加，不等 RPC 返回
+     * （V1 /command 同步挂起可达数十秒，回执后插入等于「完成才知」）；
+     * command/run 到达后由 Folder.onRun 同名占位原位升级；派发失败由
+     * [recordLocalFailure] 翻 error 终态。
      */
     fun recordLocalAcceptance(sessionId: String, name: String, args: String?) {
         _commandFeedback.update { all ->
             all + (sessionId to CommandFeedbackFolder.onLocalAcceptance(
                 all[sessionId].orEmpty(), name, args, System.currentTimeMillis(),
             ))
+        }
+    }
+
+    /** #365：派发失败——同名最近未终态占位翻 error（不留悬空已受理）。 */
+    fun recordLocalFailure(sessionId: String, name: String) {
+        _commandFeedback.update { all ->
+            all + (sessionId to CommandFeedbackFolder.onLocalFailure(all[sessionId].orEmpty(), name))
         }
     }
 

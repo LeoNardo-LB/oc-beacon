@@ -137,6 +137,9 @@ interface ChatRepository {
      */
     fun recordCommandAcceptance(sessionId: String, command: String, arguments: String?)
 
+    /** #365：命令派发失败——同名受理占位翻 error 终态（不留悬空已受理）。 */
+    fun recordCommandFailure(sessionId: String, command: String)
+
     /**
      * 从指定 messageId 开始撤销（revert）消息。
      */

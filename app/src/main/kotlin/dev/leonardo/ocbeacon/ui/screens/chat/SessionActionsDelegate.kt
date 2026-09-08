@@ -751,6 +751,14 @@ internal class SessionActionsDelegate(
                     arguments
                 }
 
+                // #365 受理即知（2026-09-09 验收勘误：原实现 ok 后插入——DSH 19ms 无感，
+                // 但 V1/V2 /command 同步挂起可达数十秒，「回执后才知」 defeats 受理即知；
+                // 改派发时插入，失败/异常翻 error 终态）。
+                chatRepository.recordCommandAcceptance(
+                    sessionId = currentSessionId,
+                    command = normalizedCommand,
+                    arguments = effectiveArguments.takeIf { it.isNotBlank() },
+                )
                 val ok = manageTerminalUseCase.executeCommand(
                     serverId = serverId,
                     sessionId = currentSessionId,
@@ -764,20 +772,19 @@ internal class SessionActionsDelegate(
                         "Executed command /$normalizedCommand in session $currentSessionId: $ok (directory=$effectiveDirectory, arguments=$effectiveArguments)"
                     )
                 }
-                if (ok) {
-                    // #365 受理即知：命令通道无消息语义（发送后转录无痕），受理成功
-                    // 即插本地合成反馈行；DSH 原生命令 command/run 到达后同名原位
-                    // 升级转正（受理→Running→终态单卡演化，非两行）。
-                    chatRepository.recordCommandAcceptance(
-                        sessionId = currentSessionId,
-                        command = normalizedCommand,
-                        arguments = effectiveArguments.takeIf { it.isNotBlank() },
-                    )
+                if (!ok) {
+                    chatRepository.recordCommandFailure(currentSessionId, normalizedCommand)
                 }
                 onResult(ok)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to execute command /$command", e)
+                // currentSessionId 在 try 域内不可达——provider 直读（会话未建时为空串，
+                // 失败占位落空键不可见，无碍；受理占位同样未插入过的场景本就无需翻态）
+                val sid = sessionIdProvider()
+                if (sid.isNotBlank()) {
+                    chatRepository.recordCommandFailure(sid, command.removePrefix("/").trim())
+                }
                 onResult(false)
             }
         }
