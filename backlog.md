@@ -135,11 +135,7 @@
 ## P2 — 优化与锦上添花
 
 （#372/#366/#367/#353 已完结迁 journal：2026-09-09 演示批过验，见 `docs/journal/2026-09-09-365-353-359-uiux-consistency.md` §八）
-
-- [~] **#382 质量保证文档按工作流合并（14→9）——verification 框架权威化(V1-V6)/probing 观测探测手册/device-testing 真机+模拟器环境 runbook；simulator-walkthrough 归档 research；被并文档留 tombstone** `refactor`
-  - 2026-09-09 用户裁决采纳四点：目标结构/维度统一 V1-V6/walkthrough 归档/tombstone 保留
-  - live 引用改链+AGENTS.md 索引收敛；journal-acceptance 历史引用靠 tombstone 不断链
-  - **已实施(2026-09-09)**：三合并+tombstone×7+全仓改链+AGENTS 索引收敛（5 旧行→3 新行）——journal §一；验证=残留扫描 0+backlog-check 通过；待用户抽验合并文档内容后关闭
+（#382 已完结迁 journal：2026-09-09-docs-consolidation.md（2026-09-09））
 
 - [ ] **#379 抽屉手柄统一+内部滑动不致收起——fling 消费修正（2026-09-09 用户裁决）** `ui` `refactor`
   - 裁决原文:「任何在抽屉内的滑动（拖拽或 fling）都不应该让抽屉收起，只有拖动手柄/点外/返回手势才收起；所有抽屉需统一的小样式手柄（行高很小）」；问：M3 是否天然支持手柄自定义——**是**：ModalBottomSheet 有 dragHandle 槽位（默认 32×4dp 圆角条，可替换任意 composable）；fling 收起根因=内容未消费嵌套滚动（列表需 nestedScroll 到顶才传递给 sheet）——全 sheet 盘点统一

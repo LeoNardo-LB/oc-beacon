@@ -23,3 +23,24 @@
 **豁免决定**：docs/terminology/* 带日期审计记录不改写（含旧行号引用）——tombstone 可解析即达成不断链目标。
 
 **验证**：全仓残留扫描=0 真残留（命中项均为「#382 整合自 …」来源注记）；backlog-check 通过。
+
+## §二 独立审计与收尾（2026-09-09）
+
+**独立审计**（纯净审查代理，脚本化：81 条规范行提取→逐字/4-gram 双通道匹配→逐条判读）：
+- 64 逐字命中 + 14 合法改写（重编号带合并注/结构自指失效/等价改写在场）+ 3 边缘项——集中于 e2e-testing-workflow 的用例/执行域条款（触发类型清单/委派 prompt 四要素/禁止 global 聚合目录），活文档零承接。
+- tombstone×7 指向正确；归档 R097 diff 恰 +2 行注记；D3-3 逐字迁入 dialogue-plan:9。
+- 结论：**有条件通过**。
+
+**条件解除（补录路径）**：三条款以「E2E 执行规范」小节回补至 device-testing.md 测试用例矩阵节下（原文 git 79da4e8f^ 逐字迁入，带 #382 审计回补来源注）。
+
+**机械校验**：全仓链接存在性（正确相对基准解析）通过；AGENTS.md 陈旧 spec 行（error-report 已归档 docs/archive/specs/，1940d8ff）顺手移除。
+
+**验收**：用户授权自行评估（2026-09-09「你自行评估验收吧」）——审计有条件通过+条件解除+机械校验全绿 → 卡片 migrate 关闭。
+
+## 已完结卡片迁入（2026-09-09）
+
+### **#382 质量保证文档按工作流合并（14→9）——verification 框架权威化(V1-V6)/probing 观测探测手册/device-testing 真机+模拟器环境 runbook；simulator-walkthrough 归档 research；被并文档留 tombstone** `refactor`
+  - 2026-09-09 用户裁决采纳四点：目标结构/维度统一 V1-V6/walkthrough 归档/tombstone 保留
+  - live 引用改链+AGENTS.md 索引收敛；journal-acceptance 历史引用靠 tombstone 不断链
+  - **已实施(2026-09-09)**：三合并+tombstone×7+全仓改链+AGENTS 索引收敛（5 旧行→3 新行）——journal §一；验证=残留扫描 0+backlog-check 通过；待用户抽验合并文档内容后关闭
+  - 迁入依据：用户授权自行评估验收（2026-09-09）；独立审计有条件通过+三条款补录解除+机械校验全绿（backlog.sh migrate 2026-09-09）

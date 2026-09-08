@@ -223,3 +223,16 @@ $adb install -r app/build/outputs/apk/dev/debug/app-dev-debug.apk
 ## 测试用例矩阵
 
 用例矩阵见 [`docs/dialogue-e2e-test-plan.md`](dialogue-e2e-test-plan.md)。
+
+### E2E 执行规范（2026-09-09 #382 审计回补，迁自 e2e-testing-workflow §1/§6/§7）
+
+**触发类型**——以下改动必须执行 E2E 工作流（至少 TC1/TC2/TC5）：
+- 通知相关（持久通知、事件通知、渠道、去重、抑制）
+- 会话列表/分组/聚合逻辑
+- 导航/深链（通知点击、路由）
+- 字符串/多语言
+- 连接状态机（SSE 连接、重连、断开）
+
+**委派执行**：模拟器 UI 交互应委派 subagent 执行，避免主会话上下文污染。委派 prompt 必须包含：环境信息（模拟器/设备 ID、服务器地址、凭据来源）、逐条测试用例、断言方法、输出格式（TC 编号 + PASS/FAIL + 实际观察值 + 截图路径）。
+
+**断言要点（会话分组域）**：目录视图分组标题为目录 basename；分组键为完整目录路径（不同目录不合并）；**禁止出现 "global" 聚合目录**（服务器 /project 的全局项目名）。
