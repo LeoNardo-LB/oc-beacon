@@ -764,6 +764,16 @@ internal class SessionActionsDelegate(
                         "Executed command /$normalizedCommand in session $currentSessionId: $ok (directory=$effectiveDirectory, arguments=$effectiveArguments)"
                     )
                 }
+                if (ok) {
+                    // #365 受理即知：命令通道无消息语义（发送后转录无痕），受理成功
+                    // 即插本地合成反馈行；DSH 原生命令 command/run 到达后同名原位
+                    // 升级转正（受理→Running→终态单卡演化，非两行）。
+                    chatRepository.recordCommandAcceptance(
+                        sessionId = currentSessionId,
+                        command = normalizedCommand,
+                        arguments = effectiveArguments.takeIf { it.isNotBlank() },
+                    )
+                }
                 onResult(ok)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e

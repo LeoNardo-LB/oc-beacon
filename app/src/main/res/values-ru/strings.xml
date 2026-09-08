@@ -39,6 +39,7 @@
     <string name="turn_max_tokens_title">Достигнут лимит вывода</string>
     <string name="turn_max_tokens_continue">Продолжить</string>
     <string name="command_feedback_running">Выполняется…</string>
+    <string name="command_feedback_accepted">Принято</string>
     <string name="command_feedback_completed">Завершено</string>
     <string name="command_feedback_failed">Не удалось</string>
     <string name="command_feedback_a11y_running">Команда выполняется</string>

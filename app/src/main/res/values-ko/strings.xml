@@ -25,6 +25,7 @@
     <string name="turn_max_tokens_title">출력 한도에 도달했습니다</string>
     <string name="turn_max_tokens_continue">계속</string>
     <string name="command_feedback_running">실행 중…</string>
+    <string name="command_feedback_accepted">접수됨</string>
     <string name="command_feedback_completed">완료됨</string>
     <string name="command_feedback_failed">실패</string>
     <string name="command_feedback_a11y_running">명령 실행 중</string>

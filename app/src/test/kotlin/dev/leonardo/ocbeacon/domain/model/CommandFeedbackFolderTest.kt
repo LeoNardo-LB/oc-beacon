@@ -81,4 +81,69 @@ class CommandFeedbackFolderTest {
         assertEquals(1, states.size)
         assertEquals("second", states.single().done!!.text)
     }
+
+    // ============ #365 受理即知（本地占位 + run 同名升级） ============
+
+    @Test
+    fun `local acceptance appends a placeholder row with local- id`() {
+        val states = CommandFeedbackFolder.onLocalAcceptance(emptyList(), "compact", "--keep", now = 1000)
+        val single = states.single()
+        assertEquals(true, single.localAccepted)
+        assertEquals("compact", single.name)
+        assertEquals("--keep", single.args)
+        assertEquals(1000, single.startedAt)
+        assert(single.commandId.startsWith("local-"))
+        assertNull(single.done)
+    }
+
+    @Test
+    fun `run upgrades the latest same-name local placeholder in place`() {
+        // #365 核心：受理行 → Running 行原位升级（保位、转正，不产生第二行）
+        var states = CommandFeedbackFolder.onLocalAcceptance(emptyList(), "compact", null, now = 1000)
+        val placeholderId = states.single().commandId
+        states = CommandFeedbackFolder.onRun(states, run("wire-1", "compact", seq = 9, time = 1100))
+        assertEquals("占位原位升级，不追加第二行", 1, states.size)
+        val upgraded = states.single()
+        assertEquals("wire-1", upgraded.commandId)
+        assertEquals(false, upgraded.localAccepted)
+        assert(upgraded.commandId != placeholderId)
+        assertEquals(9, upgraded.seq)
+    }
+
+    @Test
+    fun `run with a different name does not consume the local placeholder`() {
+        var states = CommandFeedbackFolder.onLocalAcceptance(emptyList(), "compact", null, now = 1000)
+        states = CommandFeedbackFolder.onRun(states, run("wire-1", "plan", seq = 9, time = 1100))
+        assertEquals(2, states.size)
+        assertEquals(true, states[0].localAccepted)
+        assertEquals(false, states[1].localAccepted)
+    }
+
+    @Test
+    fun `two same-name placeholders are consumed latest-first by successive runs`() {
+        var states = CommandFeedbackFolder.onLocalAcceptance(emptyList(), "permission", "acceptEdits", now = 1000)
+        val firstId = states.single().commandId
+        states = CommandFeedbackFolder.onLocalAcceptance(states, "permission", "bypassPermissions", now = 2000)
+        val secondId = states.last().commandId
+        assert(secondId != firstId)
+
+        states = CommandFeedbackFolder.onRun(states, run("wire-a", "permission", seq = 10, time = 2100))
+        states = CommandFeedbackFolder.onRun(states, run("wire-b", "permission", seq = 11, time = 2200))
+
+        assertEquals(2, states.size)
+        assertEquals(setOf("wire-a", "wire-b"), states.map { it.commandId }.toSet())
+        assertEquals("两次占位都被消费，无残留 local 行", 0, states.count { it.localAccepted })
+        assertEquals("先到的 run 消费最近的占位（LIFO）", "wire-a", states[1].commandId)
+    }
+
+    @Test
+    fun `done pairs by commandId and never touches local placeholders`() {
+        var states = CommandFeedbackFolder.onLocalAcceptance(emptyList(), "compact", null, now = 1000)
+        states = CommandFeedbackFolder.onRun(states, run("wire-1", "plan", seq = 9, time = 1100))
+        states = CommandFeedbackFolder.onDone(states, done("wire-1", "success", seq = 12, time = 1200))
+        assertEquals(2, states.size)
+        assertEquals(true, states[0].localAccepted)
+        assertNull(states[0].done)
+        assertEquals("success", states[1].done!!.kind)
+    }
 }

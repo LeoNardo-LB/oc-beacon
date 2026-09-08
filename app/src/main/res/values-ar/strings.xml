@@ -25,6 +25,7 @@
     <string name="turn_max_tokens_title">تم الوصول إلى حد الإخراج</string>
     <string name="turn_max_tokens_continue">متابعة</string>
     <string name="command_feedback_running">قيد التشغيل…</string>
+    <string name="command_feedback_accepted">تم القبول</string>
     <string name="command_feedback_completed">اكتمل</string>
     <string name="command_feedback_failed">فشل</string>
     <string name="command_feedback_a11y_running">الأمر قيد التنفيذ</string>

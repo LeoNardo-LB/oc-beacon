@@ -25,6 +25,7 @@
     <string name="turn_max_tokens_title">出力の上限に達しました</string>
     <string name="turn_max_tokens_continue">続ける</string>
     <string name="command_feedback_running">実行中…</string>
+    <string name="command_feedback_accepted">受理済み</string>
     <string name="command_feedback_completed">完了</string>
     <string name="command_feedback_failed">失敗</string>
     <string name="command_feedback_a11y_running">コマンドを実行中</string>

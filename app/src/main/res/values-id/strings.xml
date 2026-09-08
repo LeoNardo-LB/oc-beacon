@@ -50,6 +50,7 @@
     <string name="turn_max_tokens_title">Batas output tercapai</string>
     <string name="turn_max_tokens_continue">Lanjutkan</string>
     <string name="command_feedback_running">Menjalankan…</string>
+    <string name="command_feedback_accepted">Diterima</string>
     <string name="command_feedback_completed">Selesai</string>
     <string name="command_feedback_failed">Gagal</string>
     <string name="command_feedback_a11y_running">Perintah sedang dijalankan</string>

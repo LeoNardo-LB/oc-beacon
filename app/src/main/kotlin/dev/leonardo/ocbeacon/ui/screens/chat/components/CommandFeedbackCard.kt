@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -66,6 +67,9 @@ internal fun CommandFeedbackCard(
     val secondaryColor = contentColor.copy(alpha = AlphaTokens.MUTED)
 
     val statusLabel = when {
+        // #365 受理即知：本地占位（服务器已受理、执行反馈未回）——静态时钟语义，
+        // 区别于 run 的 spinner（进行中）；无事件面的命令（skill 类）此即终态。
+        state.localAccepted && done == null -> stringResource(R.string.command_feedback_accepted)
         done == null -> stringResource(R.string.command_feedback_running)
         done.isSuccess -> stringResource(R.string.command_feedback_completed)
         done.isError -> stringResource(R.string.command_feedback_failed)
@@ -85,6 +89,13 @@ internal fun CommandFeedbackCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             when {
+                // #365：受理占位——时钟图标（受理与执行的视觉分层，静态无动画）
+                state.localAccepted && done == null -> Icon(
+                    imageVector = Icons.Outlined.Schedule,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = contentColor,
+                )
                 done == null -> CircularProgressIndicator(
                     modifier = Modifier
                         .size(14.dp)

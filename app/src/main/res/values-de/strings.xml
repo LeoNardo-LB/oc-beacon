@@ -25,6 +25,7 @@
     <string name="turn_max_tokens_title">Ausgabelimit erreicht</string>
     <string name="turn_max_tokens_continue">Fortfahren</string>
     <string name="command_feedback_running">Wird ausgeführt…</string>
+    <string name="command_feedback_accepted">Angenommen</string>
     <string name="command_feedback_completed">Abgeschlossen</string>
     <string name="command_feedback_failed">Fehlgeschlagen</string>
     <string name="command_feedback_a11y_running">Befehl wird ausgeführt</string>

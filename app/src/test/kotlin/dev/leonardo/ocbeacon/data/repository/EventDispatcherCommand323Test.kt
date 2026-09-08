@@ -133,4 +133,38 @@ class EventDispatcherCommand323Test {
         )
         assertNull(dispatcher.commandFeedback.value["s1"])
     }
+
+    // ============ #365 受理即知（本地占位 + wire run 升级） ============
+
+    @Test
+    fun `recordLocalCommandAcceptance appends placeholder then wire run upgrades in place`() = runTest {
+        dispatcher.recordLocalCommandAcceptance("s1", "compact", "--keep 5")
+        val placeholder = dispatcher.commandFeedback.value["s1"]!!.single()
+        assertEquals(true, placeholder.localAccepted)
+        assertEquals("compact", placeholder.name)
+        assertEquals("--keep 5", placeholder.args)
+        assertNull(placeholder.done)
+
+        dispatcher.processEvent(
+            SseEvent.CommandRunStarted(
+                sessionId = "s1", commandId = "wire-1", name = "compact",
+                args = "--keep 5", seq = 6, time = 100L,
+            ),
+            "srv-1",
+        )
+        // 受理占位被 wire run 原位升级：单卡、转正、无第二行
+        val cards = dispatcher.commandFeedback.value["s1"]!!
+        assertEquals(1, cards.size)
+        assertEquals("wire-1", cards.single().commandId)
+        assertEquals(false, cards.single().localAccepted)
+    }
+
+    @Test
+    fun `recordLocalCommandAcceptance is per-session isolated`() = runTest {
+        dispatcher.recordLocalCommandAcceptance("s1", "compact", null)
+        dispatcher.recordLocalCommandAcceptance("s2", "plan", "off")
+        assertEquals(1, dispatcher.commandFeedback.value["s1"]!!.size)
+        assertEquals(1, dispatcher.commandFeedback.value["s2"]!!.size)
+        assertEquals("plan", dispatcher.commandFeedback.value["s2"]!!.single().name)
+    }
 }

@@ -25,6 +25,7 @@
     <string name="turn_max_tokens_title">Çıktı sınırına ulaşıldı</string>
     <string name="turn_max_tokens_continue">Devam et</string>
     <string name="command_feedback_running">Çalışıyor…</string>
+    <string name="command_feedback_accepted">Kabul edildi</string>
     <string name="command_feedback_completed">Tamamlandı</string>
     <string name="command_feedback_failed">Başarısız</string>
     <string name="command_feedback_a11y_running">Komut çalışıyor</string>

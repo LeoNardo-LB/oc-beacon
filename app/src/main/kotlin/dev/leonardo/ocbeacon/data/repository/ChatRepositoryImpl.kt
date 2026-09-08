@@ -873,6 +873,9 @@ class ChatRepositoryImpl @Inject constructor(
     override fun getCommandFeedbackForSession(sessionId: String): Flow<List<CommandFeedback>> =
         eventDispatcher.commandFeedback.map { it[sessionId].orEmpty() }.distinctUntilChanged()
 
+    override fun recordCommandAcceptance(sessionId: String, command: String, arguments: String?) =
+        eventDispatcher.recordLocalCommandAcceptance(sessionId, command, arguments)
+
     override fun getSessionDiffsForSession(sessionId: String): Flow<List<FileDiff>> =
         eventDispatcher.sessionDiffs.map { it[sessionId] ?: emptyList() }.distinctUntilChanged()
 

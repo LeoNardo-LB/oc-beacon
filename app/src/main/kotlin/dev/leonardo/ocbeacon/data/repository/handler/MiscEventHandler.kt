@@ -49,6 +49,18 @@ class MiscEventHandler @Inject constructor() : SseEventHandler {
         _todos.update { it + (sessionId to todos) }
     }
 
+    /**
+     * #365：本地受理占位（受理即知）——commands/execute 受理成功即追加，
+     * 不等服务器事件；command/run 到达后由 Folder.onRun 同名占位原位升级。
+     */
+    fun recordLocalAcceptance(sessionId: String, name: String, args: String?) {
+        _commandFeedback.update { all ->
+            all + (sessionId to CommandFeedbackFolder.onLocalAcceptance(
+                all[sessionId].orEmpty(), name, args, System.currentTimeMillis(),
+            ))
+        }
+    }
+
     override fun handle(event: SseEvent, serverId: String): Boolean {
         return when (event) {
             is SseEvent.TodoUpdated -> { _todos.update { it + (event.sessionId to event.todos) }; true }

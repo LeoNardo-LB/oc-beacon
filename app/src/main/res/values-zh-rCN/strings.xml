@@ -25,6 +25,7 @@
     <string name="turn_max_tokens_title">输出达到上限</string>
     <string name="turn_max_tokens_continue">继续</string>
     <string name="command_feedback_running">执行中…</string>
+    <string name="command_feedback_accepted">已受理</string>
     <string name="command_feedback_completed">已完成</string>
     <string name="command_feedback_failed">失败</string>
     <string name="command_feedback_a11y_running">命令执行中</string>

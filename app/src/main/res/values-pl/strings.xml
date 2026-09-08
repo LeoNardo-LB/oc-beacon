@@ -25,6 +25,7 @@
     <string name="turn_max_tokens_title">Osiągnięto limit wyjścia</string>
     <string name="turn_max_tokens_continue">Kontynuuj</string>
     <string name="command_feedback_running">Uruchamianie…</string>
+    <string name="command_feedback_accepted">Przyjęte</string>
     <string name="command_feedback_completed">Zakończono</string>
     <string name="command_feedback_failed">Niepowodzenie</string>
     <string name="command_feedback_a11y_running">Polecenie jest wykonywane</string>

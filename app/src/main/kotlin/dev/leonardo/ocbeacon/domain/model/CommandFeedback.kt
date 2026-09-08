@@ -7,11 +7,14 @@ package dev.leonardo.ocbeacon.domain.model
  * - [done] == null：进行中（run 建卡，spinner 语义行）；
  * - [done] 非空：终态（done 原位终态化同一张卡——同 commandId 单卡刷新，非两行，
  *   DshJobTimelineCard runId 同宿主原位更新同款语义）。
+ * - [localAccepted] == true 且 [done] == null：#365 本地受理占位——
+ *   commands/execute 受理成功即建（不等服务器事件，「受理即知」层）；
+ *   DSH 原生命令的 command/run 到达后同名占位原位升级转正（见 Folder.onRun）。
  *
  * 折叠纯函数见 [CommandFeedbackFolder]（handler 只做容器写）。
  */
 data class CommandFeedback(
-    /** 配对键（wire commandId——run/done 两事件唯一可共享的连接键）。 */
+    /** 配对键（wire commandId——run/done 两事件唯一可共享的连接键；本地占位为 local- 前缀合成 id）。 */
     val commandId: String,
     /** 命令名（wire name；orphan done 无 run 前驱时为空串，UI 回退通用标签）。 */
     val name: String,
@@ -23,6 +26,8 @@ data class CommandFeedback(
     val startedAt: Long = 0L,
     /** 终态（null = 进行中）。 */
     val done: Done? = null,
+    /** #365：本地受理占位（受理即知——命令通道无消息语义，本地合成行先占位）。 */
+    val localAccepted: Boolean = false,
 ) {
     /** 结算态：kind 词汇开放（success|error|…，dsh-commands 契约）。 */
     data class Done(
@@ -43,10 +48,28 @@ data class CommandFeedback(
  * #323 配对纯函数：commandId 配对原位更新。
  *
  * - run：同 commandId 原位替换（重放幂等），否则按到达序（seq 升序）追加；
+ *   #365 增补：追加前先找最近的同名未转正本地受理占位（localAccepted 且未终态）
+ *   原位升级——wire 无「execute → run」的连接键（commands/execute 不回
+ *   commandId），同名+最近占位是唯一可用配对；占位转正后即普通卡。
  * - done：同 commandId 原位终态化（保位、保 name/args——run 建的卡刷新为终态，
  *   不产生第二行）；无 run 前驱的 orphan done 自建终态卡（name 空串回退）。
+ * - localAcceptance（#365）：executeCommand 受理成功即追加占位（受理即知，
+ *   不依赖服务器事件——skill 类命令无 command/run|done，占位即最终形态）。
  */
 object CommandFeedbackFolder {
+
+    fun onLocalAcceptance(
+        states: List<CommandFeedback>,
+        name: String,
+        args: String?,
+        now: Long,
+    ): List<CommandFeedback> = states + CommandFeedback(
+        commandId = "local-" + java.util.UUID.randomUUID(),
+        name = name,
+        args = args,
+        startedAt = now,
+        localAccepted = true,
+    )
 
     fun onRun(states: List<CommandFeedback>, event: SseEvent.CommandRunStarted): List<CommandFeedback> {
         val state = CommandFeedback(
@@ -57,7 +80,16 @@ object CommandFeedbackFolder {
             startedAt = event.time,
         )
         val index = states.indexOfFirst { it.commandId == event.commandId }
-        return if (index < 0) states + state else states.toMutableList().apply { set(index, state) }
+        if (index >= 0) return states.toMutableList().apply { set(index, state) }
+        // #365：同名最近的未转正本地占位原位升级（保位——受理行变 Running 行，非两行）
+        val localIndex = states.indexOfLast {
+            it.localAccepted && it.done == null && it.name == event.name
+        }
+        return if (localIndex < 0) {
+            states + state
+        } else {
+            states.toMutableList().apply { set(localIndex, state) }
+        }
     }
 
     fun onDone(states: List<CommandFeedback>, event: SseEvent.CommandDone): List<CommandFeedback> {

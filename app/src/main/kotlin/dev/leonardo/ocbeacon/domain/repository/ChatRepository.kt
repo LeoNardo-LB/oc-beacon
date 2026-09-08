@@ -131,6 +131,13 @@ interface ChatRepository {
     fun getCommandFeedbackForSession(sessionId: String): Flow<List<CommandFeedback>>
 
     /**
+     * #365：命令受理即知——commands/execute 受理成功即插本地合成反馈行
+     * （不等服务器事件；DSH command/run 到达后同名占位原位升级转正）。
+     * 三面同构：聊天面一切命令通道派发（斜杠/面板/快捷键）统一走此入口。
+     */
+    fun recordCommandAcceptance(sessionId: String, command: String, arguments: String?)
+
+    /**
      * 从指定 messageId 开始撤销（revert）消息。
      */
     suspend fun revertSession(serverId: String, sessionId: String, messageId: String): Result<Unit>
