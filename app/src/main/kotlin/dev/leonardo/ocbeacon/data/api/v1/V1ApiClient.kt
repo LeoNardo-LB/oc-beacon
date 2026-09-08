@@ -275,18 +275,11 @@ class V1ApiClient @Inject constructor(
         sessionId: String,
         command: String,
         arguments: String,
-        directory: String?,
-        agent: String?,
-        model: String?,
-        variant: String?,
-        parts: List<Map<String, String>>?
+        directory: String?
     ): Boolean {
-        // #200 F03：可选字段非空才进请求体（V1 契约 CommandPayload；空值省略与原行为一致）
+        // #380 契约对齐（2026-09-09）：V1 CommandPayload 必填 {command, arguments}——
+        // agent/model/variant/parts 死 plumbing 移除（全链无调用者，arguments 恒在）。
         val body = mutableMapOf<String, Any>("command" to command, "arguments" to arguments)
-        agent?.let { body["agent"] = it }
-        model?.let { body["model"] = it }
-        variant?.let { body["variant"] = it }
-        parts?.let { body["parts"] = it }
         val response = httpClient.post("${conn.baseUrl}/session/$sessionId/command") {
             auth(conn)
             directoryHeader(directory)

@@ -197,20 +197,16 @@ interface ChatRepository {
     // ============ 命令执行 ============
 
     /**
-     * 在会话中执行服务端命令。
-     * 可选 agent/model/variant/parts 按 V1 契约进请求体（model 为
-     * "providerID/modelID" 字符串格式，与 prompt 的对象格式不同）。
+     * 在会话中执行服务端命令（#380 契约对齐：V1={command,arguments}·V2={command,text}
+     * ·DSH=commands/execute 整行——三面均无 agent/model/variant/parts 需求，
+     * 死 plumbing 全链移除，2026-09-09）。
      */
     suspend fun executeCommand(
         serverId: String,
         sessionId: String,
         command: String,
         arguments: String = "",
-        directory: String? = null,
-        agent: String? = null,
-        model: String? = null,
-        variant: String? = null,
-        parts: List<Map<String, String>>? = null
+        directory: String? = null
     ): Result<Boolean>
 
     /**

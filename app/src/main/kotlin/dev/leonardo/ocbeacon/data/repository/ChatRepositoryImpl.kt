@@ -334,14 +334,10 @@ class ChatRepositoryImpl @Inject constructor(
         sessionId: String,
         command: String,
         arguments: String,
-        directory: String?,
-        agent: String?,
-        model: String?,
-        variant: String?,
-        parts: List<Map<String, String>>?
+        directory: String?
     ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        sessionApi.executeCommand(conn, sessionId, command, arguments, directory, agent, model, variant, parts)
+        sessionApi.executeCommand(conn, sessionId, command, arguments, directory)
     }
 
     override suspend fun setPermissionPreset(

@@ -390,11 +390,7 @@ class DshApiClient @Inject constructor(
         sessionId: String,
         command: String,
         arguments: String,
-        directory: String?,
-        agent: String?,
-        model: String?,
-        variant: String?,
-        parts: List<Map<String, String>>?,
+        directory: String?
     ): Boolean {
         val name = command.trim().trimStart('/')
         val line = if (arguments.isNotBlank()) "/$name $arguments" else "/$name"

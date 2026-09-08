@@ -98,11 +98,7 @@ interface SessionApi {
         sessionId: String,
         command: String,
         arguments: String = "",
-        directory: String? = null,
-        agent: String? = null,
-        model: String? = null,
-        variant: String? = null,
-        parts: List<Map<String, String>>? = null
+        directory: String? = null
     ): Boolean
 
     suspend fun listSessionChildren(conn: ServerConnection, sessionId: String): List<Session>
@@ -317,12 +313,8 @@ class SessionApiImpl @Inject constructor(
         sessionId: String,
         command: String,
         arguments: String,
-        directory: String?,
-        agent: String?,
-        model: String?,
-        variant: String?,
-        parts: List<Map<String, String>>?
-    ): Boolean = pick(conn).executeCommand(conn, sessionId, command, arguments, directory, agent, model, variant, parts)
+        directory: String?
+    ): Boolean = pick(conn).executeCommand(conn, sessionId, command, arguments, directory)
 
     override suspend fun listSessionChildren(conn: ServerConnection, sessionId: String): List<Session> =
         pick(conn).listSessionChildren(conn, sessionId)

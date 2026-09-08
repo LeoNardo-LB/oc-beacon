@@ -1175,29 +1175,22 @@ class V2ApiClient @Inject constructor(
         sessionId: String,
         command: String,
         arguments: String,
-        directory: String?,
-        agent: String?,
-        model: String?,
-        variant: String?,
-        parts: List<Map<String, String>>?
+        directory: String?
     ): Boolean {
-        // #200 F03：可选字段非空才进请求体（2026-08-23 实测 V2 beta-17963 接受同字段族）。
         // #365（2026-09-09 实测勘误）：V2 beta-19086 起 /command 校验 text 键——
         // 缺即 400 Missing key at ["text"]（command 仍必需；两者齐发 204 实证）。
         // text=完整命令行（斜杠形式，与 web 端输入框语义一致）。
+        // #380 契约对齐（2026-09-09）：OpenAPI additionalProperties:false 且 schema 仅
+        // {command,text,files,agents,skills,delivery}——请求体收窄为 {command,text}，
+        // arguments/agent/model/variant/parts 不再随发（beta-19086 实测宽容，防服务器转严）。
         val commandLine = buildString {
             append('/').append(command)
             if (arguments.isNotBlank()) append(' ').append(arguments)
         }
         val body = mutableMapOf<String, Any>(
             "command" to command,
-            "arguments" to arguments,
             "text" to commandLine,
         )
-        agent?.let { body["agent"] = it }
-        model?.let { body["model"] = it }
-        variant?.let { body["variant"] = it }
-        parts?.let { body["parts"] = it }
         val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/command") {
             auth(conn)
             directoryHeader(directory)
