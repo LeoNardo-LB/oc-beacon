@@ -220,9 +220,9 @@ interface ChatRepository {
     suspend fun fetchAttachmentDataUrl(serverId: String, sessionId: String, attachmentId: String): String?
 
     /**
-     * DSH updateQueue（2026-09-01 QueueDock）：排队项 edit/remove/steer。
+     * 排队项变更（#356 双面）：DSH updateQueue / V2 inbox 变更。
      * 结果经 [dev.leonardo.ocbeacon.domain.model.QueueMutationResult] 区分
-     * steer-unavailable / queue-item-not-found / agent-busy；OpenCode 恒 Failed。
+     * steer-unavailable / queue-item-not-found / agent-busy；V1 恒 Failed。
      */
     suspend fun updateQueueItem(
         serverId: String,
@@ -231,6 +231,15 @@ interface ChatRepository {
         action: dev.leonardo.ocbeacon.domain.model.QueueActionKind,
         editText: String? = null,
     ): dev.leonardo.ocbeacon.domain.model.QueueMutationResult
+
+    /**
+     * #356：V2 inbox 排队列表拉取（QueueSheet 数据源；DSH 走 DshQueueStore
+     * 帧推送不经此路，V1 无可见域）。失败 → null（调用方保旧值不闪空）。
+     */
+    suspend fun listQueueItems(
+        serverId: String,
+        sessionId: String,
+    ): List<dev.leonardo.ocbeacon.domain.model.QueuedInboxItem>?
 
 
     // ============ DSH 子智能体续聊（backlog #310①；OpenCode V1/V2 不支持） ============

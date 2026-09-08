@@ -1237,18 +1237,31 @@ class DshApiClient @Inject constructor(
                     model.providerId + "/" + model.modelId)
             }
         }
+        // #356：requestId 提升为变量——受理后构造本地 echo 播种回执（V012）。
+        val requestId = if (v012) java.util.UUID.randomUUID().toString() else null
         val payload = buildJsonObject {
             // 0.1.2 prompt 必填 requestId（journal §2.3）；0.1.1 无此键。
-            if (v012) put("requestId", java.util.UUID.randomUUID().toString())
+            if (requestId != null) put("requestId", requestId)
             put("sessionId", sessionId)
             put("content", JsonArray(content))
             // E2E 实证（2026-08-31）：mode 必填（zod expected queue|steer，缺席整单拒绝）。
-            // queue→send（对齐 oc-beacon 既有排队语义）；steer=注入进行中轮次
-            //（#309 批1④：忙碌长按发送键触发，双键排队为主路径的定位不变）。
+            // queue→轮末排队派发（idle 时即普通发送）；steer=注入进行中轮次
+            //（#356 反转：busy 菜单「立即发送」= steer、「消息排队」= queue——
+            // 对齐 DSH web 提交策略与用户「上屏+徽标」语义）。
             put("mode", if (steer) "steer" else "queue")
         }
         rpc.call(conn, "session.prompt", payload) { Unit }.getOrElse { e -> throw e }
-        return null
+        // #356 echo 播种：受理即返回 admission → ChatRepositoryImpl 现有本地播种链
+        // 上屏（web PendingSubmissionBubble 对位）；id=pending-<requestId>，
+        // 持久 user/message（source=user-rpc.rpcId）到达时 mapper 补发
+        // MessageRemoved 原子换装（幂等）。V011 无 requestId → 维持 null 无 echo。
+        return requestId?.let { rid ->
+            dev.leonardo.ocbeacon.data.api.message.PromptAdmission(
+                id = "pending-$rid",
+                sessionId = sessionId,
+                text = parts.firstOrNull { it.type == "text" }?.text,
+            )
+        }
     }
 
     /**

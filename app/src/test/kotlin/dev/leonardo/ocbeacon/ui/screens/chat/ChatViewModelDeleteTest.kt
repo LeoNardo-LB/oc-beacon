@@ -100,7 +100,6 @@ class ChatViewModelDeleteTest {
             sessionNextHandler = SessionNextEventHandler(dev.leonardo.ocbeacon.domain.tracker.TokenStatsTracker()),
             sessionStateRepository = sessionStateRepository,
             unreadBadgeService = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService>(relaxed = true),
-            stackedMessageStore = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.StackedMessageStore>(relaxed = true),
             shellJobsHandler = ShellJobsHandler(ShellJobsStore(), messageStore),
             ownershipRegistry = StreamingOwnershipRegistry(),
             // #122 接线新增：自动批准（relaxed mock——既有用例不受影响）
@@ -287,7 +286,6 @@ class ChatViewModelDeleteTest {
             sessionFocusHolder = sessionFocusHolder,
             scrollSignal = SessionScrollSignal(),
             unreadBadgeService = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService>(relaxed = true),
-            stackedMessageStore = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.StackedMessageStore>(relaxed = true),
             appNotificationManager = appNotificationManager,
             toolSnapshotCache = toolSnapshotCache,
             serverRepository = serverRepository,

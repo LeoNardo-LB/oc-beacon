@@ -994,7 +994,8 @@ fun ChatScreen(
                       queueCount = queueItemsForFab.size,
                       onOpenEntry = { toolbarSheet = it },
                       // 统一审计批1：FAB 入口按能力位门控（GOAL=DSH、SHELL=V1/V2；
-                      // TODO/AGENT 两面通用；QUEUE #351 裁决同款门控：DSH queue 域在场，OpenCode 无可见域不泄漏）
+                      // TODO/AGENT 两面通用；QUEUE 门控 #351 裁决→#356 扩面：DSH queue 埧域 +
+            // V2 inbox 域在场（V1 无可见域不泄漏））
                       entries = buildList {
                           add(ChatToolbarEntry.TODO)
                           add(ChatToolbarEntry.AGENT)
@@ -1099,13 +1100,17 @@ fun ChatScreen(
             )
         }
         // #313：排队队列面板（QUEUE 入口）——QueueSheet（FAB 体系第五面板；
-        // 行为沿 QueueDock 全量迁移：三动作/只读/编辑态；steer 仅运行中启用）
+        // 行为沿 QueueDock 全量迁移：三动作/只读/编辑态；steer 仅运行中启用。
+        // #356：V2 inbox 拉取面——打开面板即刷新（DSH 帧推送免拉取，VM 门控
+        // 跳过）；edit 动词按能力位（DSH=有 / V2 inbox 仅 remove+steer 转换）。
         ChatToolbarEntry.QUEUE -> {
             val queueItems by viewModel.queueItems.collectAsStateWithLifecycle()
+            LaunchedEffect(Unit) { viewModel.refreshQueueItems() }
             QueueSheet(
                 items = queueItems,
                 isRunning = sessionMeta.sessionStatus is SessionStatus.Busy,
                 isReadOnly = sessionMeta.sessionParentId != null,
+                editSupported = serverCapabilities.queueEditSupported,
                 onDismiss = { toolbarSheet = null },
                 onSaveEdit = { itemId, text ->
                     viewModel.updateQueueItem(

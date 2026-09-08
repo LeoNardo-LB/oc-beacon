@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -69,7 +70,6 @@ class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val scrollSignal: dev.leonardo.ocbeacon.ui.screens.sessions.SessionScrollSignal,
     private val unreadBadgeService: dev.leonardo.ocbeacon.data.repository.UnreadBadgeService,
-    private val stackedMessageStore: dev.leonardo.ocbeacon.data.repository.StackedMessageStore,
     private val sendMessageUseCase: SendMessageUseCase,
     private val manageSessionUseCase: ManageSessionUseCase,
     private val managePermissionUseCase: ManagePermissionUseCase,
@@ -790,15 +790,46 @@ class ChatViewModel @Inject constructor(
     private val _goalError = MutableSharedFlow<Int>(extraBufferCapacity = 4)
     val goalError: SharedFlow<Int> = _goalError
 
-    // ============ 排队收件箱（2026-09-01 QueueDock） ============
+    // ============ 排队收件箱（2026-09-01 QueueDock；#356 扩 V2 拉取面） ============
 
-    /** 当前会话排队项（session/queue 整快照 last-wins；仅 queued placement 显示）。 */
+    /** #356：V2 inbox 排队快照（拉取面——GET inbox；DSH 走帧推送不经此）。 */
+    private val _v2QueueItems =
+        MutableStateFlow<List<dev.leonardo.ocbeacon.domain.model.QueuedInboxItem>>(emptyList())
+
+    /**
+     * 当前会话排队项：DSH=session/queue 帧整快照（last-wins）；V2=打开面板/
+     * 变更后拉取（首帧空防串会话）；仅 queued placement 显示。V1 两路皆空
+     * （queueSupported=false，FAB 入口隐藏）。
+     */
     val queueItems: StateFlow<List<dev.leonardo.ocbeacon.domain.model.QueuedInboxItem>> =
-        sessionLifecycle.sessionIdFlow.flatMapLatest { sid ->
-            dshQueueStore.queueBySession.map { all ->
-                all[sid].orEmpty().filter { it.isQueuedPlacement }
+        combine(serverType, sessionLifecycle.sessionIdFlow) { st, sid -> st to sid }
+            .flatMapLatest { (st, sid) ->
+                if (st == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
+                    dshQueueStore.queueBySession.map { all ->
+                        all[sid].orEmpty().filter { it.isQueuedPlacement }
+                    }
+                } else {
+                    // 首帧空（会话切换防串旧值）→ 随后跟随拉取快照
+                    kotlinx.coroutines.flow.flow {
+                        emit(emptyList<dev.leonardo.ocbeacon.domain.model.QueuedInboxItem>())
+                        emitAll(_v2QueueItems)
+                    }
+                }
+            }.stateIn(viewModelScope, WhileSubscribed5s, emptyList())
+
+    /** #356：V2 inbox 排队拉取（QueueSheet 打开/变更后/进入会话；失败保旧值）。 */
+    fun refreshQueueItems() {
+        if (serverType.value == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) return
+        if (!_serverCapabilities.value.queueSupported) return
+        viewModelScope.launch {
+            val sid = runCatching { sessionLifecycle.ensureSession() }.getOrElse { e ->
+                AppLogger.w(TAG, "ensureSession failed before listInbox: " + e.message)
+                return@launch
             }
-        }.stateIn(viewModelScope, WhileSubscribed5s, emptyList())
+            chatRepository.listQueueItems(serverId, sid)
+                ?.let { items -> _v2QueueItems.value = items.filter { it.isQueuedPlacement } }
+        }
+    }
 
     /** updateQueue 结果提示（resId）——QueueDock collect 显示 snackbar。 */
     private val _queueActionResult = MutableSharedFlow<Int>(extraBufferCapacity = 4)
@@ -820,7 +851,9 @@ class ChatViewModel @Inject constructor(
                 return@launch
             }
             when (chatRepository.updateQueueItem(serverId, sid, itemId, action, editText)) {
-                dev.leonardo.ocbeacon.domain.model.QueueMutationResult.Accepted -> Unit
+                dev.leonardo.ocbeacon.domain.model.QueueMutationResult.Accepted ->
+                    // #356：V2 无帧推送——变更受理后立即拉取收敛（DSH 帧自达，拉取被门控跳过）。
+                    refreshQueueItems()
                 dev.leonardo.ocbeacon.domain.model.QueueMutationResult.SteerUnavailable ->
                     _queueActionResult.emit(R.string.queue_steer_unavailable)
                 dev.leonardo.ocbeacon.domain.model.QueueMutationResult.QueueItemNotFound,
@@ -1275,35 +1308,6 @@ class ChatViewModel @Inject constructor(
         if (fastFailIfLinkBlocked()) return
         sendDelegate.sendMessage(text, attachments, steer)
     }
-
-    // ============ #348 堆积消息（本地排队）门面 ============
-
-    /** 当前会话的堆积消息（时间序）。 */
-    val stackedMessages = combine(
-        stackedMessageStore.stackedBySession,
-        sessionLifecycle.sessionIdFlow,
-    ) { all, sid -> all[sid] ?: emptyList() }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-
-    /** 当前会话是否正在发送堆积消息（chips「发送中」态）。 */
-    val stackedDraining = stackedMessageStore.drainingSessions
-        .combine(sessionLifecycle.sessionIdFlow) { draining, sid -> sid in draining }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
-
-    /** 「堆积消息」入口：入队 + 清草稿（输入框清空由 UI 侧随 enqueue 完成）。 */
-    fun stackMessage(text: String) {
-        val sid = sessionLifecycle.sessionId
-        if (sid.isBlank() || text.isBlank()) return
-        stackedMessageStore.enqueue(serverId, sid, text.trim())
-        viewModelScope.launch { draftRepository.clearDraft(sid) }
-    }
-
-    fun removeStackedMessage(id: String) = stackedMessageStore.remove(sessionLifecycle.sessionId, id)
-
-    fun updateStackedMessage(id: String, text: String) =
-        stackedMessageStore.updateText(sessionLifecycle.sessionId, id, text)
-
-    fun sendStackedMessageNow() = stackedMessageStore.sendOneNow(sessionLifecycle.sessionId)
 
     fun sendMessage(promptParts: List<PromptPart>, attachments: List<PromptPart>, rawText: String, steer: Boolean = false) {
         if (fastFailIfLinkBlocked()) return

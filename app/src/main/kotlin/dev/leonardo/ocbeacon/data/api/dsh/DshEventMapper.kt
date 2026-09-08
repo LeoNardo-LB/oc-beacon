@@ -812,6 +812,13 @@ object DshEventMapper {
                 )
             )
         )
+        // #356 echo→持久原子换装：RPC 提交的持久回显（source=user-rpc.rpccdId，
+        // MessageSourceMap 契约）补发 pending-<rpcId> 拆除——本地 echo 气泡与
+        // 持久消息同批到达同批折叠（handleMessageRemoved 幂等：echo 不在为 no-op，
+        // 历史/重放路径天然安全）。
+        data.obj("source")?.str("rpcId")?.takeIf { it.isNotBlank() }?.let { rpcId ->
+            events += DshMappedEvent.Sse(SseEvent.MessageRemoved(sessionId, "pending-$rpcId"))
+        }
         (data.arr("content") ?: emptyList()).forEachIndexed { i, el ->
             val block = el as? JsonObject ?: return@forEachIndexed
             when (block.str("type")) {

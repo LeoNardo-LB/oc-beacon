@@ -124,8 +124,10 @@ interface SessionApi {
     suspend fun selectAgentPreset(conn: ServerConnection, sessionId: String, presetId: String): Boolean = false
 
     /**
-     * DSH updateQueue（2026-09-01 QueueDock）：排队项 edit/remove/steer。
-     * OpenCode V1/V2 无队列域 → Failed(unsupported)。错误码映射见 DshApiClient。
+     * 排队项变更（#356 双面）：DSH updateQueue（edit/remove/steer）；
+     * V2 inbox 变更（remove=DELETE /inbox/{id}、steer=POST /inbox/{id}/steer、
+     * edit 无动词 → Failed——UI 按 queueEditSupported 隐藏）。
+     * V1 无队列域 → Failed(unsupported)。错误码映射见各客户端。
      */
     suspend fun updateQueue(
         conn: ServerConnection,
@@ -135,6 +137,16 @@ interface SessionApi {
         editText: String? = null,
     ): dev.leonardo.ocbeacon.domain.model.QueueMutationResult =
         dev.leonardo.ocbeacon.domain.model.QueueMutationResult.Failed("updateQueue unsupported")
+
+    /**
+     * #356 V2 inbox 排队列表（GET /api/session/{id}/inbox → type=user 项）。
+     * DSH 队列经 session/queue 控制帧推送（DshQueueStore 单一真相源）→ null；
+     * V1 无可见域 → null。失败亦 null（调用方保旧值）。
+     */
+    suspend fun listInbox(
+        conn: ServerConnection,
+        sessionId: String,
+    ): List<dev.leonardo.ocbeacon.domain.model.QueuedInboxItem>? = null
 
     /** DSH goal.create（创建并 arm 目标；maxGoalRounds 可选）。回执 value.ref = 新 CAS ref。
      *  OpenCode V1/V2 无 goal 域 → null（UI 按能力位 goalSupported 隐藏）。 */
@@ -329,6 +341,12 @@ class SessionApiImpl @Inject constructor(
         editText: String?,
     ): dev.leonardo.ocbeacon.domain.model.QueueMutationResult =
         pick(conn).updateQueue(conn, sessionId, itemId, action, editText)
+
+    override suspend fun listInbox(
+        conn: ServerConnection,
+        sessionId: String,
+    ): List<dev.leonardo.ocbeacon.domain.model.QueuedInboxItem>? =
+        pick(conn).listInbox(conn, sessionId)
 
 
     // ============ DSH goal 六 mutation（#286 用户裁决；OpenCode V1/V2 走接口默认 null/false） ============

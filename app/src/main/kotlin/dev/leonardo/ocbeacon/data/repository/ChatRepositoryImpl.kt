@@ -382,6 +382,14 @@ class ChatRepositoryImpl @Inject constructor(
         return sessionApi.updateQueue(conn, sessionId, itemId, action, editText)
     }
 
+    override suspend fun listQueueItems(
+        serverId: String,
+        sessionId: String,
+    ): List<dev.leonardo.ocbeacon.domain.model.QueuedInboxItem>? {
+        val conn = runCatching { resolveConnection(serverId) }.getOrNull() ?: return null
+        return sessionApi.listInbox(conn, sessionId)
+    }
+
     // ============ DSH 子智能体续聊（backlog #310①） ============
 
     /**

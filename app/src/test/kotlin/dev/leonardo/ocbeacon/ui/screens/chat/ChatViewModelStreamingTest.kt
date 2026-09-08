@@ -226,7 +226,6 @@ class ChatViewModelStreamingTest {
             sessionFocusHolder = sessionFocusHolder,
             scrollSignal = SessionScrollSignal(),
             unreadBadgeService = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService>(relaxed = true),
-            stackedMessageStore = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.StackedMessageStore>(relaxed = true),
             appNotificationManager = appNotificationManager,
             toolSnapshotCache = toolSnapshotCache,
             serverRepository = serverRepository,

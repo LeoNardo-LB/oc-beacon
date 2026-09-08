@@ -106,9 +106,7 @@ internal fun ChatScreenBottomBar(
     // #276 能力位门控：DSH 无 command 执行端点——斜杠命令面板与 /cmd 发送拦截均停用
     val serverCapabilities by viewModel.serverCapabilities.collectAsStateWithLifecycle()
     val slashCommandsSupported = serverCapabilities.commandsSupported
-    // #348：堆积消息流（chips 条）+ busy 气泡菜单态
-    val stackedMessages by viewModel.stackedMessages.collectAsStateWithLifecycle()
-    val stackedDraining by viewModel.stackedDraining.collectAsStateWithLifecycle()
+    // #356：busy 气泡菜单态（立即发送[steer]/消息排队[queue]；V1 无队列域仅前者）
     var showBusyMenu by remember { mutableStateOf(false) }
     // 稳定 busy 指示提升（原内联于 ChatInputBar 参数——#348 拦截发送需要读它）
     val stableBusy = rememberStableBusyIndicator(
@@ -326,16 +324,6 @@ internal fun ChatScreenBottomBar(
                 .navigationBarsPadding()
                 .imePadding()
         ) {
-            // #348：堆积消息 chips 条（composer 上方——本地排队可见面）
-            if (stackedMessages.isNotEmpty()) {
-                StackedMessagesBar(
-                    messages = stackedMessages,
-                    draining = stackedDraining,
-                    onEdit = { id, text -> viewModel.updateStackedMessage(id, text) },
-                    onRemove = { id -> viewModel.removeStackedMessage(id) },
-                    onSendNow = { viewModel.sendStackedMessageNow() },
-                )
-            }
             ChatInputBar(
                 textFieldValue = inputText,
                 onTextFieldValueChange = { newValue ->
@@ -615,23 +603,24 @@ internal fun ChatScreenBottomBar(
                     }
                 },
             )
-            // #348 busy 气泡菜单（Popup 锚 composer 右下、气泡上弹；点外/返回关闭）
+            // #356 busy 气泡菜单（Popup 锚 composer 右下、气泡上弹；点外/返回关闭）
             if (showBusyMenu) {
                 BusySendMenuPopup(
                     hasAttachments = attachments.isNotEmpty(),
+                    showQueueOption = serverCapabilities.queueSupported,
                     onDismiss = { showBusyMenu = false },
                     onSendNow = {
                         showBusyMenu = false
-                        sendFromComposer(false)
+                        // 立即发送=steer：注入进行中轮次——受理即上屏+排队徽标
+                        //（DSH session.prompt mode=steer / V2 delivery=steer；
+                        // V1 无档位参数，忽略 steer 即普通发送）。
+                        sendFromComposer(true)
                     },
-                    onStack = {
+                    onQueue = {
                         showBusyMenu = false
-                        viewModel.stackMessage(inputText.text)
-                        onInputTextChange(TextFieldValue(""))
-                        viewModel.composer.clearConfirmedPaths()
-                        viewModel.composer.clearFileSearch()
-                        viewModel.composer.clearDraft()
-                        onForceScroll()
+                        // 消息排队=queue：入服务端队列，轮末自动派发——
+                        // 上屏+徽标（echo 播种）+QueueSheet 列表可见。
+                        sendFromComposer(false)
                     },
                 )
             }
@@ -685,18 +674,22 @@ private fun rememberStableBusyIndicator(isBusy: Boolean, isSending: Boolean): Bo
     }
     return stable
 }
-// ============ #348 堆积消息与 busy 气泡菜单组件 ============
+// ============ #356 消息排队与 busy 气泡菜单组件 ============
 
 /**
- * busy 发送气泡菜单（2026-08-20 ce8cbc1e 形态恢复）：立即发送（服务端排队）/
- * 堆积消息（本地轮末自动发；带附件置灰——附件消息请立即发送）。
+ * busy 发送气泡菜单（#356 语义反转，对齐 DSH web 提交策略）：
+ * 立即发送（steer——注入进行中轮次，受理即上屏+排队徽标）/
+ * 消息排队（queue——入服务端队列轮末派发，上屏+徽标+QueueSheet 列表；
+ * 带附件置灰——队列编辑动词 text-only 契约，附件消息请立即发送）。
+ * [showQueueOption]=false（V1 无队列域）时仅显示立即发送。
  */
 @Composable
 private fun BusySendMenuPopup(
     hasAttachments: Boolean,
+    showQueueOption: Boolean,
     onDismiss: () -> Unit,
     onSendNow: () -> Unit,
-    onStack: () -> Unit,
+    onQueue: () -> Unit,
 ) {
     androidx.compose.ui.window.Popup(
         alignment = androidx.compose.ui.Alignment.BottomEnd,
@@ -716,16 +709,18 @@ private fun BusySendMenuPopup(
                     enabled = true,
                     onClick = onSendNow,
                 )
-                BusyMenuItem(
-                    title = stringResource(R.string.chat_busy_menu_stack),
-                    subtitle = if (hasAttachments) {
-                        stringResource(R.string.chat_busy_menu_stack_no_attachments)
-                    } else {
-                        stringResource(R.string.chat_busy_menu_stack_desc)
-                    },
-                    enabled = !hasAttachments,
-                    onClick = onStack,
-                )
+                if (showQueueOption) {
+                    BusyMenuItem(
+                        title = stringResource(R.string.chat_busy_menu_queue),
+                        subtitle = if (hasAttachments) {
+                            stringResource(R.string.chat_busy_menu_queue_no_attachments)
+                        } else {
+                            stringResource(R.string.chat_busy_menu_queue_desc)
+                        },
+                        enabled = !hasAttachments,
+                        onClick = onQueue,
+                    )
+                }
             }
         }
     }
@@ -758,104 +753,3 @@ private fun BusyMenuItem(
     }
 }
 
-/**
- * 堆积消息 chips 条（composer 上方）：chip=文本预览（tap 编辑 / ✕ 移除），
- * 尾部「立即发送」动作；draining 时线性进度提示。
- */
-@Composable
-private fun StackedMessagesBar(
-    messages: List<dev.leonardo.ocbeacon.domain.model.StackedMessage>,
-    draining: Boolean,
-    onEdit: (String, String) -> Unit,
-    onRemove: (String) -> Unit,
-    onSendNow: () -> Unit,
-) {
-    var editing by remember { mutableStateOf<dev.leonardo.ocbeacon.domain.model.StackedMessage?>(null) }
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
-        androidx.compose.foundation.lazy.LazyRow(
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-        ) {
-            items(messages.size) { index ->
-                val msg = messages[index]
-                androidx.compose.material3.Surface(
-                    shape = androidx.compose.material3.MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    modifier = Modifier.clickable(enabled = !draining) { editing = msg },
-                ) {
-                    Row(
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                        modifier = Modifier.padding(start = 10.dp, top = 4.dp, bottom = 4.dp, end = 2.dp),
-                    ) {
-                        Text(
-                            text = msg.text.take(24) + if (msg.text.length > 24) "…" else "",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            maxLines = 1,
-                        )
-                        IconButton(
-                            onClick = { onRemove(msg.id) },
-                            enabled = !draining,
-                            modifier = Modifier.size(24.dp),
-                        ) {
-                            Icon(
-                                imageVector = androidx.compose.material.icons.Icons.Default.Close,
-                                contentDescription = stringResource(R.string.chat_stacked_remove),
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = AlphaTokens.MUTED),
-                            )
-                        }
-                    }
-                }
-            }
-            item {
-                androidx.compose.material3.TextButton(
-                    onClick = onSendNow,
-                    enabled = !draining && messages.isNotEmpty(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.chat_stacked_send_now),
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                }
-            }
-            if (draining) {
-                item {
-                    androidx.compose.material3.CircularProgressIndicator(
-                        modifier = Modifier.size(14.dp),
-                        strokeWidth = 2.dp,
-                    )
-                }
-            }
-        }
-    }
-    editing?.let { msg ->
-        var text by remember(msg.id) { mutableStateOf(msg.text) }
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { editing = null },
-            title = { Text(stringResource(R.string.chat_stacked_edit_title)) },
-            text = {
-                androidx.compose.material3.OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    minLines = 2,
-                    maxLines = 6,
-                )
-            },
-            confirmButton = {
-                androidx.compose.material3.TextButton(
-                    onClick = {
-                        onEdit(msg.id, text)
-                        editing = null
-                    },
-                ) { Text(stringResource(R.string.chat_stacked_save)) }
-            },
-            dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { editing = null }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            },
-        )
-    }
-}

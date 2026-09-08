@@ -488,6 +488,9 @@ class V2ApiClient @Inject constructor(
         text: String,
         directory: String? = null,
         agent: String? = null,
+        /** #356：V2 投递档位（Session.Inbox.Delivery）——"steer"=注入进行中轮次 /
+         *  "queue"=轮末排队派发；null=缺席（服务器默认，idle 普通发送）。 */
+        delivery: String? = null,
         // 2026-08-16 根治（P0 静默丢附件）：附件以官方 data: URI 内嵌——
         // 平铺契约顶层 files:[{uri,name}]（部署版 curl 实证 200）；
         // 嵌套契约 prompt.files（官方主干 submit.ts 同构，部署版 prompt 包裹本身
@@ -530,6 +533,9 @@ class V2ApiClient @Inject constructor(
                     )))
                 }
             })
+            // #356：delivery 顶层字段（主干契约 {prompt:{...}, delivery}；OpenAPI
+            // Session.Inbox.Delivery = "steer" | "queue"）。
+            delivery?.let { put("delivery", kotlinx.serialization.json.JsonPrimitive(it)) }
         }
         var response = postBody(modernBody)
         if (response.status.value == 400) {
@@ -541,6 +547,8 @@ class V2ApiClient @Inject constructor(
                     // {uri:"data:...;base64,...", name} → 200 + payload.files 回显）
                     put("files", kotlinx.serialization.json.JsonArray(files))
                 }
+                // #356：平铺降级体同样携带 delivery（顶层字段语义一致）。
+                delivery?.let { put("delivery", kotlinx.serialization.json.JsonPrimitive(it)) }
                 agent?.let {
                     put("agents", kotlinx.serialization.json.JsonArray(listOf(
                         kotlinx.serialization.json.buildJsonObject {
@@ -1267,7 +1275,84 @@ class V2ApiClient @Inject constructor(
             runCatching { switchAgent(conn, sessionId, agent) }
                 .onFailure { AppLogger.w(TAG, "[agent] switch failed (continuing with prompt): ${it.message}") }
         }
-        return prompt(conn, sessionId, text, directory, agent, files)
+        // #356：投递档位显式化（与 DSH mode 对称）——steer=立即发送（注入当轮），
+        // queue=消息排队（轮末派发）；idle 普通发送同携 queue（服务器即收即处理，
+        // DSH mode:'queue' 先例同款）。
+        return prompt(
+            conn, sessionId, text, directory, agent,
+            files = files,
+            delivery = if (steer) "steer" else "queue",
+        )
+    }
+
+    // ============ #356 V2 inbox 排队域（QueueSheet 数据面） ============
+
+    /**
+     * V2 inbox 排队列表（GET /api/session/{id}/inbox）——Session.Inbox.Info
+     * oneOf（User/Synthetic/Compaction/Move）中仅 type=user 项映射
+     * [QueuedInboxItem]（placement=delivery，缺省 queued；preview=text）。
+     * 失败返回 null（调用方保旧值不闪空）。
+     */
+    override suspend fun listInbox(
+        conn: ServerConnection,
+        sessionId: String,
+    ): List<dev.leonardo.ocbeacon.domain.model.QueuedInboxItem>? {
+        val response = httpClient.get("${conn.baseUrl}/api/session/$sessionId/inbox") {
+            auth(conn)
+        }
+        if (!response.status.isSuccess()) {
+            AppLogger.w(TAG, "[listInbox] GET status=${response.status.value} session=$sessionId")
+            return null
+        }
+        return runCatching {
+            val root = parseRoot(response.bodyAsText())
+            val items = V2ResponseWrapper.unwrapList(root).first
+            items.mapNotNull { item ->
+                if (item["type"]?.jsonPrimitive?.contentOrNull != "user") return@mapNotNull null
+                val itemId = item["id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                val text = item["payload"]?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
+                val placement = item["delivery"]?.jsonPrimitive?.contentOrNull
+                dev.leonardo.ocbeacon.domain.model.QueuedInboxItem(
+                    id = itemId,
+                    placement = placement
+                        ?: dev.leonardo.ocbeacon.domain.model.QueuedInboxItem.PLACEMENT_QUEUED,
+                    preview = text.orEmpty(),
+                    text = text,
+                )
+            }
+        }.getOrNull()
+    }
+
+    /**
+     * #356：V2 inbox 排队变更——REMOVE=DELETE /inbox/{id}（取消投递）；
+     * STEER=POST /inbox/{id}/steer（queued→steer 转换）；EDIT 无动词
+     * → Failed（UI 按 queueEditSupported 能力位隐藏入口，正常不可达）。
+     */
+    override suspend fun updateQueue(
+        conn: ServerConnection,
+        sessionId: String,
+        itemId: String,
+        action: dev.leonardo.ocbeacon.domain.model.QueueActionKind,
+        editText: String?,
+    ): dev.leonardo.ocbeacon.domain.model.QueueMutationResult {
+        val response = when (action) {
+            dev.leonardo.ocbeacon.domain.model.QueueActionKind.EDIT ->
+                return dev.leonardo.ocbeacon.domain.model.QueueMutationResult.Failed("edit unsupported on V2 inbox")
+            dev.leonardo.ocbeacon.domain.model.QueueActionKind.REMOVE ->
+                httpClient.delete("${conn.baseUrl}/api/session/$sessionId/inbox/$itemId") { auth(conn) }
+            dev.leonardo.ocbeacon.domain.model.QueueActionKind.STEER ->
+                httpClient.post("${conn.baseUrl}/api/session/$sessionId/inbox/$itemId/steer") { auth(conn) }
+        }
+        return if (response.status.isSuccess()) {
+            dev.leonardo.ocbeacon.domain.model.QueueMutationResult.Accepted
+        } else {
+            if (BuildConfig.DEBUG) {
+                AppLogger.w(TAG, "[updateQueue] ${action.name} status=${response.status.value} item=$itemId")
+            }
+            dev.leonardo.ocbeacon.domain.model.QueueMutationResult.Failed(
+                "inbox mutation failed: HTTP ${response.status.value}"
+            )
+        }
     }
 
     override suspend fun deleteMessagePart(conn: ServerConnection, sessionId: String, messageId: String, partIndex: Int): Boolean {

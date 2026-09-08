@@ -175,8 +175,9 @@ class OpenCodeConnectionService : Service() {
         super.onCreate()
         if (BuildConfig.DEBUG) AppLogger.d(TAG, "Service created")
 
-        // C7：#176/#177 堆积消息状态补偿驱动（T1 心跳 + T3 Idle 观察）随服务启动
-        //（幂等；原 EventDispatcher init 启动点迁此，边沿触发 naturalTurnEndListener 接线不变）
+        // C7 注记（#356）：堆积消息状态补偿驱动已随本地排队管线退役拆除
+        //（服务端队列三面齐全——DSH 帧/V2 inbox/V1 服务端默认）；naturalTurnEndListener
+        // 接缝保留（SessionStateCollaborator.onNaturalTurnEnd 空体）。
 
         appNotificationManager.createNotificationChannels()
         // #155：会话内提示音的上下文（Ringtone/Vibrator/渠道快照读取）

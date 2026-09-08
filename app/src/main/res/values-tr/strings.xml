@@ -918,12 +918,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="slash_skills_group">Yetenekler</string>
     <string name="slash_skill_model_invocable">Model tarafından çağrılabilir yetenek</string>
     <string name="chat_busy_menu_send_now">Şimdi gönder</string>
-    <string name="chat_busy_menu_send_now_desc">Sunucu kuyruğuna alınır, anında görünür, geri alınamaz</string>
-    <string name="chat_busy_menu_stack">Mesajı beklet</string>
-    <string name="chat_busy_menu_stack_desc">Yerel olarak saklanır, bu tur bitince otomatik gönderilir</string>
-    <string name="chat_busy_menu_stack_no_attachments">Ekli mesajlar şimdi gönderilmelidir</string>
-    <string name="chat_stacked_send_now">Şimdi gönder</string>
-    <string name="chat_stacked_remove">Bekletilen mesajı kaldır</string>
-    <string name="chat_stacked_edit_title">Bekletilen mesajı düzenle</string>
-    <string name="chat_stacked_save">Kaydet</string>
+    <string name="chat_busy_menu_send_now_desc">Devam eden tura eklenir, anında görünür</string>
+    <string name="chat_busy_menu_queue">Kuyruğa al</string>
+    <string name="chat_busy_menu_queue_desc">Bu tur bittiğinde otomatik gönderilir</string>
+    <string name="chat_busy_menu_queue_no_attachments">Ekli mesajlar şimdi gönderilmelidir</string>
 </resources>

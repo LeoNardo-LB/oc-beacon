@@ -40,9 +40,11 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
  * 取代 2026-09-01 Task 4 的输入条上方 QueueDock 条（对 DSH Web dock 布局的
  * 照搬，退役）。
  *
- * 行为沿 QueueDock 全量迁移：
+ * 行为沿 QueueDock 全量迁移（#356 扩 V2）：
  * - 仅 queued placement 项（调用方/VM 已过滤）；空队列给空态文案；
  * - 每条 preview + 动作：编辑（纯文本 text != null 时）/删除/steer（运行中）；
+ * - [editSupported]=false（V2 inbox 无 edit 动词——OpenAPI 仅 remove/steer
+ *   转换）隐藏编辑入口；
  * - 子代理会话只读（[isReadOnly]）——隐藏全部动作，仅预览；
  * - steer 仅 running + next-turn 有效：按钮按 [isRunning] 启用，服务器
  *   steer-unavailable 时经 VM 弹专属提示（本组件不直接感知）；
@@ -54,6 +56,7 @@ fun QueueSheet(
     items: List<QueuedInboxItem>,
     isRunning: Boolean,
     isReadOnly: Boolean,
+    editSupported: Boolean,
     onDismiss: () -> Unit,
     onSaveEdit: (itemId: String, text: String) -> Unit,
     onRemove: (itemId: String) -> Unit,
@@ -90,6 +93,7 @@ fun QueueSheet(
                     item = item,
                     isRunning = isRunning,
                     isReadOnly = isReadOnly,
+                    editSupported = editSupported,
                     editing = isEditing,
                     editingText = if (isEditing) editingText else item.text.orEmpty(),
                     onEditingTextChange = { editingText = it },
@@ -117,6 +121,7 @@ private fun QueueRow(
     item: QueuedInboxItem,
     isRunning: Boolean,
     isReadOnly: Boolean,
+    editSupported: Boolean,
     editing: Boolean,
     editingText: String,
     onEditingTextChange: (String) -> Unit,
@@ -162,8 +167,9 @@ private fun QueueRow(
             )
             if (!isReadOnly) {
                 val actionTint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM)
-                // 编辑仅纯文本可用（text != null）；其余（含附件的条目）禁用
-                IconButton(onClick = onStartEdit, enabled = item.text != null) {
+                // 编辑仅纯文本可用（text != null）且服务器有 edit 动词
+                //（#356：V2 inbox 仅 remove/steer → editSupported=false 禁用）
+                IconButton(onClick = onStartEdit, enabled = editSupported && item.text != null) {
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = stringResource(R.string.queue_edit),

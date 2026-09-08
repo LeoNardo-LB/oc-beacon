@@ -103,12 +103,18 @@ data class ServerCapabilities(
      */
     val archiveSupported: Boolean,
     /**
-     * 服务端排队可见性（#351 2026-09-07 用户裁决）：DSH queue 域（session/queue
-     * 快照 + updateQueue）→ QueueSheet 有数据；OpenCode V1/V2 排队为服务端静默
-     * 语义（无可见域）→ FAB QUEUE 入口隐藏（空态不泄漏）。本地堆积 chips 条
-     * 两面恒在场（StackedMessageStore，与本地/服务端排队语义互补）。
+     * 服务端排队可见性（#351 裁决，#356 扩面）：DSH queue 域（session/queue
+     * 快照 + updateQueue）→ true；**V2 beta-19086 起有 inbox 域**（GET inbox
+     * + DELETE/steer 转换 + prompt delivery）→ true（#356 实证翻案）；V1
+     * 排队为服务端静默语义（无可见域）→ false（FAB QUEUE 入口隐藏）。
      */
     val queueSupported: Boolean,
+    /**
+     * 排队项编辑动词（#356）：DSH updateQueue edit（text-only 契约）→ true；
+     * V2 inbox 仅 remove/steer 转换（OpenAPI 无 edit 端点）→ false——QueueSheet
+     * 编辑入口按位隐藏。
+     */
+    val queueEditSupported: Boolean,
 ) {
     companion object {
         /**
@@ -142,6 +148,7 @@ data class ServerCapabilities(
                     exportIsArchive = true,
                     archiveSupported = true,
                     queueSupported = true,
+                    queueEditSupported = true,
                 )
                 ServerType.OpenCode -> ofOpenCode(apiVersion)
             }
@@ -172,7 +179,9 @@ data class ServerCapabilities(
                 shellCommandSupported = true,
                 exportIsArchive = false,
                 archiveSupported = false,
-                queueSupported = false,
+                // #356：V2 inbox 域在场（GET/DELETE/steer + prompt delivery）。
+                queueSupported = true,
+                queueEditSupported = false,
             )
             else -> ServerCapabilities( /* V1 / UNKNOWN / null：全开放 */
                 shareSupported = true,
@@ -197,6 +206,7 @@ data class ServerCapabilities(
                 exportIsArchive = false,
                 archiveSupported = false,
                 queueSupported = false,
+                queueEditSupported = false,
             )
         }
     }
