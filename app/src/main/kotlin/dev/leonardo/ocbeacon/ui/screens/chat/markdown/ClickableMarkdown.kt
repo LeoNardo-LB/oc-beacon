@@ -84,6 +84,19 @@ internal fun buildClickableMarkdown(
     annotatorSettings: AnnotatorSettings,
     linkColor: Color,
 ): ClickableMarkdownResult {
+    // #357（2026-09-08 走查⑥崩溃取证）：流式状态过渡期可产生 content 与 AST
+    // 失配对（真机 crash buffer 实测 content="" 而 node.endOffset=53 →
+    // StringIndexOutOfBoundsException @ ASTUtilKt.getTextInNode——会话切换/
+    // 重置窗口的 StreamingMarkdownState 瞬时态）。渲染面消费非受控流式状态：
+    // 节点越界时降级全文纯文本一帧（文字不丢、样式暂缺），状态收敛后
+    // remember(model.content, model.node) 键变化自动恢复富渲染。
+    if (node.startOffset > content.length || node.endOffset > content.length) {
+        return ClickableMarkdownResult(
+            annotatedString = AnnotatedString(content),
+            items = emptyList(),
+            ranges = emptyList(),
+        )
+    }
     val rawAnnotated = content.buildMarkdownAnnotatedString(
         textNode = node,
         style = style,

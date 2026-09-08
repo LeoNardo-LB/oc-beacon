@@ -406,6 +406,10 @@ class DshApiClient @Inject constructor(
      * {commandId,result:{kind,text}}，kind!="success" 视为失败（如未知名 → kind:"error"）。
      */
     suspend fun executeCommand(conn: ServerConnection, sessionId: String, line: String): Boolean {
+        // #358（2026-09-08 走查⑦取证定音）：typert 网关 args 语义 =
+        // payload.args.{agentId,line,images}（RPC 直探双证：args 内再包 args →
+        // gateway/arguments-invalid「missing agentId…unexpected args」；正确包裹
+        // → ok 受理）——SELF_METHODS 直传原样包裹。
         val payload = buildJsonObject {
             put("args", buildJsonObject {
                 put("agentId", sessionId)
@@ -413,8 +417,18 @@ class DshApiClient @Inject constructor(
                 put("images", JsonArray(emptyList()))
             })
         }
-        return rpc.call(conn, "commands/execute", payload) { value ->
-            value.dshObj("result")?.dshStr("kind") == "success"
+        // #358 终版：CommandExecution|undefined（dsh-commands typert）三分派——
+        // ① value **缺席** = 受理-异步（生命周期经 command/run|done 事件卡呈现，
+        //    #323）→ true（真机 11:02 取证：HTTP 200 无 value，旧「value 必为对象」
+        //    前置误判失败）；
+        // ② value 在场无 result.kind（{} 退化形态）→ false（V1 常量先例测试钉死）；
+        // ③ result.kind 判定（同步型命令即时成败）。
+        return rpc.callOptional(conn, "commands/execute", payload).map { value ->
+            val obj = value as? JsonObject
+            when {
+                obj == null -> true
+                else -> obj.dshObj("result")?.dshStr("kind") == "success"
+            }
         }.getOrDefault(false)
     }
 
@@ -1262,17 +1276,27 @@ class DshApiClient @Inject constructor(
             put("text", part.text)
         }
         part.type == "file" && part.url != null -> {
-            // data URL → {type:image, data(base64), mime}；远程 URL 不带 data 时透传 url
             val url = part.url!!
-            val (mime, data) = if (url.startsWith("data:")) {
-                val header = url.substringBefore(",", "")
-                (header.removePrefix("data:").substringBefore(";")) to url.substringAfter(",", "")
-            } else {
-                (part.mime ?: "application/octet-stream") to null
+            if (!url.startsWith("data:")) {
+                // #358（2026-09-08 走查⑦发送失败取证）：DSH PromptContentPart 契约
+                // 仅 text | image(base64 data 必填)——服务器 types.d.ts 实证，无 url
+                // 字段、无文件块。@file 提及（file:// 路径引用，无字节）旧实现发
+                // {type:image,url:file://…} → 整单被 gateway boundary validation
+                // 拒收（真机 logcat: session/prompt wire field "request" failed）。
+                // 降级文本保真：路径以 @path 文本入 prompt，服务端 agent 以自身
+                // 文件工具解读（read/bash 均可达）。
+                return buildJsonObject {
+                    put("type", "text")
+                    put("text", "@" + (part.path ?: part.filename ?: url.removePrefix("file:///")))
+                }
             }
+            // data URL → {type:image, data(base64), mime}
+            val header = url.substringBefore(",", "")
+            val mime = header.removePrefix("data:").substringBefore(";")
+            val data = url.substringAfter(",", "")
             buildJsonObject {
                 put("type", "image")
-                data?.let { put("data", it) } ?: put("url", url)
+                put("data", data)
                 // 0.1.2 图片 part 字段是 mediaType（0.1.1 是 mime）
                 put(if (v012) "mediaType" else "mime", mime)
                 part.filename?.let { put("name", it) }

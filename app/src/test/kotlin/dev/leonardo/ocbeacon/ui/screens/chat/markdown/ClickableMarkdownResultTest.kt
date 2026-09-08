@@ -32,6 +32,39 @@ class ClickableMarkdownResultTest {
         assertTrue(result.items[0] is ClickableItem.CodePath)
     }
 
+    // ============ #357（走查⑥崩溃）：AST 偏移越界降级不崩 ============
+
+    /**
+     * 真机 crash 栈复刻：content=""（会话切换清空）+ node.endOffset=53（残留
+     * AST）→ 旧实现 StringIndexOutOfBoundsException @ getTextInNode。
+     * 修复：越界对降级全文纯文本一帧，不抛异常、文字不丢。
+     */
+    @Test
+    fun `357 out-of-bounds ast node degrades to plain text without crash`() {
+        val staleMarkdown = "# heading\n\nsome paragraph text with a [link](https://x.com) tail"
+        val parser = org.intellij.markdown.parser.MarkdownParser(org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor())
+        val tree = parser.buildMarkdownTreeFromString(staleMarkdown)
+        val longNode = tree.children.first { it.endOffset > 0 }
+
+        val result = buildClickableMarkdown(
+            content = "",
+            node = longNode,
+            style = androidx.compose.ui.text.TextStyle(),
+            annotatorSettings = com.mikepenz.markdown.annotator.DefaultAnnotatorSettings(
+                linkTextSpanStyle = androidx.compose.ui.text.TextLinkStyles(
+                    style = androidx.compose.ui.text.SpanStyle(),
+                ),
+                codeSpanStyle = androidx.compose.ui.text.SpanStyle(),
+                annotator = com.mikepenz.markdown.model.markdownAnnotator(),
+            ),
+            linkColor = androidx.compose.ui.graphics.Color.Blue,
+        )
+
+        assertEquals("", result.annotatedString.text)
+        assertTrue(result.items.isEmpty())
+        assertTrue(result.ranges.isEmpty())
+    }
+
     // ============ #120（D2-08）：重复文本链接区间精确性 ============
 
     /**

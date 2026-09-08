@@ -51,10 +51,12 @@
 
 ## P0 — 主流程阻塞
 
-- [ ] **#357 子会话进出崩溃——streaming markdown AST 与空文本失配（走查反馈⑥）** `ui` `crash` `markdown`
+- [~] **#357 子会话进出崩溃——streaming markdown AST 与空文本失配（走查反馈⑥）** `ui` `crash` `markdown`
   - 用户:「正常进出好像就崩溃了」；crash 栈已存证(2026-09-08 10:20 crash buffer):StringIndexOutOfBoundsException begin 0 end 53 length 0 @ ASTUtilKt.getTextInNode→buildMarkdownAnnotatedString→buildClickableMarkdown→**StreamingMarkdownSuccess**——markdown AST 节点偏移超出当前文本长度(会话切换后 text 清空而流式 state 的 AST 残留)；#349 卡体直达子会话使会话切换高频化后暴露
-- [ ] **#358 斜杠命令与@文件发送失败——DSH prompt wire 校验拒绝（走查反馈⑦）** `dsh` `bug` `send`
-  - 用户:「斜杠与@文件都发送失败（界面显示）」；logcat 已存证(2026-09-08 10:21):DshApiError gateway/input-invalid——session/prompt wire field request failed boundary validation——含命令/@文件载荷的 prompt 被服务器 schema 拒收(promptContentPart 映射面或空 content);需深查 ChatSendDelegate→DshApiClient.promptAsync 载荷链
+  - **已修复(2026-09-08)**:buildClickableMarkdown 单点边界防护(全仓唯一 buildMarkdownAnnotatedString 调用点)——节点越界→降级全文纯文本一帧(文字不丢样式暂缺,remember(content,node) 键变自动恢复富渲染);JVM 回归测试复刻崩溃形态(content=""+node.endOffset=53→不抛);真机进出 5 轮循环零崩溃(间歇性,确定性保障=回归测试)
+- [~] **#358 斜杠命令与@文件发送失败——DSH prompt wire 校验拒绝（走查反馈⑦）** `dsh` `bug` `send`
+  - 用户:「斜杠与@文件都发送失败（界面显示）」；logcat 已存证(2026-09-08 10:21):DshApiError gateway/input-invalid——session/prompt wire field request failed boundary validation
+  - **已修复(2026-09-08,双根因)**:①@file——服务器 PromptContentPart 契约仅 text|image(base64 data 必填,types.d.ts 实证),旧实现把 file:// 引用包成 {type:image,url:…} 整单被拒→非 data-url 文件降级 @path 文本保真;②斜杠——受理-异步形态:服务器回 {ok:true} **无 value**(CommandExecution|undefined),旧「value 必为对象」前置+kind=="success" 判定恒 false→DshRpcClient 新增 callOptional,DshApiClient 三分派(value 缺席=true 受理/{}=false/kind 判定);真机:@file 发送成功(Sent prompt 2 parts,轮次跑起)/斜杠 Executed:true;/calculator 用 GLM 验证(注:deepseek-official 欠费会致技能轮失败=环境项);单测+1(缺席受理)
 
 
 （#308 已完结迁 journal：2026-09-05 AI 真机验收关卡，见 `docs/journal/2026-09-04-fix-308-always-326-327.md` §十一）

@@ -79,6 +79,23 @@ class DshRpcClient @Inject constructor(
      * {"ok":true}（value 缺席）或 value:null——[call]/[callJson] 的非空前置均
      * 会误判失败。本方法把 ok=true 的任意 value（含 null/JsonNull）判为成功。
      */
+    /**
+     * #358：value 可缺席 RPC（commands/execute 的 CommandExecution|undefined）——
+     * ok=true 时 value 原样返回（含 null=受理-异步）；[call]/[callJson] 的
+     * value 非空前置不适用。网关/传输错误照常 Result.failure。
+     */
+    internal suspend fun callOptional(
+        conn: ServerConnection,
+        method: String,
+        payload: JsonObject,
+    ): Result<JsonElement?> {
+        val (wireMethod, envelope) = prepare(conn, method, payload)
+        val wire = exchange(conn, wireMethod, envelope)
+        val ok = wire.getOrElse { return Result.failure(it) } as? DshRpcResult.Ok
+            ?: return Result.failure(DshApiError(null, "malformed server-response envelope", null, HTTP_OK))
+        return Result.success(ok.value)
+    }
+
     internal suspend fun callVoid(
         conn: ServerConnection,
         method: String,

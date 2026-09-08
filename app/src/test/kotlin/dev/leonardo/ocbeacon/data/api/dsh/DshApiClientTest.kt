@@ -499,6 +499,20 @@ class DshApiClientTest {
         assertFalse(client(engine).executeCommand(conn, "s-1", "/permission nope"))
     }
 
+    /** #358（走查⑦）：受理-异步形态——ok 且 value 缺席（CommandExecution|undefined
+     *  的 undefined 腿）→ true。真机取证：/calculator 受理回 {ok:true} 无 value，
+     *  旧「value 必为对象」前置误判失败。 */
+    @Test
+    fun `executeCommand accepts ok response with absent value`() = runTest {
+        val engine = MockEngine {
+            respond(
+                "{\"type\":\"server-response\",\"rpcId\":\"r\",\"result\":{\"ok\":true}}",
+                HttpStatusCode.OK, jsonHeaders(),
+            )
+        }
+        assertTrue(client(engine).executeCommand(conn, "s-1", "/calculator 1+1"))
+    }
+
     /** setPermissionPreset 封装：line = "/permission <preset>"。 */
     @Test
     fun `setPermissionPreset sends permission slash command`() = runTest {
