@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#366**（2026-09-08 演示验收批登记 #360-#365）。
+**编号**：全局递增，不回收。下一编号：**#372**（2026-09-09 UIUX 三面审计批登记 #366-#371）。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -58,9 +58,10 @@
 
 ## P1 — 核心功能需求
 
-- [ ] **#365 斜杠/skill 命令执行反馈不可见——snackbar 一闪即逝+skill 类命令无 command/run|done 事件（反馈行永不触发），用户感知「按了没反应」（R4a 复验用户观察「没看到你发送任何内容」）** `ui` `command` `dsh`
+- [~] **#365 斜杠/skill 命令执行反馈不可见——snackbar 一闪即逝+skill 类命令无 command/run|done 事件（反馈行永不触发），用户感知「按了没反应」（R4a 复验用户观察「没看到你发送任何内容」）** `ui` `command` `dsh`
   - 证据（2026-09-08 23:12）：logcat `Executed command /calculator: true`（wire 成功）；服务器持久日志 273 行全类型清点 **0 条 command/run|done**——skill 类命令走 commands/execute 不入事件流，#323 反馈行（只消费这两事件）结构性缺席。
-  - 修复方向（需用户拍板）：A) 命令执行后转录内插本地合成反馈行（不等服务器事件）B) snackbar 延长/改常驻可展开 C) 服务器侧补事件（用户域）。展示层同题：命令是「发送」语义但无任何转录痕迹，用户无法回顾发生过什么。
+  - **裁决（2026-09-09 用户）**：A——命令执行后转录内插本地合成反馈行（不等服务器事件）。原生命令（/compact 等）本就有服务器事件+#323 反馈行兜底；A 只补「受理即知」这层，不依赖服务器。展示层同题：命令是「发送」语义但无任何转录痕迹，用户无法回顾发生过什么。→ `docs/journal/2026-09-09-365-353-359-uiux-consistency.md`
+  - **已实现(2026-09-09, commit 5bee330d)**：CommandFeedback.localAccepted 占位+run 同名原位升级；SessionActionsDelegate 单点三面统一；时钟图标+已受理态 i18n×15；单测 +7；定向测试 ✔ 待真机验收（同上 §一）
 
 - [ ] **#363〔主诉推翻 2026-09-08 三重证据〕转录渲染/滚动异常残留小件——轮次编号漂移、loadOlder 同窗循环、跳转列表重复行** `ui` `pagination`
   - 原主诉「重启后用户气泡不渲染+列表钉死」被推翻：①用户肉眼确认正常；②像素扫描（bubble_scan.py）在视口顶部发现 primaryContainer 蓝色气泡矩形；③glm-5.3-flash 多模态识图（video-analyzer 视觉通道）确认气泡/过程卡/文件行全部正常渲染且滚动有效——「空白」实为 **uiautomator 对该 Compose 节点的语义盲区**（dump 不报文本，误导仪器判读；对 adb E2E 方法论是真实限制，对用户零影响）。
@@ -103,6 +104,19 @@
   - → `docs/journal/2026-09-03-fix-308-dsh-respond-wire.md` §七（裁决记录 + 批 1 审计）；**主体已落地**（审计+验收：FAB 五入口/QueueSheet 三动作/QueueDock 已删/i18n ×15/映射原则遵守——`docs/research/2026-09-05-audit-309-313.md` + #327 验收报告）；最后断点（角标数据链）已由 #327 修复并真机全绿（角标 1/2/清零全生命周期）→ **UIUX 卡待人工验收**（与 #326 同域汇总）
 
 ## P2 — 优化与锦上添花
+
+- [ ] **#366 👍/👎 反馈门控能力位化——feedbackEnabled 走裸 serverType 特判违背「UI 入口按能力位隐藏」约定（UIUX 三面审计 D8）** `refactor` `dsh`
+  - ChatMessageList.kt:247-276 / ChatViewModel.kt:748-762 直判 type==Dsh；功能缺口合法（OpenCode 无评分域）但应建 feedbackSupported 能力位（同 #351 queueSupported 先例）→ 本批实现
+
+- [ ] **#367 ServerSettingsContent 潜伏耦合——DSH 配置/插件节嵌在 agentPresetSupported 分支内（UIUX 三面审计 D10）** `refactor` `dsh`
+  - ServerSettingsContent.kt:99-126：DshServerConfigSection+DshPluginInventorySection 悬挂在预设位 if 内，今日两比特同值无症状、结构错——解耦为并列条件 → 本批实现
+
+- [~] **#353 长按会话行应直接弹窗而非选择列表（走查反馈②；2026-09-09 重登记——卡片曾在 fb9f4d75 误随 #354 迁移丢失，用户裁定「可以直接修复」）** `ui`
+  - 用户:「应该长按直接弹窗而不是出现选择列表」——现行 DropdownMenu 列表形态改为弹窗(bottom sheet/对话框);「仅折叠区没问题」=已归档折叠区保持
+  - **已实现(2026-09-09, commit ee1b879a)**：活动行 ModalBottomSheet 直达（详情/重命名/归档），归档折叠区保持 DropdownMenu；显隐纯函数零改动；编译 ✔ 待真机验收 → `docs/journal/2026-09-09-365-353-359-uiux-consistency.md` §一
+
+- [ ] **#355 会话/消息搜索重设计（走查反馈②；2026-09-09 重登记——卡片曾在 fb9f4d75 误随 #354 迁移丢失）** `search` `ui`
+  - 用户:检索结果为**对话内容**→显示属于哪个会话;为**会话标题**→正常会话 list;可筛选;**已归档不展示**;筛选**不要 tag 形式,要标准列表筛选样式**;对**所有服务器生效(含 opencode V1/V2)**
 
 
 - [~] **#351 FAB QUEUE 入口去留——统一审计 §三-4/§三-1 尾项** `ui` `fab` `queue`
@@ -167,6 +181,18 @@
 - [ ] **#359 三条重配服务器凭据探查+自动输入方案调研（走查反馈⑨）** `infra`
   - 用户:「是否有方案探查到凭据然后自动输入?」——192.168.110.248:248/V1-4198/dsh012-a5 三条;调研宿主可探查面(配置文件/env/密钥链)→可行则脚本注入,不可行则如实报告边界
 
+
+- [ ] **#368 V2 时钟域对齐调研——V2SseMapper 设备钟盖戳 created/completed vs V1/DSH 服务器信封钟（UIUX 三面审计 D4）** `sse` `v2` `data`
+  - V2SseMapper.kt:129/166-171（2026-08-26 旧实现）盖 System.currentTimeMillis()——台账时长/未读水位随设备钟漂移；以最新逻辑（DSH 域一致钟，#338 09-07）为标准，先探 V2 wire 信封时间可得性再对齐
+
+- [ ] **#369 ShellSheet DSH 死代码清理+DSH jobs 历史面板（可选）——SHELL 入口 DSH 永不添加致 DshJobSheet 不可达（UIUX 三面审计 D5）** `refactor` `dsh`
+  - PendingSheets.kt:293-296 DSH 分支+DshJobSheet(:388-414) 为不可达死代码；V1V2 有历史+详情面板而 DSH 仅流内时间线卡——清理死代码（必做），jobs 历史面板为可选增强（价值另评）
+
+- [ ] **#370 V2 QueueSheet 轮末自动刷新——pull-on-open 模型下面板陈旧（#356 遗留+UIUX 三面审计 D9）** `dsh` `queue` `v2`
+  - ChatViewModel.kt:795-832/ChatScreen.kt:1108：DSH=push（queueBySession 帧）vs V2=打开时拉取——轮结束提升后 V2 面板不自动刷新（打开/变更时拉取已覆盖）
+
+- [ ] **#371 UIUX 三面口径杂项——台账步数口径(D2)/服务器徽标三态样式(D7)/V2 echo 形态(D11)/3 休眠能力位处置** `ui` `refactor`
+  - D2：DSH 工具宿主消息计步 vs V1V2 逻辑轮计步（RenderableTurn stepCount 口径）；D7：ServerCard DSH/V2/V1 三种容器色徽标；D11：V2 用户消息 summary.body+📎 占位 vs DSH 显式 parts；runningSessionsFilterSupported/messageDeleteSupported/projectionStatsSupported 零读者休眠位 keep-or-remove
 
 - [ ] **#345 adb 注入 tap 间歇丢弃观察——MIUI 平台行为定性(非 app 缺陷),真手指未复现即不处理** `env` `device`
   - 定性修正(2026-09-07 二查):原「两案全灭」重析后——**第二案翻案**:Doubang 输入法为浅色主题,screencap 下半屏与 app surface 同色族 (247,250,253),误判「无 IME」后 tap 实际全打在键盘上;7 节点 dump=输入法安全窗致盲(平台正常)。第一案(t4401 克隆任务后 composer 聚焦 tap 无响应)仍疑似 MIUI 注入丢弃家族(同 E4② shade 组卡先例);两案中键事件/焦点全程有效(`dumpsys input_method` mServedView 在场实证),app 侧无缺陷证据
