@@ -2,7 +2,7 @@
 # ASCII 打字脚本（纯 keyevent）：真机 E2E 打字专用。
 # 背景：禁 `input text`（合成键盘事件触发预测性 back 伪影——见 docs/real-device-testing.md E2E 纪律）；
 # 此前唯一副本放 /tmp 曾随重启丢失，2026-08-21 入库（同 miui-install.sh 模式）。
-# 用法: ./scripts/type.sh "text" [serial]   支持 a-z 0-9 空格 逗号 句点（中文/特殊字符走 intent 传参绕过）
+# 用法: ./scripts/type.sh "text" [serial]   支持 a-z 0-9 空格 逗号 句点 斜杠 连字符（中文/其他特殊字符走 intent 传参绕过）
 S=${2:-e69a99d8}
 TEXT="$1"
 for (( i=0; i<${#TEXT}; i++ )); do
@@ -13,6 +13,9 @@ for (( i=0; i<${#TEXT}; i++ )); do
     [0-9]) k=KEYCODE_$c;;
     ',') k=KEYCODE_COMMA;;
     '.') k=KEYCODE_PERIOD;;
+    # 2026-09-09 #365 验收：斜杠命令（/compact 等）与 hyphen 文本（v1-ok）此前被静默跳过
+    '/') k=KEYCODE_SLASH;;
+    '-') k=KEYCODE_MINUS;;
     *) continue;;
   esac
   adb -s $S shell input keyevent $k
