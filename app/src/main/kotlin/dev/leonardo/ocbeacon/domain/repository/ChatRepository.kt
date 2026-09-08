@@ -114,7 +114,11 @@ interface ChatRepository {
         variant: String? = null,
         directory: String? = null,
         /** #309 批1④：DSH 直发插话（session.prompt mode=steer）；OpenCode 后端忽略。 */
-        steer: Boolean = false
+        steer: Boolean = false,
+        /** #362：echo 播种门控——busy+queue（「消息排队」）为转录外瞬态队列行，
+         * 不上屏（对齐 DSH 原生 inbox 语义：排队消息仅队列 UI 可见，轮末派发后
+         * durable user/message 才进转录）。idle 发送与 steer 维持播种。 */
+        seedTranscript: Boolean = true
     ): Result<Unit>
 
     /** #309 批1⑤：turn/end max-tokens 通知（null=无；新一轮 Busy 即清）。 */

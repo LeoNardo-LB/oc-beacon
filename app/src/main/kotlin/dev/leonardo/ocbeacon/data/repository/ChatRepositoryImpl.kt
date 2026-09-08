@@ -227,7 +227,8 @@ class ChatRepositoryImpl @Inject constructor(
         agent: String?,
         variant: String?,
         directory: String?,
-        steer: Boolean
+        steer: Boolean,
+        seedTranscript: Boolean
     ): Result<Unit> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         val admission = messageApi.promptAsync(
@@ -239,8 +240,11 @@ class ChatRepositoryImpl @Inject constructor(
         // （handleMessageUpdated idx>=0 替换分支）；SSE 丢失/延迟/服务器
         // 版本事件名差异均不再导致用户消息气泡缺失。
         // V1（prompt_async 204 无响应体）→ admission=null → 依赖 SSE 回显。
+        // #362（2026-09-08）：seedTranscript=false（busy+queue「消息排队」）
+        // 跳过播种——排队消息是转录外瞬态队列行（DSH inbox.nextTurn / V2 inbox），
+        // 仅队列 UI 呈现；轮末派发后 durable user/message 自然进转录。
         val text = parts.firstOrNull { it.type == "text" }?.text
-        if (admission != null && admission.id.isNotBlank()) {
+        if (admission != null && admission.id.isNotBlank() && seedTranscript) {
             if (BuildConfig.DEBUG) {
                 AppLogger.d("ChatRepository", "[send-seed] user message ${admission.id} (SSE 回显前本地播种)")
             }

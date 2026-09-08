@@ -20,7 +20,9 @@ class SendMessageUseCase @Inject constructor(
         agent: String,
         variant: String?,
         directory: String?,
-        steer: Boolean = false
+        steer: Boolean = false,
+        /** #362：busy+queue 不播种转录（排队消息仅队列 UI；见 ChatRepository.promptAsync）。 */
+        seedTranscript: Boolean = true
     ) {
         chatRepository.promptAsync(
             serverId = serverId,
@@ -30,7 +32,8 @@ class SendMessageUseCase @Inject constructor(
             agent = agent,
             variant = variant,
             directory = directory,
-            steer = steer
+            steer = steer,
+            seedTranscript = seedTranscript
         ).getOrThrow()
     }
 }

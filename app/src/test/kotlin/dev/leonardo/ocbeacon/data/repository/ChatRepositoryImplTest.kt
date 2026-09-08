@@ -12,6 +12,9 @@ import dev.leonardo.ocbeacon.domain.model.*
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.spyk
+import io.mockk.verify
+import io.mockk.coVerify
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -83,6 +86,8 @@ class ChatRepositoryImplTest {
             ),
 
         )
+        // #362：spy 包裹真实 dispatcher——播种门控用 processEvent 交互断言（对既有用例透明）
+        eventDispatcher = spyk(eventDispatcher)
         every { sessionStateRepository.statusFlow } returns MutableStateFlow(emptyMap())
         dshApiClient = mockk(relaxed = true)
         dshWorkspaceStore = DshWorkspaceStore()
@@ -176,6 +181,65 @@ class ChatRepositoryImplTest {
         assertEquals("Proceed?", questions[0].questions[0].question)
         assertEquals(1, questions[0].questions[0].options.size)
         assertEquals("Yes", questions[0].questions[0].options[0].label)
+    }
+
+    // ============ #362：echo 播种门控（busy+queue 队列行不上屏） ============
+
+    private fun setupTrackedServerWithAdmission(admission: dev.leonardo.ocbeacon.data.api.message.PromptAdmission?) {
+        sessionHandler.setSessions("server1", listOf(
+            Session(id = "s1", title = "Test", time = Session.Time(created = 1000L, updated = 2000L))
+        ))
+        coEvery { serverRepo.getServer("server1") } returns ServerConfig(
+            id = "server1", url = "http://localhost:4096"
+        )
+        coEvery {
+            messageApi.promptAsync(any(), "s1", any(), any(), any(), any(), any(), any())
+        } returns admission
+    }
+
+    @Test
+    fun `promptAsync seeds transcript echo when seedTranscript true`() = runTest {
+        setupTrackedServerWithAdmission(
+            dev.leonardo.ocbeacon.data.api.message.PromptAdmission(id = "pending-r1", sessionId = "s1", text = "hello")
+        )
+        val result = repo.promptAsync(
+            "server1", "s1", listOf(PromptPart(type = "text", text = "hello")),
+            seedTranscript = true,
+        )
+        assertTrue(result.isSuccess)
+        verify(exactly = 1) {
+            eventDispatcher.processEvent(ofType<SseEvent.MessageUpdated>(), "server1")
+        }
+    }
+
+    @Test
+    fun `promptAsync skips echo seeding for queue row when seedTranscript false`() = runTest {
+        setupTrackedServerWithAdmission(
+            dev.leonardo.ocbeacon.data.api.message.PromptAdmission(id = "pending-r2", sessionId = "s1", text = "queued note")
+        )
+        val result = repo.promptAsync(
+            "server1", "s1", listOf(PromptPart(type = "text", text = "queued note")),
+            seedTranscript = false,
+        )
+        assertTrue(result.isSuccess)
+        // 排队消息不进转录——唯一可见面是队列 UI（QueueSheet/角标），轮末派发后
+        // durable user/message 才自然入列。
+        verify(exactly = 0) {
+            eventDispatcher.processEvent(ofType<SseEvent.MessageUpdated>(), any())
+        }
+    }
+
+    @Test
+    fun `promptAsync no admission means no seed regardless of flag`() = runTest {
+        setupTrackedServerWithAdmission(null)
+        val result = repo.promptAsync(
+            "server1", "s1", listOf(PromptPart(type = "text", text = "v1 style")),
+            seedTranscript = true,
+        )
+        assertTrue(result.isSuccess)
+        verify(exactly = 0) {
+            eventDispatcher.processEvent(ofType<SseEvent.MessageUpdated>(), any())
+        }
     }
 
     // ============ sendMessage ============

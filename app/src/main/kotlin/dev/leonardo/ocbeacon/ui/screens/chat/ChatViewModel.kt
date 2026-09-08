@@ -1300,6 +1300,8 @@ class ChatViewModel @Inject constructor(
         draftDelegate = draftDelegate,
         // #310①：子会话续聊（subagents/prompt）仅 DSH 线面分流
         serverTypeProvider = { serverType.value },
+        // #362：busy+queue 提交后刷新队列投影（V2 拉取；DSH 内部自门控跳过）
+        onQueueSubmitted = { refreshQueueItems() },
     )
 
     // #267：断连快速失败——不发请求（OkHttp retryOnConnectionFailure 会悬挂

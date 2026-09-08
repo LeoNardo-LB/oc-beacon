@@ -56,6 +56,9 @@ internal class ChatSendDelegate(
      * 子会话维持既有只读镜像（默认 OpenCode 与未加载态兼容）。 */
     private val serverTypeProvider: () -> dev.leonardo.ocbeacon.domain.model.ServerType =
         { dev.leonardo.ocbeacon.domain.model.ServerType.OpenCode },
+    /** #362：busy+queue 提交成功后回调——V2 面（无推送帧）触发 inbox 拉取刷新
+     * 队列角标/面板；DSH 面 queue 帧自推送，回调内部门控无害。 */
+    private val onQueueSubmitted: () -> Unit = {},
 ) {
     fun sendMessage(text: String, attachments: List<PromptPart> = emptyList(), steer: Boolean = false) {
         if (text.isBlank() && attachments.isEmpty()) return
@@ -153,6 +156,13 @@ internal class ChatSendDelegate(
                     // 回显 MessageUpdated 时消息出现在列表（opencode 官方行为）。
                     // 发送期间 UI 由 isSending 驱动发送按钮转圈（SendStopButton）；
                     // 失败 → 草稿退回输入框 + AlertDialog（sendFailureSink）。
+                    // #362：busy+queue（「消息排队」）为转录外瞬态队列行——不播种
+                    // echo（DSH inbox.nextTurn / V2 inbox，轮末恰消费 1 条后进转录）。
+                    // busy 判定取发送时刻 FSM 状态（Busy/Retry）。
+                    val statusNow = sessionStateRepository.statusFlow.value[currentSessionId]
+                    val busyNow = statusNow is dev.leonardo.ocbeacon.domain.model.SessionStatus.Busy ||
+                        statusNow is dev.leonardo.ocbeacon.domain.model.SessionStatus.Retry
+                    val queueRow = busyNow && !steer
                     sendMessageUseCase.sendPrompt(
                         serverId = serverId,
                         sessionId = currentSessionId,
@@ -161,9 +171,11 @@ internal class ChatSendDelegate(
                         agent = modelCfg.selectedAgent,
                         variant = selectedVariantProvider(),
                         directory = sessionDirectoryProvider(),
-                        steer = steer
+                        steer = steer,
+                        seedTranscript = !queueRow
                     )
-                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "Sent prompt to session $currentSessionId (${parts.size} parts)")
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "Sent prompt to session $currentSessionId (${parts.size} parts, queueRow=$queueRow)")
+                    if (queueRow) onQueueSubmitted()
                 }
                 // 2026-08-16 修复（进行中图标过早）：置 Busy 从"POST 发出前"移到
                 // "POST 成功后"——用户期望：发送按钮转圈（本地 isSending）表示

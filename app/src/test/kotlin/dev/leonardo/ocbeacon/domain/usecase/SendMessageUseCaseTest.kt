@@ -33,6 +33,27 @@ class SendMessageUseCaseTest {
     }
 
     @Test
+    fun `sendPrompt passes seedTranscript false through for queue row`() = runTest {
+        val parts = listOf(PromptPart(type = "text", text = "Queued"))
+        coEvery { chatRepository.promptAsync(any(), any(), any(), any(), any(), any(), any(), any(), any()) } returns Result.success(Unit)
+
+        useCase.sendPrompt(
+            serverId = "server1",
+            sessionId = "s1",
+            parts = parts,
+            model = null,
+            agent = "build",
+            variant = null,
+            directory = null,
+            steer = false,
+            seedTranscript = false
+        )
+
+        // #362：busy+queue 队列行——seedTranscript=false 必须无损传到 repository
+        coVerify { chatRepository.promptAsync("server1", "s1", parts, null, "build", null, null, false, false) }
+    }
+
+    @Test
     fun `sendPrompt propagates exception`() = runTest {
         val parts = listOf(PromptPart(type = "text", text = "Hello"))
         coEvery { chatRepository.promptAsync(any(), any(), any(), any(), any(), any(), any(), any()) } returns Result.failure(RuntimeException("Network error"))
