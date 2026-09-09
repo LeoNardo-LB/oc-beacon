@@ -27,6 +27,11 @@
     <string name="command_feedback_running">Виконується…</string>
     <string name="command_feedback_accepted">Прийнято</string>
     <string name="command_feedback_completed">Завершено</string>
+    <string name="chat_compaction_title">Стиснення сесії</string>
+    <string name="chat_compaction_done">Сесію стиснуто</string>
+    <string name="chat_compaction_in_progress">Стиснення…</string>
+    <string name="chat_compaction_failed">Не вдалося стиснути</string>
+    <string name="chat_compaction_expand">Розгорнути підсумок стиснення</string>
     <string name="command_feedback_failed">Не вдалося</string>
     <string name="command_feedback_a11y_running">Команда виконується</string>
     <!-- Chat Screen -->

@@ -829,6 +829,15 @@ fun ChatScreen(
             val commandFeedbackForSession by viewModel.chatRepositoryExposed
                 .getCommandFeedbackForSession(viewModel.sessionId)
                 .collectAsStateWithLifecycle(initialValue = emptyList())
+            // #378：压缩转录实体（流内 box）+ 表面遮蔽区间（读侧抑制）——
+            // 遮蔽/绑定消息在上游过滤（displayItems 索引一致重建），卡归并
+            // 在 ChatMessageList（TranscriptPlan）。
+            val compactionEntriesForSession by viewModel.chatRepositoryExposed
+                .getCompactionEntriesForSession(viewModel.sessionId)
+                .collectAsStateWithLifecycle(initialValue = emptyList())
+            val shadowedRangesForSession by viewModel.chatRepositoryExposed
+                .getShadowedRangesForSession(viewModel.sessionId)
+                .collectAsStateWithLifecycle(initialValue = emptyList())
             when {
                 isTerminalMode -> {
                     ChatTerminalView(
@@ -867,7 +876,7 @@ fun ChatScreen(
                 // 时走完整消息列表分支（空消息 + 卡片 item，LazyColumn 正常渲染）。
                 messageState.messages.isEmpty() && !interaction.isLoading &&
                     interaction.pendingQuestions.isEmpty() && interaction.pendingPermissions.isEmpty() &&
-                    commandFeedbackForSession.isEmpty() -> {
+                    commandFeedbackForSession.isEmpty() && compactionEntriesForSession.isEmpty() -> {
                     ChatEmptyState(
                         modifier = Modifier.align(Alignment.Center)
                     )
@@ -877,8 +886,19 @@ fun ChatScreen(
 
                         // messageListState 返回最旧优先；常规布局将
                         // 索引 0（最旧）渲染在顶部，最后一个索引（最新）在底部。
-                        val rawMessages = remember(messageState.messages) {
-                            messageState.messages.reversed()
+                        // #378 读侧抑制（上游统一过滤——displayItems 索引一致重建）：
+                        // - 表面遮蔽消息（seq 落入 surfaceOp.replace 区间＝已被压缩摘要取代，
+                        //   含冷存回读兜底）；
+                        // - 压缩摘要表面载体（entry.messageId——内容由压缩 box 独占承载，防双份）。
+                        val compactionBoundIds = remember(compactionEntriesForSession) {
+                            compactionEntriesForSession.mapNotNull { it.messageId }.toSet()
+                        }
+                        val rawMessages = remember(messageState.messages, shadowedRangesForSession, compactionBoundIds) {
+                            messageState.messages.reversed().filterNot { m ->
+                                val shadowed = dev.leonardo.ocbeacon.domain.model.DshMessageId.seqOf(m.message.id)
+                                    ?.let { seq -> shadowedRangesForSession.any { seq in it } } == true
+                                shadowed || m.message.id in compactionBoundIds
+                            }
                         }
 
                         // 过滤：保留用户消息 + 每个 turn 组中的第一条 assistant 消息
@@ -966,6 +986,9 @@ fun ChatScreen(
                         // 2026-09-01（走查 #2）：会话运行错误转录内行（消息流内渲染，
                         // 随历史滚动，非悬浮浮层；DSH turn-error 对位）
                         sessionErrorRows = sessionErrors,
+                        // #378：压缩转录实体（流内 box 数据源；命令反馈行在
+                        // ChatMessageList 内自采——同 ViewModel 通道）
+                        compactionEntries = compactionEntriesForSession,
                         // 2026-09-01（B1 链）：内容检索跳转目标消息（打开即异步定位）
                         initialJumpTarget = initialJumpToMessageId,
                         // 走查 #1：跳转视口锁上提回传（守卫重锚/锚底让位依据）

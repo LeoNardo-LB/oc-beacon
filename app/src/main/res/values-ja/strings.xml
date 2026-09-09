@@ -27,6 +27,11 @@
     <string name="command_feedback_running">実行中…</string>
     <string name="command_feedback_accepted">受理済み</string>
     <string name="command_feedback_completed">完了</string>
+    <string name="chat_compaction_title">セッションの圧縮</string>
+    <string name="chat_compaction_done">セッションを圧縮済み</string>
+    <string name="chat_compaction_in_progress">圧縮中…</string>
+    <string name="chat_compaction_failed">圧縮に失敗しました</string>
+    <string name="chat_compaction_expand">圧縮の要約を展開</string>
     <string name="command_feedback_failed">失敗</string>
     <string name="command_feedback_a11y_running">コマンドを実行中</string>
     <!-- Chat Screen -->

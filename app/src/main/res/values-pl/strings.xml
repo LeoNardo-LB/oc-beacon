@@ -27,6 +27,11 @@
     <string name="command_feedback_running">Uruchamianie…</string>
     <string name="command_feedback_accepted">Przyjęte</string>
     <string name="command_feedback_completed">Zakończono</string>
+    <string name="chat_compaction_title">Kompresja sesji</string>
+    <string name="chat_compaction_done">Sesja skompresowana</string>
+    <string name="chat_compaction_in_progress">Kompresowanie…</string>
+    <string name="chat_compaction_failed">Kompresja nie powiodła się</string>
+    <string name="chat_compaction_expand">Rozwiń podsumowanie kompresji</string>
     <string name="command_feedback_failed">Niepowodzenie</string>
     <string name="command_feedback_a11y_running">Polecenie jest wykonywane</string>
     <!-- Chat Screen -->

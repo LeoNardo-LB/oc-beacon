@@ -69,6 +69,11 @@
     <string name="command_feedback_running">Running…</string>
     <string name="command_feedback_accepted">Accepted</string>
     <string name="command_feedback_completed">Completed</string>
+    <string name="chat_compaction_title">Session compaction</string>
+    <string name="chat_compaction_done">Session compacted</string>
+    <string name="chat_compaction_in_progress">Compacting…</string>
+    <string name="chat_compaction_failed">Compaction failed</string>
+    <string name="chat_compaction_expand">Expand compaction summary</string>
     <string name="command_feedback_failed">Failed</string>
     <string name="command_feedback_a11y_running">Command execution in progress</string>
     <string name="session_rename">Rename Session</string>

@@ -209,6 +209,8 @@ fun ChatMessageList(
      * 消息流内渲染、随历史滚动，非悬浮/常驻浮层）。数据源 viewModel.sessionErrors。
      */
     sessionErrorRows: List<String> = emptyList(),
+    /** #378：压缩转录实体（流内 box 数据源；命令反馈行在本组件自采）。 */
+    compactionEntries: List<dev.leonardo.ocbeacon.domain.model.CompactionEntry> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     // #137（D2-L50）：工具卡片复制反馈统一 Snackbar 通道（ToolCardScaffold 原用 Toast）
@@ -1079,254 +1081,45 @@ fun ChatMessageList(
                 LocalRenderReadiness provides renderReadiness,
                 LocalJumpController provides jumpController,
             ) {
-                LazyColumn(
-                    state = listState,
-                    // 2026-08-20 滚动稳定性：限速 fling——每帧 ≤ 视口高/8，
-                    // 高速段不再冲入未组合区（与渲染供给协调器配合，见上方）
-                    flingBehavior = rememberSafeFlingBehavior(listState),
-                    modifier = Modifier.fillMaxSize()
-                        // #149：唯一 testTag——ChatScreen 树中有 2 个 scrollable 节点
-                        //（消息列表 + 底部输入栏），androidTest 的 hasScrollAction()
-                        // 匹配多节点导致 touch 注入失败
-                        .testTag("chat-message-list")
-                        // #245 巨帧分块守卫（v2 Initial 隧道趟）：平台输入合并产生的
-                        // 巨型单帧增量切片直派滚动（探针实证：冷启动进场后 2.5s 拖动
-                        // 被合并成 2 帧 ~1700px，列表 scrollable 认领却零消耗——
-                        // 机制勘误与实现见 ScrollIsland.kt §巨帧分块）
-                        .megaDeltaScrollGuard(listState)
-                        .pointerInput(Unit) { detectTapGestures(onTap = { keyboardController?.hide() }) },
-                    contentPadding = PaddingValues(
-                        start = SpacingTokens.MD.dp,
-                        top = SpacingTokens.SM.dp,
-                        end = SpacingTokens.MD.dp,
-                        bottom = SpacingTokens.SM.dp
-                    ),
-                    reverseLayout = true,
-                    // 2026-08-20 分片：移除 spacedBy（chunk item 间不能有间隙——
-                    // 同一气泡的分段视觉连续），改为 item 级 bottom padding
-                    //（横幅/Turn/Chunk 末段加 messageSpacing，chunk 非末段为 0）。
-                ) {
-                    // reverseLayout=true：先声明的项渲染在底部。
-                    // 视觉顺序（上→下）：最旧消息 → 最新消息 → revert → pending。
-                    // 声明顺序自下而上：pending（底部）→ 消息（顶部）。
-
-                    // #252 时间线化（2026-08-28）：钉底 shell 横幅退役——shell 通知卡
-                    // 改由消息流按时间线渲染（ChatEntry.Turn 的 role='shell' 特判，
-                    // 数据源 Part.Shell 载荷），新消息自动顶上去（主对话流语义）。
-
-                    // 2026-09-01（Task 3d）：DSH 后台任务降级 Shell 卡——session/jobs
-                    // 整快照（last-wins）按当前运行状态钉底渲染（kind/label/status/
-                    // detail；DSH 无命令/输出源 → command/output 留空）。先声明 = 视觉
-                    // 底部（reverseLayout）。终态任务随快照自然移除（官方 jobs 语义）。
-                    if (dshJobs.isNotEmpty()) {
-                        dshJobs.forEach { job ->
-                            item(key = "dsh_job_" + job.id) {
-                                Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                                    DshJobTimelineCard(job = job, expandedStates = eventCardExpandedStates)
-                                }
+                    // #378 转录卡流内归并（Phase B）：卡内嵌承载——卡渲染在锚消息条目的
+                    // Column 内，消息条目的 lazy index/key/双向索引（entryDisplayIndex·
+                    // displayEntryStart·bannerCount 数学）全部保持不变（跳转/锚点/可见项
+                    // 反查零波及——承重索引体系的保守性决策）。归并语义见 [TranscriptPlan]。
+                    val transcriptCardPlan = remember(chatEntries, displayItems, commandFeedbackRows, compactionEntries) {
+                        val entries = chatEntries.entries
+                        val bottomKeys = arrayOfNulls<String>(displayItems.size)
+                        val topKeys = arrayOfNulls<String>(displayItems.size)
+                        for (e in entries.indices) {
+                            val di = chatEntries.entryDisplayIndex[e]
+                            if (di in bottomKeys.indices) {
+                                if (bottomKeys[di] == null) bottomKeys[di] = entries[e].key
+                                topKeys[di] = entries[e].key
+                            }
+                        }
+                        TranscriptPlan.build(
+                            displaySeqs = displayItems.map { dev.leonardo.ocbeacon.domain.model.DshMessageId.seqOf(it.second.message.id) },
+                            visualBottomEntryKeys = bottomKeys.toList(),
+                            visualTopEntryKeys = topKeys.toList(),
+                            cards = TranscriptPlan.cards(commandFeedbackRows, compactionEntries),
+                        )
+                    }
+                    val transcriptCardExtras = transcriptCardPlan.first
+                    val transcriptTrailingCards = transcriptCardPlan.second
+                    
+                    @Composable
+                    fun renderTranscriptCardItem(card: TranscriptCardItem, spacingBelow: Boolean) {
+                        Box(modifier = Modifier.padding(bottom = if (spacingBelow) messageSpacing else 0.dp)) {
+                            when (card) {
+                                is TranscriptCardItem.Command -> CommandFeedbackCard(state = card.feedback)
+                                is TranscriptCardItem.Compaction -> CompactionTranscriptCard(entry = card.entry)
                             }
                         }
                     }
-
-                    // Revert 横幅（#276：DSH 无 revert 域——revert 态永不为真，
-                    // 能力位兜底门控）
-                    if (revertSupported && sessionMeta.revert != null) {
-                        item(key = "revert_banner") {
-                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                            RevertBanner(onRedo = {
-                                viewModel.redoMessage { ok ->
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            if (ok) context.getString(R.string.chat_messages_restored) else context.getString(R.string.chat_message_redo_failed)
-                                        )
-                                    }
-                                }
-                                onForceScrollToBottom()
-                            })
-                            }
-                        }
-                    }
-
-                    // #217 分割线包揽（2026-08-24）：压缩进行中 = 进行中分割线，插在
-                    // 消息流尾部；完成态由消息流内 compaction 消息的 CompactionCard 承担。
-                    // 尾部兜底认领（去重/让位判定）在 CompactionDividerPolicy.tailSpec（C4）。
-                    // #374（2026-09-09 用户演示裁决）：DSH /compact 期间活命令反馈卡
-                    // 在场（受理/执行中）→ 进行中分割线让位——单卡承载全程，不双轨。
-                    val compactCommandCardLive = commandFeedbackRows.any {
-                        it.name == "compact" && it.done == null
-                    }
-                    val tailCompaction = CompactionDividerPolicy.tailSpec(
-                        currentCompaction, displayItemMessageIds, v1CompactionSummaryInList,
-                        suppressByLiveCompactCommand = compactCommandCardLive,
-                    )
-                    if (tailCompaction != null) {
-                        item(key = "compaction_banner") {
-                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                                // #221/#222：展开区流式增长——延迟揭示真·渲染前补偿
-                                // （尾部兜底路径，挂载点原位）；#227 展开键语义在 spec。
-                                CompactionDividerSlot(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clipToBounds()
-                                        .deferredRevealCompensation(
-                                            listState = listState,
-                                            compensator = compactionReveal,
-                                            shouldCompensate = { compensateState.shouldCompensate },
-                                            logTag = "COMP-CMP(tail)",
-                                        ),
-                                    expansionKey = tailCompaction.expansionKey,
-                                    state = tailCompaction.state,
-                                    summary = null,
-                                    failed = false,
-                                    expandedStates = compactionExpandedStates,
-                                )
-                            }
-                        }
-                    }
-
-                    // Retry 横幅 —— 会话处于 Retry 状态时显示
-                    val retryStatus = sessionMeta.sessionStatus
-                    if (retryStatus is SessionStatus.Retry) {
-                        item(key = "retry_banner") {
-                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                            RetryBanner(retryStatus)
-                            }
-                        }
-                    }
-
-                    // #309 批1⑤：max-tokens 通知卡（Web turn-max-tokens 对位）——
-                    // 本轮输出达上限被截断；继续=再发一条 "continue" prompt（无专用
-                    // 端点，Web 同款语义）；新一轮 turn/start（Busy）自动清卡。
-                    if (turnMaxTokens != null) {
-                        item(key = "turn_max_tokens") {
-                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                                TurnMaxTokensCard(
-                                    onContinue = { viewModel.sendMessage("continue") },
-                                )
-                            }
-                        }
-                    }
-
-                    // D1③：会话运行错误转录内行（走查 #2 对齐 DSH turn-error 语义）——
-                    // 渲染为消息流 LazyColumn item（随历史滚动，非悬浮浮层），
-                    // 无 dismiss（DSH TurnErrorItem 同），sendMessage 成功清卡。
-                    // reverseLayout=true：先声明 = 视觉底部 -> 错误行钉在消息流尾部。
-                    sessionErrorRowItems(sessionErrorRows).forEach { (key, error) ->
-                        item(key = key) {
-                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                                SessionErrorCard(error = error)
-                            }
-                        }
-                    }
-
-                    // 工具进度卡片（带漂移补偿）
-                    if (activeTools.isNotEmpty()) {
-                        item(key = "tool_progress") {
-                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clipToBounds()
-                                    .deferredRevealCompensation(
-                                        listState = listState,
-                                        compensator = toolReveal,
-                                        shouldCompensate = { compensateState.shouldCompensate },
-                                        logTag = "COMP-TOOL",
-                                    )
-                            ) {
-                                activeTools.forEach { toolInfo ->
-                                    ToolProgressCard(toolInfo = toolInfo)
-                                }
-                            }
-                            }
-                        }
-                    } else {
-                        // 无活跃工具时重置
-                        toolReveal.reset()
-                    }
-
-                    // 步骤进度指示器
-                    if (currentStep != null) {
-                        item(key = "step_progress") {
-                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                            StepProgressIndicator(stepInfo = currentStep)
-                            }
-                        }
-                    }
-
-                    // 待处理问题（未嵌入消息气泡的保底显示）——一次显示一个（最旧优先）
-                    unembeddedQuestions.firstOrNull()?.let { question ->
-                        item(key = "question_${question.id}") {
-                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                            QuestionCard(
-                                question = question,
-                                positionLabel = if (unembeddedQuestions.size > 1) "1/${unembeddedQuestions.size}" else null,
-                                // 2026-08-30 同嵌入路径：提交/忽略不强制拉底
-                                onSubmit = { answers ->
-                                    viewModel.replyToQuestion(question.id, answers)
-                                },
-                                onReject = {
-                                    viewModel.rejectQuestion(question.id)
-                                },
-                                answersStore = viewModel.questionAnswerStore,
-                            )
-                            }
-                        }
-                    }
-
-                    // 待处理权限 —— 一次显示一个（最旧优先）
-                    interaction.pendingPermissions.firstOrNull()?.let { permission ->
-                        item(key = "perm_${permission.id}") {
-                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                            PermissionCard(
-                                permission = permission,
-                                positionLabel = if (interaction.pendingPermissions.size > 1) "1/${interaction.pendingPermissions.size}" else null,
-                                onOnce = {
-                                    viewModel.replyToPermission(permission.id, "once", permission.sessionId)
-                                    onForceScrollToBottom()
-                                },
-                                onAlways = { showAlwaysDialog = permission },
-                                onReject = {
-                                    viewModel.replyToPermission(permission.id, "reject", permission.sessionId)
-                                    onForceScrollToBottom()
-                                }
-                            )
-                            }
-                        }
-                    }
-
-                    // #323 斜杠命令执行反馈行（EventCard 族，非流式内容——不接高度补偿）：
-                    // log-only 无轮包裹 → 行挂消息流尾部、组内按 seq 插入序（升序＝
-                    // 事件到达序）；key=commandId 稳定 → run→done 同卡原位刷新（非两行）。
-                    // durable 事件：历史重放同渲染。reverseLayout=true：先声明 = 视觉底部，
-                    // asReversed 使最新卡贴底（与消息流时间方向一致）。
-                    commandFeedbackRows.asReversed().forEach { feedback ->
-                        item(key = "cmd_feedback_" + feedback.commandId) {
-                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                                CommandFeedbackCard(state = feedback)
-                            }
-                        }
-                    }
-
-                    // 聊天消息：displayItems 已经是新的在前（降序）。
-                    // reverseLayout=true 将索引 0（最新）渲染在底部。
-                    // 视觉结果：最旧在顶部，最新在底部。
-                    // 2026-08-20 分片：items = chatEntries（巨型 turn 已展开为
-                    // N 个 chunk item；key 语义不变——buildChatEntries 与原逻辑
-                    // 一致，chunk 追加 #c<i> 后缀且保持 t_/u_ 前缀）。
-                    itemsIndexed(
-                        chatEntries.entries,
-                        key = { _, entry -> entry.key },
-                        contentType = { _, entry ->
-                            when (entry) {
-                                is ChatEntry.Chunk -> "assistant_chunk"
-                                is ChatEntry.TurnChunk -> "assistant_segment"
-                                is ChatEntry.UserChunk -> "user_chunk"
-                                is ChatEntry.Turn ->
-                                    if (displayItems[entry.displayIndex].second.isUser) "user" else "assistant"
-                            }
-                        },
-                    ) { _, entry ->
+                    
+                    // #378：原 itemsIndexed 内容抽出的消息条目渲染体（逻辑零变更——仅承载
+                    // 点迁移；卡内嵌分派见 itemsIndexed lambda）。
+                    @Composable
+                    fun renderTranscriptEntry(entry: ChatEntry) {
                         when (entry) {
                             is ChatEntry.Chunk -> {
                                 val displayItemIndex = entry.displayIndex
@@ -1991,6 +1784,263 @@ fun ChatMessageList(
                         }
                         } // Box freeze
                             }
+                        }
+                    }
+                    
+                LazyColumn(
+                    state = listState,
+                    // 2026-08-20 滚动稳定性：限速 fling——每帧 ≤ 视口高/8，
+                    // 高速段不再冲入未组合区（与渲染供给协调器配合，见上方）
+                    flingBehavior = rememberSafeFlingBehavior(listState),
+                    modifier = Modifier.fillMaxSize()
+                        // #149：唯一 testTag——ChatScreen 树中有 2 个 scrollable 节点
+                        //（消息列表 + 底部输入栏），androidTest 的 hasScrollAction()
+                        // 匹配多节点导致 touch 注入失败
+                        .testTag("chat-message-list")
+                        // #245 巨帧分块守卫（v2 Initial 隧道趟）：平台输入合并产生的
+                        // 巨型单帧增量切片直派滚动（探针实证：冷启动进场后 2.5s 拖动
+                        // 被合并成 2 帧 ~1700px，列表 scrollable 认领却零消耗——
+                        // 机制勘误与实现见 ScrollIsland.kt §巨帧分块）
+                        .megaDeltaScrollGuard(listState)
+                        .pointerInput(Unit) { detectTapGestures(onTap = { keyboardController?.hide() }) },
+                    contentPadding = PaddingValues(
+                        start = SpacingTokens.MD.dp,
+                        top = SpacingTokens.SM.dp,
+                        end = SpacingTokens.MD.dp,
+                        bottom = SpacingTokens.SM.dp
+                    ),
+                    reverseLayout = true,
+                    // 2026-08-20 分片：移除 spacedBy（chunk item 间不能有间隙——
+                    // 同一气泡的分段视觉连续），改为 item 级 bottom padding
+                    //（横幅/Turn/Chunk 末段加 messageSpacing，chunk 非末段为 0）。
+                ) {
+                    // reverseLayout=true：先声明的项渲染在底部。
+                    // 视觉顺序（上→下）：最旧消息 → 最新消息 → revert → pending。
+                    // 声明顺序自下而上：pending（底部）→ 消息（顶部）。
+
+                    // #252 时间线化（2026-08-28）：钉底 shell 横幅退役——shell 通知卡
+                    // 改由消息流按时间线渲染（ChatEntry.Turn 的 role='shell' 特判，
+                    // 数据源 Part.Shell 载荷），新消息自动顶上去（主对话流语义）。
+
+                    // 2026-09-01（Task 3d）：DSH 后台任务降级 Shell 卡——session/jobs
+                    // 整快照（last-wins）按当前运行状态钉底渲染（kind/label/status/
+                    // detail；DSH 无命令/输出源 → command/output 留空）。先声明 = 视觉
+                    // 底部（reverseLayout）。终态任务随快照自然移除（官方 jobs 语义）。
+                    if (dshJobs.isNotEmpty()) {
+                        dshJobs.forEach { job ->
+                            item(key = "dsh_job_" + job.id) {
+                                Box(modifier = Modifier.padding(bottom = messageSpacing)) {
+                                    DshJobTimelineCard(job = job, expandedStates = eventCardExpandedStates)
+                                }
+                            }
+                        }
+                    }
+
+                    // Revert 横幅（#276：DSH 无 revert 域——revert 态永不为真，
+                    // 能力位兜底门控）
+                    if (revertSupported && sessionMeta.revert != null) {
+                        item(key = "revert_banner") {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
+                            RevertBanner(onRedo = {
+                                viewModel.redoMessage { ok ->
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            if (ok) context.getString(R.string.chat_messages_restored) else context.getString(R.string.chat_message_redo_failed)
+                                        )
+                                    }
+                                }
+                                onForceScrollToBottom()
+                            })
+                            }
+                        }
+                    }
+
+                    // #217 分割线包揽（2026-08-24）：压缩进行中 = 进行中分割线，插在
+                    // 消息流尾部；完成态由消息流内 compaction 消息的 CompactionCard 承担。
+                    // 尾部兜底认领（去重/让位判定）在 CompactionDividerPolicy.tailSpec（C4）。
+                    // #374（2026-09-09 用户演示裁决）：DSH /compact 期间活命令反馈卡
+                    // 在场（受理/执行中）→ 进行中分割线让位——单卡承载全程，不双轨。
+                    val compactCommandCardLive = commandFeedbackRows.any {
+                        it.name == "compact" && it.done == null
+                    }
+                    val tailCompaction = CompactionDividerPolicy.tailSpec(
+                        currentCompaction, displayItemMessageIds, v1CompactionSummaryInList,
+                        suppressByLiveCompactCommand = compactCommandCardLive,
+                    )
+                    if (tailCompaction != null) {
+                        item(key = "compaction_banner") {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
+                                // #221/#222：展开区流式增长——延迟揭示真·渲染前补偿
+                                // （尾部兜底路径，挂载点原位）；#227 展开键语义在 spec。
+                                CompactionDividerSlot(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clipToBounds()
+                                        .deferredRevealCompensation(
+                                            listState = listState,
+                                            compensator = compactionReveal,
+                                            shouldCompensate = { compensateState.shouldCompensate },
+                                            logTag = "COMP-CMP(tail)",
+                                        ),
+                                    expansionKey = tailCompaction.expansionKey,
+                                    state = tailCompaction.state,
+                                    summary = null,
+                                    failed = false,
+                                    expandedStates = compactionExpandedStates,
+                                )
+                            }
+                        }
+                    }
+
+                    // Retry 横幅 —— 会话处于 Retry 状态时显示
+                    val retryStatus = sessionMeta.sessionStatus
+                    if (retryStatus is SessionStatus.Retry) {
+                        item(key = "retry_banner") {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
+                            RetryBanner(retryStatus)
+                            }
+                        }
+                    }
+
+                    // #309 批1⑤：max-tokens 通知卡（Web turn-max-tokens 对位）——
+                    // 本轮输出达上限被截断；继续=再发一条 "continue" prompt（无专用
+                    // 端点，Web 同款语义）；新一轮 turn/start（Busy）自动清卡。
+                    if (turnMaxTokens != null) {
+                        item(key = "turn_max_tokens") {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
+                                TurnMaxTokensCard(
+                                    onContinue = { viewModel.sendMessage("continue") },
+                                )
+                            }
+                        }
+                    }
+
+                    // D1③：会话运行错误转录内行（走查 #2 对齐 DSH turn-error 语义）——
+                    // 渲染为消息流 LazyColumn item（随历史滚动，非悬浮浮层），
+                    // 无 dismiss（DSH TurnErrorItem 同），sendMessage 成功清卡。
+                    // reverseLayout=true：先声明 = 视觉底部 -> 错误行钉在消息流尾部。
+                    sessionErrorRowItems(sessionErrorRows).forEach { (key, error) ->
+                        item(key = key) {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
+                                SessionErrorCard(error = error)
+                            }
+                        }
+                    }
+
+                    // 工具进度卡片（带漂移补偿）
+                    if (activeTools.isNotEmpty()) {
+                        item(key = "tool_progress") {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clipToBounds()
+                                    .deferredRevealCompensation(
+                                        listState = listState,
+                                        compensator = toolReveal,
+                                        shouldCompensate = { compensateState.shouldCompensate },
+                                        logTag = "COMP-TOOL",
+                                    )
+                            ) {
+                                activeTools.forEach { toolInfo ->
+                                    ToolProgressCard(toolInfo = toolInfo)
+                                }
+                            }
+                            }
+                        }
+                    } else {
+                        // 无活跃工具时重置
+                        toolReveal.reset()
+                    }
+
+                    // 步骤进度指示器
+                    if (currentStep != null) {
+                        item(key = "step_progress") {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
+                            StepProgressIndicator(stepInfo = currentStep)
+                            }
+                        }
+                    }
+
+                    // 待处理问题（未嵌入消息气泡的保底显示）——一次显示一个（最旧优先）
+                    unembeddedQuestions.firstOrNull()?.let { question ->
+                        item(key = "question_${question.id}") {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
+                            QuestionCard(
+                                question = question,
+                                positionLabel = if (unembeddedQuestions.size > 1) "1/${unembeddedQuestions.size}" else null,
+                                // 2026-08-30 同嵌入路径：提交/忽略不强制拉底
+                                onSubmit = { answers ->
+                                    viewModel.replyToQuestion(question.id, answers)
+                                },
+                                onReject = {
+                                    viewModel.rejectQuestion(question.id)
+                                },
+                                answersStore = viewModel.questionAnswerStore,
+                            )
+                            }
+                        }
+                    }
+
+                    // 待处理权限 —— 一次显示一个（最旧优先）
+                    interaction.pendingPermissions.firstOrNull()?.let { permission ->
+                        item(key = "perm_${permission.id}") {
+                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
+                            PermissionCard(
+                                permission = permission,
+                                positionLabel = if (interaction.pendingPermissions.size > 1) "1/${interaction.pendingPermissions.size}" else null,
+                                onOnce = {
+                                    viewModel.replyToPermission(permission.id, "once", permission.sessionId)
+                                    onForceScrollToBottom()
+                                },
+                                onAlways = { showAlwaysDialog = permission },
+                                onReject = {
+                                    viewModel.replyToPermission(permission.id, "reject", permission.sessionId)
+                                    onForceScrollToBottom()
+                                }
+                            )
+                            }
+                        }
+                    }
+
+
+                    // 聊天消息：displayItems 已经是新的在前（降序）。
+                    // reverseLayout=true 将索引 0（最新）渲染在底部。
+                    // 视觉结果：最旧在顶部，最新在底部。
+                    // 2026-08-20 分片：items = chatEntries（巨型 turn 已展开为
+                    // N 个 chunk item；key 语义不变——buildChatEntries 与原逻辑
+                    // 一致，chunk 追加 #c<i> 后缀且保持 t_/u_ 前缀）。
+                    itemsIndexed(
+                        chatEntries.entries,
+                        key = { _, entry -> entry.key },
+                        contentType = { _, entry ->
+                            when (entry) {
+                                is ChatEntry.Chunk -> "assistant_chunk"
+                                is ChatEntry.TurnChunk -> "assistant_segment"
+                                is ChatEntry.UserChunk -> "user_chunk"
+                                is ChatEntry.Turn ->
+                                    if (displayItems[entry.displayIndex].second.isUser) "user" else "assistant"
+                            }
+                        },
+                    ) { _, entry ->
+                        val extras = transcriptCardExtras[entry.key]
+                        if (extras == null || extras.isEmpty) {
+                            renderTranscriptEntry(entry)
+                        } else {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                extras.before.forEach { renderTranscriptCardItem(it, spacingBelow = true) }
+                                renderTranscriptEntry(entry)
+                                extras.after.forEach { renderTranscriptCardItem(it, spacingBelow = false) }
+                            }
+                        }
+                    }
+
+                    // #378：比当前窗口最旧消息还老的卡（older page 载入前的过渡态）——视觉
+                    // 顶部独立 item；发射序降序（reverseLayout 代码后声明 = 视觉更高，时间
+                    // 自新向旧向上排列，与消息流时序方向一致）。
+                    transcriptTrailingCards.asReversed().forEach { card ->
+                        item(key = card.planKey) {
+                            renderTranscriptCardItem(card, spacingBelow = true)
                         }
                     }
 

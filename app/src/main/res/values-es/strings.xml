@@ -27,6 +27,11 @@
     <string name="command_feedback_running">Ejecutando…</string>
     <string name="command_feedback_accepted">Aceptado</string>
     <string name="command_feedback_completed">Completado</string>
+    <string name="chat_compaction_title">Compactación de sesión</string>
+    <string name="chat_compaction_done">Sesión compactada</string>
+    <string name="chat_compaction_in_progress">Compactando…</string>
+    <string name="chat_compaction_failed">Error al compactar</string>
+    <string name="chat_compaction_expand">Expandir resumen de compactación</string>
     <string name="command_feedback_failed">Error</string>
     <string name="command_feedback_a11y_running">Comando en ejecución</string>
     <!-- Chat Screen -->

@@ -52,6 +52,11 @@
     <string name="command_feedback_running">Menjalankan…</string>
     <string name="command_feedback_accepted">Diterima</string>
     <string name="command_feedback_completed">Selesai</string>
+    <string name="chat_compaction_title">Kompaksi sesi</string>
+    <string name="chat_compaction_done">Sesi dikompaksi</string>
+    <string name="chat_compaction_in_progress">Mengompaksi…</string>
+    <string name="chat_compaction_failed">Gagal mengompaksi</string>
+    <string name="chat_compaction_expand">Perluas ringkasan kompaksi</string>
     <string name="command_feedback_failed">Gagal</string>
     <string name="command_feedback_a11y_running">Perintah sedang dijalankan</string>
     <string name="session_rename">Ganti Nama Sesi</string>
