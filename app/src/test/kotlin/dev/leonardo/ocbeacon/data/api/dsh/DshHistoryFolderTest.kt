@@ -55,7 +55,7 @@ class DshHistoryFolderTest {
         )
         assertEquals(SseEvent.SessionStatus("fixture-0001", SessionStatus.Busy), events[3])
         val user = events[4] as SseEvent.MessageUpdated
-        assertEquals("seq-5", user.info.id)
+        assertEquals("seq-fixture-0001-5", user.info.id)
         assertEquals("fixture-0001", user.info.sessionId)
         assertEquals(1788109000011L, user.info.time.created)
         // #356：RPC 提交回显（source.rpcId=rpc-fixture-1）→ 同批拆除 pending echo（原子换装）
@@ -75,7 +75,7 @@ class DshHistoryFolderTest {
         // assistant/message 整装：流式桥拆除 + 消息 + reasoning/text part
         assertEquals(SseEvent.MessageRemoved("fixture-0001", "dsh-t1s1"), events[11])
         val assistant = (events[12] as SseEvent.MessageUpdated).info as Message.Assistant
-        assertEquals("seq-13", assistant.id)
+        assertEquals("seq-fixture-0001-13", assistant.id)
         assertEquals(1788109000019L, assistant.time.completed)
         assertEquals("thinking...", ((events[13] as SseEvent.MessagePartUpdated).part as Part.Reasoning).text)
         assertEquals("answer", ((events[14] as SseEvent.MessagePartUpdated).part as Part.Text).text)

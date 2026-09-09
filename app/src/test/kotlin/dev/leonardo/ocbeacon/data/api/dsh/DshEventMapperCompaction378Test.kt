@@ -167,10 +167,10 @@ class DshEventMapperCompaction378Test {
         val range = events.filterIsInstance<SseEvent.SurfaceRangeReplaced>().single()
         assertEquals(9L, range.startSeq)
         assertEquals(4968L, range.endSeq)
-        assertEquals("seq-5392", range.byMessageId)
+        assertEquals("seq-s1-5392", range.byMessageId)
         val bound = events.filterIsInstance<SseEvent.CompactionSurfaceBound>().single()
         assertEquals("k1", bound.compactionId)
-        assertEquals("seq-5392", bound.messageId)
+        assertEquals("seq-s1-5392", bound.messageId)
     }
 
     @Test

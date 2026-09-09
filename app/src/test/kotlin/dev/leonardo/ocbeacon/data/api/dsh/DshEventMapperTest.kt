@@ -626,15 +626,15 @@ class DshEventMapperTest {
         assertEquals(2, mapped.size)
         val user = (mapped[0] as DshMappedEvent.Sse).event as SseEvent.MessageUpdated
         assertEquals(
-            Message.User(id = "seq-100", sessionId = "fixture-0001", time = TimeInfo(created = 1788109999000L)),
+            Message.User(id = "seq-fixture-0001-100", sessionId = "fixture-0001", time = TimeInfo(created = 1788109999000L)),
             user.info,
         )
         val part = (mapped[1] as DshMappedEvent.Sse).event as SseEvent.MessagePartUpdated
         assertEquals(
             Part.Text(
-                id = "seq-100_text_ord_0",
+                id = "seq-fixture-0001-100_text_ord_0",
                 sessionId = "fixture-0001",
-                messageId = "seq-100",
+                messageId = "seq-fixture-0001-100",
                 text = "hello beacon",
                 time = Part.Text.Time(start = 1788109999000L, end = 1788109999000L),
             ),
@@ -658,17 +658,17 @@ class DshEventMapperTest {
         assertEquals("dsh-t3s2", removed.messageId) // 同 turn/step 的实况流式宿主被整装替换
         val msg = (mapped[1] as DshMappedEvent.Sse).event as SseEvent.MessageUpdated
         val assistant = msg.info as Message.Assistant
-        assertEquals("seq-100", assistant.id)
+        assertEquals("seq-fixture-0001-100", assistant.id)
         assertEquals(TimeInfo(created = 1788109999000L, completed = 1788109999000L), assistant.time) // 红点水位线依赖 completed（§2.3）
         assertEquals(10, assistant.tokens!!.input)
         assertEquals(5, assistant.tokens!!.output)
         assertEquals(15, assistant.tokens!!.total)
         val reasoning = ((mapped[2] as DshMappedEvent.Sse).event as SseEvent.MessagePartUpdated).part as Part.Reasoning
-        assertEquals("seq-100_reasoning_ord_0", reasoning.id)
+        assertEquals("seq-fixture-0001-100_reasoning_ord_0", reasoning.id)
         assertEquals("why", reasoning.text)
         assertEquals(1788109999000L, reasoning.time!!.end) // 整装即终态（#266 迟到 delta 守卫）
         val text = ((mapped[3] as DshMappedEvent.Sse).event as SseEvent.MessagePartUpdated).part as Part.Text
-        assertEquals("seq-100_text_ord_1", text.id)
+        assertEquals("seq-fixture-0001-100_text_ord_1", text.id)
         assertEquals("answer body", text.text)
     }
 
@@ -1385,7 +1385,7 @@ class DshEventMapperTest {
         )
         val file = eventsOf(mapped)[1] as SseEvent.MessagePartUpdated
         val f = file.part as Part.File
-        assertEquals("seq-12_file_ord_0", f.id)
+        assertEquals("seq-s1-12_file_ord_0", f.id)
         assertEquals("image/png", f.mime)
         assertEquals("shot.png", f.filename)
         assertNull(f.url)
@@ -1402,7 +1402,7 @@ class DshEventMapperTest {
         )
         val parts = eventsOf(mapped).filterIsInstance<SseEvent.MessagePartUpdated>()
         val f = parts.single().part as Part.File
-        assertEquals("seq-30_file_ord_0", f.id)
+        assertEquals("seq-s1-30_file_ord_0", f.id)
         assertEquals("application/pdf", f.mime)
         assertEquals("spec.pdf", f.filename)
         assertEquals("https://x/spec.pdf", f.url)

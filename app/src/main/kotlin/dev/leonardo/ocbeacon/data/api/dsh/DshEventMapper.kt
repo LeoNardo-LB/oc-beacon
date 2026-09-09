@@ -56,8 +56,9 @@ private const val TAG = "DshEventMapper"
 object DshEventMapper {
 
     /** 整装消息 id（user/message、assistant/message）。契约唯一权威 = [DshMessageId]
-     *（#378 上提 domain——UI 流内归并需反解 seq，依赖方向禁止 UI→data）。 */
-    fun messageId(seq: Long): String = DshMessageId.id(seq)
+     *（#378 上提 domain——UI 流内归并需反解 seq，依赖方向禁止 UI→data）。
+     * #385b：携带 sessionId（DSH seq 仅会话内唯一，裸 id 跨会话碰撞——见契约注释）。 */
+    fun messageId(sessionId: String, seq: Long): String = DshMessageId.id(sessionId, seq)
 
     /**
      * #312⑤ 反解：整装消息 id "seq-{seq}" → seq（fork 轮尾锚点上
@@ -871,7 +872,7 @@ object DshEventMapper {
      * UI 按精简折叠卡渲染（对齐 DSH Web；此前统一按 user 气泡渲染成文本墙——演示①实测）。
      */
     private fun mapUserMessage(sessionId: String, seq: Long, time: Long, data: JsonObject): List<DshMappedEvent> {
-        val id = messageId(seq)
+        val id = messageId(sessionId, seq)
         val injectionKind = data.obj("source")?.str("kind")
             ?.takeIf { it.isNotBlank() && it != "user" }
         val events = mutableListOf(
@@ -955,7 +956,7 @@ object DshEventMapper {
      *   fold 场景为幂等 no-op）。
      */
     private fun mapAssistantMessage(sessionId: String, seq: Long, time: Long, data: JsonObject): List<DshMappedEvent> {
-        val id = messageId(seq)
+        val id = messageId(sessionId, seq)
         val events = mutableListOf<DshMappedEvent>()
         val turn = data.long("turn")
         val step = data.long("step")
@@ -1700,7 +1701,7 @@ object DshEventMapper {
         return DshMappedEvent.Sse(
             SseEvent.SurfaceRangeReplaced(
                 sessionId = sessionId, startSeq = start, endSeq = end,
-                byMessageId = messageId(seq), seq = seq, time = time,
+                byMessageId = messageId(sessionId, seq), seq = seq, time = time,
             )
         )
     }

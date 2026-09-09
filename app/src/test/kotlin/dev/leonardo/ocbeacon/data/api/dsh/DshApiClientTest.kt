@@ -377,8 +377,8 @@ class DshApiClientTest {
         val engine = MockEngine { respond(ok(historyValue), HttpStatusCode.OK, jsonHeaders()) }
         val page = client(engine).listMessages(conn, "s-1")
         assertEquals(2, page.messages.size)
-        assertEquals("seq-5", page.messages[0].info.id)
-        assertEquals("seq-9", page.messages[1].info.id)
+        assertEquals("seq-s-1-5", page.messages[0].info.id)
+        assertEquals("seq-s-1-9", page.messages[1].info.id)
         assertEquals(1, page.messages[1].parts.size) // chunk 不进历史 fold
         assertNotNull(page.nextCursor) // hasMore=true → 下一页游标（页内最小 seq）
         assertEquals("5", page.nextCursor)
@@ -1862,7 +1862,7 @@ class DshApiClientTest {
         }
         val page = client(engine, DshWireProtocol.V012).listMessages(conn, "s-1", limit = 30, before = null)
         assertEquals(1, page.messages.size) // chunks 行跳过
-        assertEquals("seq-5", page.messages[0].info.id)
+        assertEquals("seq-s-1-5", page.messages[0].info.id)
         assertNull(page.nextCursor) // hasMore=false
         val paths = captureRequests(engine).map { it.url.encodedPath }
         assertEquals(listOf("/api/session/list", "/api/session/page"), paths)

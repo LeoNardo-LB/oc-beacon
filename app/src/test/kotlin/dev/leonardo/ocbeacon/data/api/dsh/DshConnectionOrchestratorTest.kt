@@ -148,7 +148,7 @@ class DshConnectionOrchestratorTest {
         assertEquals(listOf(Triple("s1", 21L, 50)), history.requests)
         // 尾页两行重放为 2 条 MessageUpdated（保序）
         val updates = rec.dispatched.filterIsInstance<SseEvent.MessageUpdated>()
-        assertEquals(listOf("seq-15", "seq-20"), updates.map { it.info.id })
+        assertEquals(listOf("seq-s1-15", "seq-s1-20"), updates.map { it.info.id })
         assertEquals(20L, tracker.get("s1"))
         job.cancel()
     }

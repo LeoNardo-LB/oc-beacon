@@ -28,7 +28,7 @@ object DatabaseModule {
         // 小米等 ROM 系统 SQLite 无 fts5，BM25 检索需全设备可用的 FTS5。
         Room.databaseBuilder(context, OcBeaconDatabase::class.java, "ocbeacon.db")
             .openHelperFactory(io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory())
-            .addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3, Migrations.MIGRATION_3_4, Migrations.MIGRATION_4_5, OcBeaconDatabase.MIGRATION_5_6, Migrations.MIGRATION_6_7)
+            .addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3, Migrations.MIGRATION_3_4, Migrations.MIGRATION_4_5, OcBeaconDatabase.MIGRATION_5_6, Migrations.MIGRATION_6_7, OcBeaconDatabase.MIGRATION_7_8)
             .build()
 
     @Provides
