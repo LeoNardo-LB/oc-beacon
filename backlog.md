@@ -59,48 +59,18 @@
 （#356/#354/#358/#357 已完结迁 journal：2026-09-08 验收演示批（A 模式五节点全过），见 `docs/journal/2026-09-08-2.md` §三-§六；演示期新卡 #360-#365 待办）
 
 ## P1 — 核心功能需求
-
-- [~] **#380 命令通道系统性按接口对齐——三面命令元数据/参数传递/派遣语义以具体 API 契约为准逐项校准（2026-09-09 用户指令）** `command` `dsh` `v2` `v1`
-  - 裁决原文:「后续还是需要系统性的根据具体接口来修改！」——#372 回填交互已统一过验，但命令通道底层（V1/V2 /command arguments 字段族·DSH commands/execute 整行·commands/list 元数据 hints/参数 schema·发送路径解析）需系统性按各面真实接口逐项校准；含 #372 清查发现的 review 死特例清理与 V1 空会话 clientCmds 兜底面板（#373 邻域）
-  - **首批校准已落地（2026-09-09，8e46cfbd+b722a173）**：V2 派遣体收窄 {command,text}；agent/model/variant/parts 死 plumbing 全链移除；onSlashCommand 不可达 review/else 分支清除——契约矩阵与剩余项见 journal 378-380-wire §一
-  - 尾项活体复核完成（journal §七）：hints 实证+arguments 必填/空串合法对照实证；4 校准项全关
-
-- [~] **#378 命令调用卡片族系统性重设计——流内时序位+重进可重建（2026-09-09 用户演示裁决，伞卡）** `ui` `dsh` `command` `refactor`
-  - 裁决原文:「/init 已受理应该随着主对话流输出移动，而不是一直固定在底部！！跟压缩卡片的情况一模一样…这些都得改」「需结合具体 SSE 输出以及会话退出重进时 fetch 的数据是否支持来系统性分析判断」「先记下来，后续系统性分析，然后整体重构/重写」
-  - 范围：#323/#365 命令反馈卡全族（受理/执行/完成）——视觉样式 OK 保留（用户：「整体样式问题不大，细节后续调整」），核心缺陷=尾部钉死不入流+生命周期不可重建；与 #375（压缩实体入流）、#376（重进消失=窗口机制）、#377（首进重复）同族同批；前置=wire 级分析（SSE 事件形态/seq 时序/历史 fetch 窗口能否支撑流内定位与重建）
-  - **开工纪律（2026-09-09 用户裁决）**：#375/#376/#377 已冻结为本卡子项——本卡是命令卡族重写的唯一入口，子卡仅作分析输入不独立认领
-  - **设计定稿（2026-09-09，journal 378-380-wire §三）**：数据面完全支持——seq 全序权威键入流定位+commandId/compactionId 重建+page 权威去重；分层 A 数据层（fold 全事件+seq 幂等）→B UI 层（卡片入流+压缩 box+撤尾部钉死区）→C 收尾（#374 回收+376/377 验证）
-  - A/B/C 三层已落地+真机五面验证（2026-09-10，journal §六）：cards=18 四路径幂等/6 卡簇流内锚定/视觉命令卡实证/跨进程重建恒定/无双轨。commits a0de724d+1717adfd+62ccb64b+79bf8d0a
-
-- [ ] **#375 压缩呈现重设计——压缩实体入主对话流时序位 + 专用可展开 box（进行中 SSE 流式 token + 完成后全文，双态均可展开收起）（2026-09-09 用户演示裁决）** `ui` `dsh` `command`
-  - 裁决原文:「压缩后的卡片应该是主对话的一部分，而不是固定在最底部…opencode 以及常见 harness 压缩内容作为主对话的一部分」「应可展示压缩过程中 token 随 SSE 输出，以及压缩后所有内容，且进行中与完成均可展开收起，需专门 box」——现状三缺陷：#323/#365 卡尾部钉死（时序错位）、DSH 摘要 </compacted-summary> 裸文本呈现、进行中流式与完成全文无统一承载；#374 让位逻辑为过渡（保留至本卡落地）
-  - **冻结（2026-09-09 用户裁决）**：本卡为 #378 伞卡子项，禁止独立开工——流内时序位与专用 box 属全族重写范围，设计结论作为 #378 wire 级分析输入
-  - **契约事实（2026-09-09 源码取证）**：压缩族=compaction/start|summary|end|prune，summary 内容在 data.summary(ContentBlock[])+shadowedRange，表面替换由紧邻 user/message surfaceOp:replace 执行——完成态 box 有完整数据；进行中流式 token 语义待活体验证，先按 indeterminate
-
-- [ ] **#376 重进会话命令反馈卡消失——command/run|done 折叠仅活窗口内（in-memory+resync），历史页加载不重建（2026-09-09 演示实测）** `dsh` `command` `bug`
-  - 实测：重进后 /compact 卡全部消失（dump 0 节点）；r2 冷启同场景卡在场（事件窗口内重建）——新轮次记录把 command 事件推出窗口后不再折叠；#323「durable 历史重放」语义仅覆盖窗口内；与 #375 合并设计（卡与压缩实体合一后归流内时序位）
-  - **冻结（2026-09-09 用户裁决）**：#378 伞卡子项，禁止独立开工——窗口机制取证作为 #378 wire 级分析输入
-  - **前提反转（2026-09-09 wire 取证）**：服务器 session/page 历史**包含** command/run|done 全部原始事件（分页锚点只数消息，返回 raw 切片）——重进丢卡是客户端 fold 管线过滤所致，非服务器缺数据；修复方向=history fold 接入全事件（journal 378-380-wire §二.2/§三.2）
-
-- [ ] **#377 首次重进内容重复输出、二次正常——seed(Room)+REST 合并竞态嫌疑（2026-09-09 演示用户观察）** `dsh` `data` `bug`
-  - 用户:「第一次重进相同的内容似乎输出了两次，第二次重进就正常」；取证：Room 该会话 24 行，seq-1091-1093 同刻三行（/compact+注入×2）结构在库；疑似冷缓存+页面刷新合并双计（#363 邻域），修复期需定向复现
-  - **冻结（2026-09-09 用户裁决）**：#378 伞卡子项，禁止独立开工——竞态取证作为 #378 wire 级分析输入
-
-- [~] **#374 /compact 压缩期间命令反馈卡单卡承载——进行中分割线让位（2026-09-09 用户演示裁决）** `ui` `command` `dsh`
-  - 裁决原文:「我认为压缩应该在同一张卡片里完成所有动作，而不是像现在一样压缩中还多出一个分割线」——DSH /compact 双轨（命令卡+分割线）收敛为单卡；已实现 tailSpec 让位参数（活命令卡在场不出线，V2 无命令卡面照旧）+策略测试 → journal §六
-  - 让位规则已被 #378 取代（2026-09-10 同域最新裁决）：DSH 压缩由流内 box 全程承载，转录实体在场时分割线整体让位；本卡让位参数随 #378 Phase C 回收
+（#378 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
+（#375 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
+（#376 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
+（#377 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
+（#374 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
+（#380 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
+（#363 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
 
 - [~] **#365 斜杠/skill 命令执行反馈不可见——snackbar 一闪即逝+skill 类命令无 command/run|done 事件（反馈行永不触发），用户感知「按了没反应」（R4a 复验用户观察「没看到你发送任何内容」）** `ui` `command` `dsh`
   - 证据（2026-09-08 23:12）：logcat `Executed command /calculator: true`（wire 成功）；服务器持久日志 273 行全类型清点 **0 条 command/run|done**——skill 类命令走 commands/execute 不入事件流，#323 反馈行（只消费这两事件）结构性缺席。
   - **裁决（2026-09-09 用户）**：A——命令执行后转录内插本地合成反馈行（不等服务器事件）。原生命令（/compact 等）本就有服务器事件+#323 反馈行兜底；A 只补「受理即知」这层，不依赖服务器。展示层同题：命令是「发送」语义但无任何转录痕迹，用户无法回顾发生过什么。→ `docs/journal/2026-09-09-365-353-359-uiux-consistency.md`
   - **已实现(2026-09-09, commit 5bee330d)**：CommandFeedback.localAccepted 占位+run 同名原位升级；SessionActionsDelegate 单点三面统一；时钟图标+已受理态 i18n×15；单测 +7；定向测试 ✔ 待真机验收（同上 §一）
-
-- [ ] **#363〔主诉推翻 2026-09-08 三重证据〕转录渲染/滚动异常残留小件——轮次编号漂移、loadOlder 同窗循环、跳转列表重复行** `ui` `pagination`
-  - 原主诉「重启后用户气泡不渲染+列表钉死」被推翻：①用户肉眼确认正常；②像素扫描（bubble_scan.py）在视口顶部发现 primaryContainer 蓝色气泡矩形；③glm-5.3-flash 多模态识图（video-analyzer 视觉通道）确认气泡/过程卡/文件行全部正常渲染且滚动有效——「空白」实为 **uiautomator 对该 Compose 节点的语义盲区**（dump 不报文本，误导仪器判读；对 adb E2E 方法论是真实限制，对用户零影响）。
-  - 残留待查（小件）：① app 台账「轮次 5/6」vs 服务器 turnOutline 3/4 编号漂移（疑 steer 续写段计入）；② logcat「V1 loaded 32 (limit=30)」同窗重复 3+ 次+auto-load effect 反复重启（幂等无害，但白耗）；③ 旧会话快速定位列表出现重复用户行（QUEUE-proper-test ×2——昨日 echo 播种时代的数据残留，Room 有重复行）。
-  - 取证资产：/tmp/e2e-instr/{ocb363.db, rpc.mjs, page.mjs, bubble_scan.py, shots/363-*.png}；JVM 复现测试证实 fold+assemble 保 user parts（8/8 带非空文本）。
-  - 关联：#362（派发消息入转录已由本卡取证链完整证实——服务器 page+Room+渲染三面一致）。
-  - 三残件分析定性与处置（2026-09-10）：①轮次编号漂移——RenderableTurn 按消息邻接分组（steer 插话=新组），服务器 turnOutline 按 wire turn/ 事件计数；DSH 面根修需事件派生轮次计数（SessionNextEventHandler 可观测 turn/end）跨入台账，但 V1/V2 无 turn 事件、渲染层口径需统一——属语义裁决域，按修复方针呈分析待用户裁定后再动工；②loadOlder 同窗重复——auto-load effect 以 isLoadingOlder 翻转为 key 重启+视口近顶持续触发为设计内渐进回填；ARCHIVE 重复读为本地 Room 读（无网络），实测 3+ 次后终止，白耗微小；需活体复现定位 FSM 游标不推进场景才可根修，收益/成本比低挂起；③旧会话重复行——根因（echo 播种竞态）已由 #356 原子换装修复，残留为单个测试会话的 Room 历史数据（QUEUE-proper-test 系测试垃圾），数据清理迁移风险大于收益，建议随数据清除自然消亡
 
 
 
@@ -140,17 +110,9 @@
 
 （#372/#366/#367/#353 已完结迁 journal：2026-09-09 演示批过验，见 `docs/journal/2026-09-09-365-353-359-uiux-consistency.md` §八）
 （#382 已完结迁 journal：2026-09-09-docs-consolidation.md（2026-09-09））
+（#379 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
 
-- [~] **#379 抽屉手柄统一+内部滑动不致收起——fling 消费修正（2026-09-09 用户裁决）** `ui` `refactor`
-  - 裁决原文:「任何在抽屉内的滑动（拖拽或 fling）都不应该让抽屉收起，只有拖动手柄/点外/返回手势才收起；所有抽屉需统一的小样式手柄（行高很小）」；问：M3 是否天然支持手柄自定义——**是**：ModalBottomSheet 有 dragHandle 槽位（默认 32×4dp 圆角条，可替换任意 composable）；fling 收起根因=内容未消费嵌套滚动（列表需 nestedScroll 到顶才传递给 sheet）——全 sheet 盘点统一
-  - 已落地（2026-09-10）：SheetGestures 共享件——SmallSheetDragHandle 统一小手柄（28×3dp/行高 12dp，四处 ModalBottomSheet 全换：SheetScaffold 族/ModelPicker/QuickNavigate/Annotation）+ sheetContentGestureIsolation 内容手势隔离（onPostScroll/onPostFling 只吞向下剩余量——内容拖拽/fling 不致收起，手柄/点外/返回保留）；全量单测绿。真机手势验证待做（fling 体感类）
-  - 真机结构验证双证（2026-09-10）：内容 fling 轰击×6 不收起（SHEET-OPEN dump 断言）+ 手柄拖拽收起保留（DISMISSED）——隔离与收起两向实证；真手指体感列 V6 人工清单
-
-- [~] **#355 会话/消息搜索重设计（走查反馈②；2026-09-09 重登记——卡片曾在 fb9f4d75 误随 #354 迁移丢失）** `search` `ui`
-  - 用户:检索结果为**对话内容**→显示属于哪个会话;为**会话标题**→正常会话 list;可筛选;**已归档不展示**;筛选**不要 tag 形式,要标准列表筛选样式**;对**所有服务器生效(含 opencode V1/V2)**
-  - 已落地（2026-09-10）：①已归档不展示三面统一（serverRows merge 归档剔除+内容命中过滤+标题列表本就主列表域）②筛选改标准列表样式（ContentSearchFilterMenu DropdownMenu 单选列表替换 tag chips，chips 组件删除；选项常量共源）③i18n ×3 键 ×15 ④内容命中显示所属会话/标题命中正常列表为既有能力 ⑤V1/V2 生效=本地 FTS 跨面（openapi 实证 V1/V2 无服务器搜索端点——架构既定边界）；+2 单测（归档剔除）全量 3238 绿。真机检索区结构复测待做
-  - 验证态（2026-09-10）：编译+全量单测 3238 绿+归档剔除×2 单测；真机结构复测被 IME 注入限制阻断（搜索框聚焦后 keyevent 未落——与 #378 活体同因，MIUI 家族已知），检索区视觉（菜单形态/归档隐藏）列 V6 人工清单：用户日常搜索一次即验
-
+（#355 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
 
 - [~] **#351 FAB QUEUE 入口去留——统一审计 §三-4/§三-1 尾项** `ui` `fab` `queue`
   - **已裁决+实现(2026-09-07)**:用户「按照我之前说的做」=#313 路由裁决(队列 UI 归 FAB 能力→容器)延续——保留入口,新增 queueSupported 能力位(DSH=true/V1V2=false,同 GOAL/SHELL 先例)门控 ChatScreen FAB;chips(本地堆积两面同构)与 QueueSheet(DSH 服务端排队)语义互补。真机:DSH 面 QUEUE 在场/opencode 面 QUEUE 消失
@@ -212,26 +174,11 @@
 ## P3 — 观察与低价值改进
 
 （#359 已完结迁 journal：2026-09-09 演示批（§八）；旧「#372 三面面板 tap 行为不一致」观察卡系 #372 裁决前登记的重复卡，随终卡一并迁出清理）
-
-- [~] **#373 V1 空 scratch 会话面板 tap 静默清空输入+无执行，伴随 /session//todo 400 空 sid 请求（#365 验收 r1 附带发现）** `v1` `bug`
-  - 无服务端会话时 slash 面板 tap 清空 composer 且零执行；logcat 见空 sessionId 打到 /session//todo（#250 空 sid 404 同族——面板路径未挂 ensureSession）
-  - 已修复（2026-09-10 子代理批）：根因=client 型命令七入口（share/unshare/compact/undo/redo/fork/rename）与 probeTodoCapability 直读未物化空 sessionId、未挂 ensureSession 懒建——空 sid 请求被吞+输入已清空（/session//todo 400 即 TODO 探测腿）；修法=七入口对齐 executeSession 模式（ensureSession 先建再派发）+ TODO 探测改 sessionIdFlow.first{isNotEmpty()} 等物化。代码因共享 checkout 竞态并入 791e2dea（在场已验：delegate ensureSession 13 处）；编译+全量单测绿。真机 V1 scratch 面板复测待做
-
-- [~] **#368 V2 时钟域对齐调研——V2SseMapper 设备钟盖戳 created/completed vs V1/DSH 服务器信封钟（UIUX 三面审计 D4）** `sse` `v2` `data`
-  - V2SseMapper.kt:129/166-171（2026-08-26 旧实现）盖 System.currentTimeMillis()——台账时长/未读水位随设备钟漂移；以最新逻辑（DSH 域一致钟，#338 09-07）为标准，先探 V2 wire 信封时间可得性再对齐
-  - 已修复（2026-09-10）：wire 实证 V2 SSE 信封顶层 created=服务器 epoch ms + durable.seq（帧 {id,created,type,location,data,durable}）；SseClientV2 两解析路径萃取信封时刻穿入 V2SseMapper——8 处盖戳点（消息 created/completed、part start/end）全部改服务器钟域优先、缺席回退设备钟；+5 单测钉契约（V2SseMapperEnvelopeTime368Test）。设备验证待真机
-
-- [~] **#369 ShellSheet DSH 死代码清理+DSH jobs 历史面板（可选）——SHELL 入口 DSH 永不添加致 DshJobSheet 不可达（UIUX 三面审计 D5）** `refactor` `dsh`
-  - PendingSheets.kt:293-296 DSH 分支+DshJobSheet(:388-414) 为不可达死代码；V1V2 有历史+详情面板而 DSH 仅流内时间线卡——清理死代码（必做），jobs 历史面板为可选增强（价值另评）
-  - 已修复（2026-09-10 子代理批，da923549）：DSH 分流分支+DshJobSheet/DshJobRow 整族不可达死代码 -130 行移除；dsh_jobs_empty 成孤儿资源（lint warning 级，另卡可清）；编译+全量单测绿
-
-- [~] **#370 V2 QueueSheet 轮末自动刷新——pull-on-open 模型下面板陈旧（#356 遗留+UIUX 三面审计 D9）** `dsh` `queue` `v2`
-  - ChatViewModel.kt:795-832/ChatScreen.kt:1108：DSH=push（queueBySession 帧）vs V2=打开时拉取——轮结束提升后 V2 面板不自动刷新（打开/变更时拉取已覆盖）
-  - 已修复（2026-09-10 子代理批，92dd8945）：V2 QueueSheet 轮末陈旧——refreshQueueItems 过门置 v2QueuePulled+statusFlow 非Idle→Idle 且曾拉过时自动重拉一次；DSH 帧推送/V1 门外不受扰；编译+全量单测绿。真机 V2 轮末面板复测待做
-
-- [~] **#371 UIUX 三面口径杂项——台账步数口径(D2)/服务器徽标三态样式(D7)/V2 echo 形态(D11)/3 休眠能力位处置** `ui` `refactor`
-  - D2：DSH 工具宿主消息计步 vs V1V2 逻辑轮计步（RenderableTurn stepCount 口径）；D7：ServerCard DSH/V2/V1 三种容器色徽标；D11：V2 用户消息 summary.body+📎 占位 vs DSH 显式 parts；runningSessionsFilterSupported/messageDeleteSupported/projectionStatsSupported 零读者休眠位 keep-or-remove
-  - #371 四件处置（2026-09-10）：【休眠位】runningSessionsFilterSupported/messageDeleteSupported/projectionStatsSupported 三位零真实读者（仅定义+赋值）——已按死代码移除；【D7】ServerCard 版本徽标三色容器（DSH=tertiary/V2=primary/V1=surfaceVariant）统一为中性 surfaceVariant chip（类型区分由文本承载）；【D11】V2 echo 的 📎 文本占位系 2026-08-16 P0 附件可见性修复的过渡形态，REST 对账在刷新窗内收敛为结构化 Part.File——改即时结构化需解析器单事件契约→多事件重构，成本/收益不成立，按「接受过渡态」处置；【D2】台账步数口径漂移根因=RenderableTurn 按消息分组计数（DSH 工具宿主消息膨胀步数）vs 服务器 step/end 事件权威计数——V1/V2 无 step 事件、跨面统一需事件派生计数器入转录（同 #363① 轮次口径域），与 #363① 合并待用户裁决
+（#368 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
+（#369 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
+（#370 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
+（#371 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
+（#373 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
 
 - [ ] **#345 adb 注入 tap 间歇丢弃观察——MIUI 平台行为定性(非 app 缺陷),真手指未复现即不处理** `env` `device`
   - 定性修正(2026-09-07 二查):原「两案全灭」重析后——**第二案翻案**:Doubang 输入法为浅色主题,screencap 下半屏与 app surface 同色族 (247,250,253),误判「无 IME」后 tap 实际全打在键盘上;7 节点 dump=输入法安全窗致盲(平台正常)。第一案(t4401 克隆任务后 composer 聚焦 tap 无响应)仍疑似 MIUI 注入丢弃家族(同 E4② shade 组卡先例);两案中键事件/焦点全程有效(`dumpsys input_method` mServedView 在场实证),app 侧无缺陷证据
