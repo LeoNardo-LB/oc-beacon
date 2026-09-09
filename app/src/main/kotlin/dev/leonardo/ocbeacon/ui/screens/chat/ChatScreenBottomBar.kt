@@ -53,6 +53,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.input.PlanChipGate
 import dev.leonardo.ocbeacon.ui.screens.chat.util.ImageAttachment
 import dev.leonardo.ocbeacon.ui.screens.chat.util.PromptBuilder
 import dev.leonardo.ocbeacon.ui.screens.chat.util.SlashCommand
+import dev.leonardo.ocbeacon.ui.screens.chat.util.SlashCommandRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -196,6 +197,99 @@ internal fun ChatScreenBottomBar(
     // #309 批1④：直发插话（steer）——忙碌时长按发送键触发（空闲长按维持 shell 切换，
     // 语义正交：shell+忙碌本就禁用）。发送主链原样提升为本函数：steer 仅改写 DSH
     // session.prompt 的 mode（queue→steer，注入进行中轮次），confirm/shell/斜杠判定全共用。
+    // 2026-09-09（G2-① 根修）：上提为局部 val——doSend 打字路径客户端命令
+    // 分流与建议面板 tap 共用同一分发口（此前仅面板 tap 可达）。
+    val handleSlashCommand: (SlashCommand) -> Unit = { cmd ->
+        when (cmd.name) {
+            "new" -> {
+                onNavigateToSession("")  // 空 sessionId = 延迟创建
+            }
+            "compact" -> {
+                onForceScroll()
+                viewModel.compactSession { ok ->
+                    // 2026-08-26（用户裁决）：成功不弹 snackbar——分割线
+                    // 本身即完成反馈；失败保留提示（静默失败不可接受）。
+                    if (!ok) {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar(sessionCompactFailedMsg)
+                        }
+                    }
+                }
+            }
+            "fork" -> {
+                viewModel.forkSession { session ->
+                    if (session != null) {
+                        onNavigateToSession(session.id)
+                    } else {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar(forkFailedMsg)
+                        }
+                    }
+                }
+            }
+            "share" -> {
+                viewModel.shareSession { url ->
+                    coroutineScope.launch {
+                        if (url != null) {
+                            clipboard.copyToClipboard("url", url)
+                            snackbarHostState.showSnackbar(shareUrlCopiedMsg)
+                        } else {
+                            snackbarHostState.showSnackbar(shareFailedMsg)
+                        }
+                    }
+                }
+            }
+            "unshare" -> {
+                viewModel.unshareSession { ok ->
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar(
+                            if (ok) sessionUnsharedMsg else sessionUnshareFailedMsg
+                        )
+                    }
+                }
+            }
+            // #276：undo/redo 按 revertSupported 门控（DSH 无 revert
+            // 域；面板本身已按 commandsSupported 隐藏，此为防御性短路）
+            "undo" -> {
+                if (revertSupported) {
+                    viewModel.undoMessage { ok ->
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar(
+                                if (ok) messageUndoneMsg else messageUndoFailedMsg
+                            )
+                        }
+                    }
+                }
+            }
+            "redo" -> {
+                if (revertSupported) {
+                    viewModel.redoMessage { ok ->
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar(
+                                if (ok) messageRedoneMsg else messageRedoFailedMsg
+                            )
+                        }
+                    }
+                }
+            }
+            "rename" -> {
+                onShowRenameDialog()
+            }
+            "shell" -> {
+                // #276：shell 模式入口按 shellCommandSupported 门控
+                if (shellCommandSupported) {
+                    onInputModeChange(ChatInputMode.SHELL.name)
+                }
+            }
+            // #380 死代码清理（2026-09-09）：#372 回填铁律后 onSlashCommand 仅收
+            // client 型（九注册名全部显式分支）；原 "review" 分支（review 从不在
+            // client 注册表）与 else 服务端派遣分支均不可达——移除。未知 client
+            // 命令 no-op（注册表扩展时须显式加分支）。
+            else -> {
+            }
+        }
+    }
+
     val sendFromComposer: (Boolean) -> Unit = { steer ->
         val doSend = doSend@{
                         if (hapticEnabled) {
@@ -287,6 +381,22 @@ internal fun ChatScreenBottomBar(
                                         )
                                     }
                                 }
+                                onInputTextChange(TextFieldValue(""))
+                                if (isShellMode) {
+                                    onInputModeChange(ChatInputMode.NORMAL.name)
+                                }
+                                viewModel.composer.clearConfirmedPaths()
+                                viewModel.composer.clearFileSearch()
+                                viewModel.composer.clearDraft()
+                                onForceScroll()
+                                return@doSend
+                            }
+                            // 2026-09-09（G2-① 根修）：打字路径客户端命令分流——未注册服务器命令名
+                            // 的斜杠文本（如 /rename testx）此前静默落 prompt 通道喂模型（实测烧
+                            // 一轮 LLM 重试）。客户端命令是 app 本地动词：与面板 tap 同一分发口。
+                            if (commandName.isNotBlank() &&
+                                SlashCommandRegistry.clientCommandNames.contains(commandName)) {
+                                handleSlashCommand(SlashCommand(commandName, null, "client"))
                                 onInputTextChange(TextFieldValue(""))
                                 if (isShellMode) {
                                     onInputModeChange(ChatInputMode.NORMAL.name)
@@ -474,96 +584,7 @@ internal fun ChatScreenBottomBar(
                     }
                     viewModel.composer.clearFileSearch()
                 },
-                onSlashCommand = { cmd ->
-                    when (cmd.name) {
-                        "new" -> {
-                            onNavigateToSession("")  // 空 sessionId = 延迟创建
-                        }
-                        "compact" -> {
-                            onForceScroll()
-                            viewModel.compactSession { ok ->
-                                // 2026-08-26（用户裁决）：成功不弹 snackbar——分割线
-                                // 本身即完成反馈；失败保留提示（静默失败不可接受）。
-                                if (!ok) {
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(sessionCompactFailedMsg)
-                                    }
-                                }
-                            }
-                        }
-                        "fork" -> {
-                            viewModel.forkSession { session ->
-                                if (session != null) {
-                                    onNavigateToSession(session.id)
-                                } else {
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(forkFailedMsg)
-                                    }
-                                }
-                            }
-                        }
-                        "share" -> {
-                            viewModel.shareSession { url ->
-                                coroutineScope.launch {
-                                    if (url != null) {
-                                        clipboard.copyToClipboard("url", url)
-                                        snackbarHostState.showSnackbar(shareUrlCopiedMsg)
-                                    } else {
-                                        snackbarHostState.showSnackbar(shareFailedMsg)
-                                    }
-                                }
-                            }
-                        }
-                        "unshare" -> {
-                            viewModel.unshareSession { ok ->
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(
-                                        if (ok) sessionUnsharedMsg else sessionUnshareFailedMsg
-                                    )
-                                }
-                            }
-                        }
-                        // #276：undo/redo 按 revertSupported 门控（DSH 无 revert
-                        // 域；面板本身已按 commandsSupported 隐藏，此为防御性短路）
-                        "undo" -> {
-                            if (revertSupported) {
-                                viewModel.undoMessage { ok ->
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            if (ok) messageUndoneMsg else messageUndoFailedMsg
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        "redo" -> {
-                            if (revertSupported) {
-                                viewModel.redoMessage { ok ->
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            if (ok) messageRedoneMsg else messageRedoFailedMsg
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        "rename" -> {
-                            onShowRenameDialog()
-                        }
-                        "shell" -> {
-                            // #276：shell 模式入口按 shellCommandSupported 门控
-                            if (shellCommandSupported) {
-                                onInputModeChange(ChatInputMode.SHELL.name)
-                            }
-                        }
-                        // #380 死代码清理（2026-09-09）：#372 回填铁律后 onSlashCommand 仅收
-                        // client 型（九注册名全部显式分支）；原 "review" 分支（review 从不在
-                        // client 注册表）与 else 服务端派遣分支均不可达——移除。未知 client
-                        // 命令 no-op（注册表扩展时须显式加分支）。
-                        else -> {
-                        }
-                    }
-                },
+                onSlashCommand = handleSlashCommand,
                 onStop = { viewModel.interruptSession() },
                 restoredDraft = restoredDraft,
                 onConsumeRestoredDraft = { viewModel.composer.consumeRestoredDraft() },

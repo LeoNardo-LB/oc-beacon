@@ -32,6 +32,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 import dev.leonardo.ocbeacon.ui.screens.chat.RevertedDraftPayload
 import dev.leonardo.ocbeacon.ui.screens.chat.util.ImageAttachment
 import dev.leonardo.ocbeacon.ui.screens.chat.util.SlashCommand
+import dev.leonardo.ocbeacon.ui.screens.chat.input.SlashCommandGate
 import dev.leonardo.ocbeacon.ui.screens.chat.util.SlashCommandRegistry
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
@@ -168,8 +169,12 @@ internal fun ChatInputBar(
     }
 
     // 斜杠命令建议（#276：DSH 无 command 域——能力位关停整块面板）
-    val showSlashSuggestions = slashCommandsSupported && !isShellMode && text.startsWith("/") && !text.contains(" ")
-    val slashQuery = if (showSlashSuggestions) text.removePrefix("/").lowercase() else ""
+    // 2026-09-09（G2-① 根修）：分词判定——此前任一空格即整块隐藏面板，带参命令
+    //（/rename testx）打字途中失去可发现性；现以首 token 过滤，面板在参数输入
+    // 期间保持在场（"/ "转义形态 commandNameOf 返回 null，行为不变）。
+    val commandToken = SlashCommandGate.commandNameOf(text)
+    val showSlashSuggestions = slashCommandsSupported && !isShellMode && commandToken != null
+    val slashQuery = commandToken?.lowercase() ?: ""
     val filteredCommands = if (showSlashSuggestions) {
         allCommands.filter { cmd ->
             slashQuery.isEmpty() || cmd.name.lowercase().contains(slashQuery)
@@ -208,7 +213,12 @@ internal fun ChatInputBar(
                         //（V1/V2 /command arguments 字段、DSH commands/execute 整行
                         // line）——面板 tap 统一回填 "/name " 待补参后手动发送；
                         // 废除「无 input.hint 即直达」分叉（requiresInput 仅作提示）。
-                        val cmdText = "/" + cmd.name + " "
+                        // 2026-09-09（G2-①）：已打参数保留——回填只替换命令 token
+                        //（面板在带参输入期保持在场后必需，否则 tap 清空实参）。
+                        val typedArgs = commandToken
+                            ?.let { text.trim().substringAfter(' ', "").trim() }
+                            .orEmpty()
+                        val cmdText = "/" + cmd.name + " " + typedArgs
                         onTextFieldValueChange(TextFieldValue(cmdText, TextRange(cmdText.length)))
                     }
                 }
