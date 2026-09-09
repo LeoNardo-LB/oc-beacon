@@ -71,7 +71,8 @@ add)
   H=$(section_header_line "$P"); if [ -z "$H" ]; then die "add: 找不到节 ## $P"; fi
   K=$(top_insert_point "$H")
   ins_after "$K" "$CF"
-  SHORT=$(printf '%s' "$T" | head -c 48)
+  # 字符安全截断（head -c 按字节切，会把多字节 UTF-8 字符切半 → backlog.md 出现无效字节被判二进制，2026-09-10 #384 登记实测）
+  SHORT=$(printf '%s' "$T" | python3 -c 'import sys; print(sys.stdin.read()[:24].rstrip())')
   CL=$(grep -n '下一编号' "$BL" | head -1 | cut -d: -f1)
   awk -v ln="$CL" -v new="#$((N+1))" -v note="$TODAY #$N $SHORT" '
     NR==ln{ sub(/下一编号：.*$/, "下一编号：**" new "**（" note "）。"); print; next }
