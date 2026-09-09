@@ -68,6 +68,67 @@ class DshEventMapperCompaction378Test {
     }
 
     @Test
+    fun `compaction summary shadowedRange derives range replaced`() {
+        // 三层根修（2026-09-09 原始 journal 实录 seq-205955）：折叠权威区间在
+        // summary 事件的 data.shadowedRange——原 data.surfaceOp 判定从未命中
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s1",
+            envelope(
+                "compaction/summary",
+                """{"compactionId":"k1","summary":[{"type":"text","text":"## 摘要"}],"shadowedRange":{"start":7,"end":204973}}""",
+                seq = 205955,
+            ),
+        )
+        val events = mapped.filterIsInstance<DshMappedEvent.Sse>().map { it.event }
+        val range = events.filterIsInstance<SseEvent.SurfaceRangeReplaced>().single()
+        assertEquals(7L, range.startSeq)
+        assertEquals(204973L, range.endSeq)
+        assertEquals("s1", range.sessionId)
+        // 摘要双发不受影响
+        assertTrue(events.any { it is SseEvent.CompactionSummary })
+    }
+
+    @Test
+    fun `compaction prune shadowedRange derives range replaced`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s1",
+            envelope(
+                "compaction/prune",
+                """{"shadowedRange":{"start":100,"end":200}}""",
+                seq = 5399,
+            ),
+        )
+        val range = mapped.filterIsInstance<DshMappedEvent.Sse>().map { it.event }
+            .filterIsInstance<SseEvent.SurfaceRangeReplaced>().single()
+        assertEquals(100L, range.startSeq)
+        assertEquals(200L, range.endSeq)
+    }
+
+    @Test
+    fun `compaction prune without range stays ignored and malformed range dropped`() {
+        // 无区间：计价事件维持 Ignored
+        assertEquals(
+            listOf(DshMappedEvent.Ignored(DshIgnoreReason.COMPACTION)),
+            DshEventMapper.mapSessionEvent(
+                "s1",
+                envelope("compaction/prune", """{}""", seq = 5399),
+            ),
+        )
+        // 区间残缺（end<start）：summary 侧摘要双发仍在，range 事件被丢弃
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s1",
+            envelope(
+                "compaction/summary",
+                """{"compactionId":"k1","summary":[{"type":"text","text":"x"}],"shadowedRange":{"start":50,"end":10}}""",
+                seq = 5400,
+            ),
+        )
+        val events = mapped.filterIsInstance<DshMappedEvent.Sse>().map { it.event }
+        assertTrue(events.filterIsInstance<SseEvent.SurfaceRangeReplaced>().isEmpty())
+        assertTrue(events.any { it is SseEvent.CompactionSummary })
+    }
+
+    @Test
     fun `compaction end success emits transcript finish without error`() {
         val mapped = DshEventMapper.mapSessionEvent(
             "s1",

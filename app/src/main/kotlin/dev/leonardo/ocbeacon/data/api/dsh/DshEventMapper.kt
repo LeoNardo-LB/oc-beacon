@@ -734,13 +734,24 @@ object DshEventMapper {
                             )
                         )
                     }
+                    // 2026-09-09 三层根修（复验 A 二轮插桩+原始 journal 实证）：
+                    // wire 的折叠权威区间在 **summary 事件的 data.shadowedRange**
+                    // （{"start":7,"end":204973}，实录 seq-205955）——user/message
+                    // 行的 surfaceOp 是信封级字符串（"append"），原 mapUserMessage 的
+                    // data.obj("surfaceOp").op=="replace" 判定从未命中 →
+                    // SurfaceRangeReplaced 全程休眠（台账恒空、Room 幽灵行只靠
+                    // prefetch 对账兜底）。此处按 shadowedRange 派生发射——实况/
+                    // 历史同路径（summary 在转录卡族内，页回放同发）。
+                    shadowedRangeOf(data, sessionId, seq, time)?.let { events += it }
                     events
                 }
             }
-            // prune = 无摘要的纯裁剪（shadowedRange 计价事件）：折叠权威是紧随其后
-            // 的 user/message surfaceOp.replace（mapUserMessage 发 SurfaceRangeReplaced）
-            // ——prune 本体无转录语义，维持 Ignored。
-            "compaction/prune" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.COMPACTION))
+            // prune = 无摘要的纯裁剪（shadowedRange 计价事件）：同样按自身
+            // data.shadowedRange 派生 SurfaceRangeReplaced（三层根修同源）；
+            // 无有效区间的 prune 维持 Ignored（计价事件无转录语义）。
+            "compaction/prune" ->
+                shadowedRangeOf(data, sessionId, seq, time)?.let { listOf(it) }
+                    ?: listOf(DshMappedEvent.Ignored(DshIgnoreReason.COMPACTION))
             // goal/change → SessionGoalChanged（whole-value last-wins；clear tombstone → null）。
             // 历史折叠与实况共用本入口（DshHistoryFolder 可折叠）。
             "goal/change" -> {
@@ -1659,6 +1670,32 @@ object DshEventMapper {
     /** #378：compaction 族配对键（wire compactionId；缺席/空白 → null 不发实体）。 */
     private fun compactionIdOf(data: JsonObject): String? =
         data.str("compactionId")?.takeIf { it.isNotBlank() }
+
+    /**
+     * 三层根修（2026-09-09）：compaction/summary|prune 的 data.shadowedRange
+     * （{"start":Long,"end":Long}）→ SurfaceRangeReplaced。区间残缺/越界 → null
+     * （调用方维持原行为；残缺时打点可观测）。
+     */
+    private fun shadowedRangeOf(
+        data: JsonObject,
+        sessionId: String,
+        seq: Long,
+        time: Long,
+    ): DshMappedEvent.Sse? {
+        val range = data.obj("shadowedRange") ?: return null
+        val start = range.long("start")
+        val end = range.long("end")
+        if (start == null || end == null || end < start) {
+            AppLogger.w(TAG, "compaction shadowedRange 残缺（start=$start end=$end），忽略折叠指令")
+            return null
+        }
+        return DshMappedEvent.Sse(
+            SseEvent.SurfaceRangeReplaced(
+                sessionId = sessionId, startSeq = start, endSeq = end,
+                byMessageId = messageId(seq), seq = seq, time = time,
+            )
+        )
+    }
 
     /**
      * #378：ContentBlock[] → 全文（text 块拼接；块间双换行）。compaction/summary

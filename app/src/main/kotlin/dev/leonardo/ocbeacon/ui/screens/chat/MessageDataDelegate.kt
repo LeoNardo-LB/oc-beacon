@@ -476,7 +476,11 @@ internal class MessageDataDelegate(
      * V1/V2/未压缩会话为空表（no-op）；IO 悬浮读取当前值。
      */
     suspend fun loadShadowedRanges(): List<LongRange> =
-        chatRepository.getShadowedRangesForSession(sessionIdFlow.value).first()
+        chatRepository.getShadowedRangesForSession(sessionIdFlow.value).first().also {
+            if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                AppLogger.d(TAG, "[nav-suppress] sid=${sessionIdFlow.value.take(20)} shadowedRanges=${it.size} $it")
+            }
+        }
 
     /**
      * 压缩摘要表面载体 id 快照（复验 A 二层根因）：CompactionEntry.messageId——
@@ -488,6 +492,11 @@ internal class MessageDataDelegate(
             .first()
             .mapNotNull { it.messageId }
             .toSet()
+            .also {
+                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                    AppLogger.d(TAG, "[nav-suppress] boundIds=${it.size} $it")
+                }
+            }
 
     /**
      * 2026-08-15（research/01）：进会话后**后台预取**全量消息落库（官方 TUI
