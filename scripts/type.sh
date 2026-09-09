@@ -18,5 +18,7 @@ for (( i=0; i<${#TEXT}; i++ )); do
     '-') k=KEYCODE_MINUS;;
     *) continue;;
   esac
-  adb -s $S shell input keyevent $k
+  # 2026-09-09 根修：serial 未加引号——mDNS 实例名含空格（如 "adb-e69a99d8-yzT17Y (2)._adb-tls-connect._tcp"）
+  # 被 word-splitting 切成多参数，adb 报 unknown command 且 keyevent 全部静默丢弃（F1 实测）。
+  adb -s "$S" shell input keyevent "$k"
 done
