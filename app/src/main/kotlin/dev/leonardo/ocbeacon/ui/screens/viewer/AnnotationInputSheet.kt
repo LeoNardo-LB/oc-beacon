@@ -31,6 +31,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.ui.screens.chat.components.SmallSheetDragHandle
+import dev.leonardo.ocbeacon.ui.screens.chat.components.sheetContentGestureIsolation
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import kotlinx.coroutines.launch
 
@@ -61,11 +63,15 @@ fun AnnotationInputSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        // #379：统一小样式手柄（原 M3 默认 32×4dp 换 28×3dp 紧凑形态）
+        dragHandle = { SmallSheetDragHandle() },
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                // #379：内容手势隔离——输入表单内拖拽/fling 不致收起
+                .sheetContentGestureIsolation()
                 .padding(SpacingTokens.LG.dp)
                 .padding(bottom = SpacingTokens.XXL.dp),
             verticalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp)

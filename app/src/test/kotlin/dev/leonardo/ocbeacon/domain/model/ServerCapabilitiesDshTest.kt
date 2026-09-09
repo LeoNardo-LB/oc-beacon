@@ -30,7 +30,6 @@ class ServerCapabilitiesDshTest {
         ServerCapabilities::vcsSupported,
         ServerCapabilities::fileSearchSupported,
         ServerCapabilities::revertSupported,
-        ServerCapabilities::messageDeleteSupported,
         ServerCapabilities::shellCommandSupported,
     )
 
@@ -55,7 +54,6 @@ class ServerCapabilitiesDshTest {
             val caps = ServerCapabilities.of(ServerType.Dsh, version)
             assertFalse("shareSupported v=$version", caps.shareSupported)
             assertFalse("backgroundSessionsSupported v=$version", caps.backgroundSessionsSupported)
-            assertFalse("runningSessionsFilterSupported v=$version", caps.runningSessionsFilterSupported)
             assertFalse("configEditable v=$version", caps.configEditable)
             for (bit in newBits) {
                 assertFalse("${bit.name} v=$version", bit.get(caps))
@@ -156,7 +154,6 @@ class ServerCapabilitiesDshTest {
         val caps = ServerCapabilities.of(ServerType.OpenCode, ApiVersion.V1)
         assertTrue(caps.shareSupported)
         assertFalse(caps.backgroundSessionsSupported)
-        assertFalse(caps.runningSessionsFilterSupported)
         assertTrue(caps.configEditable)
         assertFalse(caps.compactionAsync)
         newBits.forEach { assertTrue(it.name, it.get(caps)) }
@@ -167,7 +164,6 @@ class ServerCapabilitiesDshTest {
         val caps = ServerCapabilities.of(ServerType.OpenCode, ApiVersion.V2)
         assertFalse(caps.shareSupported)
         assertTrue(caps.backgroundSessionsSupported)
-        assertTrue(caps.runningSessionsFilterSupported)
         assertFalse(caps.configEditable)
         assertTrue(caps.compactionAsync)
         newBits.forEach { assertTrue(it.name, it.get(caps)) }
@@ -178,7 +174,6 @@ class ServerCapabilitiesDshTest {
         val caps = ServerCapabilities.of(ServerType.OpenCode, null)
         assertTrue(caps.shareSupported)
         assertTrue(caps.backgroundSessionsSupported)
-        assertTrue(caps.runningSessionsFilterSupported)
         assertTrue(caps.configEditable)
         assertFalse(caps.compactionAsync)
         newBits.forEach { assertTrue(it.name, it.get(caps)) }

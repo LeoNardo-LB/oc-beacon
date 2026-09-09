@@ -1,5 +1,8 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
+import dev.leonardo.ocbeacon.ui.screens.chat.components.SmallSheetDragHandle
+import dev.leonardo.ocbeacon.ui.screens.chat.components.sheetContentGestureIsolation
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -91,11 +94,14 @@ internal fun SheetScaffold(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        dragHandle = {},
+        // #379：统一小样式手柄（行高很小）
+        dragHandle = { SmallSheetDragHandle() },
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                // #379：内容手势隔离——内部拖拽/fling 不致收起（仅手柄/点外/返回）
+                .sheetContentGestureIsolation()
                 .height(
                     LocalConfiguration.current.screenHeightDp.dp *
                         SheetTokens.ChatSheetHeightFraction

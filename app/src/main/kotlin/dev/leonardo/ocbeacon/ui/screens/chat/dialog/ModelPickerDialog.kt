@@ -56,6 +56,8 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.ItemTokens
+import dev.leonardo.ocbeacon.ui.screens.chat.components.SmallSheetDragHandle
+import dev.leonardo.ocbeacon.ui.screens.chat.components.sheetContentGestureIsolation
 import dev.leonardo.ocbeacon.ui.theme.SheetTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
@@ -112,13 +114,16 @@ internal fun ModelPickerDialog(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        dragHandle = {},
+        // #379：统一小样式手柄（行高很小）
+        dragHandle = { SmallSheetDragHandle() },
         containerColor = params.containerColor,
         shape = params.shape,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                // #379：内容手势隔离——内部拖拽/fling 不致收起（仅手柄/点外/返回）
+                .sheetContentGestureIsolation()
                 // 2026-08-20（用户决策）：主对话抽屉高度统一——min = max = 75% 屏高
                 .height(
                     androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp *

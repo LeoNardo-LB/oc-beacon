@@ -124,13 +124,16 @@ fun QuickNavigateSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        dragHandle = {},
+        // #379：统一小样式手柄（行高很小）
+        dragHandle = { SmallSheetDragHandle() },
         shape = ShapeTokens.large,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                // #379：内容手势隔离——内部拖拽/fling 不致收起（仅手柄/点外/返回）
+                .sheetContentGestureIsolation()
                 // 2026-08-20（用户决策）：主对话抽屉高度统一——min = max = 75% 屏高
                 // （固定高度，与后台面板/模型选择统一；列表 weight(1f) 内部滚动）。
                 .height(

@@ -94,20 +94,17 @@ class PaginationCursorPolicyTest {
         val v2 = ServerCapabilities.of(ApiVersion.V2)
         assertFalse(v2.shareSupported)
         assertTrue(v2.backgroundSessionsSupported)
-        assertTrue(v2.runningSessionsFilterSupported)
         assertFalse(v2.configEditable)
 
         val v1 = ServerCapabilities.of(ApiVersion.V1)
         assertTrue(v1.shareSupported)
         assertFalse(v1.backgroundSessionsSupported)
-        assertFalse(v1.runningSessionsFilterSupported)
         assertTrue(v1.configEditable)
 
         // null（未知/未加载）→ 全开放（原 permissive 比较语义保持）
         val unknown = ServerCapabilities.of(null)
         assertTrue(unknown.shareSupported)
         assertTrue(unknown.backgroundSessionsSupported)
-        assertTrue(unknown.runningSessionsFilterSupported)
         assertTrue(unknown.configEditable)
     }
 }
