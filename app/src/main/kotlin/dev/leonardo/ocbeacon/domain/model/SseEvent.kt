@@ -463,6 +463,73 @@ sealed class SseEvent {
     @Serializable
     data class SessionCompacted(val sessionId: String) : SseEvent()
 
+    // ============ #378 DSH 转录实体事件（命令/压缩卡族流内重建） ============
+    // 设计：docs/journal/2026-09-09-378-380-wire.md §五。这族事件是「转录卡」的域
+    // 载体——与消息共用信封 seq 全序（流内时序定位的权威键），经 EventDispatcher
+    // 折叠进 CommandFeedback/CompactionEntry；历史重放（transcriptEvents dispatch）
+    // 与实况 SSE 同路径（durable，#376 修复通道）。
+
+    /** #378：压缩开始（compaction/start 转录实体；banner 呈现走 SessionNext 域不变）。 */
+    @Serializable
+    data class CompactionStarted(
+        val sessionId: String,
+        /** 配对键（同族 start/summary/end/surface 共享）。 */
+        val compactionId: String,
+        /** 发起命令（手动压缩时的 commandId；缺席为 null）。 */
+        val sourceCommandId: String? = null,
+        /** 信封 seq（流内时序位）。 */
+        val seq: Long = 0L,
+        val time: Long = 0L,
+    ) : SseEvent()
+
+    /** #378：压缩摘要到达（compaction/summary——全文单帧到达，非流式增量）。 */
+    @Serializable
+    data class CompactionSummary(
+        val sessionId: String,
+        val compactionId: String,
+        val sourceCommandId: String? = null,
+        /** 摘要全文（wire ContentBlock[] 的 text 块拼接）。 */
+        val summaryText: String,
+        val seq: Long = 0L,
+        val time: Long = 0L,
+    ) : SseEvent()
+
+    /** #378：压缩结束（compaction/end——[error] 非空 = 失败终态）。 */
+    @Serializable
+    data class CompactionFinished(
+        val sessionId: String,
+        val compactionId: String,
+        val error: String? = null,
+        val seq: Long = 0L,
+        val time: Long = 0L,
+    ) : SseEvent()
+
+    /** #378：压缩实体 ↔ 表面消息绑定（user/message 的 data.source.compactionId——摘要的表面载体）。 */
+    @Serializable
+    data class CompactionSurfaceBound(
+        val sessionId: String,
+        val compactionId: String,
+        /** 表面载体消息 id（UI 抑制该气泡、由压缩 box 承载）。 */
+        val messageId: String,
+        val seq: Long = 0L,
+        val time: Long = 0L,
+    ) : SseEvent()
+
+    /**
+     * #378：表面区间替换（user/message 的 surfaceOp.op="replace"）——被遮蔽旧消息
+     * 折叠的权威指令：seq ∈ [startSeq, endSeq] 的表面消息由 [byMessageId] 取代。
+     * 实况与历史回放同事件（MessageEventHandler 台账 + 移除双消费）。
+     */
+    @Serializable
+    data class SurfaceRangeReplaced(
+        val sessionId: String,
+        val startSeq: Long,
+        val endSeq: Long,
+        val byMessageId: String,
+        val seq: Long = 0L,
+        val time: Long = 0L,
+    ) : SseEvent()
+
     // PTY 事件（使用简单字段以避免跨包依赖）
     @Serializable
     data class PtyCreated(

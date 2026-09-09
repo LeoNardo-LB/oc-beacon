@@ -869,6 +869,12 @@ class ChatRepositoryImpl @Inject constructor(
     override fun getCommandFeedbackForSession(sessionId: String): Flow<List<CommandFeedback>> =
         eventDispatcher.commandFeedback.map { it[sessionId].orEmpty() }.distinctUntilChanged()
 
+    override fun getCompactionEntriesForSession(sessionId: String): Flow<List<dev.leonardo.ocbeacon.domain.model.CompactionEntry>> =
+        eventDispatcher.compactionEntries.map { it[sessionId].orEmpty() }.distinctUntilChanged()
+
+    override fun getShadowedRangesForSession(sessionId: String): Flow<List<LongRange>> =
+        eventDispatcher.shadowedRangesFlow.map { it[sessionId].orEmpty() }.distinctUntilChanged()
+
     override fun recordCommandAcceptance(sessionId: String, command: String, arguments: String?) =
         eventDispatcher.recordLocalCommandAcceptance(sessionId, command, arguments)
 

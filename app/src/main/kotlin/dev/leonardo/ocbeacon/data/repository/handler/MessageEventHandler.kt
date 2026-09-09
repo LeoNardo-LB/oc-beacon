@@ -47,6 +47,9 @@ class MessageEventHandler @Inject constructor(
             is SseEvent.MessagePartUpdated -> { handleMessagePartUpdated(event); true }
             is SseEvent.MessagePartDelta -> { handleMessagePartDelta(event); true }
             is SseEvent.MessagePartRemoved -> { handleMessagePartRemoved(event); true }
+            // #378：表面区间替换（user/message surfaceOp.replace）——被遮蔽旧消息
+            // 折叠的权威指令：台账记账 + 内存/热表移除（幂等，实况/历史同事件）。
+            is SseEvent.SurfaceRangeReplaced -> { handleSurfaceRangeReplaced(event); true }
             else -> false
         }
     }
@@ -394,6 +397,16 @@ class MessageEventHandler @Inject constructor(
 
     internal fun handleMessageUpdated(event: SseEvent.MessageUpdated) {
         val sessionId = event.info.sessionId
+        // #378：迟到的被遮蔽消息（older page 回放在 surfaceOp 之后到达）——台账
+        // 拦截，不重加（否则压缩在翻页场景下被视觉撤销）。
+        DshMessageId.seqOf(event.info.id)?.let { seq ->
+            if (isShadowed(sessionId, seq)) {
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(TAG, "[surface] drop shadowed msg " + event.info.id.take(12))
+                }
+                return
+            }
+        }
         if (BuildConfig.DEBUG) {
             val role = event.info.role
             val completed = (event.info as? Message.Assistant)?.time?.completed
@@ -617,6 +630,95 @@ class MessageEventHandler @Inject constructor(
         }
         _parts.update { it - event.messageId }
         assistantMessageIds.remove(event.messageId)
+    }
+
+    // ============ #378 表面区间折叠（surfaceOp.replace 消费面） ============
+
+    /**
+     * 被遮蔽表面区间台账（sessionId → 闭区间列表）。来源 = SurfaceRangeReplaced
+     * 事件（实况/历史 dispatch 同路径）；内存态，进程内跨页持久（older page 回放
+     * 防护），重进由最新窗 surfaceOp 重播种（翻页向旧推进时先见 surfaceOp 后见
+     * 遮蔽消息，天然满足）。读侧查询：[isShadowed] / [shadowedRanges]。
+     */
+    private val shadowedRanges =
+        java.util.concurrent.ConcurrentHashMap<String, List<LongRange>>()
+
+    /** #378：遮蔽区间的响应式镜像（UI 读侧抑制订阅；写点仅 [handleSurfaceRangeReplaced]）。 */
+    private val _shadowedRangesFlow = MutableStateFlow<Map<String, List<LongRange>>>(emptyMap())
+    val shadowedRangesFlow: StateFlow<Map<String, List<LongRange>>> = _shadowedRangesFlow.asStateFlow()
+
+    /** #378：区间是否被任一已记账的折叠遮蔽（O(区间数)，每会话个位数）。 */
+    fun isShadowed(sessionId: String, seq: Long): Boolean =
+        shadowedRanges[sessionId]?.any { seq in it } == true
+
+    /** #378：该会话已记账的遮蔽区间快照（UI 读侧抑制/仓储页过滤共用）。 */
+    fun shadowedRanges(sessionId: String): List<LongRange> = shadowedRanges[sessionId].orEmpty()
+
+    /**
+     * #378：user/message surfaceOp.replace 到达——seq ∈ [startSeq, endSeq] 的
+     * 表面消息由 [SseEvent.SurfaceRangeReplaced.byMessageId] 取代。
+     *
+     * 三动作（幂等，重放安全）：
+     * 1. 台账记账（拦截后续迟到 MessageUpdated/Part 重加——历史 older page 在
+     *    surfaceOp 之后到达的场景）；
+     * 2. 内存移除（消息 + parts + assistant 索引）；
+     * 3. 热表全量替换（replaceSessionMessages——#224 同款「消除本地幽灵消息」
+     *    原语；同时净化 #340 合并刷洗缓冲中该会话的待写快照，防迟到 flush 复活）。
+     * 冷存桶（更早历史）不动——读侧抑制（UI 归并按台账过滤）统一兜住。
+     */
+    internal fun handleSurfaceRangeReplaced(event: SseEvent.SurfaceRangeReplaced) {
+        val range = LongRange(event.startSeq, event.endSeq)
+        var flowDirty = false
+        shadowedRanges.compute(event.sessionId) { _, existing ->
+            if (existing != null && range in existing) {
+                existing
+            } else {
+                flowDirty = true
+                val merged = mutableListOf<LongRange>()
+                if (existing != null) merged.addAll(existing)
+                merged.add(range)
+                merged.toList()
+            }
+        }
+        if (flowDirty) {
+            _shadowedRangesFlow.update { it + (event.sessionId to shadowedRanges[event.sessionId].orEmpty()) }
+        }
+        val removedIds = _messages.value[event.sessionId]
+            ?.filter { DshMessageId.seqOf(it.id)?.let { s -> s in range } == true }
+            ?.map { it.id }
+            .orEmpty()
+        if (removedIds.isNotEmpty()) {
+            _messages.update { current ->
+                val kept = current[event.sessionId]?.filter { it.id !in removedIds } ?: return@update current
+                current + (event.sessionId to kept)
+            }
+            _parts.update { it.filterKeys { id -> id !in removedIds } }
+            assistantMessageIds.removeAll(removedIds)
+            purgePendingUpserts(event.sessionId, removedIds.toSet())
+            if (BuildConfig.DEBUG) {
+                AppLogger.d(TAG, "[surface] replaced seq " + event.startSeq + ".." + event.endSeq + " by " + event.byMessageId.take(12) + ": removed " + removedIds.size + " msgs")
+            }
+        }
+        val store = messageStore ?: return
+        val payload = _messages.value[event.sessionId].orEmpty().map {
+            MessageWithParts(it, _parts.value[it.id].orEmpty())
+        }
+        batchScope.launch {
+            runCatching { store.replaceSessionMessages(event.sessionId, payload) }
+                .onFailure { AppLogger.w(TAG, "[surface] persist replacement failed: " + it.message) }
+        }
+    }
+
+    /** #378：从 #340 合并刷洗缓冲剔除已遮蔽消息（防迟到 flush 复活幽灵行）。 */
+    private fun purgePendingUpserts(sessionId: String, removedIds: Set<String>) {
+        if (removedIds.isEmpty()) return
+        synchronized(pendingUpsertsLock) {
+            pendingUpserts[sessionId]?.let { buf ->
+                val before = buf.size
+                buf.keys.removeAll(removedIds)
+                pendingUpsertCount -= before - buf.size
+            }
+        }
     }
 
     /**

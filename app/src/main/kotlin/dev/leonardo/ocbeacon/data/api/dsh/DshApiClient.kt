@@ -1108,7 +1108,13 @@ class DshApiClient @Inject constructor(
         } ?: Long.MAX_VALUE
         val hasMore = value.dshBool("hasMore") ?: false
         val nextCursor = if (hasMore && minSeq != Long.MAX_VALUE) minSeq.toString() else null
-        return MessagePage(messages = messages, nextCursor = nextCursor)
+        // #378：同窗卡族事件随页携带——历史加载方（SessionRepositoryImpl）dispatch
+        // 后命令/压缩卡按 commandId/compactionId 幂等重建（与重连回填等价）。
+        return MessagePage(
+            messages = messages,
+            nextCursor = nextCursor,
+            transcriptEvents = DshTranscriptEvents.cardFamily(fold.sseEvents),
+        )
     }
 
     override suspend fun listMessagesRaw(conn: ServerConnection, sessionId: String): String {

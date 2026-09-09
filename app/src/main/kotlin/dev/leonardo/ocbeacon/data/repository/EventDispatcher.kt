@@ -147,8 +147,15 @@ class EventDispatcher @Inject constructor(
             SseEvent.CommandsChanged::class,
             // #323：斜杠命令执行反馈行（command/run|done → MiscEventHandler 折叠，
             // TurnMaxTokens 同款既有 handler 扩展——漏 bind 即静默丢弃，goal 前车之鉴）
-            SseEvent.CommandRunStarted::class, SseEvent.CommandDone::class
+            SseEvent.CommandRunStarted::class, SseEvent.CommandDone::class,
+            // #378：压缩转录实体族（compaction/start|summary|end + 表面绑定 →
+            // MiscEventHandler CompactionFolder 折叠；漏 bind 即静默丢弃）
+            SseEvent.CompactionStarted::class, SseEvent.CompactionSummary::class,
+            SseEvent.CompactionFinished::class, SseEvent.CompactionSurfaceBound::class
         )
+        // #378：表面区间替换（surfaceOp.replace）→ MessageEventHandler 遮蔽台账
+        //（内存/热表移除 + 迟到重加拦截；历史 transcriptEvents dispatch 与实况同路）
+        bind(messageHandler, SseEvent.SurfaceRangeReplaced::class)
         // SessionNext → SessionNextEventHandler
         bind(sessionNextHandler, SseEvent.SessionNext::class, SseEvent.TurnMaxTokens::class)
         // V2 后台 shell → ShellJobsHandler
@@ -242,6 +249,26 @@ class EventDispatcher @Inject constructor(
 
     /** #323：斜杠命令执行反馈行（sessionId → 卡态列表，seq 升序；commandId 配对原位更新）。 */
     val commandFeedback: StateFlow<Map<String, List<CommandFeedback>>> get() = miscHandler.commandFeedback
+
+    /** #378：压缩转录实体（sessionId → seq 升序卡列表；compactionId 配对原位更新）。 */
+    val compactionEntries: StateFlow<Map<String, List<dev.leonardo.ocbeacon.domain.model.CompactionEntry>>>
+        get() = miscHandler.compactionEntries
+
+    /** #378：表面遮蔽区间响应流（sessionId → 区间列表）——UI 读侧抑制订阅。 */
+    val shadowedRangesFlow: StateFlow<Map<String, List<LongRange>>> get() = messageHandler.shadowedRangesFlow
+
+    /** #378：表面遮蔽区间（sessionId → 区间列表）——读侧抑制（UI 归并/仓储页过滤）。 */
+    fun shadowedRanges(sessionId: String): List<LongRange> = messageHandler.shadowedRanges(sessionId)
+
+    /** #378：消息过滤（按遮蔽台账）——历史页 dispatch 后的统一读侧过滤。 */
+    fun filterShadowed(sessionId: String, messages: List<dev.leonardo.ocbeacon.domain.model.MessageWithParts>):
+        List<dev.leonardo.ocbeacon.domain.model.MessageWithParts> {
+        if (messageHandler.shadowedRanges(sessionId).isEmpty()) return messages
+        return messages.filter { m ->
+            dev.leonardo.ocbeacon.domain.model.DshMessageId.seqOf(m.info.id)
+                ?.let { !messageHandler.isShadowed(sessionId, it) } ?: true
+        }
+    }
 
     /** #365：命令受理即知——派发时本地合成反馈行写入（不等 RPC 返回）。 */
     fun recordLocalCommandAcceptance(sessionId: String, name: String, args: String?) =
@@ -499,6 +526,12 @@ class EventDispatcher @Inject constructor(
             // Todo / 命令
             is SseEvent.TodoUpdated -> event.sessionId
             is SseEvent.CommandExecuted -> event.sessionId
+            // #378：压缩转录实体族 + 表面区间替换（按归属会话路由）
+            is SseEvent.CompactionStarted -> event.sessionId
+            is SseEvent.CompactionSummary -> event.sessionId
+            is SseEvent.CompactionFinished -> event.sessionId
+            is SseEvent.CompactionSurfaceBound -> event.sessionId
+            is SseEvent.SurfaceRangeReplaced -> event.sessionId
             // 无 sessionId 的事件
             is SseEvent.CommandsChanged -> null // #285：全局注册表帧（不参与会话所有权判定）
             is SseEvent.ServerConnected -> null

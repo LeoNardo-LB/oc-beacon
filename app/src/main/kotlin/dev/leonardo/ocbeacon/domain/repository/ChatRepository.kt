@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.domain.repository
 import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
 import dev.leonardo.ocbeacon.domain.model.AgentPreset
 import dev.leonardo.ocbeacon.domain.model.CommandFeedback
+import dev.leonardo.ocbeacon.domain.model.CompactionEntry
 import dev.leonardo.ocbeacon.domain.model.DshGoalRef
 import dev.leonardo.ocbeacon.domain.model.AutoApproveRule
 import dev.leonardo.ocbeacon.domain.model.CompactionStateInfo
@@ -129,6 +130,19 @@ interface ChatRepository {
      * commandId 配对原位更新；空列表=无）。V1/V2 后端无此事件面恒空。
      */
     fun getCommandFeedbackForSession(sessionId: String): Flow<List<CommandFeedback>>
+
+    /**
+     * #378/#375：压缩转录实体（DSH compaction 族折叠；seq 升序，compactionId
+     * 配对原位更新；进行中/终态双态，摘要全文在 [CompactionEntry.summaryText]）。
+     * V1/V2 后端无此事件面恒空。
+     */
+    fun getCompactionEntriesForSession(sessionId: String): Flow<List<CompactionEntry>>
+
+    /**
+     * #378：表面遮蔽区间（DSH surfaceOp.replace 折叠台账）——转录读侧抑制用
+     *（seq 落入区间的消息已被压缩摘要取代；含冷存回读路径的统一兜底）。
+     */
+    fun getShadowedRangesForSession(sessionId: String): Flow<List<LongRange>>
 
     /**
      * #365：命令受理即知——commands/execute 受理成功即插本地合成反馈行

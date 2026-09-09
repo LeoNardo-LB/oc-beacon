@@ -5,6 +5,8 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.CommandFeedback
 import dev.leonardo.ocbeacon.domain.model.CommandFeedbackFolder
+import dev.leonardo.ocbeacon.domain.model.CompactionEntry
+import dev.leonardo.ocbeacon.domain.model.CompactionFolder
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,6 +45,15 @@ class MiscEventHandler @Inject constructor() : SseEventHandler {
      */
     private val _commandFeedback = MutableStateFlow<Map<String, List<CommandFeedback>>>(emptyMap())
     val commandFeedback: StateFlow<Map<String, List<CommandFeedback>>> = _commandFeedback.asStateFlow()
+
+    /**
+     * #378/#375：压缩转录实体（sessionId → seq 升序卡列表；compactionId 配对
+     * 原位更新由 [CompactionFolder] 纯函数承担）。durable——历史重放
+     * （MessagePage.transcriptEvents dispatch）与实况 SSE 同路径重建；
+     * SessionDeleted 级联清（同 commandFeedback 纪律）。
+     */
+    private val _compactionEntries = MutableStateFlow<Map<String, List<CompactionEntry>>>(emptyMap())
+    val compactionEntries: StateFlow<Map<String, List<CompactionEntry>>> = _compactionEntries.asStateFlow()
 
     /** REST hydrate（进会话补首屏 todo，2026-08-20）；与 SSE 路径同型幂等覆盖。 */
     fun setTodos(sessionId: String, todos: List<SseEvent.TodoUpdated.Todo>) {
@@ -87,6 +98,31 @@ class MiscEventHandler @Inject constructor() : SseEventHandler {
                 }
                 true
             }
+            // #378：压缩转录实体族（compactionId 幂等折叠，本类只做容器写）
+            is SseEvent.CompactionStarted -> {
+                _compactionEntries.update { all ->
+                    all + (event.sessionId to CompactionFolder.onStarted(all[event.sessionId].orEmpty(), event))
+                }
+                true
+            }
+            is SseEvent.CompactionSummary -> {
+                _compactionEntries.update { all ->
+                    all + (event.sessionId to CompactionFolder.onSummary(all[event.sessionId].orEmpty(), event))
+                }
+                true
+            }
+            is SseEvent.CompactionFinished -> {
+                _compactionEntries.update { all ->
+                    all + (event.sessionId to CompactionFolder.onFinished(all[event.sessionId].orEmpty(), event))
+                }
+                true
+            }
+            is SseEvent.CompactionSurfaceBound -> {
+                _compactionEntries.update { all ->
+                    all + (event.sessionId to CompactionFolder.onSurfaceBound(all[event.sessionId].orEmpty(), event))
+                }
+                true
+            }
             is SseEvent.PtyCreated -> { if (BuildConfig.DEBUG) AppLogger.d(TAG, "PTY created: ${event.id}"); true }
             is SseEvent.PtyUpdated -> { if (BuildConfig.DEBUG) AppLogger.d(TAG, "PTY updated: ${event.id}"); true }
             is SseEvent.PtyDeleted -> { if (BuildConfig.DEBUG) AppLogger.d(TAG, "PTY deleted: ${event.id}"); true }
@@ -112,15 +148,18 @@ class MiscEventHandler @Inject constructor() : SseEventHandler {
     fun clearForSession(sessionId: String) {
         _todos.update { it - sessionId }
         _commandFeedback.update { it - sessionId }
+        _compactionEntries.update { it - sessionId }
     }
 
     fun clearForServer(sessionIds: Set<String>) {
         _todos.update { it - sessionIds }
         _commandFeedback.update { it - sessionIds }
+        _compactionEntries.update { it - sessionIds }
     }
 
     fun clearAll() {
         _todos.value = emptyMap()
         _commandFeedback.value = emptyMap()
+        _compactionEntries.value = emptyMap()
     }
 }

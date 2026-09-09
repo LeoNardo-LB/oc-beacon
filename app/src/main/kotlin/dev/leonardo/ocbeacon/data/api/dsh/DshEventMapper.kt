@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.data.api.dsh
 
+import dev.leonardo.ocbeacon.domain.model.DshMessageId
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.PartIdContract
@@ -54,21 +55,16 @@ private const val TAG = "DshEventMapper"
  */
 object DshEventMapper {
 
-    /** 整装消息 id 前缀（user/message、assistant/message；反解见 [seqOf]）。 */
-    private const val SEQ_ID_PREFIX = "seq-"
-
-    /** 整装消息 id（user/message、assistant/message）。 */
-    fun messageId(seq: Long): String = SEQ_ID_PREFIX + seq
+    /** 整装消息 id（user/message、assistant/message）。契约唯一权威 = [DshMessageId]
+     *（#378 上提 domain——UI 流内归并需反解 seq，依赖方向禁止 UI→data）。 */
+    fun messageId(seq: Long): String = DshMessageId.id(seq)
 
     /**
      * #312⑤ 反解：整装消息 id "seq-{seq}" → seq（fork 轮尾锚点上
-     * wire ——session.fork atSeq 契约）；其余形态（null/V2 msg_x/流式宿主/
-     * 工具宿主/残缺/非数/负数）→ null（调用方安全降级为无锚点）。
-     * 与 [messageId] 构成双向契约（同一前缀常量）。
+     * wire ——session.fork atSeq 契约）；其余形态 → null（安全降级为无锚点）。
+     * 委派 [DshMessageId.seqOf]（契约共源）。
      */
-    fun seqOf(messageId: String?): Long? =
-        messageId?.takeIf { it.startsWith(SEQ_ID_PREFIX) }
-            ?.removePrefix(SEQ_ID_PREFIX)?.toLongOrNull()?.takeIf { it >= 0 }
+    fun seqOf(messageId: String?): Long? = DshMessageId.seqOf(messageId)
 
     /** 实况流式宿主消息 id（assistant/chunk 族）。 */
     fun streamingMessageId(turn: Long, step: Long): String = "dsh-t" + turn + "s" + step
@@ -662,42 +658,88 @@ object DshEventMapper {
             // 完成 snackbar；banner 终结走 dispatcher 跨 handler endCompaction。
             // #309 批1：失败压缩（error 非空，dsh-compaction-basic :463）加发
             // CompactionEnded(error)——对位 #219 失败 snackbar 通道。
+            // #378：加发转录实体 CompactionFinished（compactionId 配对——流内
+            // 压缩 box 终态化；实况/历史同事件，幂等重建）。
             "compaction/end" -> {
                 val events = mutableListOf(
                     DshMappedEvent.Sse(SseEvent.SessionCompacted(sessionId = sessionId))
                 )
-                data.str("error")?.takeIf { it.isNotBlank() }?.let { err ->
+                val err = data.str("error")?.takeIf { it.isNotBlank() }
+                err?.let {
                     events += DshMappedEvent.Sse(
                         SseEvent.SessionNext(
                             SessionNextEvent.CompactionEnded(sessionId = sessionId, messageId = "", error = err)
                         )
                     )
                 }
+                compactionIdOf(data)?.let { cid ->
+                    events += DshMappedEvent.Sse(
+                        SseEvent.CompactionFinished(
+                            sessionId = sessionId, compactionId = cid, error = err, seq = seq, time = time,
+                        )
+                    )
+                }
                 events
             }
             // #309 批1：压缩呈现接线——CompactionCard 进行中双态 UI 现成，此前
-            // Ignored 未接。载荷（dsh-compaction-basic :437/:589，2026-09-03 源码）：
-            // start={compactionId,turn}、summary={...,summary}；无 message id/reason
-            // （V2 语义缺席置空），summary 单帧全文 → delta 一次累积即实时摘要区。
-            // 历史重放同路径：start→end 序列净零（banner 起→落），摘要不残留。
-            "compaction/start" -> listOf(
-                DshMappedEvent.Sse(
-                    SseEvent.SessionNext(
-                        SessionNextEvent.CompactionStarted(sessionId = sessionId, messageId = "", reason = "")
-                    )
-                )
-            )
-            "compaction/summary" -> {
-                val summary = data.str("summary")
-                if (summary == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.COMPACTION))
-                else listOf(
+            // Ignored 未接。#378：加发转录实体 CompactionStarted（流内 box 建卡；
+            // banner 事件保留——现状零回归，Phase C 随 box 全验后再回收）。
+            "compaction/start" -> {
+                val events = mutableListOf(
                     DshMappedEvent.Sse(
                         SseEvent.SessionNext(
-                            SessionNextEvent.CompactionDelta(sessionId = sessionId, messageId = "", delta = summary)
+                            SessionNextEvent.CompactionStarted(sessionId = sessionId, messageId = "", reason = "")
                         )
                     )
                 )
+                compactionIdOf(data)?.let { cid ->
+                    events += DshMappedEvent.Sse(
+                        SseEvent.CompactionStarted(
+                            sessionId = sessionId,
+                            compactionId = cid,
+                            sourceCommandId = data.str("sourceCommandId")?.takeIf { it.isNotBlank() },
+                            seq = seq,
+                            time = time,
+                        )
+                    )
+                }
+                events
             }
+            // #378 勘误（活体取证 journal 378-380-wire §五.2）：wire 的 summary 是
+            // ContentBlock[]（[{type:"text",text:…}…]），原 data.str("summary") 恒
+            // null → 静默 Ignored——摘要从未到达任何消费面（banner delta 同病已死）。
+            // 文本块拼接为全文（单帧到达，非流式增量）；banner delta 与转录实体
+            // CompactionSummary 双发。
+            "compaction/summary" -> {
+                val text = contentBlocksText(data.arr("summary"))
+                if (text == null) {
+                    listOf(DshMappedEvent.Ignored(DshIgnoreReason.COMPACTION))
+                } else {
+                    val events = mutableListOf(
+                        DshMappedEvent.Sse(
+                            SseEvent.SessionNext(
+                                SessionNextEvent.CompactionDelta(sessionId = sessionId, messageId = "", delta = text)
+                            )
+                        )
+                    )
+                    compactionIdOf(data)?.let { cid ->
+                        events += DshMappedEvent.Sse(
+                            SseEvent.CompactionSummary(
+                                sessionId = sessionId,
+                                compactionId = cid,
+                                sourceCommandId = data.str("sourceCommandId")?.takeIf { it.isNotBlank() },
+                                summaryText = text,
+                                seq = seq,
+                                time = time,
+                            )
+                        )
+                    }
+                    events
+                }
+            }
+            // prune = 无摘要的纯裁剪（shadowedRange 计价事件）：折叠权威是紧随其后
+            // 的 user/message surfaceOp.replace（mapUserMessage 发 SurfaceRangeReplaced）
+            // ——prune 本体无转录语义，维持 Ignored。
             "compaction/prune" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.COMPACTION))
             // goal/change → SessionGoalChanged（whole-value last-wins；clear tombstone → null）。
             // 历史折叠与实况共用本入口（DshHistoryFolder 可折叠）。
@@ -831,6 +873,32 @@ object DshEventMapper {
         // 历史/重放路径天然安全）。
         data.obj("source")?.str("rpcId")?.takeIf { it.isNotBlank() }?.let { rpcId ->
             events += DshMappedEvent.Sse(SseEvent.MessageRemoved(sessionId, "pending-$rpcId"))
+        }
+        // #378 转录实体接线（压缩摘要表面载体，实录 seq-5392）：
+        // - source.compactionId → CompactionSurfaceBound——摘要的 user/message
+        //   载体与 CompactionEntry 绑定（UI 抑制原气泡、由压缩 box 承载）；
+        // - surfaceOp.op="replace" → SurfaceRangeReplaced——被遮蔽旧消息折叠的
+        //   权威指令（MessageEventHandler 台账消费，实况/历史同事件）。
+        data.obj("source")?.str("compactionId")?.takeIf { it.isNotBlank() }?.let { cid ->
+            events += DshMappedEvent.Sse(
+                SseEvent.CompactionSurfaceBound(
+                    sessionId = sessionId, compactionId = cid, messageId = id, seq = seq, time = time,
+                )
+            )
+        }
+        data.obj("surfaceOp")?.takeIf { it.str("op") == "replace" }?.let { op ->
+            val start = op.long("start")
+            val end = op.long("end")
+            if (start != null && end != null && end >= start) {
+                events += DshMappedEvent.Sse(
+                    SseEvent.SurfaceRangeReplaced(
+                        sessionId = sessionId, startSeq = start, endSeq = end,
+                        byMessageId = id, seq = seq, time = time,
+                    )
+                )
+            } else {
+                AppLogger.w(TAG, "user/message surfaceOp.replace 残缺（start=$start end=$end），忽略折叠指令")
+            }
         }
         (data.arr("content") ?: emptyList()).forEachIndexed { i, el ->
             val block = el as? JsonObject ?: return@forEachIndexed
@@ -1587,6 +1655,24 @@ object DshEventMapper {
     /** 位置参数取文本（#296 host/remote-event args 列表元素）。 */
     private fun JsonElement.text(): String? =
         (this as? JsonPrimitive)?.takeIf { it !is JsonNull }?.contentOrNull
+
+    /** #378：compaction 族配对键（wire compactionId；缺席/空白 → null 不发实体）。 */
+    private fun compactionIdOf(data: JsonObject): String? =
+        data.str("compactionId")?.takeIf { it.isNotBlank() }
+
+    /**
+     * #378：ContentBlock[] → 全文（text 块拼接；块间双换行）。compaction/summary
+     * 的 wire 形状（types.d.ts + 实录 seq-5391）。非 text 块（图片等）跳过——
+     * 摘要域当前只有文本块，出现新块型时此处显式降级而非整块丢弃。
+     */
+    private fun contentBlocksText(blocks: JsonArray?): String? {
+        if (blocks == null) return null
+        val texts = blocks.filterIsInstance<JsonObject>()
+            .filter { it.str("type") == "text" }
+            .mapNotNull { it.str("text") }
+        if (texts.isEmpty()) return null
+        return texts.joinToString("\n\n")
+    }
 
     /** 错误载荷转可读文本：对象优先 message，其次 code，最后整体序列化。 */
     /** 错误载荷转可读文本：对象优先 message，其次 code，最后整体序列化。

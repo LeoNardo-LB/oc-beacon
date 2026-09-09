@@ -84,8 +84,22 @@ class SessionRepositoryImpl @Inject constructor(
     ): Result<MessagePage> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         if (BuildConfig.DEBUG) AppLogger.d("NetTrace", "listMessages REQUEST server=$serverId sid=${sessionId.take(12)} limit=$limit before=${before?.take(16)}")
-        messageApi.listMessages(conn, sessionId, limit, before).also {
-            if (BuildConfig.DEBUG) AppLogger.d("NetTrace", "listMessages RESPONSE server=$serverId sid=${sessionId.take(12)} msgs=${it.messages.size} (limit=$limit)")
+        messageApi.listMessages(conn, sessionId, limit, before).let { page ->
+            // #378 历史卡族消费通道（Phase A 核心）：DSH 页携带的 transcriptEvents
+            // 在此统一 dispatch——与 orchestrator 断线回填等价的消费面（进场/
+            // L3/补漏/drain 四路径全收敛于此）。commandId/compactionId 幂等合并，
+            // SurfaceRangeReplaced 先行记账后过滤本页（older page 越页防护同源）。
+            if (page.transcriptEvents.isNotEmpty()) {
+                for (event in page.transcriptEvents) {
+                    eventDispatcher.processEvent(event, serverId)
+                }
+            }
+            val filtered = eventDispatcher.filterShadowed(sessionId, page.messages)
+            if (BuildConfig.DEBUG) {
+                AppLogger.d("NetTrace", "listMessages RESPONSE server=$serverId sid=${sessionId.take(12)} msgs=${filtered.size}/${page.messages.size} cards=${page.transcriptEvents.size} (limit=$limit)")
+            }
+            if (filtered.size == page.messages.size) page
+            else page.copy(messages = filtered)
         }
     }
 
