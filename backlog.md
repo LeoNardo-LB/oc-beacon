@@ -100,6 +100,7 @@
   - 残留待查（小件）：① app 台账「轮次 5/6」vs 服务器 turnOutline 3/4 编号漂移（疑 steer 续写段计入）；② logcat「V1 loaded 32 (limit=30)」同窗重复 3+ 次+auto-load effect 反复重启（幂等无害，但白耗）；③ 旧会话快速定位列表出现重复用户行（QUEUE-proper-test ×2——昨日 echo 播种时代的数据残留，Room 有重复行）。
   - 取证资产：/tmp/e2e-instr/{ocb363.db, rpc.mjs, page.mjs, bubble_scan.py, shots/363-*.png}；JVM 复现测试证实 fold+assemble 保 user parts（8/8 带非空文本）。
   - 关联：#362（派发消息入转录已由本卡取证链完整证实——服务器 page+Room+渲染三面一致）。
+  - 三残件分析定性与处置（2026-09-10）：①轮次编号漂移——RenderableTurn 按消息邻接分组（steer 插话=新组），服务器 turnOutline 按 wire turn/ 事件计数；DSH 面根修需事件派生轮次计数（SessionNextEventHandler 可观测 turn/end）跨入台账，但 V1/V2 无 turn 事件、渲染层口径需统一——属语义裁决域，按修复方针呈分析待用户裁定后再动工；②loadOlder 同窗重复——auto-load effect 以 isLoadingOlder 翻转为 key 重启+视口近顶持续触发为设计内渐进回填；ARCHIVE 重复读为本地 Room 读（无网络），实测 3+ 次后终止，白耗微小；需活体复现定位 FSM 游标不推进场景才可根修，收益/成本比低挂起；③旧会话重复行——根因（echo 播种竞态）已由 #356 原子换装修复，残留为单个测试会话的 Room 历史数据（QUEUE-proper-test 系测试垃圾），数据清理迁移风险大于收益，建议随数据清除自然消亡
 
 
 

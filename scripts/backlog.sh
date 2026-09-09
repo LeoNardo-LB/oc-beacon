@@ -30,7 +30,8 @@ TD=$(mktemp -d); trap 'rm -rf "$TD"' EXIT
 die() { echo "✗ $*" >&2; exit 1; }
 usage() { grep '^#   backlog.sh' "$0" | sed 's/^# //'; }
 
-anchor() { grep -n "^- \[.\] \*\*#$1 " "$BL" | head -1 | cut -d: -f1 || true; }
+# 锚点模式：编号后随非数字字符或行尾（#363〔全角括号紧跟、#378 空格分隔均命中；#3630 不误配 #363）——2026-09-10 修复「紧跟全角标点卡失配」边角。
+anchor() { grep -nE "^- \[.\] \*\*#$1([^0-9]|$)" "$BL" | head -1 | cut -d: -f1 || true; }
 block_end() { # $1=锚行 → 块末行（锚+连续缩进）
   awk -v s="$1" 'NR<s{next} NR==s{e=NR;next} /^[[:space:]]+[^[:space:]]/{e=NR;next} {print e; f=1; exit} END{if(!f)print e}' "$BL"
 }
