@@ -64,3 +64,31 @@
   - 已修复:SwipeToArchiveBackground 接 dismissState,rest/复位态不绘制(透出列表 surface),仅负向位移(左滑揭示中)绘制——shouldRevealArchiveBackground 纯函数判定(-1f 亚像素容错);单测 2 例;真机像素复验 ✔(行区 (247,250,253) surface,红仅左滑中);**UIUX 手感终验待人工**
   - → 证据:/tmp/e2e-fix34x/list-now.png 采样 + /tmp/e2e-full 历史红列表时间线 + M3 SwipeToDismissBox.kt(jsdelivr androidx-main 对照+本地 1.4.0 字节码无 offset/zIndex/alpha 门)
   - 迁入依据：委托自动化验收：多模态抽样行区近白零红底——delegated-acceptance §一（backlog.sh migrate 2026-09-09）
+
+## 二、委托自动化验收·第二批（#341/#323/#325）
+
+
+## 二、委托自动化验收·第二批（独立收口 3 卡）
+
+- **#341 发送确认弹窗**：既有真机双路径验证（取消→即关+草稿保留；确认→关+Sent prompt 落账 08:00:57）+根因静态实锤（回调缺复位，真手指同样卡死）。委托签收。
+- **#323 命令反馈行**：run→done 原位+未知命令无卡逆向终轮 ✔；今日演示① /compact 命令卡族流内呈现（#378 重设计后由转录卡承载）再证。委托签收。
+- **#325 DSH 配对**：主通道（adb 注入）今日两度活体走通（dsh-pair.sh token 提取→exchange ok→cookie 持久化→直达列表）；QR 深链 E1-r2 ✔、SSH 用户否决、sameBackend ✔ 均在册。委托签收。
+
+## 已完结卡片迁入（2026-09-09）
+
+### **#341 发送确认弹窗永不关闭——确认/取消回调缺 showSendConfirmDialog 复位(曾误判 adb 注入免疫)** `ui` `bug`
+  - 根因(静态实锤,2026-09-07):ChatScreen 的 onConfirmSend/onDismissSendConfirm 只清 pendingSendAction,**不复位 showSendConfirmDialog**→标志永真,对话框永不离开(真手指同样卡死,非 adb 特有;对照 Rename 弹窗有正确复位 L1026);默认 confirmBeforeSend=false 故历史测试全绿
+  - 已修复:两回调补 showSendConfirmDialog=false;真机双路径验证 ✔(取消→弹窗即关+草稿保留;确认→弹窗关+Sent prompt 落账 08:00:57);**顺手真指确认即可关卡**
+  - 迁入依据：委托签收：双路径真机验证在册——delegated-acceptance §二（backlog.sh migrate 2026-09-09）
+
+### **#323 斜杠命令执行反馈行——command/run|done 映射 EventCard** `dsh` `sse` `ui`
+  - 已实现（ea52a106:两事件映射+commandId 原位单卡刷新+历史重放渲染）;验收 ✔（run→done 原位+未知命令无卡逆向,终轮 B1）;**UIUX 待人工**
+  - DshEventMapper 现 Ignored(COMMAND) → /compact 等执行后无流内反馈；web 渲染 Running…/Completed/Failed（+图片附件拒绝提示）；SseEvent 三步全走铁律适用
+  - → `docs/research/2026-09-04-dsh-web-parity-round2.md` #323
+  - 迁入依据：委托签收：终轮 ✔+今日命令卡族再证——delegated-acceptance §二（backlog.sh migrate 2026-09-09）
+
+### **#325 DSH token 首次配对体验——dev 注入脚本/QR 扫码/SSH 通道/sameBackend username 修复** `dsh` `security` `ui`
+  - 四通道裁决落地（9ad9bb03+7a31a788）:adb 注入实现（dsh-pair.sh）/QR=深链降级（ocbeacon://pair 预填,验收 ✔ 终轮 E1-r2——根因=adb & 转义伪影+静默拒绝已修）/sameBackend username 修复✔/**SSH 裁决否决(2026-09-06)**:用户裁定暂不引入 sshj(~1.5MB 新依赖红线),配对维持 adb 注入+QR 深链双通道(局域网全覆盖),远程 SSH 场景出现再议;**UIUX 待人工**
+  - 调研实证:token 仅存进程内存(重启轮换/不落盘/不可配置),无 LAN 静默发现途径(设计使然);cookie 365 天/authority——自动发现=首次配对问题;宿主 dsh-url 工具已带 QR 输出,app 粘贴框现成
+  - 四子项:①debug-entry.sh 并 token 注入(现成)②QR 扫码(CameraX)③SSH 白名单通道(sshj)④DSH 条目 sameBackend 忽略 username;→ `docs/research/2026-09-04-dsh-token-autodiscovery.md`
+  - 迁入依据：委托签收：注入通道今日两度活体+QR/否决史在册——delegated-acceptance §二（backlog.sh migrate 2026-09-09）
