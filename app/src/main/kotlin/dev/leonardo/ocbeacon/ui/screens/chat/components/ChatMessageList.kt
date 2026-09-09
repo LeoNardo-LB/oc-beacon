@@ -1658,6 +1658,42 @@ fun ChatMessageList(
                                     return@Box
                                 }
 
+                                // #385（2026-09-10 用户裁决）：DSH 上下文注入消息
+                                // （source.kind=agent-instructions/skill-catalog/plugin…）
+                                // 此前按普通用户气泡渲染——技能目录/工作区指令全文铺开成
+                                // 文本墙（演示①实测约一屏半）。对齐 DSH Web 精简卡片：
+                                // 折叠行（标签+展开箭头）+ 展开可读全文（#232/#234 system
+                                // 墙→EventCard 同款处置）。空文本注入（无 text part）整条跳过。
+                                val injectionKind = (chatMessage.message as? Message.User)?.injectionKind
+                                if (injectionKind != null) {
+                                    val injectionText = chatMessage.parts
+                                        .filterIsInstance<Part.Text>()
+                                        .joinToString("\n") { it.text }.trim()
+                                    if (injectionText.isNotEmpty()) {
+                                        EventCard(
+                                            eventKey = chatMessage.message.id,
+                                            timeMs = chatMessage.message.time.created,
+                                            label = stringResource(
+                                                when (injectionKind) {
+                                                    "agent-instructions" -> R.string.chat_injection_agent_instructions
+                                                    "skill-catalog" -> R.string.chat_injection_skill_catalog
+                                                    "plugin" -> R.string.chat_injection_plugin
+                                                    else -> R.string.chat_injection_context
+                                                }
+                                            ),
+                                            leadingIcon = Icons.Outlined.Info,
+                                            expandedStates = eventCardExpandedStates,
+                                            bodyContent = {
+                                                Text(
+                                                    text = injectionText,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
+                                                )
+                                            },
+                                        )
+                                    }
+                                    return@Box
+                                }
 
                                 // #217/#219/#221/#226：压缩触发认领（对位/锁存/隐藏/
                                 // 分割线判定）——纯逻辑在 CompactionDividerPolicy（C4，

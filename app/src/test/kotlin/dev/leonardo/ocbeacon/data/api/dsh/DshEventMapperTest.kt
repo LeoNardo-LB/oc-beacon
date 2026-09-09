@@ -1510,4 +1510,41 @@ class DshEventMapperTest {
         assertNull(DshEventMapper.seqOf("seq-abc"))
         assertNull(DshEventMapper.seqOf("seq--5"))
     }
+
+    // ============ #385：注入类消息 injectionKind 透传 ============
+
+    @Test
+    fun `injection user message carries source kind as injectionKind`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "fixture-0001",
+            sessionEvent(
+                "user/message",
+                """{"content":[{"type":"text","text":"- xlsx skill"}],"source":{"kind":"skill-catalog"}}""",
+            ),
+        )
+        val user = (mapped[0] as DshMappedEvent.Sse).event as SseEvent.MessageUpdated
+        assertEquals("skill-catalog", (user.info as Message.User).injectionKind)
+    }
+
+    @Test
+    fun `human message keeps injectionKind null and compaction carrier still binds`() {
+        val human = DshEventMapper.mapSessionEvent(
+            "fixture-0001",
+            sessionEvent("user/message", """{"content":[{"type":"text","text":"hi"}],"source":{"kind":"user","rpcId":"r1"}}""")
+        )
+        val hu = (human[0] as DshMappedEvent.Sse).event as SseEvent.MessageUpdated
+        assertNull((hu.info as Message.User).injectionKind)
+
+        val carrier = DshEventMapper.mapSessionEvent(
+            "fixture-0001",
+            sessionEvent(
+                "user/message",
+                """{"content":[{"type":"text","text":"summary text"}],"source":{"kind":"plugin","compactionId":"c1","sourceCommandId":"cmd-1"}}""",
+            ),
+        )
+        val cu = (carrier[0] as DshMappedEvent.Sse).event as SseEvent.MessageUpdated
+        assertEquals("plugin", (cu.info as Message.User).injectionKind)
+        // 载体绑定事件保持（既有行为不回归）
+        assertTrue(carrier.any { (it as? DshMappedEvent.Sse)?.event is SseEvent.CompactionSurfaceBound })
+    }
 }

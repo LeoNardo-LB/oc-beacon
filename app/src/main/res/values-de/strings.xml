@@ -932,4 +932,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="chat_busy_menu_queue">Nachricht einreihen</string>
     <string name="chat_busy_menu_queue_desc">Wird automatisch gesendet, wenn dieser Durchgang endet</string>
     <string name="chat_busy_menu_queue_no_attachments">Nachrichten mit Anhängen müssen jetzt gesendet werden</string>
+    <!-- #385: DSH context injection compact card labels (source.kind) -->
+    <string name="chat_injection_agent_instructions">Workspace-Anweisungen</string>
+    <string name="chat_injection_skill_catalog">Skill-Katalog</string>
+    <string name="chat_injection_plugin">Plugin-Konfiguration</string>
+    <string name="chat_injection_context">Kontextinjektion</string>
 </resources>

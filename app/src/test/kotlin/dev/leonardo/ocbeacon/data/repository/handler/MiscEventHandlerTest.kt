@@ -101,4 +101,34 @@ class MiscEventHandlerTest {
 
         assertTrue(handler.todos.value.isEmpty())
     }
+
+    // ============ #384：手动压缩吸收源命令卡（box 单卡承载） ============
+
+    @Test
+    fun `manual compaction absorbs source command card and routes done into entry`() {
+        // run 建卡（wire seq 序：run 恒先于 start——实录 613/614）
+        handler.handle(SseEvent.CommandRunStarted(sessionId = "s1", commandId = "cmd-9", name = "compact", seq = 613, time = 1), "srv")
+        assertEquals(1, handler.commandFeedback.value["s1"]?.size)
+        // start 吸收：命令卡移除、box 建立——单卡
+        handler.handle(SseEvent.CompactionStarted(sessionId = "s1", compactionId = "c1", sourceCommandId = "cmd-9", seq = 614, time = 2), "srv")
+        assertEquals(0, handler.commandFeedback.value["s1"]?.size)
+        assertEquals(1, handler.compactionEntries.value["s1"]?.size)
+        // done 结算路由入 box，不复活命令卡（实录 618）
+        handler.handle(SseEvent.CommandDone(sessionId = "s1", commandId = "cmd-9", kind = "success", text = "Compacted 8 history items.", seq = 618, time = 3), "srv")
+        assertEquals(0, handler.commandFeedback.value["s1"]?.size)
+        val entry = handler.compactionEntries.value["s1"]!!.single()
+        assertEquals("Compacted 8 history items.", entry.commandDone?.text)
+        assertTrue(entry.commandDone!!.isSuccess)
+    }
+
+    @Test
+    fun `auto compaction without source command leaves command cards untouched`() {
+        handler.handle(SseEvent.CommandRunStarted(sessionId = "s1", commandId = "cmd-7", name = "export", seq = 10, time = 1), "srv")
+        handler.handle(SseEvent.CompactionStarted(sessionId = "s1", compactionId = "c2", sourceCommandId = null, seq = 11, time = 2), "srv")
+        handler.handle(SseEvent.CommandDone(sessionId = "s1", commandId = "cmd-7", kind = "success", seq = 12, time = 3), "srv")
+        // 自动压缩（sourceCommandId 缺席）：无吸收——命令卡照常存在并终态化
+        assertEquals(1, handler.commandFeedback.value["s1"]?.size)
+        assertEquals("success", handler.commandFeedback.value["s1"]!!.single().done?.kind)
+        assertEquals(1, handler.compactionEntries.value["s1"]?.size)
+    }
 }

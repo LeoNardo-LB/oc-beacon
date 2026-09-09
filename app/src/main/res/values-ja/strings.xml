@@ -932,4 +932,9 @@
     <string name="chat_busy_menu_queue">メッセージをキュー</string>
     <string name="chat_busy_menu_queue_desc">このターン終了後に自動送信されます</string>
     <string name="chat_busy_menu_queue_no_attachments">添付ファイル付きメッセージは今すぐ送信してください</string>
+    <!-- #385: DSH context injection compact card labels (source.kind) -->
+    <string name="chat_injection_agent_instructions">ワークスペース指示</string>
+    <string name="chat_injection_skill_catalog">スキルカタログ</string>
+    <string name="chat_injection_plugin">プラグイン設定</string>
+    <string name="chat_injection_context">コンテキスト注入</string>
 </resources>

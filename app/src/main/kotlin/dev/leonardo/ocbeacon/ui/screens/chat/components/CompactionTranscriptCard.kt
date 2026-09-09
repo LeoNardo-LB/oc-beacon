@@ -148,6 +148,18 @@ internal fun CompactionTranscriptCard(
                     modifier = Modifier.padding(top = 2.dp),
                 )
             }
+            // #384：吸收的源命令结算文本（「Compacted 8 history items (~5373 tokens).」）
+            // ——单卡承载 title+状态+结算+摘要全文；error 结算沿用失败色。
+            val cmdDone = entry.commandDone
+            if (!cmdDone?.text.isNullOrBlank()) {
+                Text(
+                    text = cmdDone!!.text,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (cmdDone.isError) MaterialTheme.colorScheme.error else secondaryColor,
+                    maxLines = 2,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
             // 摘要全文（进行中到达即可读；双态均可展开收起——用户裁决）
             val summary = entry.summaryText
             if (summary != null) {

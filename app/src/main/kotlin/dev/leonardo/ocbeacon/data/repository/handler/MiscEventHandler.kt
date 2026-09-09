@@ -87,14 +87,30 @@ class MiscEventHandler @Inject constructor() : SseEventHandler {
             is SseEvent.CommandsChanged -> { _commandsChanged.tryEmit(Unit); true } // #285：全局注册表通知
             // #323：command/run|done → 反馈行卡态（配对纯函数折叠，本类只做容器写）
             is SseEvent.CommandRunStarted -> {
-                _commandFeedback.update { all ->
-                    all + (event.sessionId to CommandFeedbackFolder.onRun(all[event.sessionId].orEmpty(), event))
+                // #384 防御：已被压缩实体吸收的命令不建卡（wire seq 序 run 恒先于
+                // compaction/start，正常不可达；乱序/局部重放窗口防御）。
+                val absorbed = _compactionEntries.value[event.sessionId].orEmpty()
+                    .any { it.sourceCommandId == event.commandId }
+                if (!absorbed) {
+                    _commandFeedback.update { all ->
+                        all + (event.sessionId to CommandFeedbackFolder.onRun(all[event.sessionId].orEmpty(), event))
+                    }
                 }
                 true
             }
             is SseEvent.CommandDone -> {
-                _commandFeedback.update { all ->
-                    all + (event.sessionId to CommandFeedbackFolder.onDone(all[event.sessionId].orEmpty(), event))
+                // #384 吸收路由：sourceCommandId 配对的压缩实体在场 → 结算路由入 box
+                // （commandDone 随卡呈现），不建独立命令卡；否则普通命令卡路径。
+                val absorbed = _compactionEntries.value[event.sessionId].orEmpty()
+                    .any { it.sourceCommandId == event.commandId }
+                if (absorbed) {
+                    _compactionEntries.update { all ->
+                        all + (event.sessionId to CompactionFolder.onCommandDone(all[event.sessionId].orEmpty(), event))
+                    }
+                } else {
+                    _commandFeedback.update { all ->
+                        all + (event.sessionId to CommandFeedbackFolder.onDone(all[event.sessionId].orEmpty(), event))
+                    }
                 }
                 true
             }
@@ -102,6 +118,14 @@ class MiscEventHandler @Inject constructor() : SseEventHandler {
             is SseEvent.CompactionStarted -> {
                 _compactionEntries.update { all ->
                     all + (event.sessionId to CompactionFolder.onStarted(all[event.sessionId].orEmpty(), event))
+                }
+                // #384 吸收（用户裁决「从根源上杜绝两张卡片」）：手动压缩的源命令卡在
+                // 折叠层即被 box 吸收——start 到达即移除该命令卡；command/done 结算经
+                // onCommandDone 路由入 entry（单卡承载 title+状态+结算+摘要全文）。
+                event.sourceCommandId?.let { cmdId ->
+                    _commandFeedback.update { all ->
+                        all + (event.sessionId to all[event.sessionId].orEmpty().filterNot { it.commandId == cmdId })
+                    }
                 }
                 true
             }

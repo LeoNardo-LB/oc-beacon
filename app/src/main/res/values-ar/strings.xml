@@ -948,4 +948,9 @@
     <string name="chat_busy_menu_queue">إضافة إلى قائمة الانتظار</string>
     <string name="chat_busy_menu_queue_desc">يُرسل تلقائيًا عند انتهاء هذا الدور</string>
     <string name="chat_busy_menu_queue_no_attachments">الرسائل ذات المرفقات يجب إرسالها الآن</string>
+    <!-- #385: DSH context injection compact card labels (source.kind) -->
+    <string name="chat_injection_agent_instructions">تعليمات مساحة العمل</string>
+    <string name="chat_injection_skill_catalog">كتالوج المهارات</string>
+    <string name="chat_injection_plugin">إعدادات الإضافات</string>
+    <string name="chat_injection_context">إدراج السياق</string>
 </resources>

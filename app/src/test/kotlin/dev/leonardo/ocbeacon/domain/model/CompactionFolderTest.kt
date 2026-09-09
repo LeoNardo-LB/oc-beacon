@@ -91,4 +91,44 @@ class CompactionFolderTest {
         val twice = full(once)
         assertEquals(once, twice)
     }
+
+    // ============ #384：吸收态命令结算路由（sourceCommandId 配对） ============
+
+    @Test
+    fun `commandDone routes into entry with matching sourceCommandId`() {
+        var states = CompactionFolder.onStarted(emptyList(), start("c1", 10))
+        states = CompactionFolder.onCommandDone(states, SseEvent.CommandDone(
+            sessionId = "s1", commandId = "cmd-1", kind = "success",
+            text = "Compacted 8 history items (~5373 tokens).", seq = 13, time = 220,
+        ))
+        assertEquals(1, states.size)
+        assertEquals("Compacted 8 history items (~5373 tokens).", states[0].commandDone?.text)
+        assertTrue(states[0].commandDone!!.isSuccess)
+    }
+
+    @Test
+    fun `commandDone without match returns unchanged and replay is idempotent`() {
+        val states = CompactionFolder.onStarted(emptyList(), start("c1", 10))
+        val unmatched = CompactionFolder.onCommandDone(states, SseEvent.CommandDone(
+            sessionId = "s1", commandId = "cmd-other", kind = "success", seq = 13,
+        ))
+        assertEquals(states, unmatched)
+        val once = CompactionFolder.onCommandDone(states, SseEvent.CommandDone(
+            sessionId = "s1", commandId = "cmd-1", kind = "success", text = "a", seq = 13,
+        ))
+        val twice = CompactionFolder.onCommandDone(once, SseEvent.CommandDone(
+            sessionId = "s1", commandId = "cmd-1", kind = "success", text = "a", seq = 13,
+        ))
+        assertEquals(once, twice)
+    }
+
+    @Test
+    fun `start replay keeps already routed commandDone`() {
+        var states = CompactionFolder.onStarted(emptyList(), start("c1", 10))
+        states = CompactionFolder.onCommandDone(states, SseEvent.CommandDone(
+            sessionId = "s1", commandId = "cmd-1", kind = "success", text = "done-text", seq = 13,
+        ))
+        states = CompactionFolder.onStarted(states, start("c1", 10))
+        assertEquals("done-text", states[0].commandDone?.text)
+    }
 }

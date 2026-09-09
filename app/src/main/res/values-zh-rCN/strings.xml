@@ -935,4 +935,9 @@
     <string name="chat_busy_menu_queue">消息排队</string>
     <string name="chat_busy_menu_queue_desc">本轮结束后自动发送</string>
     <string name="chat_busy_menu_queue_no_attachments">带附件的消息请立即发送</string>
+    <!-- #385: DSH context injection compact card labels (source.kind) -->
+    <string name="chat_injection_agent_instructions">工作区指令</string>
+    <string name="chat_injection_skill_catalog">技能目录</string>
+    <string name="chat_injection_plugin">插件配置</string>
+    <string name="chat_injection_context">上下文注入</string>
 </resources>

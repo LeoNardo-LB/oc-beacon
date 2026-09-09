@@ -866,15 +866,23 @@ object DshEventMapper {
      * user/message → MessageUpdated + 显式 text part。
      *
      * 不走 V2 的 summary.body 播种路径（handler 会再 seed 一条 summary part，与显式
-     * part 双份风险）；source.kind（人类/注入/goal 轮）统一按 user 气泡渲染——注入
-     * 轮的差异化展示留给后续。
+     * part 双份风险）。#385（2026-09-10 用户裁决）：注入类消息（source.kind≠user——
+     * agent-instructions/skill-catalog/plugin 等宿主上下文注入）透传 injectionKind，
+     * UI 按精简折叠卡渲染（对齐 DSH Web；此前统一按 user 气泡渲染成文本墙——演示①实测）。
      */
     private fun mapUserMessage(sessionId: String, seq: Long, time: Long, data: JsonObject): List<DshMappedEvent> {
         val id = messageId(seq)
+        val injectionKind = data.obj("source")?.str("kind")
+            ?.takeIf { it.isNotBlank() && it != "user" }
         val events = mutableListOf(
             DshMappedEvent.Sse(
                 SseEvent.MessageUpdated(
-                    Message.User(id = id, sessionId = sessionId, time = TimeInfo(created = time))
+                    Message.User(
+                        id = id,
+                        sessionId = sessionId,
+                        time = TimeInfo(created = time),
+                        injectionKind = injectionKind,
+                    )
                 )
             )
         )

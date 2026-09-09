@@ -50,7 +50,9 @@ sealed class Message {
         val summary: UserSummary? = null,
         val system: String? = null,
         val tools: Map<String, Boolean>? = null,
-        val variant: String? = null
+        val variant: String? = null,
+        /** #385：DSH 注入类消息 source.kind 透传（agent-instructions/skill-catalog/plugin…宿主上下文注入；null=普通用户消息）——注入内容按精简折叠卡渲染（对齐 DSH Web）。 */
+        val injectionKind: String? = null,
     ) : Message() {
         @Serializable
         data class Model(

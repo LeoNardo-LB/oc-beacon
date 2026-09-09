@@ -932,4 +932,9 @@
     <string name="chat_busy_menu_queue">메시지 큐</string>
     <string name="chat_busy_menu_queue_desc">이번 턴이 끝나면 자동으로 전송됩니다</string>
     <string name="chat_busy_menu_queue_no_attachments">첨부파일이 있는 메시지는 지금 보내야 합니다</string>
+    <!-- #385: DSH context injection compact card labels (source.kind) -->
+    <string name="chat_injection_agent_instructions">워크스페이스 지침</string>
+    <string name="chat_injection_skill_catalog">스킬 카탈로그</string>
+    <string name="chat_injection_plugin">플러그인 구성</string>
+    <string name="chat_injection_context">컨텍스트 주입</string>
 </resources>

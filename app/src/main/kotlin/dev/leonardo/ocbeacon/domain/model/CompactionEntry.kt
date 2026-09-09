@@ -11,6 +11,12 @@ package dev.leonardo.ocbeacon.domain.model
  * 折叠纯函数见 [CompactionFolder]（handler 只做容器写）；与 [CommandFeedback]
  * 同构的 durable 语义——历史重放（MessagePage.transcriptEvents dispatch）与实况
  * SSE 同路径按 compactionId 幂等重建（#376 修复通道）。
+ *
+ * #384（2026-09-10 用户裁决「从根源上杜绝两张卡片，将压缩的 title 与压缩内容放到
+ * 一张卡片中」）：手动压缩（sourceCommandId 在场）的源命令卡在折叠层即被本实体
+ * 吸收——command/run 建的卡随 start 移除、command/done 结算经
+ * [CompactionFolder.onCommandDone] 路由入 [commandDone]；box 单卡承载
+ * title+状态+结算文本+摘要全文。
  */
 data class CompactionEntry(
     /** 配对键（wire compactionId）。 */
@@ -29,6 +35,8 @@ data class CompactionEntry(
     val finishedAt: Long? = null,
     /** 失败原因（终态且非 null = 失败压缩）。 */
     val error: String? = null,
+    /** #384：吸收的源命令结算（sourceCommandId 配对的 command/done——「Compacted 8 history items (~5373 tokens).」类文本随 box 单卡呈现）。 */
+    val commandDone: CommandFeedback.Done? = null,
 ) {
     val isFinished: Boolean get() = finishedAt != null
     val isFailed: Boolean get() = error != null
@@ -60,6 +68,7 @@ object CompactionFolder {
                     messageId = existing.messageId,
                     finishedAt = existing.finishedAt,
                     error = existing.error,
+                    commandDone = existing.commandDone,
                 ))
             }
         }
@@ -80,6 +89,23 @@ object CompactionFolder {
         upgrade(states, event.compactionId, event.seq) {
             it.copy(messageId = event.messageId)
         }
+
+    /**
+     * #384：吸收态命令结算路由——sourceCommandId 配对的 entry 原位补 [CompactionEntry.commandDone]
+     * （kind/text 随 box 呈现；无配对原样返回，调用侧走普通命令卡路径）。幂等：重复
+     * 到达的 done 原位覆盖，不产生第二实体。
+     */
+    fun onCommandDone(states: List<CompactionEntry>, event: SseEvent.CommandDone): List<CompactionEntry> {
+        val index = states.indexOfFirst { it.sourceCommandId == event.commandId }
+        if (index < 0) return states
+        val done = CommandFeedback.Done(
+            kind = event.kind,
+            text = event.text,
+            sourceEventSeq = event.sourceEventSeq,
+            time = event.time,
+        )
+        return states.toMutableList().apply { set(index, states[index].copy(commandDone = done)) }
+    }
 
     private fun upgrade(
         states: List<CompactionEntry>,

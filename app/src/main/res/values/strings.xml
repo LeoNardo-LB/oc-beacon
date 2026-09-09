@@ -1014,4 +1014,9 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="chat_busy_menu_queue">Queue message</string>
     <string name="chat_busy_menu_queue_desc">Sent automatically when this turn ends</string>
     <string name="chat_busy_menu_queue_no_attachments">Messages with attachments must be sent now</string>
+    <!-- #385: DSH context injection compact card labels (source.kind) -->
+    <string name="chat_injection_agent_instructions">Workspace instructions</string>
+    <string name="chat_injection_skill_catalog">Skill catalog</string>
+    <string name="chat_injection_plugin">Plugin configuration</string>
+    <string name="chat_injection_context">Context injection</string>
 </resources>

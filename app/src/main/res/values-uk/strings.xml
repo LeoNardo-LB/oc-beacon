@@ -940,4 +940,9 @@
     <string name="chat_busy_menu_queue">Поставити в чергу</string>
     <string name="chat_busy_menu_queue_desc">Надсилається автоматично після завершення цього ходу</string>
     <string name="chat_busy_menu_queue_no_attachments">Повідомлення з вкладеннями потрібно надіслати зараз</string>
+    <!-- #385: DSH context injection compact card labels (source.kind) -->
+    <string name="chat_injection_agent_instructions">Інструкції робочої області</string>
+    <string name="chat_injection_skill_catalog">Каталог навичок</string>
+    <string name="chat_injection_plugin">Конфігурація плагінів</string>
+    <string name="chat_injection_context">Впровадження контексту</string>
 </resources>

@@ -932,4 +932,9 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="chat_busy_menu_queue">Poner en cola</string>
     <string name="chat_busy_menu_queue_desc">Se envía automáticamente al terminar este turno</string>
     <string name="chat_busy_menu_queue_no_attachments">Los mensajes con adjuntos deben enviarse ahora</string>
+    <!-- #385: DSH context injection compact card labels (source.kind) -->
+    <string name="chat_injection_agent_instructions">Instrucciones del espacio de trabajo</string>
+    <string name="chat_injection_skill_catalog">Catálogo de habilidades</string>
+    <string name="chat_injection_plugin">Configuración de plugins</string>
+    <string name="chat_injection_context">Inyección de contexto</string>
 </resources>

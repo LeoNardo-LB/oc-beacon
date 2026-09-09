@@ -932,4 +932,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="chat_busy_menu_queue">Kuyruğa al</string>
     <string name="chat_busy_menu_queue_desc">Bu tur bittiğinde otomatik gönderilir</string>
     <string name="chat_busy_menu_queue_no_attachments">Ekli mesajlar şimdi gönderilmelidir</string>
+    <!-- #385: DSH context injection compact card labels (source.kind) -->
+    <string name="chat_injection_agent_instructions">Çalışma alanı talimatları</string>
+    <string name="chat_injection_skill_catalog">Yetenek kataloğu</string>
+    <string name="chat_injection_plugin">Eklenti yapılandırması</string>
+    <string name="chat_injection_context">Bağlam enjeksiyonu</string>
 </resources>

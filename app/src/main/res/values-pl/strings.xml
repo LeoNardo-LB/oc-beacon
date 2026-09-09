@@ -940,4 +940,9 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="chat_busy_menu_queue">Dodaj do kolejki</string>
     <string name="chat_busy_menu_queue_desc">Wysyłane automatycznie po zakończeniu tej tury</string>
     <string name="chat_busy_menu_queue_no_attachments">Wiadomości z załącznikami należy wysłać teraz</string>
+    <!-- #385: DSH context injection compact card labels (source.kind) -->
+    <string name="chat_injection_agent_instructions">Instrukcje obszaru roboczego</string>
+    <string name="chat_injection_skill_catalog">Katalog umiejętności</string>
+    <string name="chat_injection_plugin">Konfiguracja wtyczek</string>
+    <string name="chat_injection_context">Wstrzyknięcie kontekstu</string>
 </resources>
