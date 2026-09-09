@@ -75,26 +75,10 @@
 
 （#365 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
 
-- [~] **#346 需关注类通知被静默组汇总埋没——问题/权限/错误退出 server 分组独立成卡** `dsh` `notification` `bug`
-  - 走查反馈取证(2026-09-07):用户 HOME 后「没看到有问题通知」,而 dumpsys 实证通知在场(id=724696787,importance=4,文案正确)——根因=三类高重要度通知 setGroup(server_x) 挂在 **LOW 重要度 tasks_silent 组汇总**下,MIUI 整组折叠成一行静默项,子卡不可见(同 E4② 组卡现象);独立卡正常(E4 实证)
-  - 已修复:权限/问题/错误三构建器移除 setGroup+组汇总发布(轮完成静默流保留分组语义);顺带消解 E4②「组卡子项 tap 不可达」(不再有组卡)。**真机验证 ✔**:resync 重放 QuestionAsked→到达发布→groupKey=自身独立键(原 g:server_…),静默组汇总消失;cancel 后撤销链保持(通知消失)
-  - → 附带定论:问题通知持久性=挂起期间恒在,轮终(应答/服务器超时)即撤——超时后卡片是死链,撤除正确;AUTO_CANCEL 允许用户手动消
-
-
-- [~] **#320 DSH 事件系统通知——turn 结束/问题到达/审批等待 → Android 通知+deep-link（web turn-notify 对位）** `dsh` `sse` `ui`
-  - 已实现（4e25b716）:审计发现发布链既有全覆盖,真缺口=三清除径同点撤通知+标题回退;验收 ✔（前台抑制边界/后台链 通知→面板点按 deep-link 进会话→应答→撤 census 归零,终轮 D1）:docs/acceptance/2026-09-06-final-combined.md;到达时语义（无退后台补发）→ #336 增强;**UIUX 待人工**
-  - 非前台会话 turn 结束/question/approval → 系统通知点进会话；通知设置+deep-link+渠道基础设施全在（Settings→Notifications/host 事件流），纯接线；web 走 /turn-notify/focus-wait HTTP 长轮询，Android 用既有 WS 事件流即可
-  - → `docs/research/2026-09-04-dsh-web-parity-round2.md` #320
-
-- [~] **#309 DSH 面对齐批 1·快速胜利：goal 完成/压缩呈现/Full access 确认/插话长按直发/重试 continue** `dsh` `ui` `sse`
-  - 五子项代码全落地（审计 `docs/research/2026-09-05-audit-309-313.md`：①-④+⑤-b 既有,⑤-a 倒计时 148c0644）·**AI 真机验收 10✔+2BLOCKED**（A5 预设降级：max-tokens 未触达/重试不可确定性触发,单测作结）：`docs/acceptance/2026-09-05-309-batch1-and-328.md`——**UIUX 卡待人工验收**（与 #326/#313 同域汇总）
-  - 横切铁律：新 SseEvent 三步全走（DEM 分支+EventDispatcher bind+handler 折叠，漏 bind 即静默丢弃，goal/change 曾中招）；触 composer 按 ChatScreen 编辑协议串行
-  - → `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md` §四 · `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §11.4 批 1 · `docs/research/dsh-gap-2026-09-01/implementability-ui.md`（挂点明细）
-
-- [~] **#310 DSH 面对齐批 2·主价值：子智能体续聊/消息反馈/Plan 模式/轨迹台账/会话源引用** `dsh` `ui` `session`
-  - 五子项全实现（905f25fd/8a1b058b/93a6c9f8/b7822e7e/c7e530da/6a903a42/753ee6fc）+验收三轮全绿（验收驱动根因修复 4 项：6290102b 空 sid 跳过/8faf940c durable 地址双腿+父址键/4b463eec quoted 去引号/098e89a2 session-removed 降级+log-only 词汇）——报告 `docs/acceptance/2026-09-05-310-batch2-and-321.md`;**UIUX 待人工**（域汇总）
-  - 子智能体续聊先做（UI 通道 100% 就绪，缺 `subagent.prompt/interrupt/history` 三方法，性价比最高）→ 消息反馈 👍/👎（气泡下动作行，禁长按）→ Plan 模式（chip+专卡）→ 轨迹台账+检查器（RenderableTurn 已预计算时间戳；时间轴缩放 L 不做）→ @ 会话源+mention 可点（文件源现成）；≈8-10 人日
-  - → `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md` §四 · `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §11.4 批 2 · `docs/research/dsh-gap-2026-09-01/implementability-ui.md`
+（#346 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
+（#320 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
+（#309 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
+（#310 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
 
 ## P2 — 优化与锦上添花
 
@@ -108,39 +92,15 @@
 （#343 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
 （#323 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
 （#325 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
-
-- [~] **#347 归档交互改长按菜单——左划归档手势下线(用户走查裁决)** `ui` `session`
-  - 裁决原文:「应该长按之后展示归档,而不是左划归档」——左划手势整体下线(SwipeToDismiss 组件连同 #342 修的揭示背景一并移除),归档仅保留长按菜单入口;长按菜单已有归档项,改动=删手势+回归 #342 红底断言转不适用
-  - 关联:#342(左滑背景修复)随本卡废弃;#311①(归档功能本身)不受影响
-  - **已实现+真机验证 (2026-09-07)**:SwipeToDismissBox 包装/#342 揭示背景/ArchiveBackgroundRevealTest 全链移除;真机 DSH 列表左划无反应、长按菜单归档入口在场
-
-- [~] **#349 subagent 工具卡可点击查看详情——直达子会话(用户走查裁决)** `ui` `subagent`
-  - 裁决原文:「subagent卡片理应有点击查看详情的能力」——聊天中 subagent 工具卡(运行中/完结)点击→打开对应子会话(复用 #310① 的子会话路由与 durable 父址);现有入口 FAB→智能体 AgentSheet 保留
-  - **已实现(2026-09-07)**:ToolCardScaffold 新增 onCardClick 覆盖槽(默认契约不变);TaskToolCard 本体点击=直达子会话(navTarget 在场时),展开职责移交右侧紧凑 chevron(仅有输出时);编译+全量单测绿
-  - **DSH 面根因修复+真机全链验证(2026-09-07 晚)**:DSH wire 上子代理派发被 run_code 包裹且 childSessionId 无结构化字段——mapper 升格 subagent 族 code-dispatch 为子代理卡(bg="started subagent <uuid>" 即得 id;fg=根 tool/result 信封关联,含服务器双份信封形态的 firstJsonObjectOf 深度扫描);**顺带根因修复 DshMessageAssembler 同 id part 按到达序 append 的历史双份 bug**(每张 DSH 工具卡在历史页携带全部中间态副本→×N 角标+陈旧首份胜出);真机:卡体点击→子会话「This is a connectivity test」直达+BACK 回父会话,箭头在场=metadata 落位;单测 mapper+6/管线+3(bg 链 id 即得/fg 信封关联/装配合并)
-  - 交付物:DshEventMapper(code-dispatch 映射+信封关联+firstJsonObjectOf)/DshMessageAssembler(mergePart 同 id 合并)/DshSubagentCard349PipelineTest(dispatcher 与 fold+assemble 双路径)
-
-
-- [~] **#344 提问通知正文携带 system-reminder 前缀——补发空载荷走「最新用户消息」回退,捞到 DSH 注入语料行** `dsh` `notification` `bug`
-  - 根因链(仪器批+本批取证钉死):#336 退后台补发**故意传空串**→AppNotificationManager 回退 findLatestUserMessages(最新用户消息)——而 DSH 把 skill catalog/workspace 指引按 user/message 入库(晚于真 prompt 毫秒级,seq-13 恰为最新),回退正文=注入全文;服务器侧问题文本本身干净(seq-207 arguments 实证),#339 消毒器只挂在到达路径直发文本上,回退路径从未消毒
-  - **已修复(两层根因)**:①PendingInteractionStore 条目化(kind+text,记录时刻携带问题/权限原文,同 kind 空值不抹/非空覆盖)→补发携带真实载荷并消毒发布,不再走回退;②回退侧 findLatestUserMessages 选段谓词 isNotificationPreviewText(消毒后非空且不以标记开头——整条注入块/未闭合前缀拒收,嵌块+真文本放行)+预览管线统一 sanitizeNotificationText(嵌块剥除/全剥离跳行)
-  - **真机验证 ✔(2026-09-07)**:同场景复测(挂起问题→HOME→dumpsys)通知正文=「Verify six forty four.」(真实问题文本),非 system-reminder;作答后通知撤销 ✓;store/补发器/预览 +11 单测(载荷携带/重放不抹/消毒发布/注入过滤三态)
-  - → 证据:v344-q-1.xml(问题在场)+ dumpsys android.text 实录(修复前 system-reminder vs 修复后问题原文)
+（#311 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
+（#312 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
+（#322 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
+（#344 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
+（#347 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
 
 
 
-- [~] **#322 DSH 服务端内容搜索——searchText stub 接 session/search** `dsh` `session` `data`
-  - 已实现（c7170723:searchSessions 专属通道+服务器命中区+merge 纯函数;searchText 证为文件域 stub 保留注释）;验收 ✔（命中区+tap 进会话+无命中逆向,终轮 C1）;**UIUX 待人工**
-  - 内容搜索现空（searchText stub）；客户端 FTS 仅覆盖本地已加载会话；web session/search 搜全部历史（名字+内容）；命中导航（ContentHitNavigation/jumpToMessageId）与筛选 chips UI 全在
-  - → `docs/research/2026-09-04-dsh-web-parity-round2.md` #322
-
-- [~] **#311 DSH 面对齐批 3·组织面：工作区归档/deliverables/工具卡增补/状态点** `dsh` `ui` `session`
-  - 六子项全实现（4ced86f5 数据层/0498e775 归档 UI/0fd15da8 多 workspace/3ac2dd71 deliverables+工具卡/a69fd71a 待审批点——**契约事实:归档单向无取消**;FSM 零动,采 web 本地 pending 域）;验收 13✔+3 BLOCKED-harness routing（run_code 内联族,契约同构休眠）:docs/acceptance/2026-09-05-311-batch3.md;**UIUX 待人工**（域汇总）
-  - → `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md` §四 · `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §11.4 批 3 · `docs/research/dsh-gap-2026-09-01/implementability-ui.md`
-
-- [~] **#312 DSH 面对齐零星 S 级池：相对时间戳/KaTeX/spill 提示/命令带图限制/消息级分支锚点** `dsh` `ui`
-  - 四子项落地（f6e288b7+4b5f1618;③spill 转 #332 P4）;验收 6✔+A2 终裁✔（markdown 面,用户卡纯 Text 既有设计）:docs/acceptance/2026-09-05-312-s-pool.md——fork wire 112ms+导航/拦截 wire 级不派发/相对时间戳三形态;**UIUX 待人工**（域汇总;含下轮补一发助手面数学定向确认）
-  - → `docs/journal/2026-09-03-dsh-gap-recheck-wire-308.md` §四 · `docs/research/2026-09-01-dsh-web-vs-android-gap.md` §12.3
+（#349 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
 
 ## P3 — 观察与低价值改进
 
@@ -153,29 +113,16 @@
 （#338 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
 （#342 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
 （#341 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
+（#324 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
+（#336 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
+（#339 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
+（#340 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
 
 - [ ] **#345 adb 注入 tap 间歇丢弃观察——MIUI 平台行为定性(非 app 缺陷),真手指未复现即不处理** `env` `device`
   - 定性修正(2026-09-07 二查):原「两案全灭」重析后——**第二案翻案**:Doubang 输入法为浅色主题,screencap 下半屏与 app surface 同色族 (247,250,253),误判「无 IME」后 tap 实际全打在键盘上;7 节点 dump=输入法安全窗致盲(平台正常)。第一案(t4401 克隆任务后 composer 聚焦 tap 无响应)仍疑似 MIUI 注入丢弃家族(同 E4② shade 组卡先例);两案中键事件/焦点全程有效(`dumpsys input_method` mServedView 在场实证),app 侧无缺陷证据
   - 本批定向复现未再现(IME 抬起+乱序 tap 串轰击后交互正常);缓解纪律已沉淀 device-testing.md(IME 判定用 dumpsys input_method 勿用像素分析;tap 失活二分定位;冷启恢复配方)。保持观察:真手指复现才升级为 app 卡
   - → 证据:journal §二十五 #345 节 + /tmp/e2e-instr/r1-r3.xml(复现尝试全程交互正常)
 
-
-- [~] **#336 审批/提问通知「退后台补发」——已实现（279b7639+b95a2bc9）** `dsh` `ui`
-  - 已实现:fg→bg 转换沿扫描 pending 已通知槽去重防重放;验收 ✔（终验 A4 三段链:前台抑制→HOME 补发在场→面板点按直达→应答撤）;#337 顺修（revoker 父槽镜像+共享冒泡函数三侧统一）;**UIUX 待人工**（通知域汇总已含）
-
-- [~] **#324 DSH 设置面深度对齐缓行池——provider/模型目录 CRUD·插件配置与清单·preset 管理·skills 触发组** `dsh` `ui`
-  - 四域全交付（4fb237b1/6b0b0c3c/c3df0b01/a1a835dc+崩溃修 3cb324a8）;验收 ✔（F1 提供方页 r2 不崩+目录在场/F2 preset/F3 插件清单+表单/F4 skills 分组,终轮）;凭据只写不回显/清单只读（web 同构）;**UIUX 待人工**
-  - web Settings 深度面：自定义 provider 增删+discoverModels、插件配置卡（shell 超时/agent loop/web search/子代理模型）+pluginInventory 清单、agentPresets 管理 CRUD、"/"菜单 skills/list 触发组；beacon 现有 auth+过滤+选择器，缺 CRUD/清单
-  - 移动端价值中等缓行；ServerSettingsContent/ProvidersScreen 行范式可直接扩 → `docs/research/2026-09-04-dsh-web-parity-round2.md` #324
-
-- [~] **#339 重连 resync 通知族缺陷——伪 Idle 边沿误撤+旧错误轮重发+注册表未水化阻断+通知文本系统注入** `dsh` `notification`
-  - 已修复(b2a84aea) 四子缺陷根因闭环:①径②清除延后复核(2s settle+仍 Idle 才清——W5 实证伪边沿 Idle→.725 即回 Busy,通知层同事件已判 6min 陈旧而 pending 域无判);②SessionError 携带 turn/end 信封时刻+#294 同款 5min 陈旧过滤;③重放用户消息(created 陈旧)不再重置 streak(曾致「错误·hi」×7-8 连环通过);④重发布前有界等待注册表水化(250ms×12)+question/error 文本剥离 <system-reminder> 注入语料;断开撤除+TTL 仍留产品裁量(未实现)
-  - → **#339 裁决补录(2026-09-07 深夜)**:用户「一致留着没问题,点击之后尝试重连服务器,连得上就进入,连不上就退回到服务器选择页面」——通知滞留保持(不撤除/TTL 不做);深链重连腿已实现:NavGraph sessionId 分支前置 homeViewModel.awaitServerReachable(水化等待→幂等触发 connectToServer→10s 窗 connected/errors 判定),失败 navigate Home;单测 +3(健康检查快假/触发腿/未知服务器)
-  - → 单测 +8(PendingInteractionStoreTest×2/SessionNotificationCoordinatorTest×6)+DshEventMapperTest 时刻契约;**真机验收 ✔(2026-09-07 07:20 活体)**:构造新挂起问题(red/blue,服务器侧 Busy)→通知发布→断开→重连 resync→QuestionAsked 重放→通知**重发布**(id=428455022 回场)+**零误撤**(Revoked=0,四轮 resync 全 0)+旧错误轮零重发(stale error 13 skips)+旧 idle 124-129 skips;证据 /tmp/e2e-fix34x/app5-app7.log;断开撤除+TTL 产品裁量未实现(留用户裁决)
-
-- [~] **#340 resync 期 Room 持久化背压丢写——BUFFERED 满即丢写(含终态修复写)** `dsh` `storage`
-  - 已修复(07069ad0) 管线两路重构:全量 upsert 按 (sessionId,messageId) 最新快照合并(latest-wins 幂等)+按消息数阈值(128)/最大时延(250ms)批量刷洗(每会话单次调用=单事务,吞吐数量级↑);增量 delta 走 UNLIMITED 保序队永不丢(流式速率有界);旧 trySend 满即丢路径删除
-  - → 单测 +4(MessageEventHandlerCoalescingPersistTest:5000 条洪峰零丢失+最新快照合并+批量上界+delta 保序);**真机验收 ✔(2026-09-07)**:四轮 resync 全程 dropped WARN=0(旧版同场景 9 条/N=1150-1500),合并刷洗 17/14/4 批×195-300 msgs/批,sessions=2-3/批;库 integrity=ok(12,981 条);证据 /tmp/e2e-fix34x/app2-app7.log
 
 ## P4 — 外部前提阻塞
 
