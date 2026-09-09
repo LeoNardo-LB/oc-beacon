@@ -992,7 +992,10 @@ class DshEventMapperTest {
             listOf(
                 DshMappedEvent.Sse(
                     SseEvent.SessionNext(SessionNextEvent.CompactionStarted(sessionId = "s9", messageId = "", reason = ""))
-                )
+                ),
+                DshMappedEvent.Sse(
+                    SseEvent.CompactionStarted(sessionId = "s9", compactionId = "c-1", seq = 100, time = 1788109999000)
+                ),
             ),
             mapped,
         )
@@ -1008,7 +1011,10 @@ class DshEventMapperTest {
             listOf(
                 DshMappedEvent.Sse(
                     SseEvent.SessionNext(SessionNextEvent.CompactionDelta(sessionId = "s9", messageId = "", delta = "压缩摘要全文"))
-                )
+                ),
+                DshMappedEvent.Sse(
+                    SseEvent.CompactionSummary(sessionId = "s9", compactionId = "c-1", summaryText = "压缩摘要全文", seq = 100, time = 1788109999000)
+                ),
             ),
             mapped,
         )
@@ -1036,6 +1042,9 @@ class DshEventMapperTest {
                     SseEvent.SessionNext(
                         SessionNextEvent.CompactionEnded(sessionId = "s9", messageId = "", error = "summary too large")
                     )
+                ),
+                DshMappedEvent.Sse(
+                    SseEvent.CompactionFinished(sessionId = "s9", compactionId = "c-1", error = "summary too large", seq = 100, time = 1788109999000)
                 ),
             ),
             mapped,

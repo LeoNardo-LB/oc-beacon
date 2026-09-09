@@ -711,7 +711,7 @@ object DshEventMapper {
             // 文本块拼接为全文（单帧到达，非流式增量）；banner delta 与转录实体
             // CompactionSummary 双发。
             "compaction/summary" -> {
-                val text = contentBlocksText(data.arr("summary"))
+                val text = contentBlocksText(data["summary"])
                 if (text == null) {
                     listOf(DshMappedEvent.Ignored(DshIgnoreReason.COMPACTION))
                 } else {
@@ -1664,9 +1664,13 @@ object DshEventMapper {
      * #378：ContentBlock[] → 全文（text 块拼接；块间双换行）。compaction/summary
      * 的 wire 形状（types.d.ts + 实录 seq-5391）。非 text 块（图片等）跳过——
      * 摘要域当前只有文本块，出现新块型时此处显式降级而非整块丢弃。
+     * 容错：字符串形态（旧源码阅读时代的载荷假设）原样透传——tolerant reader，
+     * 服务器版本漂移不致整事件丢失。
      */
-    private fun contentBlocksText(blocks: JsonArray?): String? {
-        if (blocks == null) return null
+    private fun contentBlocksText(element: JsonElement?): String? {
+        if (element == null || element is JsonNull) return null
+        if (element is JsonPrimitive) return element.contentOrNull?.takeIf { it.isNotBlank() }
+        val blocks = element as? JsonArray ?: return null
         val texts = blocks.filterIsInstance<JsonObject>()
             .filter { it.str("type") == "text" }
             .mapNotNull { it.str("text") }

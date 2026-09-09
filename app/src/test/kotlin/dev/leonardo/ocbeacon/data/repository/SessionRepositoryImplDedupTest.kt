@@ -27,12 +27,19 @@ import org.junit.Test
  */
 class SessionRepositoryImplDedupTest {
 
+    private val dispatcher = mockk<dev.leonardo.ocbeacon.data.repository.EventDispatcher>(relaxed = true)
+
+    init {
+        // #378：历史页遮蔽过滤——relaxed mock 对 List 返回 null，桩为恒等过滤
+        io.mockk.every { dispatcher.filterShadowed(any(), any()) } answers { secondArg() }
+    }
+
     private val messageApi = mockk<MessageApi>()
     private val serverStore = mockk<ServerDataStore>()
     private val repo = SessionRepositoryImpl(
         sessionApi = mockk<SessionApi>(relaxed = true),
         messageApi = messageApi,
-        eventDispatcher = mockk(relaxed = true),
+        eventDispatcher = dispatcher,
         serverRepo = serverStore,
         sessionCache = mockk<SessionCacheStore>(relaxed = true),
         applicationScope = CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob()),

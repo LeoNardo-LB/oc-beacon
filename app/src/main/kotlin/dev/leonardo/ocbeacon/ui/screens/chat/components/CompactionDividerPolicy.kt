@@ -114,18 +114,19 @@ object CompactionDividerPolicy {
     /** 尾部兜底分割线认领：active 且对应消息未入列（messageId 不在 id 集、
      *  且无 V1 摘要消息入列）时返回 [CompactionDividerSpec.Tail]，否则 null。
      *
-     * #374（2026-09-09 用户演示裁决）：DSH /compact 期间压缩全程由命令反馈卡
-     * 承载（受理→执行中→终态单卡演化）——**活 compact 命令卡在场时尾部
-     * 进行中分割线让位**，不再双轨呈现；V2 compact（无命令卡）分割线照旧。 */
+     * #378（2026-09-10，取代 #374 让位规则——同域最新裁决）：DSH 压缩全程由
+     * 流内压缩 box（CompactionTranscriptCard）承载——**转录实体在场时尾部
+     * 进行中分割线整体让位**（不再依赖「活命令卡」窄条件——实体数据源恒
+     * 表达 DSH 域，含进行中/终态全形态）；V1/V2 无实体恒不抑制，行为不变。 */
     fun tailSpec(
         compaction: CompactionStateInfo?,
         displayItemMessageIds: Set<String>,
         v1SummaryInList: Boolean,
-        suppressByLiveCompactCommand: Boolean = false,
+        suppressByTranscriptCompaction: Boolean = false,
     ): CompactionDividerSpec.Tail? {
         val active = compaction?.takeIf { it.isActive } ?: return null
-        // #374：命令卡承载让位（见上）
-        if (suppressByLiveCompactCommand) return null
+        // #378：流内 box 承载让位（见上）
+        if (suppressByTranscriptCompaction) return null
         // #226：V1 摘要消息入列后由消息流内活跃线承担（V1 本地置态 messageId
         // 为空串永不命中对位判据，此前尾部线全程在场 → 与摘要线/气泡三元素同屏）
         if (active.messageId in displayItemMessageIds || v1SummaryInList) return null
@@ -263,15 +264,19 @@ object CompactionDividerPolicy {
 
     /** bannerCount/revealBannerCount 压缩项：由尾部兜底认领决策派生（同源单一
      *  真相源）——streamClaimed = 活跃且消息流内已有 item 认领；tailFallback =
-     *  活跃且无人认领（尾部兜底 item 将渲染）。非活跃两项皆 false。 */
+     *  活跃且无人认领（尾部兜底 item 将渲染）。非活跃两项皆 false。
+     *  #378：suppressByTranscriptCompaction 与 [tailSpec] 同参传入（**记帐与
+     *  渲染必须同让位**——抑制期无任何分割线 item，两项皆 false；#374 时代
+     *  仅渲染侧让位、bannerTerms 不知情，为潜在的记帐失真源，一并根因修复）。 */
     fun bannerTerms(
         compaction: CompactionStateInfo?,
         displayItemMessageIds: Set<String>,
         v1SummaryInList: Boolean,
+        suppressByTranscriptCompaction: Boolean = false,
     ): CompactionBannerTerms {
-        val tail = tailSpec(compaction, displayItemMessageIds, v1SummaryInList) != null
+        val tail = tailSpec(compaction, displayItemMessageIds, v1SummaryInList, suppressByTranscriptCompaction) != null
         return CompactionBannerTerms(
-            streamClaimed = compaction?.isActive == true && !tail,
+            streamClaimed = compaction?.isActive == true && !tail && !suppressByTranscriptCompaction,
             tailFallback = tail,
         )
     }

@@ -144,7 +144,8 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         agent: String?,
         variant: String?,
         directory: String?,
-        steer: Boolean
+        steer: Boolean,
+        seedTranscript: Boolean,
     ): Result<Unit> {
         promptAsyncCalls.add(sessionId to parts)
         return promptAsyncResult
@@ -154,6 +155,12 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         kotlinx.coroutines.flow.flowOf(null)
 
     override fun getCommandFeedbackForSession(sessionId: String): kotlinx.coroutines.flow.Flow<List<dev.leonardo.ocbeacon.domain.model.CommandFeedback>> =
+        kotlinx.coroutines.flow.flowOf(emptyList())
+
+    override fun getCompactionEntriesForSession(sessionId: String): kotlinx.coroutines.flow.Flow<List<dev.leonardo.ocbeacon.domain.model.CompactionEntry>> =
+        kotlinx.coroutines.flow.flowOf(emptyList())
+
+    override fun getShadowedRangesForSession(sessionId: String): kotlinx.coroutines.flow.Flow<List<LongRange>> =
         kotlinx.coroutines.flow.flowOf(emptyList())
 
     override suspend fun revertSession(serverId: String, sessionId: String, messageId: String): Result<Unit> =
@@ -198,10 +205,6 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         command: String,
         arguments: String,
         directory: String?,
-        agent: String?,
-        model: String?,
-        variant: String?,
-        parts: List<Map<String, String>>?
     ): Result<Boolean> {
         executeCommandCalls.add(mapOf(
             "serverId" to serverId,
@@ -211,6 +214,12 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         ))
         return executeCommandResult
     }
+
+    override fun recordCommandAcceptance(sessionId: String, command: String, arguments: String?) = Unit
+
+    override fun recordCommandFailure(sessionId: String, command: String) = Unit
+
+    override suspend fun listQueueItems(serverId: String, sessionId: String): List<dev.leonardo.ocbeacon.domain.model.QueuedInboxItem>? = null
 
     override suspend fun runShellCommand(
         serverId: String,

@@ -244,18 +244,26 @@ class CompactionDividerPolicyTest {
     }
 
     @Test
-    fun tailSpec_374活compact命令卡让位() {
-        // #374（2026-09-09 用户演示裁决）：DSH /compact 期间命令反馈卡承载全程
-        // ——活命令卡在场（受理/执行中）时尾部进行中分割线让位；参数缺席时行为不变。
+    fun tailSpec_378转录压缩实体让位() {
+        // #378（2026-09-10，取代 #374 让位规则——同域最新裁决）：DSH 压缩由流内
+        // box 全程承载——转录实体在场（数据源恒表达 DSH 域）时尾部进行中分割线
+        // 整体让位；参数缺席（V1/V2 无实体）行为不变。bannerTerms 同参同让位。
         val state = activeState("m9")
         assertNull(
-            "活命令卡让位——即使消息未入列也不出线",
-            CompactionDividerPolicy.tailSpec(state, setOf("a"), v1SummaryInList = false, suppressByLiveCompactCommand = true),
+            "转录实体在场让位——即使消息未入列也不出线",
+            CompactionDividerPolicy.tailSpec(state, setOf("a"), v1SummaryInList = false, suppressByTranscriptCompaction = true),
         )
         assertNotNull(
-            "默认参数（无命令卡面，如 V2 compact）兜底照旧",
+            "默认参数（无实体面，如 V2 compact）兜底照旧",
             CompactionDividerPolicy.tailSpec(state, setOf("a"), v1SummaryInList = false),
         )
+        // #378 记帐同让位：抑制期 bannerTerms 两项皆 false（渲染与记帐一致）
+        val terms = CompactionDividerPolicy.bannerTerms(state, setOf("a"), false, suppressByTranscriptCompaction = true)
+        assertFalse("抑制期 streamClaimed 不计", terms.streamClaimed)
+        assertFalse("抑制期 tailFallback 不计", terms.tailFallback)
+        // 非抑制对照：兜底记账照旧
+        val termsDefault = CompactionDividerPolicy.bannerTerms(state, setOf("a"), false)
+        assertTrue(termsDefault.tailFallback)
     }
 
     @Test

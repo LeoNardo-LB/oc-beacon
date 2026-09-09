@@ -543,9 +543,12 @@ fun ChatMessageList(
     // 认领同源，消除独立手算双写）；其余 6 项（revert/retry/tool/step/question/
     // perm）仍必须与下面的条件 `item { ... }` 块保持一致（见横幅渲染）。
     val compactionBanners = remember(
-        currentCompaction, displayItemMessageIds, v1CompactionSummaryInList,
+        currentCompaction, displayItemMessageIds, v1CompactionSummaryInList, compactionEntries,
     ) {
-        CompactionDividerPolicy.bannerTerms(currentCompaction, displayItemMessageIds, v1CompactionSummaryInList)
+        CompactionDividerPolicy.bannerTerms(
+            currentCompaction, displayItemMessageIds, v1CompactionSummaryInList,
+            suppressByTranscriptCompaction = compactionEntries.isNotEmpty(),
+        )
     }
     val bannerCount = remember(
         sessionMeta.revert,
@@ -1858,14 +1861,12 @@ fun ChatMessageList(
                     // #217 分割线包揽（2026-08-24）：压缩进行中 = 进行中分割线，插在
                     // 消息流尾部；完成态由消息流内 compaction 消息的 CompactionCard 承担。
                     // 尾部兜底认领（去重/让位判定）在 CompactionDividerPolicy.tailSpec（C4）。
-                    // #374（2026-09-09 用户演示裁决）：DSH /compact 期间活命令反馈卡
-                    // 在场（受理/执行中）→ 进行中分割线让位——单卡承载全程，不双轨。
-                    val compactCommandCardLive = commandFeedbackRows.any {
-                        it.name == "compact" && it.done == null
-                    }
+                    // #378（2026-09-10，取代 #374 让位规则）：DSH 压缩由流内 box
+                    // （CompactionTranscriptCard）全程承载——转录实体在场时分割线
+                    // 整体让位（bannerTerms 同参同让位，记帐不失真）；V1/V2 照旧。
                     val tailCompaction = CompactionDividerPolicy.tailSpec(
                         currentCompaction, displayItemMessageIds, v1CompactionSummaryInList,
-                        suppressByLiveCompactCommand = compactCommandCardLive,
+                        suppressByTranscriptCompaction = compactionEntries.isNotEmpty(),
                     )
                     if (tailCompaction != null) {
                         item(key = "compaction_banner") {
