@@ -46,8 +46,9 @@ Unofficial OpenCode Android client. Jetpack Compose + Kotlin + Hilt + Ktor.
 ./gradlew :app:compileDevDebugKotlin   # 快速编译检查
 ```
 
-- **JDK 21**（`jvmToolchain(21)`；本地构建另在 `gradle.properties` 设 `org.gradle.java.home`）
-- **代理警告**：`gradle.properties` 硬编码 `127.0.0.1:7897` HTTP 代理，代理不可达即构建失败；无代理构建时注释 4 行 `systemProp.*`
+- **JDK 21**（`jvmToolchain(21)`；默认取 JAVA_HOME/PATH，需显式指定时在 `gradle.properties` 取消注释 `org.gradle.java.home`）
+- **代理**：`gradle.properties` 的 4 行 `systemProp.*` 代理默认注释（直连）；需代理下载依赖时取消注释（`127.0.0.1:7897`），代理不可达时务必保持注释
+- **Android Lint 门禁**：存量问题由 `app/lint-baseline.xml` 豁免，仅新增失败（`abortOnError=true`）；CI 在 assemble 前跑 `:app:lint<Flavor>Release`，本地预检 `./gradlew :app:lintDevDebug`
 - **Gradle 构建禁止并发（同一 checkout）**：并发竞写 `app/build` 中间目录 → 测试 JVM 读半写类文件 → 无辜测试报 `NoClassDefFoundError: Hilt_*`（2026-08-14 实证）。多产物用单条多任务命令或串行
 - **禁止无超时裸跑**：编译 120s · 单元测试 180s · 完整构建 300s · 依赖解析/首次构建 600s
 - Windows 下 `BUILD SUCCESSFUL` 不返回（[gradle#12560](https://github.com/gradle/gradle/issues/12560)）→ `gradle.properties` 取消注释 `org.gradle.daemon=false` + `./gradlew --stop`
