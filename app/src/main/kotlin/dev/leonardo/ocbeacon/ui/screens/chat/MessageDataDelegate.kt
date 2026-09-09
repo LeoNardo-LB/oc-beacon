@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
 import dev.leonardo.ocbeacon.logging.AppLogger
+import kotlinx.coroutines.flow.first
 
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
@@ -466,6 +467,16 @@ internal class MessageDataDelegate(
             }
         }
     }
+
+    /**
+     * 快速导航遮蔽域快照（2026-09-09 #378 折叠视图一致性）：压缩遮蔽 seq 区间
+     *（MessageEventHandler SurfaceRangeReplaced 台账；会话进入时历史 fold 重建）。
+     * 供 [dev.leonardo.ocbeacon.ui.screens.chat.util.extractJumpTargets] 剔除
+     * 不可跳转目标——导航列表与 displayItems 共用同一遮蔽视图。
+     * V1/V2/未压缩会话为空表（no-op）；IO 悬浮读取当前值。
+     */
+    suspend fun loadShadowedRanges(): List<LongRange> =
+        chatRepository.getShadowedRangesForSession(sessionIdFlow.value).first()
 
     /**
      * 2026-08-15（research/01）：进会话后**后台预取**全量消息落库（官方 TUI

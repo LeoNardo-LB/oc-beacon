@@ -739,6 +739,7 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_navigate_forward">Navigate forward</string>
     <string name="a11y_locate_task">Locate originating task</string>
     <string name="chat_locate_task_not_found">Originating task not found in this session</string>
+    <string name="chat_locate_message_not_found">Message not found in this session</string>
     <string name="a11y_icon_add">Add</string>
     <string name="a11y_icon_share">Share</string>
     <string name="a11y_icon_unlink">Unlink</string>

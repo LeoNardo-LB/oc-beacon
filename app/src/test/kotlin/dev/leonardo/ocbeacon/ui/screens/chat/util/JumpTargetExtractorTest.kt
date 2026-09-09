@@ -75,6 +75,36 @@ class JumpTargetExtractorTest {
     }
 
     @Test
+    fun `extractJumpTargets excludes shadowed seq messages`() {
+        // 2026-09-09 #378 折叠回归根修：遮蔽区间内 seq 消息已不在 displayItems，
+        // 收录则异步跳转永不命中（R1 实测：早期压缩检查点被后续压缩遮蔽 → 误报 toast）
+        val msgs = listOf(
+            userMsgWithParts("seq-10", "shadowed-checkpoint", 1000),
+            userMsgWithParts("seq-12", "visible", 2000),
+            userMsgWithParts("msg_v2", "v2-untouched", 3000),
+        )
+        val targets = extractJumpTargets(msgs, "(无文本)", listOf(5L..10L))
+        assertEquals(listOf("seq-12", "msg_v2"), targets.map { it.msgId })
+        // 标签重排：剔除后 Q 编号连续，不跳号
+        assertEquals(listOf("Q1", "Q2"), targets.map { it.label })
+    }
+
+    @Test
+    fun `shadow boundary inclusive and empty ranges no-op`() {
+        val msgs = listOf(
+            userMsgWithParts("seq-4", "below", 1000),
+            userMsgWithParts("seq-5", "start-boundary", 2000),
+            userMsgWithParts("seq-9", "end-boundary", 3000),
+            userMsgWithParts("seq-10", "above", 4000),
+        )
+        // 空表 = V1/V2/未压缩：全保留
+        assertEquals(4, extractJumpTargets(msgs).size)
+        // 边界含端点（LongRange 闭区间），区外保留
+        val targets = extractJumpTargets(msgs, "(无文本)", listOf(5L..9L))
+        assertEquals(listOf("seq-4", "seq-10"), targets.map { it.msgId })
+    }
+
+    @Test
     fun `skips shell user messages with no text and no summary`() {
         // 2026-08-12 空壳修复：服务器历史遗留/已删除消息（Room 有记录但无 parts
         // 且无 summary.body）——直接跳过，不显示 "(无文本)" 占位

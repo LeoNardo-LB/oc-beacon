@@ -562,6 +562,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="a11y_icon_navigate_forward">Navigasi maju</string>
     <string name="a11y_locate_task">Lokasikan tugas asal</string>
     <string name="chat_locate_task_not_found">Tugas asal tidak ditemukan di sesi ini</string>
+    <string name="chat_locate_message_not_found">Pesan tidak ditemukan di sesi ini</string>
     <string name="a11y_icon_add">Tambah</string>
     <string name="a11y_icon_share">Bagikan</string>
     <string name="a11y_icon_unlink">Lepas tautan</string>

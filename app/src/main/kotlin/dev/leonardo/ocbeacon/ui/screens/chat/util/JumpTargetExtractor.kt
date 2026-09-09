@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat.util
 
 import androidx.compose.foundation.lazy.LazyListState
 import dev.leonardo.ocbeacon.BuildConfig
+import dev.leonardo.ocbeacon.domain.model.DshMessageId
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.Part
@@ -33,16 +34,31 @@ data class JumpTarget(
  *（实测主会话 62 条 user 中 23 条为空壳，服务器单条查询 404）——
  * 无任何可展示文本的 item 直接跳过，不进入快速导航列表。
  *
+ * 排除压缩遮蔽消息（2026-09-09 #378 折叠回归根修）：[shadowedRanges] 内的
+ * seq 消息已被 SurfaceRangeReplaced 折叠出 displayItems（主对话流不可见），
+ * 导航列表若仍收录 → jumpToMessage 异步 loadAround 永不命中 → 重试后
+ * 「未找到」误报 toast（R1 实测：早期压缩的检查点 user 消息被后续压缩遮蔽）。
+ * 与 synthetic 排除同族：**导航列表 = 可跳转集合**不变量。seq 反解自 DSH id
+ *（[DshMessageId.seqOf]，"seq-{n}"）；V1/V2 id 无 seq → null → 恒保留
+ *（V1/V2 无压缩遮蔽，空表亦 no-op）。
+ *
  * 纯函数 —— 无 Android/Compose 依赖。
  *
  * @param noTextPlaceholder 保留参数（兼容调用方）；空壳消息将被过滤而非显示占位符。
+ * @param shadowedRanges 压缩遮蔽 seq 区间（MessageEventHandler 台账快照）；
+ *   缺省空表 = 无遮蔽（V1/V2/未压缩会话）。
  */
 fun extractJumpTargets(
     messages: List<MessageWithParts>,
     noTextPlaceholder: String = "(无文本)",
+    shadowedRanges: List<LongRange> = emptyList(),
 ): List<JumpTarget> {
     return messages
         .filter { it.info is Message.User && it.info.role != "synthetic" }
+        .filter { mwp ->
+            val seq = DshMessageId.seqOf(mwp.info.id)
+            seq == null || shadowedRanges.none { range -> seq in range }
+        }
         .sortedBy { it.info.time.created }
         .mapNotNull { mwp ->
             val preview = mwp.parts.firstOrNull { it is Part.Text }

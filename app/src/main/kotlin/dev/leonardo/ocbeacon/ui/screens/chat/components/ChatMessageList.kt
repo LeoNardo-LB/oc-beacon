@@ -427,7 +427,13 @@ fun ChatMessageList(
     LaunchedEffect(showQuickNavigate, currentSessionId) {
         if (showQuickNavigate) {
             jumpTargetsLoading = true
-            jumpTargets = extractJumpTargets(viewModel.conversation.loadJumpTargets(), noTextPlaceholder)
+            // 2026-09-09 #378 折叠一致性：导航列表与 displayItems 共用遮蔽视图——
+            // shadowed 消息不收录（否则异步跳转永不命中 → 「未找到」误报）
+            jumpTargets = extractJumpTargets(
+                viewModel.conversation.loadJumpTargets(),
+                noTextPlaceholder,
+                viewModel.conversation.loadShadowedRanges(),
+            )
             jumpTargetsLoading = false
         }
     }
@@ -1059,7 +1065,9 @@ fun ChatMessageList(
                         // 复位，目标真不存在时 autoLoad 被锁死到下次成功跳转
                         jumpController.clearPendingJumpLock()
                         coroutineScope.launch {
-                            snackbarHostState.showSnackbar(context.getString(R.string.chat_locate_task_not_found))
+                            // 2026-09-09 文案域修正：本路径是消息跳转未命中（非任务定位）——
+                            // 复用任务文案会误报「未找到发起任务」（R1 实测）
+                            snackbarHostState.showSnackbar(context.getString(R.string.chat_locate_message_not_found))
                         }
                     } else {
                         pendingJumpRetried = false
