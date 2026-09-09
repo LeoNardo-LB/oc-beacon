@@ -630,6 +630,14 @@ class MessageEventHandler @Inject constructor(
         }
         _parts.update { it - event.messageId }
         assistantMessageIds.remove(event.messageId)
+        // 四层根修（2026-09-09）：Room 行同删——echo 拆除此前只清内存，pending-*
+        // 幽灵行留存热表，任何 Room 回灌都会复活（实测：压缩后幽灵气泡重回 UI、
+        // 快速定位列出不可跳转条目）。fire-and-forget（batchScope，同 persist 纪律）。
+        val store = messageStore ?: return
+        batchScope.launch {
+            runCatching { store.deleteMessage(event.sessionId, event.messageId) }
+                .onFailure { AppLogger.w(TAG, "[removed] persist delete failed: " + it.message) }
+        }
     }
 
     // ============ #378 表面区间折叠（surfaceOp.replace 消费面） ============

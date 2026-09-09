@@ -449,6 +449,23 @@ class MessageStore @Inject constructor(
     }
 
     /**
+     * 四层根修（2026-09-09）：单消息事务删除（行+parts+FTS 级联）。
+     * echo 拆除（MessageRemoved）消费——pending-* 幽灵行此前只清内存不落库，
+     * 任何 Room 回灌（backfill/重进窗口）都会把幽灵重新 materialize 进内存与 UI。
+     */
+    override suspend fun deleteMessage(sessionId: String, messageId: String) {
+        withContext(Dispatchers.IO) {
+            databaseRecovery.withCorruptionRecovery {
+                database.withTransaction {
+                    dao.deleteMessage(sessionId, messageId)
+                    dao.deletePartsForMessage(messageId)
+                    fts.deleteMessage(sessionId, messageId)
+                }
+            }
+        }
+    }
+
+    /**
      * 2026-08-16（快速定位缺失根治·对账）：服务器权威全量替换热表（清+写
      * 同事务原子）。归档不动——若被替换集小于热表限额，历史归档保持分层。
      */

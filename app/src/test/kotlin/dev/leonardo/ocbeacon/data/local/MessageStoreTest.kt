@@ -413,6 +413,8 @@ class MessageStoreTest {
             override suspend fun oldestMessages(sessionId: String, limit: Int) = emptyList<CachedMessageEntity>()
             override suspend fun pruneToLimit(sessionId: String, limit: Int): Int = 0
             override suspend fun clearSession(sessionId: String) = Unit
+            override suspend fun deleteMessage(sessionId: String, id: String) = Unit
+            override suspend fun deletePartsForMessage(messageId: String) = Unit
             override suspend fun upsertMessages(entities: List<CachedMessageEntity>) = Unit
             override suspend fun insertMessagesIfAbsent(entities: List<CachedMessageEntity>) = Unit
             override suspend fun upsertParts(entities: List<CachedPartEntity>) = Unit

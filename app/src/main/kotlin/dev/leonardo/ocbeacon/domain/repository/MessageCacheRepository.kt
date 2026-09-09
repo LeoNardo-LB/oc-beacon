@@ -61,6 +61,9 @@ interface MessageCacheRepository {
 
     suspend fun clearSession(sessionId: String)
 
+    /** 四层根修（2026-09-09）：单消息事务删除（行+parts+FTS）——echo 拆除消费。 */
+    suspend fun deleteMessage(sessionId: String, messageId: String)
+
     /**
      * 2026-08-16（快速定位缺失根治·对账）：以传入消息集**全量替换**该会话的
      * 热表数据（清+写同事务原子）——服务器压缩/删除后调用，消除本地幽灵消息

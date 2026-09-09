@@ -154,6 +154,16 @@ class MessageFtsIndex @Inject constructor(
             .execSQL("DELETE FROM ${MessageFtsSchema.TABLE} WHERE sessionId = ?", arrayOf(sessionId))
     }
 
+    /** 四层根修（2026-09-09）：单消息级联清理（echo 拆除与热表行删除同事务调用）。 */
+    fun deleteMessage(sessionId: String, messageId: String) {
+        if (!ensureAvailable()) return
+        database.openHelper.writableDatabase
+            .execSQL(
+                "DELETE FROM ${MessageFtsSchema.TABLE} WHERE sessionId = ? AND messageId = ?",
+                arrayOf(sessionId, messageId),
+            )
+    }
+
     /**
      * BM25 内容检索。FTS5 不可用时降级 LIKE（rank=null，按时间倒序）。
      * 查询词以短语包裹（防 FTS5 语法注入），unicode61 一元分词下自然匹配字序列。

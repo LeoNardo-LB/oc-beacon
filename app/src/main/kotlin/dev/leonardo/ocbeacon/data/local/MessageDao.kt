@@ -177,6 +177,14 @@ interface MessageDao {
 
     @Query("DELETE FROM cached_messages WHERE sessionId = :sessionId")
     suspend fun clearSession(sessionId: String)
+
+    /** 四层根修（2026-09-09）：单消息行删除——echo 拆除（pending-* 幽灵行）用。 */
+    @Query("DELETE FROM cached_messages WHERE sessionId = :sessionId AND id = :id")
+    suspend fun deleteMessage(sessionId: String, id: String)
+
+    /** 同上：该消息的全部 part 行。 */
+    @Query("DELETE FROM cached_parts WHERE messageId = :messageId")
+    suspend fun deletePartsForMessage(messageId: String)
 }
 
 /** #299 续项：现存 part 文本快照行（FTS 幂等跳过判据）。 */
