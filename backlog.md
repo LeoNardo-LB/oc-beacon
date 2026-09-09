@@ -214,6 +214,7 @@
 
 - [ ] **#368 V2 时钟域对齐调研——V2SseMapper 设备钟盖戳 created/completed vs V1/DSH 服务器信封钟（UIUX 三面审计 D4）** `sse` `v2` `data`
   - V2SseMapper.kt:129/166-171（2026-08-26 旧实现）盖 System.currentTimeMillis()——台账时长/未读水位随设备钟漂移；以最新逻辑（DSH 域一致钟，#338 09-07）为标准，先探 V2 wire 信封时间可得性再对齐
+  - 已修复（2026-09-10）：wire 实证 V2 SSE 信封顶层 created=服务器 epoch ms + durable.seq（帧 {id,created,type,location,data,durable}）；SseClientV2 两解析路径萃取信封时刻穿入 V2SseMapper——8 处盖戳点（消息 created/completed、part start/end）全部改服务器钟域优先、缺席回退设备钟；+5 单测钉契约（V2SseMapperEnvelopeTime368Test）。设备验证待真机
 
 - [ ] **#369 ShellSheet DSH 死代码清理+DSH jobs 历史面板（可选）——SHELL 入口 DSH 永不添加致 DshJobSheet 不可达（UIUX 三面审计 D5）** `refactor` `dsh`
   - PendingSheets.kt:293-296 DSH 分支+DshJobSheet(:388-414) 为不可达死代码；V1V2 有历史+详情面板而 DSH 仅流内时间线卡——清理死代码（必做），jobs 历史面板为可选增强（价值另评）
