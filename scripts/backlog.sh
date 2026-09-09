@@ -86,7 +86,10 @@ note)
   SUMS=(); while [ $# -gt 0 ]; do case "$1" in
     -s) SUMS+=("$2"); shift 2;; *) die "note: 未知参数 $1";; esac; done
   if [ ${#SUMS[@]} -eq 0 ]; then
-    if ! [ -t 0 ]; then while IFS= read -r line; do [ -n "$line" ] && SUMS+=("$line"); done
+    if ! [ -t 0 ]; then
+      # 2026-09-10 stdin 修复：先前命令可能已消费管道——先 cat 快照再逐行解析
+      STDIN_TXT=$(cat)
+      while IFS= read -r line; do [ -n "$line" ] && SUMS+=("$line"); done <<< "$STDIN_TXT"
     else die "note: 需要 -s 或管道提供明细行"; fi
   fi
   A=$(anchor "$N"); if [ -z "$A" ]; then die "note: 找不到卡 #$N"; fi
