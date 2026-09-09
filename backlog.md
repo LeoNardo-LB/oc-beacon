@@ -213,6 +213,7 @@
 
 - [ ] **#373 V1 空 scratch 会话面板 tap 静默清空输入+无执行，伴随 /session//todo 400 空 sid 请求（#365 验收 r1 附带发现）** `v1` `bug`
   - 无服务端会话时 slash 面板 tap 清空 composer 且零执行；logcat 见空 sessionId 打到 /session//todo（#250 空 sid 404 同族——面板路径未挂 ensureSession）
+  - 已修复（2026-09-10 子代理批）：根因=client 型命令七入口（share/unshare/compact/undo/redo/fork/rename）与 probeTodoCapability 直读未物化空 sessionId、未挂 ensureSession 懒建——空 sid 请求被吞+输入已清空（/session//todo 400 即 TODO 探测腿）；修法=七入口对齐 executeSession 模式（ensureSession 先建再派发）+ TODO 探测改 sessionIdFlow.first{isNotEmpty()} 等物化。代码因共享 checkout 竞态并入 791e2dea（在场已验：delegate ensureSession 13 处）；编译+全量单测绿。真机 V1 scratch 面板复测待做
 
 - [ ] **#368 V2 时钟域对齐调研——V2SseMapper 设备钟盖戳 created/completed vs V1/DSH 服务器信封钟（UIUX 三面审计 D4）** `sse` `v2` `data`
   - V2SseMapper.kt:129/166-171（2026-08-26 旧实现）盖 System.currentTimeMillis()——台账时长/未读水位随设备钟漂移；以最新逻辑（DSH 域一致钟，#338 09-07）为标准，先探 V2 wire 信封时间可得性再对齐
@@ -220,9 +221,11 @@
 
 - [ ] **#369 ShellSheet DSH 死代码清理+DSH jobs 历史面板（可选）——SHELL 入口 DSH 永不添加致 DshJobSheet 不可达（UIUX 三面审计 D5）** `refactor` `dsh`
   - PendingSheets.kt:293-296 DSH 分支+DshJobSheet(:388-414) 为不可达死代码；V1V2 有历史+详情面板而 DSH 仅流内时间线卡——清理死代码（必做），jobs 历史面板为可选增强（价值另评）
+  - 已修复（2026-09-10 子代理批，da923549）：DSH 分流分支+DshJobSheet/DshJobRow 整族不可达死代码 -130 行移除；dsh_jobs_empty 成孤儿资源（lint warning 级，另卡可清）；编译+全量单测绿
 
 - [ ] **#370 V2 QueueSheet 轮末自动刷新——pull-on-open 模型下面板陈旧（#356 遗留+UIUX 三面审计 D9）** `dsh` `queue` `v2`
   - ChatViewModel.kt:795-832/ChatScreen.kt:1108：DSH=push（queueBySession 帧）vs V2=打开时拉取——轮结束提升后 V2 面板不自动刷新（打开/变更时拉取已覆盖）
+  - 已修复（2026-09-10 子代理批，92dd8945）：V2 QueueSheet 轮末陈旧——refreshQueueItems 过门置 v2QueuePulled+statusFlow 非Idle→Idle 且曾拉过时自动重拉一次；DSH 帧推送/V1 门外不受扰；编译+全量单测绿。真机 V2 轮末面板复测待做
 
 - [~] **#371 UIUX 三面口径杂项——台账步数口径(D2)/服务器徽标三态样式(D7)/V2 echo 形态(D11)/3 休眠能力位处置** `ui` `refactor`
   - D2：DSH 工具宿主消息计步 vs V1V2 逻辑轮计步（RenderableTurn stepCount 口径）；D7：ServerCard DSH/V2/V1 三种容器色徽标；D11：V2 用户消息 summary.body+📎 占位 vs DSH 显式 parts；runningSessionsFilterSupported/messageDeleteSupported/projectionStatsSupported 零读者休眠位 keep-or-remove
