@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#383**（2026-09-09 #382 质量保证文档按工作流合并（14→9））。
+**编号**：全局递增，不回收。下一编号：**#384**（2026-09-09 #383 #383 DSH 命令长执行期间重进会话：加）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。
 
@@ -68,6 +68,11 @@
 （#363 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
 （#326 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
 （#313 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
+
+- [ ] **#383 #383 DSH 命令长执行期间重进会话：加载分支吞整转录 + /calculator 反馈行缺席（委托验收批发现）** `dsh` `ui` `command` `bug`
+  - 现象（2026-09-09 21:34-21:40 活体，session-fef097ef 演示会话）：typed /calculator → DSH commands/execute 6m6s 执行（CommandRunStarted/Done ×3 回流 MiscEventHandler）；期间转录区整块空白——PulsingDots(isLoading) 分支无条件替换消息区，历史（Room seq-82/88 + 压缩 box + 命令卡）全部不可见直至轮末
+  - 疑点链：①isLoading 挂起根因未定（服务器执行期 history 读阻塞 vs app 加载完成信号丢失——21:40 空闲重进加载秒完成，plan 正常 cmds=1）；②#365 反馈行缺席：命令执行后 transcript cmds 仍=1（/calculator 未加卡），recordLocalAcceptance/onRun 链某环断；③isLoading 分支设计面：messages 非空时 loading 应保留列表渲染（cache-first）而非整块替换
+  - 证据包：/tmp/acc365_feedback.png（执行中空白+三点）/tmp/acc365_after_turn.png/logcat CommandRunStarted|Done→MiscEventHandler sid=session-fef097ef ×3/Room 快照仅 seq-82+88 vs 服务器 msgs=10/21:40 冷重进 plan=cmds1 compactions1 displaySeqs=[560,100,99,98,97,96] 轮次 2·6m6s·5步·1工具
 
 - [~] **#365 斜杠/skill 命令执行反馈不可见——snackbar 一闪即逝+skill 类命令无 command/run|done 事件（反馈行永不触发），用户感知「按了没反应」（R4a 复验用户观察「没看到你发送任何内容」）** `ui` `command` `dsh`
   - 证据（2026-09-08 23:12）：logcat `Executed command /calculator: true`（wire 成功）；服务器持久日志 273 行全类型清点 **0 条 command/run|done**——skill 类命令走 commands/execute 不入事件流，#323 反馈行（只消费这两事件）结构性缺席。
