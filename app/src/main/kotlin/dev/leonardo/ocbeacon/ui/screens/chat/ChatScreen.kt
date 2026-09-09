@@ -343,6 +343,8 @@ fun ChatScreen(
 
     var showModelPicker by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
+    // /rename <new> 打字路径的预填标题（null = 面板 tap / 裸 /rename，维持旧标题起点）
+    var renamePrefill by remember { mutableStateOf<String?>(null) }
     var showMenu by remember { mutableStateOf(false) }
     var isTerminalMode by rememberSaveable { mutableStateOf(startInTerminalMode) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -807,7 +809,10 @@ fun ChatScreen(
                 onInputModeChange = { inputMode = it },
                 onForceScroll = { scrollController.forceScrollToBottom() },
                 onShowModelPicker = { showModelPicker = true },
-                onShowRenameDialog = { showRenameDialog = true },
+                onShowRenameDialog = { prefill ->
+                    renamePrefill = prefill
+                    showRenameDialog = true
+                },
                 onShowSendConfirmDialog = { showSendConfirmDialog = true },
                 onPendingSendActionSet = { pendingSendAction = it },
                 coroutineScope = coroutineScope,
@@ -1063,7 +1068,11 @@ fun ChatScreen(
         showModelPicker = showModelPicker,
         onDismissModelPicker = { showModelPicker = false },
         showRenameDialog = showRenameDialog,
-        onDismissRenameDialog = { showRenameDialog = false },
+        renameInitialOverride = renamePrefill,
+        onDismissRenameDialog = {
+            showRenameDialog = false
+            renamePrefill = null
+        },
         showSendConfirmDialog = showSendConfirmDialog,
         onConfirmSend = {
             pendingSendAction?.invoke()

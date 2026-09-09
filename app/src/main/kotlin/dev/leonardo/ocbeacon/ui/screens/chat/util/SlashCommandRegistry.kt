@@ -14,6 +14,8 @@ internal data class SlashCommand(
     val name: String,
     val description: String?,
     val type: String, // "server"、"client" 或 "skill"（#324④ skills 触发组）
+    /** 打字路径携带的自由参数（/rename testx → "testx"）；面板 tap 恒 null。2026-09-09 发现通道级缺失：typed 分支曾丢弃 commandArgs。 */
+    val args: String? = null,
     /** 需要自由输入参数（DSH commands/list 的 input.hint 非空）：选择即填入输入框而非直接执行。 */
     val requiresInput: Boolean = false,
     /** #324④：skill 专属——模型可自主调用标识（skills/list modelInvocable）。 */

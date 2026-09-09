@@ -26,6 +26,8 @@ internal fun ChatScreenDialogs(
     selectedModelId: String?,
     onSelectModel: (String, String, String?) -> Unit,
     sessionTitle: String,
+    /** /rename <new> 打字路径的预填覆盖（null = 用 sessionTitle 旧标题）。 */
+    renameInitialOverride: String? = null,
     defaultModel: String? = null,
     onSetDefaultModel: (String, String) -> Unit = { _, _ -> },
     onManageModels: () -> Unit = {},
@@ -51,7 +53,7 @@ internal fun ChatScreenDialogs(
     // 重命名对话框
     if (showRenameDialog) {
         RenameSessionDialog(
-            initialTitle = sessionTitle,
+            initialTitle = renameInitialOverride ?: sessionTitle,
             onRename = onRename,
             onDismiss = onDismissRenameDialog
         )

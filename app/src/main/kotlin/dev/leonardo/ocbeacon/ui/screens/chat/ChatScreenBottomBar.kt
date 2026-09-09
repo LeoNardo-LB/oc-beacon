@@ -97,7 +97,7 @@ internal fun ChatScreenBottomBar(
     onInputModeChange: (String) -> Unit,
     onForceScroll: () -> Unit,
     onShowModelPicker: () -> Unit,
-    onShowRenameDialog: () -> Unit,
+    onShowRenameDialog: (String?) -> Unit,
     onShowSendConfirmDialog: () -> Unit,
     onPendingSendActionSet: ((() -> Unit)?) -> Unit,
     coroutineScope: CoroutineScope,
@@ -273,7 +273,8 @@ internal fun ChatScreenBottomBar(
                 }
             }
             "rename" -> {
-                onShowRenameDialog()
+                // 打字路径 /rename <new> 携参预填（args=null 的面板 tap 维持旧标题起点）
+                onShowRenameDialog(cmd.args)
             }
             "shell" -> {
                 // #276：shell 模式入口按 shellCommandSupported 门控
@@ -396,7 +397,7 @@ internal fun ChatScreenBottomBar(
                             // 一轮 LLM 重试）。客户端命令是 app 本地动词：与面板 tap 同一分发口。
                             if (commandName.isNotBlank() &&
                                 SlashCommandRegistry.clientCommandNames.contains(commandName)) {
-                                handleSlashCommand(SlashCommand(commandName, null, "client"))
+                                handleSlashCommand(SlashCommand(commandName, null, "client", args = commandArgs.takeIf { it.isNotBlank() }))
                                 onInputTextChange(TextFieldValue(""))
                                 if (isShellMode) {
                                     onInputModeChange(ChatInputMode.NORMAL.name)
