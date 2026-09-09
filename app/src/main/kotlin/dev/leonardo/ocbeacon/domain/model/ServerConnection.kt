@@ -28,8 +28,6 @@ data class ServerCapabilities(
     val shareSupported: Boolean,
     /** 后台会话/堆积队列（V2 专属；DSH 无 background 域）。 */
     val backgroundSessionsSupported: Boolean,
-    /** 运行中会话过滤（V2 active sessions 专属；DSH 无该端点）。 */
-    val runningSessionsFilterSupported: Boolean,
     /** 全局配置可写（V2 /api/config 只读，PATCH 404——backlog #85；DSH settings 特权面不开放 UI）。 */
     val configEditable: Boolean,
     /**
@@ -44,12 +42,6 @@ data class ServerCapabilities(
      * OpenCode V1/V2 无对应域 → false（UI 完全不渲染预设卡/设置行/详情标签）。
      */
     val agentPresetSupported: Boolean,
-    /**
-     * 投影驱动统计（DSH）：token 统计弹窗的无窗口入口 chip（tokenUsage/
-     * subagentTiming 投影域，目录无 contextWindow）。OpenCode 目录恒携带
-     * contextWindow → 走既有进度环入口，本位 false（V1/V2 零外溢）。
-     */
-    val projectionStatsSupported: Boolean,
     /**
      * 压缩异步化（#217 分割线包揽）：V2 compact HTTP 立即返回（steer 异步），
      * 进行中/终态由 SSE compaction.started/delta/ended 驱动；V1 summarize HTTP
@@ -85,8 +77,6 @@ data class ServerCapabilities(
     val goalSupported: Boolean,
     /** 撤销/重做（revert/unrevert；DSH 52 方法面无对应——撤回入口按位隐藏）。 */
     val revertSupported: Boolean,
-    /** 消息删除（DELETE message 端点；DSH 无对应——当前无 UI 入口，防御位）。 */
-    val messageDeleteSupported: Boolean,
     /**
      * 消息 👍/👎 反馈（#310②；#366 能力位化）：DSH feedback/record 域（list 种子 +
      * rating 转换）；OpenCode V1/V2 无对应域 → false（消息卡脚部动作行按位隐藏——
@@ -133,11 +123,9 @@ data class ServerCapabilities(
                 ServerType.Dsh -> ServerCapabilities(
                     shareSupported = false,
                     backgroundSessionsSupported = false,
-                    runningSessionsFilterSupported = false,
                     configEditable = false,
                     permissionSwitchSupported = true,
                     agentPresetSupported = true,
-                    projectionStatsSupported = true,
                     compactionAsync = true,
                     compactionModelIndependent = true,
                     terminalSupported = false,
@@ -150,7 +138,6 @@ data class ServerCapabilities(
                     commandsSupported = true,
                     goalSupported = true,
                     revertSupported = false,
-                    messageDeleteSupported = false,
                     messageFeedbackSupported = true,
                     shellCommandSupported = false,
                     exportIsArchive = true,
@@ -168,11 +155,9 @@ data class ServerCapabilities(
             ApiVersion.V2 -> ServerCapabilities(
                 shareSupported = false,
                 backgroundSessionsSupported = true,
-                runningSessionsFilterSupported = true,
                 configEditable = false,
                 permissionSwitchSupported = false,
                 agentPresetSupported = false,
-                projectionStatsSupported = false,
                 compactionAsync = true,
                 compactionModelIndependent = false,
                 terminalSupported = true,
@@ -183,7 +168,6 @@ data class ServerCapabilities(
                 commandsSupported = true,
                 goalSupported = false,
                 revertSupported = true,
-                messageDeleteSupported = true,
                 shellCommandSupported = true,
                 exportIsArchive = false,
                 archiveSupported = false,
@@ -195,11 +179,9 @@ data class ServerCapabilities(
             else -> ServerCapabilities( /* V1 / UNKNOWN / null：全开放 */
                 shareSupported = true,
                 backgroundSessionsSupported = apiVersion == null,
-                runningSessionsFilterSupported = apiVersion == null,
                 configEditable = true,
                 permissionSwitchSupported = false,
                 agentPresetSupported = false,
-                projectionStatsSupported = false,
                 compactionAsync = false,
                 compactionModelIndependent = false,
                 terminalSupported = true,
@@ -210,7 +192,6 @@ data class ServerCapabilities(
                 commandsSupported = true,
                 goalSupported = false,
                 revertSupported = true,
-                messageDeleteSupported = true,
                 shellCommandSupported = true,
                 exportIsArchive = false,
                 archiveSupported = false,

@@ -222,7 +222,7 @@
 - [ ] **#370 V2 QueueSheet 轮末自动刷新——pull-on-open 模型下面板陈旧（#356 遗留+UIUX 三面审计 D9）** `dsh` `queue` `v2`
   - ChatViewModel.kt:795-832/ChatScreen.kt:1108：DSH=push（queueBySession 帧）vs V2=打开时拉取——轮结束提升后 V2 面板不自动刷新（打开/变更时拉取已覆盖）
 
-- [ ] **#371 UIUX 三面口径杂项——台账步数口径(D2)/服务器徽标三态样式(D7)/V2 echo 形态(D11)/3 休眠能力位处置** `ui` `refactor`
+- [~] **#371 UIUX 三面口径杂项——台账步数口径(D2)/服务器徽标三态样式(D7)/V2 echo 形态(D11)/3 休眠能力位处置** `ui` `refactor`
   - D2：DSH 工具宿主消息计步 vs V1V2 逻辑轮计步（RenderableTurn stepCount 口径）；D7：ServerCard DSH/V2/V1 三种容器色徽标；D11：V2 用户消息 summary.body+📎 占位 vs DSH 显式 parts；runningSessionsFilterSupported/messageDeleteSupported/projectionStatsSupported 零读者休眠位 keep-or-remove
 
 - [ ] **#345 adb 注入 tap 间歇丢弃观察——MIUI 平台行为定性(非 app 缺陷),真手指未复现即不处理** `env` `device`

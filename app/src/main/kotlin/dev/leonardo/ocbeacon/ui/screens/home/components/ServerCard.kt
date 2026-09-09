@@ -94,33 +94,27 @@ internal fun ServerCard(
                         if (server.serverType == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
                             Surface(
                                 shape = MaterialTheme.shapes.small,
-                                color = MaterialTheme.colorScheme.tertiaryContainer
+                                // #371-D7：版本徽标统一中性容器（原 DSH=tertiary/V2=primary/
+                                // V1=surfaceVariant 三色并存——类型区分已由文本承载）
+                                color = MaterialTheme.colorScheme.surfaceVariant
                             ) {
                                 Text(
                                     text = "DSH",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
                         } else {
                             Surface(
                                 shape = MaterialTheme.shapes.small,
-                                color = when (server.apiVersion) {
-                                    dev.leonardo.ocbeacon.domain.model.ApiVersion.V2 ->
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    else -> MaterialTheme.colorScheme.surfaceVariant
-                                }
+                                color = MaterialTheme.colorScheme.surfaceVariant
                             ) {
                                 Text(
                                     text = "API v${if (server.apiVersion.isV2) "2" else "1"}" +
                                         (server.serverVersion?.let { " · $it" } ?: ""),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = when (server.apiVersion) {
-                                        dev.leonardo.ocbeacon.domain.model.ApiVersion.V2 ->
-                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
