@@ -820,10 +820,14 @@ class ChatViewModel @Inject constructor(
                 }
             }.stateIn(viewModelScope, WhileSubscribed5s, emptyList())
 
+    /** #370：V2 拉取面曾活动过（面板打开/入队/变更后拉取）——轮终自动重拉的触发条件。 */
+    private var v2QueuePulled = false
+
     /** #356：V2 inbox 排队拉取（QueueSheet 打开/变更后/进入会话；失败保旧值）。 */
     fun refreshQueueItems() {
         if (serverType.value == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) return
         if (!_serverCapabilities.value.queueSupported) return
+        v2QueuePulled = true
         viewModelScope.launch {
             val sid = runCatching { sessionLifecycle.ensureSession() }.getOrElse { e ->
                 AppLogger.w(TAG, "ensureSession failed before listInbox: " + e.message)
@@ -831,6 +835,32 @@ class ChatViewModel @Inject constructor(
             }
             chatRepository.listQueueItems(serverId, sid)
                 ?.let { items -> _v2QueueItems.value = items.filter { it.isQueuedPlacement } }
+        }
+    }
+
+    init {
+        // #370：V2=拉取面（无帧推送；DSH=queueBySession 帧自达）——轮终（FSM core
+        // 转 Idle）时若 QueueSheet 曾打开过/队列数据在场（v2QueuePulled），自动
+        // 重拉一次：排队项轮末派发后服务器侧已变，面板不再陈旧。门控复用
+        // refreshQueueItems（DSH/queueSupported=false 均跳过，V1 两路皆空不受扰）。
+        viewModelScope.launch {
+            var trackedSid: String? = null
+            var previous: SessionStatus? = null
+            combine(sessionStateRepository.statusFlow, sessionLifecycle.sessionIdFlow) { statuses, sid ->
+                sid to statuses[sid]
+            }.collect { (sid, status) ->
+                if (sid != trackedSid) {
+                    trackedSid = sid
+                    previous = null
+                }
+                if (status is SessionStatus.Idle &&
+                    previous != null && previous !is SessionStatus.Idle &&
+                    v2QueuePulled
+                ) {
+                    refreshQueueItems()
+                }
+                previous = status
+            }
         }
     }
 
