@@ -859,10 +859,17 @@ fun ChatScreen(
                         },
                     )
                 }
-                // 进入会话加载过渡：仅在真正加载时显示 PulsingDots。
+                // 进入会话加载过渡：仅在**无可渲染内容**时显示 PulsingDots（#383 根修）。
                 // （#53：移除 2026-08-10 的 MIN_LOADING_VISIBLE_MS 人为延迟补丁——
                 // NavHost 全局 fadeIn 过渡已提供进入过渡感，双过渡叠加是反模式）
-                interaction.isLoading && !isTerminalMode && interaction.error == null -> {
+                // 2026-09-09（#383）：加载分支此前无条件替换消息区——消息已在态
+                //（Room 回放/上一屏残留）也被整块吞掉；DSH 长轮期间 session/page
+                // 读阻塞数分钟时用户面对全空白转录。与下方 error 分支对称补
+                // messages.isEmpty() 守卫：有内容时走消息列表分支（cache-first
+                // 呈现，刷新在后台进行），真空转（无缓存首进）才落 dots。
+                interaction.isLoading && messageState.messages.isEmpty() &&
+                    commandFeedbackForSession.isEmpty() && compactionEntriesForSession.isEmpty() &&
+                    !isTerminalMode && interaction.error == null -> {
                     PulsingDotsIndicator(
                         modifier = Modifier.align(Alignment.Center)
                     )
