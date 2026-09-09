@@ -1105,6 +1105,15 @@ fun ChatMessageList(
                             visualTopEntryKeys = topKeys.toList(),
                             cards = TranscriptPlan.cards(commandFeedbackRows, compactionEntries),
                         )
+                    }.also {
+                        if (dev.leonardo.ocbeacon.BuildConfig.DEBUG && (commandFeedbackRows.isNotEmpty() || compactionEntries.isNotEmpty())) {
+                            android.util.Log.d(
+                                "Transcript378",
+                                "plan cmds=" + commandFeedbackRows.size + " compactions=" + compactionEntries.size +
+                                    " extras=" + it.first.size + " trailing=" + it.second.size +
+                                    " displaySeqs=" + displayItems.map { d -> dev.leonardo.ocbeacon.domain.model.DshMessageId.seqOf(d.second.message.id) }.take(6),
+                            )
+                        }
                     }
                     val transcriptCardExtras = transcriptCardPlan.first
                     val transcriptTrailingCards = transcriptCardPlan.second
