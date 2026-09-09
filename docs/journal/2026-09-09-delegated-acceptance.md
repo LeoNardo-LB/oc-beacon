@@ -92,3 +92,24 @@
   - 调研实证:token 仅存进程内存(重启轮换/不落盘/不可配置),无 LAN 静默发现途径(设计使然);cookie 365 天/authority——自动发现=首次配对问题;宿主 dsh-url 工具已带 QR 输出,app 粘贴框现成
   - 四子项:①debug-entry.sh 并 token 注入(现成)②QR 扫码(CameraX)③SSH 白名单通道(sshj)④DSH 条目 sameBackend 忽略 username;→ `docs/research/2026-09-04-dsh-token-autodiscovery.md`
   - 迁入依据：委托签收：注入通道今日两度活体+QR/否决史在册——delegated-acceptance §二（backlog.sh migrate 2026-09-09）
+
+## 三、#383 根因调查与收口（2026-09-10 04:4x 设备钟）
+
+### 调查链（服务器真值 + 代码考古 + 活体复现）
+
+1. **历史页直查**（宿主直调 DSH RPC：GET /?token→303 Cookie→POST /api/session/page，信封 `{type:client-request,method,payload:{args:{request:{address,throughSeq,maxMessages}}}}`；session/list 用 `_request` 字段——两法记档）取回 102 行全量 records：demo 会话唯一 command/run|done 记录是 seq 85/90（20:13 的 /compact）；**typed /calculator 走的是 prompt 通道**（seq 96-100 五条 user/message + turn 4 五步一工具，6m6s）。21:34 logcat 三对 CommandRunStarted/Done = **A 层历史重派发**（会话列表/进会话触发的 transcriptEvents 幂等重建，dispatch 日志逐次打印）——与 /calculator 无关。**#383-② 前提不成立**（反馈行缺席是对 prompt 通道的正确行为；calculator 不在该会话 preset 的命令注册表）。
+2. **#383-① 根因**：ChatScreen 加载分支 `interaction.isLoading && … -> PulsingDots` **无条件替换消息区**——对照 error 分支有 `messages.isEmpty()` 守卫（不对称即缺陷）；事发时消息在态（attachment scan msgs=10）仍被整块吞掉。外部放大器：昨日计算器技能轮（重多步轮）期间重进，加载 RPC 停滞数分钟（今日普通流式轮重进加载秒回——停滞与轮形态相关，服务器侧行为；app 无需依赖其快慢）。
+3. **根修（3b1193af）**：加载分支补守卫 `messages.isEmpty() && commandFeedback.isEmpty() && compactionEntries.isEmpty()`——有内容（Room 回放/上一屏残留/卡族）即走消息列表分支（cache-first），真空转才落 dots。与空态分支守卫族对称。
+4. **绿证（装机活体）**：重进演示会话发 1-120 计数轮 → busy 2s 确认 → 轮中退列表再重进 → **3s 时刻 dump**：流式内容（1 one…79 seventy-nine）+ 历史卡（/compact 已完成/Compacted 8 items/会话压缩 box）全部在场，零 dots；多模态复核确认「非孤立三点空白态」。单测全量绿。
+
+### 处置
+
+- #383 整卡收口：① 根修+绿证；② 误前提撤销（证据链完整）。服务器侧「重多步轮期间 page 读停滞」作为外部观测记档（app 已韧化，无需追踪）。
+
+## 已完结卡片迁入（2026-09-10）
+
+### **#383 #383 DSH 命令长执行期间重进会话：加载分支吞整转录 + /calculator 反馈行缺席（委托验收批发现）** `dsh` `ui` `command` `bug`
+  - 现象（2026-09-09 21:34-21:40 活体，session-fef097ef 演示会话）：typed /calculator → DSH commands/execute 6m6s 执行（CommandRunStarted/Done ×3 回流 MiscEventHandler）；期间转录区整块空白——PulsingDots(isLoading) 分支无条件替换消息区，历史（Room seq-82/88 + 压缩 box + 命令卡）全部不可见直至轮末
+  - 疑点链：①isLoading 挂起根因未定（服务器执行期 history 读阻塞 vs app 加载完成信号丢失——21:40 空闲重进加载秒完成，plan 正常 cmds=1）；②#365 反馈行缺席：命令执行后 transcript cmds 仍=1（/calculator 未加卡），recordLocalAcceptance/onRun 链某环断；③isLoading 分支设计面：messages 非空时 loading 应保留列表渲染（cache-first）而非整块替换
+  - 证据包：/tmp/acc365_feedback.png（执行中空白+三点）/tmp/acc365_after_turn.png/logcat CommandRunStarted|Done→MiscEventHandler sid=session-fef097ef ×3/Room 快照仅 seq-82+88 vs 服务器 msgs=10/21:40 冷重进 plan=cmds1 compactions1 displaySeqs=[560,100,99,98,97,96] 轮次 2·6m6s·5步·1工具
+  - 迁入依据：①加载分支补守卫根修 3b1193af+轮中重进绿证（视觉复核）；②误前提撤销（/calculator 实走 prompt 通道，seq96-100 史证）——delegated-acceptance §三（backlog.sh migrate 2026-09-10）

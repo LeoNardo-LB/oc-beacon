@@ -68,11 +68,7 @@
 （#363 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
 （#326 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
 （#313 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
-
-- [ ] **#383 #383 DSH 命令长执行期间重进会话：加载分支吞整转录 + /calculator 反馈行缺席（委托验收批发现）** `dsh` `ui` `command` `bug`
-  - 现象（2026-09-09 21:34-21:40 活体，session-fef097ef 演示会话）：typed /calculator → DSH commands/execute 6m6s 执行（CommandRunStarted/Done ×3 回流 MiscEventHandler）；期间转录区整块空白——PulsingDots(isLoading) 分支无条件替换消息区，历史（Room seq-82/88 + 压缩 box + 命令卡）全部不可见直至轮末
-  - 疑点链：①isLoading 挂起根因未定（服务器执行期 history 读阻塞 vs app 加载完成信号丢失——21:40 空闲重进加载秒完成，plan 正常 cmds=1）；②#365 反馈行缺席：命令执行后 transcript cmds 仍=1（/calculator 未加卡），recordLocalAcceptance/onRun 链某环断；③isLoading 分支设计面：messages 非空时 loading 应保留列表渲染（cache-first）而非整块替换
-  - 证据包：/tmp/acc365_feedback.png（执行中空白+三点）/tmp/acc365_after_turn.png/logcat CommandRunStarted|Done→MiscEventHandler sid=session-fef097ef ×3/Room 快照仅 seq-82+88 vs 服务器 msgs=10/21:40 冷重进 plan=cmds1 compactions1 displaySeqs=[560,100,99,98,97,96] 轮次 2·6m6s·5步·1工具
+（#383 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
 
 - [~] **#365 斜杠/skill 命令执行反馈不可见——snackbar 一闪即逝+skill 类命令无 command/run|done 事件（反馈行永不触发），用户感知「按了没反应」（R4a 复验用户观察「没看到你发送任何内容」）** `ui` `command` `dsh`
   - 证据（2026-09-08 23:12）：logcat `Executed command /calculator: true`（wire 成功）；服务器持久日志 273 行全类型清点 **0 条 command/run|done**——skill 类命令走 commands/execute 不入事件流，#323 反馈行（只消费这两事件）结构性缺席。
