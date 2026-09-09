@@ -224,6 +224,7 @@
 
 - [~] **#371 UIUX 三面口径杂项——台账步数口径(D2)/服务器徽标三态样式(D7)/V2 echo 形态(D11)/3 休眠能力位处置** `ui` `refactor`
   - D2：DSH 工具宿主消息计步 vs V1V2 逻辑轮计步（RenderableTurn stepCount 口径）；D7：ServerCard DSH/V2/V1 三种容器色徽标；D11：V2 用户消息 summary.body+📎 占位 vs DSH 显式 parts；runningSessionsFilterSupported/messageDeleteSupported/projectionStatsSupported 零读者休眠位 keep-or-remove
+  - #371 四件处置（2026-09-10）：【休眠位】runningSessionsFilterSupported/messageDeleteSupported/projectionStatsSupported 三位零真实读者（仅定义+赋值）——已按死代码移除；【D7】ServerCard 版本徽标三色容器（DSH=tertiary/V2=primary/V1=surfaceVariant）统一为中性 surfaceVariant chip（类型区分由文本承载）；【D11】V2 echo 的 📎 文本占位系 2026-08-16 P0 附件可见性修复的过渡形态，REST 对账在刷新窗内收敛为结构化 Part.File——改即时结构化需解析器单事件契约→多事件重构，成本/收益不成立，按「接受过渡态」处置；【D2】台账步数口径漂移根因=RenderableTurn 按消息分组计数（DSH 工具宿主消息膨胀步数）vs 服务器 step/end 事件权威计数——V1/V2 无 step 事件、跨面统一需事件派生计数器入转录（同 #363① 轮次口径域），与 #363① 合并待用户裁决
 
 - [ ] **#345 adb 注入 tap 间歇丢弃观察——MIUI 平台行为定性(非 app 缺陷),真手指未复现即不处理** `env` `device`
   - 定性修正(2026-09-07 二查):原「两案全灭」重析后——**第二案翻案**:Doubang 输入法为浅色主题,screencap 下半屏与 app surface 同色族 (247,250,253),误判「无 IME」后 tap 实际全打在键盘上;7 节点 dump=输入法安全窗致盲(平台正常)。第一案(t4401 克隆任务后 composer 聚焦 tap 无响应)仍疑似 MIUI 注入丢弃家族(同 E4② shade 组卡先例);两案中键事件/焦点全程有效(`dumpsys input_method` mServedView 在场实证),app 侧无缺陷证据
