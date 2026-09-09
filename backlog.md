@@ -144,6 +144,7 @@
 - [~] **#379 抽屉手柄统一+内部滑动不致收起——fling 消费修正（2026-09-09 用户裁决）** `ui` `refactor`
   - 裁决原文:「任何在抽屉内的滑动（拖拽或 fling）都不应该让抽屉收起，只有拖动手柄/点外/返回手势才收起；所有抽屉需统一的小样式手柄（行高很小）」；问：M3 是否天然支持手柄自定义——**是**：ModalBottomSheet 有 dragHandle 槽位（默认 32×4dp 圆角条，可替换任意 composable）；fling 收起根因=内容未消费嵌套滚动（列表需 nestedScroll 到顶才传递给 sheet）——全 sheet 盘点统一
   - 已落地（2026-09-10）：SheetGestures 共享件——SmallSheetDragHandle 统一小手柄（28×3dp/行高 12dp，四处 ModalBottomSheet 全换：SheetScaffold 族/ModelPicker/QuickNavigate/Annotation）+ sheetContentGestureIsolation 内容手势隔离（onPostScroll/onPostFling 只吞向下剩余量——内容拖拽/fling 不致收起，手柄/点外/返回保留）；全量单测绿。真机手势验证待做（fling 体感类）
+  - 真机结构验证双证（2026-09-10）：内容 fling 轰击×6 不收起（SHEET-OPEN dump 断言）+ 手柄拖拽收起保留（DISMISSED）——隔离与收起两向实证；真手指体感列 V6 人工清单
 
 - [ ] **#355 会话/消息搜索重设计（走查反馈②；2026-09-09 重登记——卡片曾在 fb9f4d75 误随 #354 迁移丢失）** `search` `ui`
   - 用户:检索结果为**对话内容**→显示属于哪个会话;为**会话标题**→正常会话 list;可筛选;**已归档不展示**;筛选**不要 tag 形式,要标准列表筛选样式**;对**所有服务器生效(含 opencode V1/V2)**
