@@ -479,6 +479,17 @@ internal class MessageDataDelegate(
         chatRepository.getShadowedRangesForSession(sessionIdFlow.value).first()
 
     /**
+     * 压缩摘要表面载体 id 快照（复验 A 二层根因）：CompactionEntry.messageId——
+     * 该消息的正文由压缩 box 独占承载，displayItems 侧被绑定抑制（ChatScreen
+     * compactionBoundIds）；导航列表必须同路剔除，否则跳转永不命中。
+     */
+    suspend fun loadCompactionBoundMessageIds(): Set<String> =
+        chatRepository.getCompactionEntriesForSession(sessionIdFlow.value)
+            .first()
+            .mapNotNull { it.messageId }
+            .toSet()
+
+    /**
      * 2026-08-15（research/01）：进会话后**后台预取**全量消息落库（官方 TUI
      * index.tsx:314 模式：进入会话 sync，Timeline 打开零 IO）。由
      * loadMessagesForSession 完成后触发；失败静默（下次打开抽屉兜底）。

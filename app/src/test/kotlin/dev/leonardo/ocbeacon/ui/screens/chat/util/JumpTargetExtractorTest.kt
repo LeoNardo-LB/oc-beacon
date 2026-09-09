@@ -90,6 +90,25 @@ class JumpTargetExtractorTest {
     }
 
     @Test
+    fun `extractJumpTargets excludes compaction bound carriers`() {
+        // 复验 A 二层根因：checkpoint 消息 = CompactionEntry.messageId（压缩 box
+        // 独占承载正文），displayItems 侧被 compactionBoundIds 抑制——不在遮蔽
+        // 区间内，必须按 id 剔除（否则 seq 滤除对其无效）
+        val msgs = listOf(
+            userMsgWithParts("seq-1073", "This is an automatically generated checkpoint…", 1000),
+            userMsgWithParts("seq-1075", "visible", 2000),
+        )
+        // 仅遮蔽区间（不含 1073）——不剔除
+        assertEquals(2, extractJumpTargets(msgs, "(无文本)", listOf(900L..1000L)).size)
+        // 绑定载体集命中——剔除
+        val targets = extractJumpTargets(
+            msgs, "(无文本)", listOf(900L..1000L), setOf("seq-1073"),
+        )
+        assertEquals(listOf("seq-1075"), targets.map { it.msgId })
+        assertEquals(listOf("Q1"), targets.map { it.label })
+    }
+
+    @Test
     fun `shadow boundary inclusive and empty ranges no-op`() {
         val msgs = listOf(
             userMsgWithParts("seq-4", "below", 1000),

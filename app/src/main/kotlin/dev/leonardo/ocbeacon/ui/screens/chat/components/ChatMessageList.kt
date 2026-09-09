@@ -427,12 +427,14 @@ fun ChatMessageList(
     LaunchedEffect(showQuickNavigate, currentSessionId) {
         if (showQuickNavigate) {
             jumpTargetsLoading = true
-            // 2026-09-09 #378 折叠一致性：导航列表与 displayItems 共用遮蔽视图——
-            // shadowed 消息不收录（否则异步跳转永不命中 → 「未找到」误报）
+            // 2026-09-09 #378 折叠一致性：导航列表与 displayItems 共用抑制视图——
+            // 两路对齐 ChatScreen 读侧（遮蔽区间+压缩绑定载体），否则异步跳转
+            // 永不命中 → 「未找到」误报
             jumpTargets = extractJumpTargets(
                 viewModel.conversation.loadJumpTargets(),
                 noTextPlaceholder,
                 viewModel.conversation.loadShadowedRanges(),
+                viewModel.conversation.loadCompactionBoundMessageIds(),
             )
             jumpTargetsLoading = false
         }

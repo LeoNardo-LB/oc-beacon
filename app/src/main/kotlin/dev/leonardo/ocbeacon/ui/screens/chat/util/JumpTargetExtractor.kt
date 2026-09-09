@@ -34,10 +34,12 @@ data class JumpTarget(
  *（实测主会话 62 条 user 中 23 条为空壳，服务器单条查询 404）——
  * 无任何可展示文本的 item 直接跳过，不进入快速导航列表。
  *
- * 排除压缩遮蔽消息（2026-09-09 #378 折叠回归根修）：[shadowedRanges] 内的
- * seq 消息已被 SurfaceRangeReplaced 折叠出 displayItems（主对话流不可见），
- * 导航列表若仍收录 → jumpToMessage 异步 loadAround 永不命中 → 重试后
- * 「未找到」误报 toast（R1 实测：早期压缩的检查点 user 消息被后续压缩遮蔽）。
+ * 排除压缩遮蔽/压缩绑定消息（2026-09-09 #378 折叠回归根修，两路对齐
+ * ChatScreen 读侧抑制）：①[shadowedRanges] 内的 seq 消息已被
+ * SurfaceRangeReplaced 折叠出 displayItems；②[boundMessageIds]＝压缩摘要
+ * 表面载体（CompactionEntry.messageId——内容由压缩 box 独占承载防双份，
+ * 复验 A 实测：checkpoint 消息走此路而非遮蔽区间）。任一路未对齐 →
+ * jumpToMessage 异步 loadAround 永不命中 → 重试后「未找到」误报 toast。
  * 与 synthetic 排除同族：**导航列表 = 可跳转集合**不变量。seq 反解自 DSH id
  *（[DshMessageId.seqOf]，"seq-{n}"）；V1/V2 id 无 seq → null → 恒保留
  *（V1/V2 无压缩遮蔽，空表亦 no-op）。
@@ -47,17 +49,21 @@ data class JumpTarget(
  * @param noTextPlaceholder 保留参数（兼容调用方）；空壳消息将被过滤而非显示占位符。
  * @param shadowedRanges 压缩遮蔽 seq 区间（MessageEventHandler 台账快照）；
  *   缺省空表 = 无遮蔽（V1/V2/未压缩会话）。
+ * @param boundMessageIds 压缩摘要表面载体消息 id 集（CompactionEntry.messageId
+ *   快照）；缺省空集 = 无压缩（同上）。
  */
 fun extractJumpTargets(
     messages: List<MessageWithParts>,
     noTextPlaceholder: String = "(无文本)",
     shadowedRanges: List<LongRange> = emptyList(),
+    boundMessageIds: Set<String> = emptySet(),
 ): List<JumpTarget> {
     return messages
         .filter { it.info is Message.User && it.info.role != "synthetic" }
         .filter { mwp ->
             val seq = DshMessageId.seqOf(mwp.info.id)
-            seq == null || shadowedRanges.none { range -> seq in range }
+            (seq == null || shadowedRanges.none { range -> seq in range }) &&
+                mwp.info.id !in boundMessageIds
         }
         .sortedBy { it.info.time.created }
         .mapNotNull { mwp ->
