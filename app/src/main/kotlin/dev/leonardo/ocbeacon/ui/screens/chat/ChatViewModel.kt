@@ -273,7 +273,10 @@ class ChatViewModel @Inject constructor(
         if (todoProbeStarted) return
         todoProbeStarted = true
         viewModelScope.launch {
-            val sid = sessionLifecycle.sessionId
+            // #373：空 scratch（sid 未落地）不发空 sid GET /session//todo——挂起等
+            // 会话物化（首条消息 ensureSession）后再探测；V1 由此不再因空 sid 400
+            // 误判「无 TODO 能力」隐藏入口。
+            val sid = sessionLifecycle.sessionIdFlow.first { it.isNotEmpty() }
             val result = runCatching { sessionRepository.getSessionTodos(serverId, sid).getOrThrow() }
             _todoCapable.value = result.isSuccess
             if (result.isFailure) {

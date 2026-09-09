@@ -336,7 +336,11 @@ class SseClientV2 @Inject constructor(
             if (seq != null && aggregateId != null) {
                 sequenceTracker?.invoke(aggregateId, seq)
             }
-            return handleEvent(type, payload)
+            // #368：信封顶层服务器时刻（实测 {id, created, type, ...}）——穿入
+            // mapper 替代设备钟盖戳（台账时长/未读水位同钟域）。
+            val envelopeCreated = root["created"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+                ?: payload["created"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+            return handleEvent(type, payload, envelopeCreated)
         }
 
         // 没有 type 字段——server.connected/heartbeat 等特殊事件
@@ -359,13 +363,15 @@ class SseClientV2 @Inject constructor(
         } else {
             JsonObject(emptyMap())
         }
-        return handleEvent(eventType, properties)
+        // #368：event: 帧形态下 properties 即完整信封（含 created）——先萃取再分发
+        val envelopeCreated = properties["created"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+        return handleEvent(eventType, properties, envelopeCreated)
     }
 
     /**
      * 统一事件分发：优先解析器，特殊处理 V2 delta 流事件。
      */
-    private fun handleEvent(type: String, props: JsonObject): SseEvent? {
+    private fun handleEvent(type: String, props: JsonObject, envelopeTimeMs: Long? = null): SseEvent? {
         // synthetic 实时通知（2026-08-12 修复，与 TUI 机制对齐）：
         // 事件契约演进（2026-08-14 实测抓帧）：
         // 最新（next-17403+）：session.inbox.enqueued {sessionID, inboxID,
@@ -443,7 +449,7 @@ class SseClientV2 @Inject constructor(
 
         // V2SseMapper 优先：v2 细粒度生命周期事件 → 领域事件
         // （input.admitted / step / reasoning / text / tool 全映射）
-        val mapped = V2SseMapper.map(type, props)
+        val mapped = V2SseMapper.map(type, props, envelopeTimeMs)
         if (mapped != null) return mapped
 
         // 兼容旧 delta 路径（mapV2DeltaEvent 保留，partId 已按 ordinal 派生）

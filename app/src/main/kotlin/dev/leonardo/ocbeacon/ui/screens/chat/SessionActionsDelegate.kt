@@ -357,9 +357,13 @@ internal class SessionActionsDelegate(
     fun shareSession(onResult: (String?) -> Unit) {
         scope.launch {
             try {
-                val session = shareExportUseCase.shareSession(serverId, sessionId)
+                // #373：面板 client 命令直达路径对齐 executeCommand/runShellCommand——
+                // 先 ensureSession（空 scratch 懒建）再派发，不发空 sid 请求
+                //（原「tap 清空 composer+零执行」根因）。
+                val currentSessionId = ensureSession()
+                val session = shareExportUseCase.shareSession(serverId, currentSessionId)
                 val url = session.share?.url
-                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Shared session $sessionId: $url")
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Shared session $currentSessionId: $url")
                 onResult(url)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
@@ -372,8 +376,9 @@ internal class SessionActionsDelegate(
     fun unshareSession(onResult: (Boolean) -> Unit) {
         scope.launch {
             try {
-                shareExportUseCase.unshareSession(serverId, sessionId)
-                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Unshared session $sessionId")
+                val currentSessionId = ensureSession()
+                shareExportUseCase.unshareSession(serverId, currentSessionId)
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Unshared session $currentSessionId")
                 onResult(true)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
@@ -405,19 +410,20 @@ internal class SessionActionsDelegate(
                     onResult(false)
                     return@launch
                 }
+                val currentSessionId = ensureSession()
                 val isAsync = compactionAsyncProvider()
                 if (!isAsync) {
-                    compactionLocalState(sessionId, true)
+                    compactionLocalState(currentSessionId, true)
                 }
                 try {
                     // DSH 旁路时无模型选择——空串占位（DshApiClient 对 /compact 忽略两参）。
-                    shareExportUseCase.compactSession(serverId, sessionId, providerId.orEmpty(), modelId.orEmpty())
-                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "Compacted session $sessionId")
+                    shareExportUseCase.compactSession(serverId, currentSessionId, providerId.orEmpty(), modelId.orEmpty())
+                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "Compacted session $currentSessionId")
                     onResult(true)
                 } finally {
                     // V1：HTTP 返回即终态。V2 正常路径由 SSE ended 终结，不本地杀。
                     if (!isAsync) {
-                        compactionLocalState(sessionId, false)
+                        compactionLocalState(currentSessionId, false)
                     }
                 }
             } catch (e: Exception) {
@@ -544,8 +550,9 @@ internal class SessionActionsDelegate(
                     onResult(false)
                     return@launch
                 }
-                undoRedoUseCase.revertSession(serverId, sessionId, lastUser.message.id)
-                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Reverted session $sessionId to message ${lastUser.message.id}")
+                val currentSessionId = ensureSession()
+                undoRedoUseCase.revertSession(serverId, currentSessionId, lastUser.message.id)
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Reverted session $currentSessionId to message ${lastUser.message.id}")
                 restoreRevertedDraft(extractRevertedDraft(lastUser))
                 onResult(true)
             } catch (e: Exception) {
@@ -560,8 +567,9 @@ internal class SessionActionsDelegate(
     fun redoMessage(onResult: (Boolean) -> Unit) {
         scope.launch {
             try {
-                undoRedoUseCase.unrevertSession(serverId, sessionId)
-                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Unreverted session $sessionId")
+                val currentSessionId = ensureSession()
+                undoRedoUseCase.unrevertSession(serverId, currentSessionId)
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Unreverted session $currentSessionId")
                 onResult(true)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
@@ -654,8 +662,9 @@ internal class SessionActionsDelegate(
     fun forkSession(anchorMessageId: String? = null, onResult: (Session?) -> Unit) {
         scope.launch {
             try {
-                val session = manageSessionUseCase.forkSession(serverId, sessionId, anchorMessageId)
-                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Forked session $sessionId@${anchorMessageId ?: "tail"} -> ${session.id}")
+                val currentSessionId = ensureSession()
+                val session = manageSessionUseCase.forkSession(serverId, currentSessionId, anchorMessageId)
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Forked session $currentSessionId@${anchorMessageId ?: "tail"} -> ${session.id}")
                 // #331：回执即插行——fork 回显只有 {sessionId}（0.1.2 schema），
                 // added 帧腿（updatedAt 透传修复后）可补真值，但两条腿都不落地的话
                 // 列表只能等下一次 session.list 基线（观测 ~3min）才见新行。目录/
@@ -689,8 +698,9 @@ internal class SessionActionsDelegate(
     fun renameSession(title: String, onResult: (Boolean) -> Unit) {
         scope.launch {
             try {
-                manageSessionUseCase.renameSession(serverId, sessionId, title)
-                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Renamed session $sessionId to $title")
+                val currentSessionId = ensureSession()
+                manageSessionUseCase.renameSession(serverId, currentSessionId, title)
+                if (BuildConfig.DEBUG) AppLogger.d(TAG, "Renamed session $currentSessionId to $title")
                 onResult(true)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
