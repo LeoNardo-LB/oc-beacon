@@ -792,6 +792,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="search_content_coverage_hint">Riwayat lengkap belum disinkronkan untuk sesi ini</string>
     <string name="search_content_hit_count">%1$d pesan</string>
     <string name="search_filter_role_all">Semua peran</string>
+    <string name="search_filter_menu">Filter</string>
+    <string name="search_filter_role_section">Peran</string>
+    <string name="search_filter_time_section">Waktu</string>
     <string name="search_filter_role_user">Pengguna</string>
     <string name="search_filter_role_assistant">AI</string>
     <string name="search_filter_time_all">Semua waktu</string>

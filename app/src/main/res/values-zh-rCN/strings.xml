@@ -789,6 +789,9 @@
     <string name="search_content_coverage_hint">此会话未同步完整历史</string>
     <string name="search_content_hit_count">%1$d 条消息</string>
     <string name="search_filter_role_all">全部角色</string>
+    <string name="search_filter_menu">筛选</string>
+    <string name="search_filter_role_section">角色</string>
+    <string name="search_filter_time_section">时间</string>
     <string name="search_filter_role_user">用户</string>
     <string name="search_filter_role_assistant">AI</string>
     <string name="search_filter_time_all">全部时间</string>

@@ -786,6 +786,9 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="search_content_coverage_hint">Histórico completo não sincronizado para esta sessão</string>
     <string name="search_content_hit_count">%1$d mensagens</string>
     <string name="search_filter_role_all">Todas as funções</string>
+    <string name="search_filter_menu">Filtrar</string>
+    <string name="search_filter_role_section">Função</string>
+    <string name="search_filter_time_section">Período</string>
     <string name="search_filter_role_user">Usuário</string>
     <string name="search_filter_role_assistant">IA</string>
     <string name="search_filter_time_all">Todo o período</string>

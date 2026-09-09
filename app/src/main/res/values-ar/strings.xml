@@ -802,6 +802,9 @@
     <string name="search_content_coverage_hint">لم تتم مزامنة السجل الكامل لهذه الجلسة</string>
     <string name="search_content_hit_count">%1$d من الرسائل</string>
     <string name="search_filter_role_all">كل الأدوار</string>
+    <string name="search_filter_menu">تصفية</string>
+    <string name="search_filter_role_section">الدور</string>
+    <string name="search_filter_time_section">المدة</string>
     <string name="search_filter_role_user">المستخدم</string>
     <string name="search_filter_role_assistant">الذكاء الاصطناعي</string>
     <string name="search_filter_time_all">كل الفترات</string>

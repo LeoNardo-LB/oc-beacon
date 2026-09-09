@@ -794,6 +794,9 @@
     <string name="search_content_coverage_hint">Повна історія не синхронізована для цієї сесії</string>
     <string name="search_content_hit_count">Повідомлень: %1$d</string>
     <string name="search_filter_role_all">Усі ролі</string>
+    <string name="search_filter_menu">Фільтр</string>
+    <string name="search_filter_role_section">Роль</string>
+    <string name="search_filter_time_section">Період</string>
     <string name="search_filter_role_user">Користувач</string>
     <string name="search_filter_role_assistant">ШІ</string>
     <string name="search_filter_time_all">Весь час</string>

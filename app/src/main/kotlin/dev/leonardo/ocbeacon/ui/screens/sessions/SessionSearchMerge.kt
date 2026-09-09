@@ -14,16 +14,23 @@ import dev.leonardo.ocbeacon.domain.model.SessionSearchResult
  */
 object SessionSearchMerge {
 
-    /** 服务器区呈现行：本地已覆盖会话剔除 + 保序去重。 */
+    /**
+     * 服务器区呈现行：本地已覆盖会话剔除 + 保序去重。
+     * #355：[archivedIds] 非空时剔除已归档会话（「已归档不展示」裁决三面之一）。
+     */
     fun serverRows(
         server: SessionSearchResult?,
         localHits: List<ContentSearchHit>,
+        archivedIds: Set<String> = emptySet(),
     ): List<SessionSearchHit> {
         if (server == null) return emptyList()
         val localSessions = localHits.mapTo(mutableSetOf()) { it.sessionId }
         val seen = mutableSetOf<String>()
         return server.items.filter { hit ->
-            hit.sessionId.isNotBlank() && hit.sessionId !in localSessions && seen.add(hit.sessionId)
+            hit.sessionId.isNotBlank() &&
+                hit.sessionId !in localSessions &&
+                hit.sessionId !in archivedIds &&
+                seen.add(hit.sessionId)
         }
     }
 }

@@ -794,6 +794,9 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="search_content_coverage_hint">Pełna historia tej sesji nie została zsynchronizowana</string>
     <string name="search_content_hit_count">%1$d wiadomości</string>
     <string name="search_filter_role_all">Wszystkie role</string>
+    <string name="search_filter_menu">Filtruj</string>
+    <string name="search_filter_role_section">Rola</string>
+    <string name="search_filter_time_section">Zakres czasu</string>
     <string name="search_filter_role_user">Użytkownik</string>
     <string name="search_filter_role_assistant">AI</string>
     <string name="search_filter_time_all">Cały czas</string>

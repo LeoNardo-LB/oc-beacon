@@ -786,6 +786,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="search_content_coverage_hint">Cronologia completa non sincronizzata per questa sessione</string>
     <string name="search_content_hit_count">%1$d messaggi</string>
     <string name="search_filter_role_all">Tutti i ruoli</string>
+    <string name="search_filter_menu">Filtra</string>
+    <string name="search_filter_role_section">Ruolo</string>
+    <string name="search_filter_time_section">Periodo</string>
     <string name="search_filter_role_user">Utente</string>
     <string name="search_filter_role_assistant">IA</string>
     <string name="search_filter_time_all">Tutto il periodo</string>

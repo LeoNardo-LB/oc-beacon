@@ -65,7 +65,7 @@ import dev.leonardo.ocbeacon.ui.components.ServerLinkBanner
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.AgentPresetContentDialog
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.AgentPresetCopyDialog
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.AgentPresetDeleteConfirmDialog
-import dev.leonardo.ocbeacon.ui.screens.sessions.components.ContentSearchFilterChips
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.ContentSearchFilterMenu
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.DeleteSessionDialog
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.NewSessionQuickDialog
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.OpenProjectDialog
@@ -366,10 +366,17 @@ viewModel.consumePendingReadSessionId()
 
                             val titles = content.sessions.associate { it.id to (it.title ?: it.id) }
 
+                            // #355：已归档会话不展示于检索结果（三面统一：标题命中列表
+                            // 本就只搜主列表；此处再滤内容命中与服务器命中两区）。
+                            val archivedIds = content.archivedSessions.map { it.session.id }.toSet()
+                            val visibleContentHits = if (archivedIds.isEmpty()) contentHits else {
+                                contentHits.filter { it.sessionId !in archivedIds }
+                            }
+
                             // #322：DSH 服务器历史命中区（session/search 全历史会话命中）。
                             // 呈现裁决：本地 FTS 已覆盖的会话不在此重复（本地行有消息级跳转，
                             // 服务器行只有会话级跳转——wire 无 messageId 锚点，如实呈现不伪造跳转）。
-                            val serverRows = SessionSearchMerge.serverRows(serverSearch, contentHits)
+                            val serverRows = SessionSearchMerge.serverRows(serverSearch, visibleContentHits, archivedIds)
                             if (!content.searchQuery.isNullOrBlank() && serverRows.isNotEmpty()) {
                                 Column(
                                     modifier = Modifier
@@ -421,10 +428,10 @@ viewModel.consumePendingReadSessionId()
                             // Q6c：过滤激活（角色/时间任一非空）时即使 0 命中也保留本区——
                             // 否则过滤后无结果会把过滤 chips 一并藏掉，用户无法切回「全部」。
                             val searchFiltersActive = searchRole != null || searchTimeRange != null
-                            if (!content.searchQuery.isNullOrBlank() && (contentHits.isNotEmpty() || searchFiltersActive)) {
+                            if (!content.searchQuery.isNullOrBlank() && (visibleContentHits.isNotEmpty() || searchFiltersActive)) {
                                 // B1 链：命中组携带跳转目标 messageId（rank 最优）——点击即定位该消息
                                 val groups: List<Triple<String, Int, Pair<String?, String>>> =
-                                    contentHits.groupBy { it.sessionId }
+                                    visibleContentHits.groupBy { it.sessionId }
                                         .map { (sid, hits) ->
                                             val best = dev.leonardo.ocbeacon.ui.screens.sessions.ContentHitNavigation.jumpTarget(hits)
                                             Triple(sid, hits.size, (best?.second to hits.first().snippet))
@@ -443,14 +450,15 @@ viewModel.consumePendingReadSessionId()
                                         color = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.padding(vertical = 4.dp),
                                     )
-                                    // #272/Q6c：角色 + 时间过滤 chips（切换即重查）
-                                    ContentSearchFilterChips(
+                                    // #355（用户裁决）：筛选改标准列表样式（DropdownMenu
+                                    // 单选列表——「筛选不要 tag 形式」）；选项语义与原 chips 共源
+                                    ContentSearchFilterMenu(
                                         role = searchRole,
                                         timeRange = searchTimeRange,
                                         onRoleChange = { viewModel.setSearchRole(it) },
                                         onTimeRangeChange = { viewModel.setSearchTimeRange(it) },
                                     )
-                                    if (contentHits.isEmpty()) {
+                                    if (visibleContentHits.isEmpty()) {
                                         Text(
                                             text = stringResource(R.string.search_content_no_hits),
                                             style = MaterialTheme.typography.bodySmall,

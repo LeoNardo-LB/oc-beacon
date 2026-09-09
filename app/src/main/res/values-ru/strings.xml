@@ -795,6 +795,9 @@
     <string name="search_content_coverage_hint">Полная история не синхронизирована для этой сессии</string>
     <string name="search_content_hit_count">%1$d сообщений</string>
     <string name="search_filter_role_all">Все роли</string>
+    <string name="search_filter_menu">Фильтр</string>
+    <string name="search_filter_role_section">Роль</string>
+    <string name="search_filter_time_section">Период</string>
     <string name="search_filter_role_user">Пользователь</string>
     <string name="search_filter_role_assistant">ИИ</string>
     <string name="search_filter_time_all">Всё время</string>

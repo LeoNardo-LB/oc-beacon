@@ -786,6 +786,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="search_content_coverage_hint">Vollständiger Verlauf für diese Sitzung nicht synchronisiert</string>
     <string name="search_content_hit_count">%1$d Nachrichten</string>
     <string name="search_filter_role_all">Alle Rollen</string>
+    <string name="search_filter_menu">Filtern</string>
+    <string name="search_filter_role_section">Rolle</string>
+    <string name="search_filter_time_section">Zeitraum</string>
     <string name="search_filter_role_user">Benutzer</string>
     <string name="search_filter_role_assistant">KI</string>
     <string name="search_filter_time_all">Gesamte Zeit</string>

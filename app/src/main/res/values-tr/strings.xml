@@ -786,6 +786,9 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="search_content_coverage_hint">Bu oturum için tüm geçmiş eşitlenmedi</string>
     <string name="search_content_hit_count">%1$d mesaj</string>
     <string name="search_filter_role_all">Tüm roller</string>
+    <string name="search_filter_menu">Filtrele</string>
+    <string name="search_filter_role_section">Rol</string>
+    <string name="search_filter_time_section">Zaman aralığı</string>
     <string name="search_filter_role_user">Kullanıcı</string>
     <string name="search_filter_role_assistant">YZ</string>
     <string name="search_filter_time_all">Tüm zamanlar</string>
