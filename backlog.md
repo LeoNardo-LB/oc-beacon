@@ -146,9 +146,10 @@
   - 已落地（2026-09-10）：SheetGestures 共享件——SmallSheetDragHandle 统一小手柄（28×3dp/行高 12dp，四处 ModalBottomSheet 全换：SheetScaffold 族/ModelPicker/QuickNavigate/Annotation）+ sheetContentGestureIsolation 内容手势隔离（onPostScroll/onPostFling 只吞向下剩余量——内容拖拽/fling 不致收起，手柄/点外/返回保留）；全量单测绿。真机手势验证待做（fling 体感类）
   - 真机结构验证双证（2026-09-10）：内容 fling 轰击×6 不收起（SHEET-OPEN dump 断言）+ 手柄拖拽收起保留（DISMISSED）——隔离与收起两向实证；真手指体感列 V6 人工清单
 
-- [ ] **#355 会话/消息搜索重设计（走查反馈②；2026-09-09 重登记——卡片曾在 fb9f4d75 误随 #354 迁移丢失）** `search` `ui`
+- [~] **#355 会话/消息搜索重设计（走查反馈②；2026-09-09 重登记——卡片曾在 fb9f4d75 误随 #354 迁移丢失）** `search` `ui`
   - 用户:检索结果为**对话内容**→显示属于哪个会话;为**会话标题**→正常会话 list;可筛选;**已归档不展示**;筛选**不要 tag 形式,要标准列表筛选样式**;对**所有服务器生效(含 opencode V1/V2)**
   - 已落地（2026-09-10）：①已归档不展示三面统一（serverRows merge 归档剔除+内容命中过滤+标题列表本就主列表域）②筛选改标准列表样式（ContentSearchFilterMenu DropdownMenu 单选列表替换 tag chips，chips 组件删除；选项常量共源）③i18n ×3 键 ×15 ④内容命中显示所属会话/标题命中正常列表为既有能力 ⑤V1/V2 生效=本地 FTS 跨面（openapi 实证 V1/V2 无服务器搜索端点——架构既定边界）；+2 单测（归档剔除）全量 3238 绿。真机检索区结构复测待做
+  - 验证态（2026-09-10）：编译+全量单测 3238 绿+归档剔除×2 单测；真机结构复测被 IME 注入限制阻断（搜索框聚焦后 keyevent 未落——与 #378 活体同因，MIUI 家族已知），检索区视觉（菜单形态/归档隐藏）列 V6 人工清单：用户日常搜索一次即验
 
 
 - [~] **#351 FAB QUEUE 入口去留——统一审计 §三-4/§三-1 尾项** `ui` `fab` `queue`
