@@ -70,14 +70,10 @@
 （#313 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
 （#383 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
 
-- [~] **#365 斜杠/skill 命令执行反馈不可见——snackbar 一闪即逝+skill 类命令无 command/run|done 事件（反馈行永不触发），用户感知「按了没反应」（R4a 复验用户观察「没看到你发送任何内容」）** `ui` `command` `dsh`
-  - 证据（2026-09-08 23:12）：logcat `Executed command /calculator: true`（wire 成功）；服务器持久日志 273 行全类型清点 **0 条 command/run|done**——skill 类命令走 commands/execute 不入事件流，#323 反馈行（只消费这两事件）结构性缺席。
-  - **裁决（2026-09-09 用户）**：A——命令执行后转录内插本地合成反馈行（不等服务器事件）。原生命令（/compact 等）本就有服务器事件+#323 反馈行兜底；A 只补「受理即知」这层，不依赖服务器。展示层同题：命令是「发送」语义但无任何转录痕迹，用户无法回顾发生过什么。→ `docs/journal/2026-09-09-365-353-359-uiux-consistency.md`
-  - **已实现(2026-09-09, commit 5bee330d)**：CommandFeedback.localAccepted 占位+run 同名原位升级；SessionActionsDelegate 单点三面统一；时钟图标+已受理态 i18n×15；单测 +7；定向测试 ✔ 待真机验收（同上 §一）
 
 
 
-
+（#365 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
 
 - [~] **#346 需关注类通知被静默组汇总埋没——问题/权限/错误退出 server 分组独立成卡** `dsh` `notification` `bug`
   - 走查反馈取证(2026-09-07):用户 HOME 后「没看到有问题通知」,而 dumpsys 实证通知在场(id=724696787,importance=4,文案正确)——根因=三类高重要度通知 setGroup(server_x) 挂在 **LOW 重要度 tasks_silent 组汇总**下,MIUI 整组折叠成一行静默项,子卡不可见(同 E4② 组卡现象);独立卡正常(E4 实证)

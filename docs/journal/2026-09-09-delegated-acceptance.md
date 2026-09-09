@@ -113,3 +113,20 @@
   - 疑点链：①isLoading 挂起根因未定（服务器执行期 history 读阻塞 vs app 加载完成信号丢失——21:40 空闲重进加载秒完成，plan 正常 cmds=1）；②#365 反馈行缺席：命令执行后 transcript cmds 仍=1（/calculator 未加卡），recordLocalAcceptance/onRun 链某环断；③isLoading 分支设计面：messages 非空时 loading 应保留列表渲染（cache-first）而非整块替换
   - 证据包：/tmp/acc365_feedback.png（执行中空白+三点）/tmp/acc365_after_turn.png/logcat CommandRunStarted|Done→MiscEventHandler sid=session-fef097ef ×3/Room 快照仅 seq-82+88 vs 服务器 msgs=10/21:40 冷重进 plan=cmds1 compactions1 displaySeqs=[560,100,99,98,97,96] 轮次 2·6m6s·5步·1工具
   - 迁入依据：①加载分支补守卫根修 3b1193af+轮中重进绿证（视觉复核）；②误前提撤销（/calculator 实走 prompt 通道，seq96-100 史证）——delegated-acceptance §三（backlog.sh migrate 2026-09-10）
+
+## 四、#365 委托验收收口
+
+
+## 四、#365 委托验收收口
+
+- **注册命令路径（受理即知→run 原位升级）**：演示① typed /compact（注册命令）——命令卡即时入流，「会话压缩 压缩中…」进行中态（时钟/加载指示，多模态实证 demo1_inprogress.png）→ 完成态对勾原位升级。5bee330d 的 localAccepted 占位+run 升级链在活体全生命周期可见。
+- **skill 斜杠路径（非注册名）**：typed /calculator（该 preset 未注册）→ prompt 通道（#365 裁决语义：上屏入转录由 agent 调起技能）——今日活体：用户行 seq96-100 + 技能加载轮（6m6s 五步一工具）+ 回复全可见，无「按了没反应」。
+- **单元**：CommandFeedbackFolder 配对纯函数 +7（在册）。
+
+## 已完结卡片迁入（2026-09-10）
+
+### **#365 斜杠/skill 命令执行反馈不可见——snackbar 一闪即逝+skill 类命令无 command/run|done 事件（反馈行永不触发），用户感知「按了没反应」（R4a 复验用户观察「没看到你发送任何内容」）** `ui` `command` `dsh`
+  - 证据（2026-09-08 23:12）：logcat `Executed command /calculator: true`（wire 成功）；服务器持久日志 273 行全类型清点 **0 条 command/run|done**——skill 类命令走 commands/execute 不入事件流，#323 反馈行（只消费这两事件）结构性缺席。
+  - **裁决（2026-09-09 用户）**：A——命令执行后转录内插本地合成反馈行（不等服务器事件）。原生命令（/compact 等）本就有服务器事件+#323 反馈行兜底；A 只补「受理即知」这层，不依赖服务器。展示层同题：命令是「发送」语义但无任何转录痕迹，用户无法回顾发生过什么。→ `docs/journal/2026-09-09-365-353-359-uiux-consistency.md`
+  - **已实现(2026-09-09, commit 5bee330d)**：CommandFeedback.localAccepted 占位+run 同名原位升级；SessionActionsDelegate 单点三面统一；时钟图标+已受理态 i18n×15；单测 +7；定向测试 ✔ 待真机验收（同上 §一）
+  - 迁入依据：双路径活体验证：注册命令受理即知卡（演示① vision）+ skill 斜杠 prompt 通道可见性（calculator 轮史证）——delegated-acceptance §四（backlog.sh migrate 2026-09-10）
