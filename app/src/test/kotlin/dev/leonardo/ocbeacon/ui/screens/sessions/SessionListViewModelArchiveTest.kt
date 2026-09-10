@@ -172,7 +172,7 @@ class SessionListViewModelArchiveTest {
             deleteSessionUseCase = deleteSessionUseCase,
             draftRepository = mockk(relaxed = true),
             mcpRepository = mockk(relaxed = true),
-            dshSettingsRepository = mockk(relaxed = true),
+            serverSettingsRepository = mockk(relaxed = true),
             scrollSignal = SessionScrollSignal(),
             unreadBadgeService = mockk<dev.leonardo.ocbeacon.data.repository.UnreadBadgeService> {
                 every { mergedReadTimes(any()) } returns flowOf(emptyMap<String, Long>())

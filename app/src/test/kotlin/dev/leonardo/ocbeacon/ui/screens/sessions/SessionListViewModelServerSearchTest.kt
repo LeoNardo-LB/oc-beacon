@@ -201,7 +201,7 @@ class SessionListViewModelServerSearchTest {
             deleteSessionUseCase = mockk<DeleteSessionUseCase>(),
             draftRepository = mockk(relaxed = true),
             mcpRepository = mockk<McpRepository>(relaxed = true),
-            dshSettingsRepository = mockk(relaxed = true),
+            serverSettingsRepository = mockk(relaxed = true),
             scrollSignal = SessionScrollSignal(),
             getSettingsFlowUseCase = mockk<GetSettingsFlowUseCase>(relaxed = true),
             sessionTagRepository = mockk<SessionTagRepository>(relaxed = true),

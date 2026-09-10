@@ -44,6 +44,8 @@ class ChatRepositoryImplTest {
     // #311 Task1：workspace 归档代理 + 快照流（真 store 断言流式投影）
     private lateinit var dshApiClient: dev.leonardo.ocbeacon.data.api.dsh.DshApiClient
     private lateinit var dshWorkspaceStore: DshWorkspaceStore
+    // #391：唯一路由 seam（私有能力端口）
+    private lateinit var adapters: dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry
 
     @Before
     fun setup() {
@@ -91,7 +93,19 @@ class ChatRepositoryImplTest {
         every { sessionStateRepository.statusFlow } returns MutableStateFlow(emptyMap())
         dshApiClient = mockk(relaxed = true)
         dshWorkspaceStore = DshWorkspaceStore()
-        repo = ChatRepositoryImpl(messageApi, sessionApi, terminalApi, mockk(relaxed = true), providerApi, eventDispatcher, serverRepo, permissionAutoApprover, messageStore, dshApiClient, mockk(relaxed = true), dshWorkspaceStore)
+        adapters = dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry(
+            setOf(
+                dev.leonardo.ocbeacon.data.adapter.OpenCodeServerAdapter(mockk(relaxed = true), mockk(relaxed = true)),
+                dev.leonardo.ocbeacon.data.adapter.DshServerAdapter(
+                    dshApiClient,
+                    object : dev.leonardo.ocbeacon.data.api.dsh.DshProtocolSource {
+                        override fun protocolOf(baseUrl: String): dev.leonardo.ocbeacon.data.api.dsh.DshWireProtocol? =
+                            dev.leonardo.ocbeacon.data.api.dsh.DshWireProtocol.V012
+                    },
+                ),
+            )
+        )
+        repo = ChatRepositoryImpl(messageApi, sessionApi, terminalApi, mockk(relaxed = true), providerApi, eventDispatcher, serverRepo, permissionAutoApprover, messageStore, dshApiClient, mockk(relaxed = true), dshWorkspaceStore, adapters)
     }
 
     // ============ getMessagesFlow ============

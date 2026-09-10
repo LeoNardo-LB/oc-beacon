@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.data.repository
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.logging.AppLogger
 
+import dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry
 import dev.leonardo.ocbeacon.data.api.file.FileApi
 import dev.leonardo.ocbeacon.data.api.message.MessageApi
 import dev.leonardo.ocbeacon.data.api.provider.ProviderApi
@@ -82,6 +83,8 @@ class ChatRepositoryImpl @Inject constructor(
     private val fileApi: FileApi,
     // #311 Task1：workspace 快照读取（workspace/follow baseline 维护的单一真相源）。
     private val dshWorkspaceStore: DshWorkspaceStore,
+    // #391：唯一路由 seam——私有能力经端口挂载，不按服务器类型分派。
+    private val adapters: ServerAdapterRegistry,
 ) : ChatRepository {
 
     // ============ 状态观察 ============
@@ -387,7 +390,7 @@ class ChatRepositoryImpl @Inject constructor(
         sessionId: String,
     ): List<dev.leonardo.ocbeacon.domain.model.QueuedInboxItem>? {
         val conn = runCatching { resolveConnection(serverId) }.getOrNull() ?: return null
-        return sessionApi.listInbox(conn, sessionId)
+        return adapters.ports(conn).queue?.listInbox(conn, sessionId)
     }
 
     // ============ DSH 子智能体续聊（backlog #310①） ============
@@ -404,12 +407,11 @@ class ChatRepositoryImpl @Inject constructor(
         parts: List<PromptPart>,
     ): Result<String?> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        if (conn.serverType != dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
-            throw dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability(
+        val port = adapters.ports(conn).subagents
+            ?: throw dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability(
                 "subagent.prompt", conn.serverType.name,
             )
-        }
-        dshApiClient.subagentPrompt(
+        port.subagentPrompt(
             conn,
             parentSessionId,
             childSessionId,
@@ -425,10 +427,8 @@ class ChatRepositoryImpl @Inject constructor(
         childSessionId: String,
     ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        if (conn.serverType != dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
-            return@runCatchingCancellable false
-        }
-        dshApiClient.subagentInterrupt(conn, parentSessionId, childSessionId)
+        val port = adapters.ports(conn).subagents ?: return@runCatchingCancellable false
+        port.subagentInterrupt(conn, parentSessionId, childSessionId)
     }
 
     /** subagents/list 整帧：非 DSH → null（端点缺席语义，#314 先例）。 */
@@ -437,10 +437,8 @@ class ChatRepositoryImpl @Inject constructor(
         parentSessionId: String,
     ): Result<SubagentCatalog?> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        if (conn.serverType != dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
-            return@runCatchingCancellable null
-        }
-        dshApiClient.subagentCatalog(conn, parentSessionId)
+        val port = adapters.ports(conn).subagents ?: return@runCatchingCancellable null
+        port.subagentCatalog(conn, parentSessionId)
     }
 
     // ============ DSH 消息反馈（backlog #310②） ============
@@ -458,12 +456,11 @@ class ChatRepositoryImpl @Inject constructor(
         ifVersion: String?,
     ): Result<dev.leonardo.ocbeacon.domain.model.MessageFeedbackPutResult> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        if (conn.serverType != dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
-            throw dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability(
+        val port = adapters.ports(conn).feedback
+            ?: throw dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability(
                 "messageFeedback.put", conn.serverType.name,
             )
-        }
-        dshApiClient.messageFeedbackPut(conn, sessionId, messageId, rating, note, ifVersion)
+        port.messageFeedbackPut(conn, sessionId, messageId, rating, note, ifVersion)
     }
 
     /** messageFeedback/delete：非 DSH 显式 unsupported（同 put → 撤销不可假成功）。 */
@@ -474,12 +471,11 @@ class ChatRepositoryImpl @Inject constructor(
         ifVersion: String,
     ): Result<dev.leonardo.ocbeacon.domain.model.MessageFeedbackDeleteResult> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        if (conn.serverType != dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
-            throw dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability(
+        val port = adapters.ports(conn).feedback
+            ?: throw dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability(
                 "messageFeedback.delete", conn.serverType.name,
             )
-        }
-        dshApiClient.messageFeedbackDelete(conn, sessionId, messageId, ifVersion)
+        port.messageFeedbackDelete(conn, sessionId, messageId, ifVersion)
     }
 
     /** messageFeedback/list：非 DSH → null（端点缺席语义，#314 先例）。 */
@@ -488,10 +484,8 @@ class ChatRepositoryImpl @Inject constructor(
         sessionId: String,
     ): Result<List<dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem>?> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        if (conn.serverType != dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
-            return@runCatchingCancellable null
-        }
-        dshApiClient.messageFeedbackList(conn, sessionId)
+        val port = adapters.ports(conn).feedback ?: return@runCatchingCancellable null
+        port.messageFeedbackList(conn, sessionId)
     }
 
     // ============ DSH workspace 归档（backlog #311 Task1） ============
@@ -587,7 +581,11 @@ class ChatRepositoryImpl @Inject constructor(
         maxGoalRounds: Long?,
     ): Result<DshGoalRef?> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        sessionApi.goalCreate(conn, sessionId, objective, maxGoalRounds)
+        val port = adapters.ports(conn).goals
+            ?: throw dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability(
+                "goal.create", conn.serverType.name,
+            )
+        port.goalCreate(conn, sessionId, objective, maxGoalRounds)
     }
 
     override suspend fun editGoal(
@@ -598,31 +596,51 @@ class ChatRepositoryImpl @Inject constructor(
         maxGoalRounds: Long?,
     ): Result<DshGoalRef?> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        sessionApi.goalEdit(conn, sessionId, ref, objective, maxGoalRounds)
+        val port = adapters.ports(conn).goals
+            ?: throw dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability(
+                "goal.edit", conn.serverType.name,
+            )
+        port.goalEdit(conn, sessionId, ref, objective, maxGoalRounds)
     }
 
     override suspend fun pauseGoal(serverId: String, sessionId: String, ref: DshGoalRef): Result<DshGoalRef?> =
         runCatchingCancellable {
             val conn = resolveConnection(serverId)
-            sessionApi.goalPause(conn, sessionId, ref)
+            val port = adapters.ports(conn).goals
+                ?: throw dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability(
+                    "goal.pause", conn.serverType.name,
+                )
+            port.goalPause(conn, sessionId, ref)
         }
 
     override suspend fun resumeGoal(serverId: String, sessionId: String, ref: DshGoalRef): Result<DshGoalRef?> =
         runCatchingCancellable {
             val conn = resolveConnection(serverId)
-            sessionApi.goalResume(conn, sessionId, ref)
+            val port = adapters.ports(conn).goals
+                ?: throw dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability(
+                    "goal.resume", conn.serverType.name,
+                )
+            port.goalResume(conn, sessionId, ref)
         }
 
     override suspend fun completeGoal(serverId: String, sessionId: String, ref: DshGoalRef): Result<DshGoalRef?> =
         runCatchingCancellable {
             val conn = resolveConnection(serverId)
-            sessionApi.goalComplete(conn, sessionId, ref)
+            val port = adapters.ports(conn).goals
+                ?: throw dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability(
+                    "goal.complete", conn.serverType.name,
+                )
+            port.goalComplete(conn, sessionId, ref)
         }
 
     override suspend fun clearGoal(serverId: String, sessionId: String, ref: DshGoalRef): Result<Boolean> =
         runCatchingCancellable {
             val conn = resolveConnection(serverId)
-            sessionApi.goalClear(conn, sessionId, ref)
+            val port = adapters.ports(conn).goals
+                ?: throw dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability(
+                    "goal.clear", conn.serverType.name,
+                )
+            port.goalClear(conn, sessionId, ref)
         }
 
     override suspend fun runShellCommand(

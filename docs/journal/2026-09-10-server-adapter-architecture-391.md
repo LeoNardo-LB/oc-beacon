@@ -44,3 +44,22 @@
 - 定向测试（Derivation / Registry / Pagination / ChatViewModelSend / SessionListShellState / WorkspaceViewModel）全绿。
 - 全量 :app:testDevDebugUnitTest BUILD SUCCESSFUL。
 - :app:lintDevDebug 仍红（4 项，均为存量：HiltEntryActivity MissingClass ×1 @6c41d0a2 2026-08-16；LocalContextGetResourceValueCall ×3 @f2df106c/2e4a4d58/54cbc555 2026-08-31~09-01）。ChatScreen numstat 9/9（行数不变、命中行未改），SettingsScreen 与 debug manifest 本批次零改动 → 与本切片无关，已登记 backlog。
+
+## 切片 3：五类私有能力端口化 + 删仓库/委托类型守卫
+
+**落地**
+- 新增通用命名端口：GoalApi（6 mutation）/ FeedbackApi（3）/ SubagentApi（3）/ MessageQueueApi（2）落 data/api/；ServerSettingsRepository 由 DshSettingsRepository 更名（domain/repository/，16 方法不变）。
+- ServerPorts 增 subagents / goals / feedback / queue / serverSettings 五个可空字段；derivedFeatures 派生 SUBAGENTS / GOALS / FEEDBACK / QUEUE / SERVER_SETTINGS；适配器私有声明移除对应重复位。
+- DSH 适配器挂载薄委托端口实现（data/adapter/dsh/Dsh{Goal,Feedback,Subagent,Queue}Port）；V2 客户端实现 MessageQueueApi（inbox 域：移除/插话，无编辑动词）；V1 无队列端口。
+- ChatRepositoryImpl 13 处 conn.serverType 守卫改经 adapters.ports(conn)：subagentPrompt/Interrupt/Catalog、messageFeedbackPut/Delete/List、goal 六 mutation、listQueueItems。写操作端口缺席抛 UnsupportedServerCapability，读操作返回空（用户故事 17）。
+- ChatSendDelegate / SessionActionsDelegate 的 DSH 类型判定改为能力位（ServerFeatures.SUBAGENTS）驱动，界面不再读服务器类型。
+
+**验证**
+- :app:compileDevDebugKotlin 绿；:app:testDevDebugUnitTest 全量 BUILD SUCCESSFUL。
+- ServerCapabilitiesDerivationTest 增 5 端口断言（OpenCode 无 SUBAGENTS/SERVER_SETTINGS；DSH 全在场；V2 有 QUEUE）。
+- ChatRepositoryImplTest 增注册表装配；SessionListViewModel 系列 6 个测试参数更名。
+
+**切片内未覆盖（如实登记，非五端口面）**
+- ChatRepositoryImpl 残留 3 处类型守卫：archiveSession / listSessionsIncludingBlank / mentionCandidates（无对应端口）。
+- TaskDelegate Shell 面板分流、PaginationCursorPolicy.forServer 手写三分、ChatViewModel queue 数据源分流（DSH 帧推送 vs V2 拉取）——归切片4/5。
+- 端口载荷仍为 DSH 域模型（DshGoalRef / MessageFeedback* 等），端口命名已中立；模型重命名不在本切片。

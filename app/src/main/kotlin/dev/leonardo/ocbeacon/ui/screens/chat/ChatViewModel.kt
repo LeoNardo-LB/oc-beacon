@@ -619,8 +619,10 @@ class ChatViewModel @Inject constructor(
                 serverId,
             )
         },
-        // #310①：子会话停止（subagents/interruptByParent 父址中断）仅 DSH 线面分流
-        serverTypeProvider = { serverType.value },
+        // #391：子会话停止分流改由能力位驱动（界面不读服务器类型）
+        subagentsSupportedProvider = {
+            dev.leonardo.ocbeacon.domain.model.ServerFeatures.SUBAGENTS in serverCapabilities.value
+        },
     )
 
     // ============ 设置 StateFlow Delegate ============
@@ -1335,8 +1337,10 @@ class ChatViewModel @Inject constructor(
             eventDispatcher.clearSessionErrors(sessionId)
         },
         draftDelegate = draftDelegate,
-        // #310①：子会话续聊（subagents/prompt）仅 DSH 线面分流
-        serverTypeProvider = { serverType.value },
+        // #391：子会话续聊分流改由能力位驱动（界面不读服务器类型）
+        subagentsSupportedProvider = {
+            dev.leonardo.ocbeacon.domain.model.ServerFeatures.SUBAGENTS in serverCapabilities.value
+        },
         // #362：busy+queue 提交后刷新队列投影（V2 拉取；DSH 内部自门控跳过）
         onQueueSubmitted = { refreshQueueItems() },
     )

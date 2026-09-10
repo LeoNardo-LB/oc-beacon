@@ -26,7 +26,7 @@ import dev.leonardo.ocbeacon.domain.adapter.ServerAdapterResolver
 import dev.leonardo.ocbeacon.domain.model.ServerType
 import dev.leonardo.ocbeacon.domain.repository.AgentRepository
 import dev.leonardo.ocbeacon.domain.repository.DshSettingsForbiddenException
-import dev.leonardo.ocbeacon.domain.repository.DshSettingsRepository
+import dev.leonardo.ocbeacon.domain.repository.ServerSettingsRepository
 import dev.leonardo.ocbeacon.domain.repository.ProviderRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
 import dev.leonardo.ocbeacon.domain.repository.SettingsRepository
@@ -109,7 +109,7 @@ class ServerSettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val serverConfigRepository: ServerConfigRepository,
     // #324①：DSH provider 目录/凭据/自定义增删（仅 DSH 连接使用）
-    private val dshSettingsRepository: DshSettingsRepository,
+    private val serverSettingsRepository: ServerSettingsRepository,
     /** #391：能力位唯一来源（适配器解析器）。 */
     private val serverAdapters: ServerAdapterResolver,
 ) : ViewModel() {
@@ -584,7 +584,7 @@ class ServerSettingsViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(dshDirectoryLoading = true, dshProviderError = null) }
             try {
-                val directory = dshSettingsRepository.listProviderDirectory(conn)
+                val directory = serverSettingsRepository.listProviderDirectory(conn)
                 _uiState.update { it.copy(dshDirectory = directory, dshDirectoryLoading = false) }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
@@ -608,7 +608,7 @@ class ServerSettingsViewModel @Inject constructor(
     suspend fun discoverDshModels(baseURL: String, apiKey: String): Result<List<DshDiscoveredModel>> {
         val conn = dshConn() ?: return Result.failure(IllegalStateException("no connection"))
         return try {
-            val models = dshSettingsRepository.discoverModels(
+            val models = serverSettingsRepository.discoverModels(
                 conn,
                 dev.leonardo.ocbeacon.domain.model.DshModelDiscoveryRequest(
                     settingsNs = dev.leonardo.ocbeacon.domain.model.DshCustomProviders.SETTINGS_NS,
@@ -629,7 +629,7 @@ class ServerSettingsViewModel @Inject constructor(
         val conn = dshConn() ?: return
         viewModelScope.launch {
             try {
-                val ok = dshSettingsRepository.createCustomProvider(conn, draft)
+                val ok = serverSettingsRepository.createCustomProvider(conn, draft)
                 if (ok) loadDshProviderDirectory()
                 onDone(ok, null)
             } catch (e: Exception) {
@@ -650,7 +650,7 @@ class ServerSettingsViewModel @Inject constructor(
         val conn = dshConn() ?: return
         viewModelScope.launch {
             try {
-                val ok = dshSettingsRepository.deleteCustomProvider(conn, route)
+                val ok = serverSettingsRepository.deleteCustomProvider(conn, route)
                 if (ok) loadDshProviderDirectory()
                 onDone(ok, null)
             } catch (e: Exception) {

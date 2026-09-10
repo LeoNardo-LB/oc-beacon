@@ -33,6 +33,8 @@ class OpenCodeServerAdapter @Inject constructor(
             ServerPorts(
                 session = v2, message = v2, system = v2,
                 file = v2, provider = v2, terminal = v2, shell = v2,
+                // V2 有 inbox 域（移除 / 插话；无编辑动词）
+                queue = v2,
             )
         } else {
             // V1 / UNKNOWN / null：UNKNOWN 与 null 维持 V1 行为（#132 语义）
@@ -68,7 +70,6 @@ class OpenCodeServerAdapter @Inject constructor(
         add(ServerFeatures.SESSION_REVERT)
         if (conn.apiVersion.isV2) {
             add(ServerFeatures.SESSION_BACKGROUND)
-            add(ServerFeatures.QUEUE)
         } else {
             add(ServerFeatures.SESSION_SHARE)
         }

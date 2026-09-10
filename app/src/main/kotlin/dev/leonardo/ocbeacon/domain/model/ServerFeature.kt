@@ -89,4 +89,10 @@ object ServerFeatures {
 
     /** Agent 预设选择器。 */
     val AGENT_PRESET = ServerFeature("core.agentPreset")
+
+    /** 子智能体域（目录 / 续聊 / 父址中断）。 */
+    val SUBAGENTS = ServerFeature("core.subagents")
+
+    /** 服务器设置特权面（设置描述 / 变更 / 插件清单 / 预设管理 / 提供商目录）。 */
+    val SERVER_SETTINGS = ServerFeature("core.serverSettings")
 }

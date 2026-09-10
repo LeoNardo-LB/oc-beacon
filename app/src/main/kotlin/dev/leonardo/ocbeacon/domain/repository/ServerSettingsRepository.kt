@@ -30,7 +30,7 @@ class DshSettingsForbiddenException(
  * 错误契约：非 loopback 连接（Host 栅栏 403）抛 [DshSettingsForbiddenException]；
  * 其余失败（插件缺席/网络/5xx）维持 null / false 静默降级。
  */
-interface DshSettingsRepository {
+interface ServerSettingsRepository {
     /** 读当前默认档；部署未挂 permission 插件或读取失败 → null；403 → 抛 [DshSettingsForbiddenException]。 */
     suspend fun getPermissionDefault(conn: ServerConnection): DshPermissionDefault?
 

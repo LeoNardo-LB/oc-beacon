@@ -83,10 +83,9 @@ internal class SessionActionsDelegate(
     /** #276 终验 V6：导出载荷是 ZIP 归档（DSH session.export）——true 时写盘前把
      *  SAF 文档显示名规范成 .zip；OpenCode 导出是 JSON 文档，默认 false 维持 .json。 */
     private val exportIsArchiveProvider: () -> Boolean = { false },
-    /** #310①：DSH 判定——子会话停止（subagents/interruptByParent 父址中断）仅
-     *  DSH 线面；OpenCode 子会话维持 session.cancel 自址中断（默认与未加载态兼容）。 */
-    private val serverTypeProvider: () -> dev.leonardo.ocbeacon.domain.model.ServerType =
-        { dev.leonardo.ocbeacon.domain.model.ServerType.OpenCode },
+    /** #391：子智能体能力位——子会话停止（subagents/interruptByParent 父址中断）仅在
+     *  端口在场时分流；界面只读能力，不读服务器类型（默认 false 与未加载态兼容）。 */
+    private val subagentsSupportedProvider: () -> Boolean = { false },
 
 ) {
     private val sessionId: String get() = sessionIdProvider()
@@ -722,9 +721,7 @@ internal class SessionActionsDelegate(
     suspend fun interruptSession() {
         val parentSessionId = chatRepository.getSessionsSnapshot()
             .firstOrNull { it.id == sessionId }?.parentId
-        if (parentSessionId != null &&
-            serverTypeProvider() == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh
-        ) {
+        if (parentSessionId != null && subagentsSupportedProvider()) {
             chatRepository.subagentInterrupt(serverId, parentSessionId, sessionId).getOrThrow()
             if (BuildConfig.DEBUG) {
                 AppLogger.d(TAG, "Interrupted subagent session $sessionId via parent $parentSessionId")

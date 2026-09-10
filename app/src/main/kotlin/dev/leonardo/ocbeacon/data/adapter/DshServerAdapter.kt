@@ -3,6 +3,16 @@ package dev.leonardo.ocbeacon.data.adapter
 import dev.leonardo.ocbeacon.data.api.dsh.DshApiClient
 import dev.leonardo.ocbeacon.data.api.dsh.DshProtocolSource
 import dev.leonardo.ocbeacon.data.api.dsh.DshWireProtocol
+import dev.leonardo.ocbeacon.data.api.feedback.FeedbackApi
+import dev.leonardo.ocbeacon.data.api.goal.GoalApi
+import dev.leonardo.ocbeacon.data.api.queue.MessageQueueApi
+import dev.leonardo.ocbeacon.data.api.subagent.SubagentApi
+import dev.leonardo.ocbeacon.data.adapter.dsh.DshFeedbackPort
+import dev.leonardo.ocbeacon.data.adapter.dsh.DshGoalPort
+import dev.leonardo.ocbeacon.data.adapter.dsh.DshQueuePort
+import dev.leonardo.ocbeacon.data.adapter.dsh.DshSubagentPort
+import dev.leonardo.ocbeacon.data.repository.ServerSettingsRepositoryImpl
+import dev.leonardo.ocbeacon.domain.repository.ServerSettingsRepository
 import dev.leonardo.ocbeacon.domain.model.CoreFlags
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.ServerFeature
@@ -15,7 +25,8 @@ import javax.inject.Singleton
  * DeepSeek Harness 适配器（线面世代 v011 / v012 由双形态探测判定）。
  *
  * 端口在场性（端口存在性 = 客户端能否提供该能力）：
- * - 在场：会话 / 消息 / 系统 / 文件（目录树等子能力）/ 提供商；
+ * - 在场：会话 / 消息 / 系统 / 文件（目录树等子能力）/ 提供商 + 子智能体 / 目标 /
+ *   反馈 / 消息队列（四类私有能力端口，见 data/adapter/dsh/）；
  * - 缺席：终端 PTY、shell 命令（DSH 方法面无对应域；原实现抛
  *   UnsupportedServerCapability，现由端口缺席统一表达）。
  */
@@ -24,6 +35,14 @@ class DshServerAdapter @Inject constructor(
     private val dsh: DshApiClient,
     private val protocolSource: DshProtocolSource,
 ) : ServerAdapter {
+
+    // 私有能力端口（薄委托实现，与协议客户端解耦；端口即本适配器的能力声明）
+    private val subagents: SubagentApi = DshSubagentPort(dsh)
+    private val goals: GoalApi = DshGoalPort(dsh)
+    private val feedback: FeedbackApi = DshFeedbackPort(dsh)
+    private val queue: MessageQueueApi = DshQueuePort(dsh)
+    // 服务器设置端口：实现与 Hilt 单例同源同构（无状态薄委托），由适配器持有其端口身份
+    private val serverSettings: ServerSettingsRepository = ServerSettingsRepositoryImpl(dsh)
 
     override val type: ServerType = ServerType.Dsh
 
@@ -43,6 +62,12 @@ class DshServerAdapter @Inject constructor(
         provider = dsh,
         terminal = null,
         shell = null,
+        // 四类私有能力经端口挂载（端口在场即能力可用）
+        subagents = subagents,
+        goals = goals,
+        feedback = feedback,
+        queue = queue,
+        serverSettings = serverSettings,
     )
 
     override fun coreFlags(conn: ServerConnection): CoreFlags = CoreFlags(
@@ -63,12 +88,10 @@ class DshServerAdapter @Inject constructor(
      */
     override fun privateFeatures(conn: ServerConnection): Set<ServerFeature> = buildSet {
         add(ServerFeatures.COMMANDS)
-        add(ServerFeatures.GOALS)
-        add(ServerFeatures.FEEDBACK)
         add(ServerFeatures.PERMISSION_SWITCH)
         add(ServerFeatures.AGENT_PRESET)
         add(ServerFeatures.SESSION_ARCHIVE)
-        add(ServerFeatures.QUEUE)
+        // 排队可编辑是端口内子能力（端口在场之外的部分支持）
         add(ServerFeatures.QUEUE_EDIT)
     }
 

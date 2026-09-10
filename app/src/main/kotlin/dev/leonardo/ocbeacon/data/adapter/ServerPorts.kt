@@ -1,12 +1,17 @@
 package dev.leonardo.ocbeacon.data.adapter
 
+import dev.leonardo.ocbeacon.data.api.feedback.FeedbackApi
 import dev.leonardo.ocbeacon.data.api.file.FileApi
+import dev.leonardo.ocbeacon.data.api.goal.GoalApi
 import dev.leonardo.ocbeacon.data.api.message.MessageApi
 import dev.leonardo.ocbeacon.data.api.provider.ProviderApi
+import dev.leonardo.ocbeacon.data.api.queue.MessageQueueApi
+import dev.leonardo.ocbeacon.data.api.subagent.SubagentApi
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.api.shell.ShellApi
 import dev.leonardo.ocbeacon.data.api.system.SystemApi
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
+import dev.leonardo.ocbeacon.domain.repository.ServerSettingsRepository
 import dev.leonardo.ocbeacon.domain.model.ServerFeature
 import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 
@@ -30,6 +35,11 @@ data class ServerPorts(
     val provider: ProviderApi? = null,
     val terminal: TerminalApi? = null,
     val shell: ShellApi? = null,
+    val subagents: SubagentApi? = null,
+    val goals: GoalApi? = null,
+    val feedback: FeedbackApi? = null,
+    val queue: MessageQueueApi? = null,
+    val serverSettings: ServerSettingsRepository? = null,
 ) {
 
     /** 端口在场 => 对应通用能力。 */
@@ -41,5 +51,10 @@ data class ServerPorts(
         provider?.let { add(ServerFeatures.PROVIDERS) }
         terminal?.let { add(ServerFeatures.TERMINAL) }
         shell?.let { add(ServerFeatures.SHELL) }
+        subagents?.let { add(ServerFeatures.SUBAGENTS) }
+        goals?.let { add(ServerFeatures.GOALS) }
+        feedback?.let { add(ServerFeatures.FEEDBACK) }
+        queue?.let { add(ServerFeatures.QUEUE) }
+        serverSettings?.let { add(ServerFeatures.SERVER_SETTINGS) }
     }
 }

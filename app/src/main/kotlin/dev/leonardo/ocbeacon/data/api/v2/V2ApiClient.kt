@@ -16,6 +16,7 @@ import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.api.system.SystemApi
 import dev.leonardo.ocbeacon.data.api.file.FileApi
 import dev.leonardo.ocbeacon.data.api.provider.ProviderApi
+import dev.leonardo.ocbeacon.data.api.queue.MessageQueueApi
 import dev.leonardo.ocbeacon.data.api.shell.ShellApi
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
 import dev.leonardo.ocbeacon.data.dto.common.ModelSelection
@@ -115,7 +116,8 @@ private const val TAG = "V2Api"
 @Singleton
 class V2ApiClient @Inject constructor(
     private val apiClient: ApiClient
-) : SessionApi, MessageApi, SystemApi, TerminalApi, FileApi, ProviderApi, ShellApi {
+) : SessionApi, MessageApi, SystemApi, TerminalApi, FileApi, ProviderApi, ShellApi,
+    MessageQueueApi {
     private val httpClient get() = apiClient.httpClient
     private val json get() = apiClient.json
 

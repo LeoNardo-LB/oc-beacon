@@ -52,10 +52,9 @@ internal class ChatSendDelegate(
     /** 发送成功信号（驱动输入框清空——失败时输入框消息保留，用户要求）。 */
     private val onSendSuccess: (String) -> Unit,
     private val draftDelegate: DraftInputDelegate,
-    /** #310①：DSH 判定——子会话续聊（subagents/prompt）仅 DSH 线面；OpenCode
-     * 子会话维持既有只读镜像（默认 OpenCode 与未加载态兼容）。 */
-    private val serverTypeProvider: () -> dev.leonardo.ocbeacon.domain.model.ServerType =
-        { dev.leonardo.ocbeacon.domain.model.ServerType.OpenCode },
+    /** #391：子智能体能力位——子会话续聊（subagents/prompt）仅在端口在场时分流；
+     *  界面只读能力，不读服务器类型（默认 false 与未加载态兼容）。 */
+    private val subagentsSupportedProvider: () -> Boolean = { false },
     /** #362：busy+queue 提交成功后回调——V2 面（无推送帧）触发 inbox 拉取刷新
      * 队列角标/面板；DSH 面 queue 帧自推送，回调内部门控无害。 */
     private val onQueueSubmitted: () -> Unit = {},
@@ -143,9 +142,7 @@ internal class ChatSendDelegate(
                 // 无模型参数（steer 长按语义仅主会话）；主会话路径零改动。
                 val parentSessionId = chatRepository.getSessionsSnapshot()
                     .firstOrNull { it.id == currentSessionId }?.parentId
-                if (parentSessionId != null &&
-                    serverTypeProvider() == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh
-                ) {
+                if (parentSessionId != null && subagentsSupportedProvider()) {
                     chatRepository.subagentPrompt(serverId, parentSessionId, currentSessionId, parts)
                         .getOrThrow()
                     if (BuildConfig.DEBUG) {

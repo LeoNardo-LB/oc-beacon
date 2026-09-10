@@ -15,14 +15,14 @@ import dev.leonardo.ocbeacon.domain.model.DshSettingsFormMapper
 import dev.leonardo.ocbeacon.domain.model.DshSettingsNamespaceForm
 import dev.leonardo.ocbeacon.domain.model.DshSettingsOp
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
-import dev.leonardo.ocbeacon.domain.repository.DshSettingsRepository
+import dev.leonardo.ocbeacon.domain.repository.ServerSettingsRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class DshSettingsRepositoryImpl @Inject constructor(
+class ServerSettingsRepositoryImpl @Inject constructor(
     private val dshApi: DshApiClient,
-) : DshSettingsRepository {
+) : ServerSettingsRepository {
 
     override suspend fun getPermissionDefault(conn: ServerConnection): DshPermissionDefault? =
         dshApi.getPermissionDefault(conn)

@@ -26,7 +26,7 @@ import dev.leonardo.ocbeacon.domain.model.Tag
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.DraftRepository
 import dev.leonardo.ocbeacon.domain.repository.DshSettingsForbiddenException
-import dev.leonardo.ocbeacon.domain.repository.DshSettingsRepository
+import dev.leonardo.ocbeacon.domain.repository.ServerSettingsRepository
 import dev.leonardo.ocbeacon.domain.repository.FileRepository
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
 import dev.leonardo.ocbeacon.domain.repository.ServerRepository
@@ -91,7 +91,7 @@ class SessionListViewModel @Inject constructor(
     private val deleteSessionUseCase: DeleteSessionUseCase,
     private val draftRepository: DraftRepository,
     private val mcpRepository: McpRepository,
-    private val dshSettingsRepository: DshSettingsRepository,
+    private val serverSettingsRepository: ServerSettingsRepository,
     private val scrollSignal: SessionScrollSignal,
     private val getSettingsFlowUseCase: GetSettingsFlowUseCase,
     // C5 拆分：标签/收藏方法自 SettingsRepository 独立成 SessionTagRepository
@@ -394,7 +394,7 @@ class SessionListViewModel @Inject constructor(
         viewModelScope.launch {
             _permissionDefaultBlocked.value = false
             try {
-                _permissionDefault.value = dshSettingsRepository.getPermissionDefault(conn)
+                _permissionDefault.value = serverSettingsRepository.getPermissionDefault(conn)
             } catch (e: DshSettingsForbiddenException) {
                 AppLogger.w(TAG_SESSION_LIST_VM, "permission default blocked: loopback-only connection (403)")
                 _permissionDefault.value = null
@@ -409,8 +409,8 @@ class SessionListViewModel @Inject constructor(
         val conn = _mcpConn ?: return
         viewModelScope.launch {
             try {
-                if (dshSettingsRepository.setPermissionDefault(conn, preset)) {
-                    _permissionDefault.value = dshSettingsRepository.getPermissionDefault(conn)
+                if (serverSettingsRepository.setPermissionDefault(conn, preset)) {
+                    _permissionDefault.value = serverSettingsRepository.getPermissionDefault(conn)
                 }
             } catch (e: DshSettingsForbiddenException) {
                 _permissionDefaultBlocked.value = true
@@ -450,7 +450,7 @@ class SessionListViewModel @Inject constructor(
             _agentPresetDefaultBlocked.value = false
             // #324②：roster 直读（同时取 authorable；原 chatRepository 路径丢 trust/broken）
             try {
-                val roster = dshSettingsRepository.agentPresetRoster(conn)
+                val roster = serverSettingsRepository.agentPresetRoster(conn)
                 _agentPresets.value = roster.presets
                 _agentPresetAuthorable.value = roster.authorable
             } catch (e: Exception) {
@@ -458,7 +458,7 @@ class SessionListViewModel @Inject constructor(
                 AppLogger.w(TAG_SESSION_LIST_VM, "listAgentPresets failed: " + e.message)
             }
             try {
-                _agentPresetDefault.value = dshSettingsRepository.getDefaultAgentPreset(conn)
+                _agentPresetDefault.value = serverSettingsRepository.getDefaultAgentPreset(conn)
             } catch (e: DshSettingsForbiddenException) {
                 AppLogger.w(TAG_SESSION_LIST_VM, "agent preset default blocked: loopback-only connection (403)")
                 _agentPresetDefault.value = null
@@ -473,8 +473,8 @@ class SessionListViewModel @Inject constructor(
         val conn = _mcpConn ?: return
         viewModelScope.launch {
             try {
-                if (dshSettingsRepository.setDefaultAgentPreset(conn, preset)) {
-                    _agentPresetDefault.value = dshSettingsRepository.getDefaultAgentPreset(conn)
+                if (serverSettingsRepository.setDefaultAgentPreset(conn, preset)) {
+                    _agentPresetDefault.value = serverSettingsRepository.getDefaultAgentPreset(conn)
                 }
             } catch (e: DshSettingsForbiddenException) {
                 _agentPresetDefaultBlocked.value = true
@@ -486,7 +486,7 @@ class SessionListViewModel @Inject constructor(
     fun readAgentPreset(id: String) {
         val conn = _mcpConn ?: return
         viewModelScope.launch {
-            _agentPresetDocument.value = dshSettingsRepository.readAgentPreset(conn, id)
+            _agentPresetDocument.value = serverSettingsRepository.readAgentPreset(conn, id)
         }
     }
 
@@ -499,8 +499,8 @@ class SessionListViewModel @Inject constructor(
         val conn = _mcpConn ?: return
         viewModelScope.launch {
             try {
-                if (dshSettingsRepository.copyAgentPreset(conn, from, newId, name)) {
-                    val roster = dshSettingsRepository.agentPresetRoster(conn)
+                if (serverSettingsRepository.copyAgentPreset(conn, from, newId, name)) {
+                    val roster = serverSettingsRepository.agentPresetRoster(conn)
                     _agentPresets.value = roster.presets
                     _agentPresetAuthorable.value = roster.authorable
                 }
@@ -515,8 +515,8 @@ class SessionListViewModel @Inject constructor(
         val conn = _mcpConn ?: return
         viewModelScope.launch {
             try {
-                if (dshSettingsRepository.deleteAgentPreset(conn, id)) {
-                    val roster = dshSettingsRepository.agentPresetRoster(conn)
+                if (serverSettingsRepository.deleteAgentPreset(conn, id)) {
+                    val roster = serverSettingsRepository.agentPresetRoster(conn)
                     _agentPresets.value = roster.presets
                 }
             } catch (e: DshSettingsForbiddenException) {
@@ -541,12 +541,12 @@ class SessionListViewModel @Inject constructor(
         if (!_serverIsDsh.value) return
         val conn = _mcpConn ?: return
         viewModelScope.launch {
-            _pluginInventory.value = dshSettingsRepository.listPluginInventory(conn)
+            _pluginInventory.value = serverSettingsRepository.listPluginInventory(conn)
         }
         viewModelScope.launch {
             _settingsFormsBlocked.value = false
             try {
-                _settingsForms.value = dshSettingsRepository.describeSettingsForms(conn).orEmpty()
+                _settingsForms.value = serverSettingsRepository.describeSettingsForms(conn).orEmpty()
             } catch (e: DshSettingsForbiddenException) {
                 AppLogger.w(TAG_SESSION_LIST_VM, "settings describe blocked: loopback-only connection (403)")
                 _settingsFormsBlocked.value = true
@@ -559,8 +559,8 @@ class SessionListViewModel @Inject constructor(
         val conn = _mcpConn ?: return
         viewModelScope.launch {
             try {
-                if (dshSettingsRepository.mutateSettings(conn, ns, listOf(op), revision)) {
-                    _settingsForms.value = dshSettingsRepository.describeSettingsForms(conn).orEmpty()
+                if (serverSettingsRepository.mutateSettings(conn, ns, listOf(op), revision)) {
+                    _settingsForms.value = serverSettingsRepository.describeSettingsForms(conn).orEmpty()
                 }
             } catch (e: DshSettingsForbiddenException) {
                 _settingsFormsBlocked.value = true
@@ -573,8 +573,8 @@ class SessionListViewModel @Inject constructor(
         val conn = _mcpConn ?: return
         viewModelScope.launch {
             try {
-                if (dshSettingsRepository.setSecret(conn, ref, value)) {
-                    _settingsForms.value = dshSettingsRepository.describeSettingsForms(conn).orEmpty()
+                if (serverSettingsRepository.setSecret(conn, ref, value)) {
+                    _settingsForms.value = serverSettingsRepository.describeSettingsForms(conn).orEmpty()
                 }
             } catch (e: DshSettingsForbiddenException) {
                 _settingsFormsBlocked.value = true
