@@ -20,6 +20,7 @@ import dev.leonardo.ocbeacon.ui.components.AmoledDefaultBorder
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.LocalAmoledMode
 import dev.leonardo.ocbeacon.ui.theme.StatusConnected
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,8 +50,8 @@ internal fun ServerCard(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(SpacingTokens.LG.dp),
+            verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
         ) {
             // 头部行：名称、URL、状态、菜单
             Row(

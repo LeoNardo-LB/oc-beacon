@@ -32,6 +32,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * Write tool card — shows file path + code content.
@@ -93,7 +94,7 @@ internal fun WriteToolCard(
                     text = content.take(5000),
                     style = CodeTypography.copy(color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED) else MaterialTheme.colorScheme.onSecondaryContainer),
                     modifier = Modifier
-                        .padding(4.dp)
+                        .padding(SpacingTokens.XS.dp)
                         .codeHorizontalScroll()
                 )
             }

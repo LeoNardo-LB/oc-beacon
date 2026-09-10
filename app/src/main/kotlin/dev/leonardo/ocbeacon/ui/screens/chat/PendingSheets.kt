@@ -106,7 +106,7 @@ internal fun SheetScaffold(
                     LocalConfiguration.current.screenHeightDp.dp *
                         SheetTokens.ChatSheetHeightFraction
                 )
-                .padding(bottom = 24.dp)
+                .padding(bottom = SpacingTokens.XL.dp)
         ) {
             Row(
                 modifier = Modifier
@@ -417,7 +417,7 @@ private fun EmptyHint(text: String) {
         text = text,
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
-        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = SpacingTokens.XL.dp),
         textAlign = TextAlign.Center,
     )
 }
@@ -439,8 +439,8 @@ private fun ShellDetailView(
                 LocalConfiguration.current.screenHeightDp.dp *
                     SheetTokens.ChatSheetHeightFraction
             )
-            .padding(horizontal = 16.dp)
-            .padding(bottom = 24.dp)
+            .padding(horizontal = SpacingTokens.LG.dp)
+            .padding(bottom = SpacingTokens.XL.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             androidx.compose.material3.Icon(
@@ -456,7 +456,7 @@ private fun ShellDetailView(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 8.dp),
+                    .padding(horizontal = SpacingTokens.SM.dp),
             )
             IconButton(onClick = onClose) {
                 Icon(Icons.Default.Close, contentDescription = stringResource(R.string.shell_close))
@@ -477,7 +477,7 @@ private fun ShellDetailView(
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 12.dp)
+                .padding(top = SpacingTokens.MD.dp)
                 .weight(1f)
                 .verticalScroll(rememberScrollState()),
         )

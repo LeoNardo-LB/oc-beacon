@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /** 聚合卡片通用行数据。 */
 data class ToolGroupListItem(
@@ -51,7 +52,7 @@ fun ToolGroupList(
                 modifier = Modifier
                     .fillMaxWidth()
                     .let { m -> if (onItemClick != null) m.clickable { onItemClick(idx) } else m }
-                    .padding(vertical = 4.dp),
+                    .padding(vertical = SpacingTokens.XS.dp),
                 horizontalArrangement = Arrangement.spacedBy(3.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

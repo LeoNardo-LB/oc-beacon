@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.screens.chat.util.SlashCommand
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * 用户输入 "/" 时显示的斜杠命令建议弹窗。
@@ -56,7 +57,7 @@ internal fun SlashCommandSuggestions(
                 .fillMaxWidth()
                 .heightIn(max = maxHeight)
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .padding(vertical = 4.dp)
+                .padding(vertical = SpacingTokens.XS.dp)
         ) {
             // #324④：skills 触发组头（skills 存在时命令与技能间可见分组界）
             val hasSkills = commands.any { it.type == "skill" }
@@ -66,7 +67,7 @@ internal fun SlashCommandSuggestions(
                         text = stringResource(R.string.slash_skills_group),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.tertiary.copy(alpha = AlphaTokens.MEDIUM),
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                        modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp, vertical = 2.dp),
                     )
                 }
             }
@@ -81,9 +82,9 @@ internal fun SlashCommandSuggestions(
                                 onCommandClick(cmd)
                             }
                         }
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
                 ) {
                     Text(
                         text = "/${cmd.name}",
@@ -96,7 +97,7 @@ internal fun SlashCommandSuggestions(
                             text = "skill",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.tertiary.copy(alpha = AlphaTokens.MEDIUM),
-                            modifier = Modifier.padding(end = 4.dp)
+                            modifier = Modifier.padding(end = SpacingTokens.XS.dp)
                         )
                         // #324④：modelInvocable 标识（模型可自主调用——skills/list 契约字段）
                         if (cmd.modelInvocable) {
@@ -105,7 +106,7 @@ internal fun SlashCommandSuggestions(
                                 contentDescription = stringResource(R.string.slash_skill_model_invocable),
                                 tint = MaterialTheme.colorScheme.tertiary.copy(alpha = AlphaTokens.MEDIUM),
                                 modifier = Modifier
-                                    .padding(end = 4.dp)
+                                    .padding(end = SpacingTokens.XS.dp)
                                     .size(14.dp),
                             )
                         }

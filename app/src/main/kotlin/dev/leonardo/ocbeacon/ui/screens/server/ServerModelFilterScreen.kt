@@ -45,6 +45,7 @@ import dev.leonardo.ocbeacon.ui.screens.settings.components.SectionHeader
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ButtonTokens
 import dev.leonardo.ocbeacon.ui.theme.LocalAmoledMode
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,7 +87,7 @@ fun ServerModelFilterScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = SpacingTokens.LG.dp)
         ) {
             OutlinedTextField(
                 value = search,

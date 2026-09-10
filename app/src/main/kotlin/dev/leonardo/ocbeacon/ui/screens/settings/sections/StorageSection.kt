@@ -20,6 +20,7 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.screens.settings.SettingsViewModel
 import dev.leonardo.ocbeacon.ui.screens.settings.components.SectionHeader
 import dev.leonardo.ocbeacon.ui.theme.ListItemTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * #271 字节人性化格式化（存储统计）：B → KB → MB → GB。
@@ -87,5 +88,5 @@ fun StorageSection(
         )
     }
 
-    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+    HorizontalDivider(modifier = Modifier.padding(vertical = SpacingTokens.XS.dp))
 }

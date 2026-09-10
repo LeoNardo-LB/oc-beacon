@@ -44,6 +44,7 @@ import dev.leonardo.ocbeacon.ui.screens.sessions.components.SettingsSectionHeade
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ButtonTokens
 import kotlinx.serialization.json.JsonPrimitive
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * #324③ 服务器插件清单区块（ServerSettingsContent 内，DSH 门控）。
@@ -71,7 +72,7 @@ fun DshPluginInventorySection(
                         text = stringResource(R.string.dsh_plugins_inventory_empty),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
                     )
                 }
                 inventory.entries.forEach { entry ->
@@ -91,7 +92,7 @@ fun DshPluginInventorySection(
                         text = stringResource(R.string.dsh_plugin_preset_group, preset.name),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
+                        modifier = Modifier.padding(start = SpacingTokens.LG.dp, top = SpacingTokens.MD.dp, bottom = SpacingTokens.XS.dp),
                     )
                     preset.rows.forEach { row ->
                         val stateLabel = when (row.enabled) {
@@ -157,7 +158,7 @@ fun DshServerConfigSection(
                         text = stringResource(R.string.dsh_settings_loopback_required),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
                     )
                 }
                 forms.forEach { form ->
@@ -184,7 +185,7 @@ private fun DshNamespaceFormCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -217,7 +218,7 @@ private fun DshNamespaceFormCard(
         }
         HorizontalDivider(
             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT),
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier.padding(top = SpacingTokens.SM.dp),
         )
     }
 }
@@ -237,7 +238,7 @@ private fun DshFormField(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                    .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.XS.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -257,15 +258,15 @@ private fun DshFormField(
         }
         DshSettingsFieldKind.ENUM -> {
             val current = (field.value as? JsonPrimitive)?.content
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+            Column(modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.XS.dp)) {
                 Text(
                     text = field.key,
                     style = MaterialTheme.typography.bodyMedium,
                     fontFamily = FontFamily.Monospace,
                 )
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
+                    modifier = Modifier.padding(top = SpacingTokens.XS.dp),
                 ) {
                     field.options.forEach { option ->
                         OutlinedButton(
@@ -284,7 +285,7 @@ private fun DshFormField(
         }
         DshSettingsFieldKind.SECRET -> {
             var draft by rememberSaveable(field.key) { mutableStateOf("") }
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+            Column(modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.XS.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = field.key,
@@ -306,7 +307,7 @@ private fun DshFormField(
                 if (ref != null) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
                     ) {
                         OutlinedTextField(
                             value = draft,
@@ -346,10 +347,10 @@ private fun DshFormField(
             }
             var saving by rememberSaveable { mutableStateOf(false) }
             val isNumber = field.kind == DshSettingsFieldKind.NUMBER
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+            Column(modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.XS.dp)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
                 ) {
                     OutlinedTextField(
                         value = draft,

@@ -27,6 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * #317：DSH 0.1.2 TokenNeeded 细条幅（会话列表 TopAppBar 下沿，优先于
@@ -52,7 +53,7 @@ fun DshTokenNeededBanner(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+                .padding(start = SpacingTokens.LG.dp, end = SpacingTokens.XS.dp, top = 2.dp, bottom = 2.dp),
         ) {
             Icon(
                 imageVector = Icons.Default.Key,

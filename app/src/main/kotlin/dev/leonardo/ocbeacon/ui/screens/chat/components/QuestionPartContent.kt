@@ -109,7 +109,7 @@ internal fun CollapsibleQuestionPart(question: String) {
             Row(
                 modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.HelpOutline,
@@ -142,7 +142,7 @@ internal fun CollapsibleQuestionPart(question: String) {
                 enter = CardExpandEnterTransition,
                 exit = CardExpandExitTransition,
             ) {
-                Column(modifier = Modifier.padding(start = 20.dp, top = 4.dp, end = 4.dp, bottom = 4.dp)) {
+                Column(modifier = Modifier.padding(start = 20.dp, top = SpacingTokens.XS.dp, end = SpacingTokens.XS.dp, bottom = SpacingTokens.XS.dp)) {
                     Text(
                         text = parsed.displayText,
                         style = MaterialTheme.typography.bodySmall,
@@ -157,7 +157,7 @@ internal fun CollapsibleQuestionPart(question: String) {
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                modifier = Modifier.padding(horizontal = SpacingTokens.SM.dp, vertical = SpacingTokens.XS.dp),
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {

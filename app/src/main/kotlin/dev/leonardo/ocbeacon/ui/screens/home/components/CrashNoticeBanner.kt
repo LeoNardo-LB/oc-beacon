@@ -11,6 +11,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * #154a：崩溃启动提示横幅——上次运行存在未确认 FATAL 时显示于 Home 顶部。
@@ -32,9 +33,9 @@ internal fun CrashNoticeBanner(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(SpacingTokens.MD.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp),
         ) {
             Icon(
                 imageVector = Icons.Default.BugReport,

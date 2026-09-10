@@ -78,6 +78,7 @@ import dev.leonardo.ocbeacon.ui.theme.ButtonTokens
 import dev.leonardo.ocbeacon.ui.theme.LocalAmoledMode
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import kotlinx.coroutines.launch
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -177,8 +178,8 @@ fun ServerProvidersScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.padding(SpacingTokens.XL.dp),
+                    verticalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp)
                 ) {
                     Text(
                         text = stringResource(R.string.server_settings_connect_provider, provider.providerName),
@@ -234,8 +235,8 @@ fun ServerProvidersScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.padding(SpacingTokens.XL.dp),
+                    verticalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp)
                 ) {
                     Text(stringResource(R.string.server_settings_api_key_title, provider.providerName), style = MaterialTheme.typography.titleMedium)
                     OutlinedTextField(
@@ -290,8 +291,8 @@ fun ServerProvidersScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.padding(SpacingTokens.XL.dp),
+                    verticalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp)
                 ) {
                     Text(
                         text = stringResource(R.string.server_settings_oauth_title, pending.providerName),
@@ -332,7 +333,7 @@ fun ServerProvidersScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    .padding(horizontal = SpacingTokens.LG.dp, vertical = 14.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
@@ -444,7 +445,7 @@ fun ServerProvidersScreen(
                         text = error,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp)
                     )
                 }
             }

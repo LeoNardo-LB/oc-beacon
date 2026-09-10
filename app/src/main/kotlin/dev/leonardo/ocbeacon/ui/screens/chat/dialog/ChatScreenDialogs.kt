@@ -24,6 +24,7 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.components.amoledDialogParams
 import dev.leonardo.ocbeacon.ui.components.DialogButtons
 import dev.leonardo.ocbeacon.ui.components.DialogButtonRole
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * 重命名当前会话的对话框。
@@ -49,7 +50,7 @@ internal fun RenameSessionDialog(
             border = params.border,
             shape = params.shape,
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
+            Column(modifier = Modifier.padding(SpacingTokens.XL.dp)) {
                 Text(
                     text = stringResource(R.string.session_rename),
                     style = MaterialTheme.typography.titleMedium,
@@ -99,7 +100,7 @@ internal fun SendConfirmDialog(
             border = params.border,
             shape = params.shape,
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
+            Column(modifier = Modifier.padding(SpacingTokens.XL.dp)) {
                 Text(
                     text = stringResource(R.string.settings_confirm_send_title),
                     style = MaterialTheme.typography.titleMedium,
@@ -146,7 +147,7 @@ internal fun RevertCompactionDialog(
             border = params.border,
             shape = params.shape,
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
+            Column(modifier = Modifier.padding(SpacingTokens.XL.dp)) {
                 Text(
                     text = stringResource(R.string.chat_revert_title),
                     style = MaterialTheme.typography.titleMedium,

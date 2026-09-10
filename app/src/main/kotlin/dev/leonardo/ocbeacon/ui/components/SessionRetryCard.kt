@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import kotlinx.coroutines.delay
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * 在聊天会话内显示重试状态的紧凑卡片。
@@ -72,13 +73,13 @@ fun SessionRetryCard(
         modifier = modifier.fillMaxWidth(),
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(SpacingTokens.MD.dp),
+            verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
         ) {
             // ── 顶行：spinner + 尝试次数标签 + 倒计时 ──
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
             ) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),

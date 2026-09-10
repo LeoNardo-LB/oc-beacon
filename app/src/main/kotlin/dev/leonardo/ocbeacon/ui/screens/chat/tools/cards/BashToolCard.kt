@@ -40,6 +40,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /** #135（D2-L43）：ANSI 转义序列剥离正则——顶层预编译（原每次重组现场编译）。 */
 private val ANSI_ESCAPE_REGEX = Regex("\u001B\\[[0-9;]*[a-zA-Z]")
@@ -143,7 +144,7 @@ internal fun BashToolCard(
                     // 第 2 行：状态 + 输出摘要（对齐 ShellCard 状态行）
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
                     ) {
                         Text(
                             text = statusText,
@@ -182,7 +183,7 @@ internal fun BashToolCard(
                 text = stringResource(dev.leonardo.ocbeacon.R.string.chat_output_truncated, truncationPath ?: ""),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp)
+                modifier = Modifier.padding(top = SpacingTokens.XS.dp, start = SpacingTokens.XS.dp, end = SpacingTokens.XS.dp)
             )
         }
         Surface(
@@ -199,7 +200,7 @@ internal fun BashToolCard(
                     text = displayText,
                     style = CodeTypography.copy(color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED) else MaterialTheme.colorScheme.onSecondaryContainer),
                     modifier = Modifier
-                        .padding(4.dp)
+                        .padding(SpacingTokens.XS.dp)
                         .codeHorizontalScroll()
                 )
             }

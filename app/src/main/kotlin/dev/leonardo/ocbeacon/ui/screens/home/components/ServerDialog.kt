@@ -24,6 +24,7 @@ import dev.leonardo.ocbeacon.ui.components.DialogButtons
 import dev.leonardo.ocbeacon.ui.components.amoledDialogParams
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /** #391 切片8：服务器类型标签（用户选择面；新增类型时补一条本地化映射）。 */
 private fun serverTypeLabel(type: ServerType): Int = when (type) {
@@ -138,14 +139,14 @@ internal fun ServerDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(SpacingTokens.XL.dp),
+                verticalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp)
             ) {
                 Column(
                     modifier = Modifier
                         .weight(1f, fill = false)
                         .verticalScroll(scrollState),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp)
                 ) {
                     Text(
                         text = if (server != null) stringResource(R.string.home_edit) else stringResource(R.string.server_add),
@@ -154,7 +155,7 @@ internal fun ServerDialog(
 
                     // #276：服务器类型选择（M3 SegmentedButton 单选；DSH 无鉴权——
                     // 选中后隐藏用户名/密码并切换 URL 提示）
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)) {
                         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                             serverTypes.forEachIndexed { index, type ->
                                 SegmentedButton(
@@ -225,7 +226,7 @@ internal fun ServerDialog(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 14.dp, vertical = 10.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
                             ) {
                                 Text(
                                     text = stringResource(R.string.server_pair_help_title),
@@ -281,8 +282,8 @@ internal fun ServerDialog(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                .padding(horizontal = 14.dp, vertical = SpacingTokens.MD.dp),
+                            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {

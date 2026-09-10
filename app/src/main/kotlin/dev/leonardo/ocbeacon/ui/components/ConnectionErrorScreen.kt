@@ -36,6 +36,7 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import kotlinx.coroutines.delay
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * 服务器不可达时显示的全屏错误 UI。
@@ -85,7 +86,7 @@ fun ConnectionErrorScreen(
         Column(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
-                .padding(32.dp),
+                .padding(SpacingTokens.XXL.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // ── 错误图标 ──
@@ -168,7 +169,7 @@ fun ConnectionErrorScreen(
                             alpha = AlphaTokens.FAINT,
                         ),
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
+                        Column(modifier = Modifier.padding(SpacingTokens.MD.dp)) {
                             Text(
                                 text = server.displayName,
                                 style = MaterialTheme.typography.bodyLarge,

@@ -51,6 +51,7 @@ import com.mikepenz.markdown.model.MarkdownState
 import com.mikepenz.markdown.model.State
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * #263：思考完结时长合成。start=0 哨兵（V2 reasoning.started 无服务器时间戳，
@@ -429,7 +430,7 @@ private fun PartContentInner(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp),
+                    .padding(vertical = SpacingTokens.XS.dp),
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {

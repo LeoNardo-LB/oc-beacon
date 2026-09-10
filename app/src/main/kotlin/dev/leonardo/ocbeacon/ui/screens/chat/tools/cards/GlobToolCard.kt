@@ -36,6 +36,7 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * Glob tool card — shows glob pattern + match count + expandable file list.
@@ -83,7 +84,7 @@ internal fun GlobToolCard(
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
                     ),
-                    modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+                    modifier = Modifier.padding(start = SpacingTokens.XS.dp, bottom = SpacingTokens.XS.dp)
                 )
             }
 
@@ -103,7 +104,7 @@ internal fun GlobToolCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(max = 200.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                        contentPadding = PaddingValues(horizontal = SpacingTokens.SM.dp, vertical = SpacingTokens.XS.dp),
                         verticalArrangement = Arrangement.spacedBy(1.dp)
                     ) {
                         items(files, key = { it }) { filePath ->

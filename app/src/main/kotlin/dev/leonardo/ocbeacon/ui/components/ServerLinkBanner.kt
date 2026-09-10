@@ -20,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * #267（spec §3.2）：服务器断连常驻细条幅。
@@ -44,7 +45,7 @@ fun ServerLinkBanner(modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
+                .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.XS.dp),
         ) {
             Icon(
                 imageVector = Icons.Default.CloudOff,

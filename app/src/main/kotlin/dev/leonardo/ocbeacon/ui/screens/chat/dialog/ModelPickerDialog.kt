@@ -169,7 +169,7 @@ internal fun ModelPickerDialog(
                                 .heightIn(min = ItemTokens.MinHeightDense.dp)
                                 .padding(start = SpacingTokens.XS.dp, end = SpacingTokens.MD.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
                         ) {
                             ProviderIcon(
                                 providerId = provider.id,
@@ -235,7 +235,7 @@ internal fun ModelPickerDialog(
                                         text = stringResource(R.string.chat_free_label),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.tertiary.copy(alpha = AlphaTokens.HIGH),
-                                        modifier = Modifier.padding(start = 8.dp),
+                                        modifier = Modifier.padding(start = SpacingTokens.SM.dp),
                                     )
                                 }
                                 // 2026-08-22 用户决策：星标恢复点击=设置/取消默认模型

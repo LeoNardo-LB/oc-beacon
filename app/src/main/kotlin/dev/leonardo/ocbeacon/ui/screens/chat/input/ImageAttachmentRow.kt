@@ -38,6 +38,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * Image attachment thumbnail row with preview dialog support.
@@ -54,7 +55,7 @@ internal fun ImageAttachmentRow(
 
     LazyRow(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
     ) {
         items(attachments.size, key = { index -> attachments[index].uri }) { index ->
             val attachment = attachments[index]

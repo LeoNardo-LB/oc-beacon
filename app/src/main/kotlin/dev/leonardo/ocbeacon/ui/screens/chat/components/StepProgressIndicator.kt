@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.StepProgressInfo
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * Step progress indicator showing current step number, agent, and model.
@@ -30,7 +31,7 @@ fun StepProgressIndicator(
     androidx.compose.foundation.layout.Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.XS.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

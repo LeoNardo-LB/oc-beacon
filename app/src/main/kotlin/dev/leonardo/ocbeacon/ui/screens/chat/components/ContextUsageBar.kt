@@ -14,6 +14,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 // 2026-08-17 上下文占用口径修正（ACP：input+cache.read）：删除
 // calculateContextUsage(parts, contextLimit)——无生产调用点（显示唯一来源
@@ -53,7 +54,7 @@ fun ContextUsageBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
+                .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.XS.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -66,7 +67,7 @@ fun ContextUsageBar(
             progress = { usageRatio },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = SpacingTokens.LG.dp),
             color = color,
             trackColor = trackColor,
         )

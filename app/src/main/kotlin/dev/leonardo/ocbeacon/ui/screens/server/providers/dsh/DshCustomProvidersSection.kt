@@ -53,6 +53,7 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ButtonTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import kotlinx.coroutines.launch
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * #324① DSH provider 目录区块（ServerProvidersScreen 内，isDsh 门控）。
@@ -85,7 +86,7 @@ internal fun DshCustomProvidersSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -119,7 +120,7 @@ internal fun DshCustomProvidersSection(
                 text = stringResource(R.string.dsh_settings_loopback_required),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp),
             )
         }
         error?.let {
@@ -127,7 +128,7 @@ internal fun DshCustomProvidersSection(
                 text = it,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp),
             )
         }
         if (directory.isEmpty() && !loading) {
@@ -135,7 +136,7 @@ internal fun DshCustomProvidersSection(
                 text = stringResource(R.string.dsh_providers_empty),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MEDIUM),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
             )
         }
     }
@@ -315,7 +316,7 @@ private fun DshCustomProviderCreateDialog(
                 // 协议选择（三固定项；服务端 schema 序）
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
                 ) {
                     DshCustomProviders.PROTOCOLS.forEach { choice ->
                         OutlinedButton(
@@ -341,7 +342,7 @@ private fun DshCustomProviderCreateDialog(
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     OutlinedButton(

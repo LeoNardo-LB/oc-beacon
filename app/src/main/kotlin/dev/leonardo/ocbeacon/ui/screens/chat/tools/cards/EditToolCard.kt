@@ -47,6 +47,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * Edit 工具卡片 —— 显示文件路径 + 红/绿着色行的 diff。
@@ -141,7 +142,7 @@ internal fun EditToolCard(
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                             ),
                             textColor = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.padding(4.dp),
+                            modifier = Modifier.padding(SpacingTokens.XS.dp),
                         )
                     }
                 } else {
@@ -164,7 +165,7 @@ internal fun EditToolCard(
                                             color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = AlphaTokens.HIGH)
                                         ),
                                         modifier = Modifier
-                                            .padding(4.dp)
+                                            .padding(SpacingTokens.XS.dp)
                                             .codeHorizontalScroll()
                                     )
                                 }

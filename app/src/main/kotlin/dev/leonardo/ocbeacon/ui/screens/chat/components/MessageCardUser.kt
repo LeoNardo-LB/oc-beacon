@@ -317,7 +317,7 @@ internal fun ChunkedUserMessage(
             if (chunk.isFirst) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
                     modifier = Modifier.padding(bottom = if (compact) SpacingTokens.XS.dp else 10.dp),
                 ) {
                     Icon(

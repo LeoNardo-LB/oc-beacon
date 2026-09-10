@@ -39,6 +39,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.extractFileName
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * Read tool card — shows "读取" title, file name subtitle, expandable for details.
@@ -118,7 +119,7 @@ internal fun ReadToolCard(
                                     color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = AlphaTokens.HIGH)
                                 ),
                                 modifier = Modifier
-                                    .padding(4.dp)
+                                    .padding(SpacingTokens.XS.dp)
                                     .codeHorizontalScroll()
                             )
                         }
@@ -136,7 +137,7 @@ internal fun ReadToolCard(
                                     color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = AlphaTokens.HIGH)
                                 ),
                                 modifier = Modifier
-                                    .padding(4.dp)
+                                    .padding(SpacingTokens.XS.dp)
                                     .codeHorizontalScroll()
                             )
                         }

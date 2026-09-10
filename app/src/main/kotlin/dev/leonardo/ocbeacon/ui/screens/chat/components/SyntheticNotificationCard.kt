@@ -25,6 +25,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 import dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent
 import dev.leonardo.ocbeacon.util.DateFormatters
 import java.util.Date
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * 轮次完成合成通知卡片（#67 synthetic 消息——后台 task/subagent/shell 完成注入）。
@@ -151,7 +152,7 @@ internal fun SyntheticNotificationCard(
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     ),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = SpacingTokens.SM.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Filled.LocationOn,

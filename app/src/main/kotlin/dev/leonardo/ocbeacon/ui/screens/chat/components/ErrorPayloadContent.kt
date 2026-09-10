@@ -33,6 +33,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.markdown.looksLikeHtmlPayload
 import dev.leonardo.ocbeacon.ui.screens.chat.markdown.normalizeHtmlForEmbeddedPreview
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 private enum class HtmlErrorViewMode {
     Page,
@@ -61,8 +62,8 @@ internal fun ErrorPayloadContent(
     var mode by rememberSaveable(text) { mutableStateOf(HtmlErrorViewMode.Code) }
     val htmlForPreview = remember(text) { normalizeHtmlForEmbeddedPreview(text) }
 
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)) {
             FilterChip(
                 selected = mode == HtmlErrorViewMode.Code,
                 onClick = { mode = HtmlErrorViewMode.Code },

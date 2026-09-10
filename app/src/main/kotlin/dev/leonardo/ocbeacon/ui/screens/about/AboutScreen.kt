@@ -30,6 +30,7 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.data.update.UpdateState
 import dev.leonardo.ocbeacon.ui.components.rememberUpdateInstallLauncher
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,7 +65,7 @@ fun AboutScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = SpacingTokens.XL.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(48.dp))
@@ -119,7 +120,7 @@ fun AboutScreen(
                         onViewRelease = { url ->
                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                         },
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier.padding(SpacingTokens.LG.dp),
                     )
                 }
             }
@@ -156,7 +157,7 @@ fun AboutScreen(
                 )
 
                 HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 16.dp),
+                    modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp),
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                 )
 
@@ -183,7 +184,7 @@ fun AboutScreen(
                 )
 
                 HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 16.dp),
+                    modifier = Modifier.padding(horizontal = SpacingTokens.LG.dp),
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                 )
 
@@ -291,7 +292,7 @@ private fun UpdateCheckContent(
                 Spacer(Modifier.height(12.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
                 ) {
                     OutlinedButton(
                         onClick = { onViewRelease(release.releaseUrl) },

@@ -28,6 +28,7 @@ import dev.leonardo.ocbeacon.ui.screens.settings.components.SectionHeader
 import dev.leonardo.ocbeacon.ui.screens.settings.components.getImageMaxSideDisplayName
 import dev.leonardo.ocbeacon.ui.theme.ListItemTokens
 import kotlin.math.roundToInt
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 @Composable
 fun ChatBehaviorSection(
@@ -173,5 +174,5 @@ fun ChatBehaviorSection(
         modifier = Modifier.clickable { onShowTerminalFontSizeDialog() }.padding(ListItemTokens.ContentPaddingMedium)
     )
 
-    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+    HorizontalDivider(modifier = Modifier.padding(vertical = SpacingTokens.XS.dp))
 }

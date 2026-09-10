@@ -106,12 +106,12 @@ internal fun MessageBubble(
                     modifier = Modifier
                         .padding(horizontal = labelRowHorizontalPadding ?: contentHPad),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
                 ) {
                     // 左区（weight 1f）：图标 + 标签（区内省略） + suffix
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
                         modifier = Modifier.weight(1f),
                     ) {
                         labelLeading?.invoke()
@@ -134,7 +134,7 @@ internal fun MessageBubble(
                     // 右区（weight 1f，尾对齐）：trailing 图标组
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
+                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp, Alignment.End),
                         modifier = Modifier.weight(1f),
                     ) {
                         labelTrailing?.invoke(this)

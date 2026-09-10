@@ -404,7 +404,7 @@ viewModel.consumePendingReadSessionId()
                                         text = stringResource(R.string.search_server_hits),
                                         style = MaterialTheme.typography.labelLarge,
                                         color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(vertical = 4.dp),
+                                        modifier = Modifier.padding(vertical = SpacingTokens.XS.dp),
                                     )
                                     serverRows.forEach { hit ->
                                         Row(
@@ -470,7 +470,7 @@ viewModel.consumePendingReadSessionId()
                                         text = stringResource(R.string.search_content_hits),
                                         style = MaterialTheme.typography.labelLarge,
                                         color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(vertical = 4.dp),
+                                        modifier = Modifier.padding(vertical = SpacingTokens.XS.dp),
                                     )
                                     // #355（用户裁决）：筛选改标准列表样式（DropdownMenu
                                     // 单选列表——「筛选不要 tag 形式」）；选项语义与原 chips 共源
@@ -485,13 +485,13 @@ viewModel.consumePendingReadSessionId()
                                             text = stringResource(R.string.search_content_no_hits),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(vertical = 4.dp),
+                                            modifier = Modifier.padding(vertical = SpacingTokens.XS.dp),
                                         )
                                     }
                                     groups.forEach { (sid, hits) ->
                                         // 会话头行：标题 + 命中计数（归属可扫读）
                                         Row(
-                                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                            modifier = Modifier.fillMaxWidth().padding(top = SpacingTokens.XS.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
                                             Text(
@@ -527,7 +527,7 @@ viewModel.consumePendingReadSessionId()
                                                     } else {
                                                         MaterialTheme.colorScheme.tertiary
                                                     },
-                                                    modifier = Modifier.widthIn(min = 32.dp).padding(end = 8.dp),
+                                                    modifier = Modifier.widthIn(min = SpacingTokens.XXL.dp).padding(end = SpacingTokens.SM.dp),
                                                 )
                                                 // FTS snippet() 以 [..] 标记命中段——高亮渲染
                                                 HighlightedHitSnippet(

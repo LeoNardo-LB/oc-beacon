@@ -29,6 +29,7 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.isAmoledTheme
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * 用于选择器对话框的可复用单选列表。
@@ -76,7 +77,7 @@ fun <K> AppPickerList(
                         } else Modifier
                     )
                     .clickable { onSelect(key) }
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                    .padding(horizontal = SpacingTokens.LG.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(

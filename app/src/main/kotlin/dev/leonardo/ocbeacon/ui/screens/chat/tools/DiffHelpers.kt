@@ -31,6 +31,7 @@ import dev.leonardo.ocbeacon.ui.theme.DiffAdded
 import dev.leonardo.ocbeacon.ui.theme.DiffRemoved
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * 内联 diff 变更数：+N -N 带颜色。
@@ -39,7 +40,7 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 internal fun DiffChangesInline(additions: Int, deletions: Int) {
     val addColor = DiffAdded
     val delColor = DiffRemoved
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)) {
         if (additions > 0) {
             Text(
                 text = "+$additions",
@@ -86,8 +87,8 @@ internal fun SimpleDiffView(before: String, after: String) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(bottom = SpacingTokens.XS.dp),
+                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
             ) {
                 if (addedCount > 0) {
                     Text(
@@ -120,7 +121,7 @@ internal fun SimpleDiffView(before: String, after: String) {
             Column(
                 modifier = Modifier
                     .codeHorizontalScroll()
-                    .padding(4.dp)
+                    .padding(SpacingTokens.XS.dp)
             ) {
                 diffLines.forEach { diffLine ->
                     val bg = when (diffLine.type) {
@@ -147,7 +148,7 @@ internal fun SimpleDiffView(before: String, after: String) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .drawBehind { drawRect(bg) }
-                            .padding(horizontal = 4.dp),
+                            .padding(horizontal = SpacingTokens.XS.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // 行号

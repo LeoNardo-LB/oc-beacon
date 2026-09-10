@@ -21,6 +21,7 @@ import dev.leonardo.ocbeacon.ui.screens.settings.components.SectionHeader
 import dev.leonardo.ocbeacon.ui.screens.settings.components.getLanguageDisplayName
 import dev.leonardo.ocbeacon.ui.screens.settings.components.getReconnectModeDisplayName
 import dev.leonardo.ocbeacon.ui.theme.ListItemTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 @Composable
 fun GeneralSection(
@@ -53,5 +54,5 @@ fun GeneralSection(
         modifier = Modifier.clickable { onShowReconnectModeDialog() }.padding(ListItemTokens.ContentPaddingMedium)
     )
 
-    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+    HorizontalDivider(modifier = Modifier.padding(vertical = SpacingTokens.XS.dp))
 }

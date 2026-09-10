@@ -51,6 +51,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * Task（子 agent）工具卡片 —— 显示描述 + 子级信息。
@@ -216,7 +217,7 @@ internal fun TaskToolCard(
                 .heightIn(max = halfScreenHeight)
                 .verticalScroll(scrollState)
         ) {
-            Column(modifier = Modifier.padding(8.dp)) {
+            Column(modifier = Modifier.padding(SpacingTokens.SM.dp)) {
                 Text(
                     text = stringResource(R.string.chat_task_output_summary),
                     style = MaterialTheme.typography.labelSmall,

@@ -44,6 +44,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import dev.leonardo.ocbeacon.ui.components.AmoledSurface
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 private data class TodoItem(
     val content: String,
@@ -104,7 +105,7 @@ internal fun TodoListCard(
         shape = ShapeTokens.smallMedium,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(8.dp)) {
+        Column(modifier = Modifier.padding(SpacingTokens.SM.dp)) {
             // Header row
             Row(
                 modifier = Modifier
@@ -157,7 +158,7 @@ internal fun TodoListCard(
                 exit = CardExpandExitTransition,
             ) {
                     Column(
-                        modifier = Modifier.padding(top = 4.dp),
+                        modifier = Modifier.padding(top = SpacingTokens.XS.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         for (todo in todos) {

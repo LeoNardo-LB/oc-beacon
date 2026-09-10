@@ -122,7 +122,7 @@ private fun GoalDetail(
                 text = phaseLabel,
                 style = MaterialTheme.typography.labelMedium,
                 color = phaseColor,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = SpacingTokens.XS.dp),
             )
         }
 

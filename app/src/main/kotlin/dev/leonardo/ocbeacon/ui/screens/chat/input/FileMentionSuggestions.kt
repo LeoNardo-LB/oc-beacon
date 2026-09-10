@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * File mention suggestion popup shown when user types "@<query>".
@@ -62,7 +63,7 @@ internal fun FileMentionSuggestions(
                 .fillMaxWidth()
                 .heightIn(max = maxHeight)
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .padding(vertical = 4.dp)
+                .padding(vertical = SpacingTokens.XS.dp)
         ) {
             // #310⑤ 会话源候选行（在前——merge 排序语义；quoted 形态下恒空）
             items(
@@ -86,9 +87,9 @@ internal fun FileMentionSuggestions(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { onFileSelected(path) }
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
                 ) {
                     Icon(
                         imageVector = if (isDir) Icons.Default.Folder else Icons.Default.Description,
@@ -139,9 +140,9 @@ private fun SessionMentionRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
     ) {
         Icon(
             imageVector = Icons.AutoMirrored.Filled.Chat,
@@ -168,7 +169,7 @@ private fun SessionMentionRow(
                                 MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.FAINT),
                                 MaterialTheme.shapes.extraSmall
                             )
-                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                            .padding(horizontal = SpacingTokens.XS.dp, vertical = 1.dp)
                     )
                 }
             }

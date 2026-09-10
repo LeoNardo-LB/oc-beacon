@@ -25,6 +25,7 @@ import dev.leonardo.ocbeacon.ui.components.amoledDialogParams
 import dev.leonardo.ocbeacon.ui.components.DialogButtons
 import dev.leonardo.ocbeacon.ui.components.DialogButtonRole
 import kotlin.math.roundToInt
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,7 +48,7 @@ internal fun TerminalFontSizeDialog(
             border = params.border,
             shape = params.shape,
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
+            Column(modifier = Modifier.padding(SpacingTokens.XL.dp)) {
                 Text(
                     text = stringResource(R.string.settings_terminal_font_size),
                     style = MaterialTheme.typography.titleMedium,
@@ -56,7 +57,7 @@ internal fun TerminalFontSizeDialog(
                 Text(
                     text = stringResource(R.string.settings_terminal_font_size_value, selected.roundToInt()),
                     style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(bottom = 12.dp)
+                    modifier = Modifier.padding(bottom = SpacingTokens.MD.dp)
                 )
                 Slider(
                     value = selected,

@@ -35,6 +35,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.components.indicators.PulsingDotsIndicator
 import dev.leonardo.ocbeacon.ui.screens.home.components.*
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * 首页 — 服务器列表与管理
@@ -148,9 +149,9 @@ fun HomeScreen(
                         LazyVerticalGrid(
                             columns = GridCells.Adaptive(280.dp),
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            contentPadding = PaddingValues(SpacingTokens.LG.dp),
+                            verticalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp),
+                            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp)
                         ) {
                             // #154a：崩溃启动提示横幅（优先于电池横幅）
                             if (crashNotice != null) {
@@ -219,8 +220,8 @@ fun HomeScreen(
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            contentPadding = PaddingValues(SpacingTokens.LG.dp),
+                            verticalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp)
                         ) {
                             // 电池优化警告横幅
                             if (isBatteryOptimized) {

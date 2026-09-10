@@ -92,6 +92,7 @@ import java.io.File
 import dev.leonardo.ocbeacon.util.DateFormatters
 import java.util.Date
 import android.widget.Toast
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 private val LEVELS = listOf("FATAL", "ERROR", "WARN", "INFO", "DEBUG")
 
@@ -270,8 +271,8 @@ fun DiagnosticsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
+                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
             ) {
                 LEVELS.forEach { level ->
                     FilterChip(
@@ -292,7 +293,7 @@ fun DiagnosticsScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.XS.dp),
                 placeholder = { Text(stringResource(R.string.diagnostics_search_hint)) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
@@ -308,8 +309,8 @@ fun DiagnosticsScreen(
 
             // ---- 汇总栏 ----
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.XS.dp),
+                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.LG.dp),
             ) {
                 Text(
                     "${filteredEntries.size} / ${entries.size}",
@@ -338,7 +339,7 @@ fun DiagnosticsScreen(
             // ---- 条目列表 / 空状态 ----
             if (filteredEntries.isEmpty()) {
                 Column(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp),
+                    modifier = Modifier.fillMaxSize().padding(horizontal = SpacingTokens.XXL.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
@@ -415,7 +416,7 @@ fun DiagnosticsScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { viewModel.setLogLevel(level); showLevelDialog = false }
-                                .padding(vertical = 4.dp),
+                                .padding(vertical = SpacingTokens.XS.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             RadioButton(selected = level == logLevel, onClick = { viewModel.setLogLevel(level); showLevelDialog = false })
@@ -449,7 +450,7 @@ fun DiagnosticsScreen(
                 onDismissRequest = viewModel::cancelAuthorization,
                 title = { Text(stringResource(R.string.report_authorizing)) },
                 text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp)) {
                         Text(
                             stringResource(R.string.server_settings_oauth_device_code_hint),
                             style = MaterialTheme.typography.bodyMedium,
@@ -470,7 +471,7 @@ fun DiagnosticsScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    .padding(horizontal = SpacingTokens.LG.dp, vertical = 14.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
@@ -600,14 +601,14 @@ private fun DiagnosticLogItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.XS.dp)
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         ),
         shape = RoundedCornerShape(12.dp),
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(SpacingTokens.MD.dp)) {
             Row(verticalAlignment = Alignment.Top) {
                 Text(
                     text = entry.level,

@@ -1047,7 +1047,7 @@ fun ChatScreen(
                       // 2026-08-29 基线对齐：菜单 08-27 稳定 API 复刻把按钮钉底（内部
                       // 底距移除）后，与 ⬇ FAB 的 padding(bottom=16dp) 失配 16dp——
                       // 实测图标中心差 48px。此处补对称底距恢复「双 FAB 同基线」。
-                      modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 16.dp),
+                      modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = SpacingTokens.LG.dp),
                   )
 
                   // 走查 #2：会话运行错误持久卡浮层已移除——改为转录内错误行

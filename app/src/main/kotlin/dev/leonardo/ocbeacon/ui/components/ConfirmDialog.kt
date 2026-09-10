@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * 通用确认对话框，包含标题、消息和可自定义的按钮。
@@ -53,7 +54,7 @@ fun ConfirmDialog(
             border = params.border,
             shape = params.shape,
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
+            Column(modifier = Modifier.padding(SpacingTokens.XL.dp)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,

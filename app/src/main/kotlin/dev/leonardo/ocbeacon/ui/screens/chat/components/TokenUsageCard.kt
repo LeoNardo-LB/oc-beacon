@@ -19,6 +19,7 @@ import dev.leonardo.ocbeacon.ui.components.AmoledSurface
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * Card displaying token usage statistics for the current session.
@@ -43,7 +44,7 @@ fun TokenUsageCard(
         modifier = modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(SpacingTokens.MD.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             // Header: total tokens + cost

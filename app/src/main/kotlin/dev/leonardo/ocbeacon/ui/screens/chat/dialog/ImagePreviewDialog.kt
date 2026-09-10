@@ -49,6 +49,7 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * 紧凑的水平图片缩略图行，点击可预览。
@@ -150,7 +151,7 @@ internal fun ImagePreviewDialog(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp),
+                .padding(horizontal = SpacingTokens.SM.dp),
             shape = params.shape,
             color = params.containerColor,
             border = params.border,

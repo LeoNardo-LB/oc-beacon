@@ -23,6 +23,7 @@ import dev.leonardo.ocbeacon.ui.screens.settings.SettingsViewModel
 import dev.leonardo.ocbeacon.ui.screens.settings.components.SectionHeader
 import dev.leonardo.ocbeacon.ui.screens.settings.components.getThemeDisplayName
 import dev.leonardo.ocbeacon.ui.theme.ListItemTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 @Composable
 fun AppearanceSection(
@@ -82,5 +83,5 @@ fun AppearanceSection(
         modifier = Modifier.clickable { viewModel.setAmoledDark(!amoledDark) }.padding(ListItemTokens.ContentPaddingMedium)
     )
 
-    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+    HorizontalDivider(modifier = Modifier.padding(vertical = SpacingTokens.XS.dp))
 }

@@ -55,6 +55,7 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.AppMotion
 import kotlinx.coroutines.delay
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * #263 round2：完结思考卡的显示时长合成。优先服务器可信时长（>0）；未知
@@ -158,8 +159,8 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                     // 右侧 chevron 按钮移除；复制维持内容区 SelectionContainer 选中。
                     // 2026-08-16（用户反馈）：折叠态行高与其他卡片单行一致——
                     // 垂直 padding 8dp → 4dp（对齐 ToolCardScaffold 的
-                    // Column padding(4.dp)），总高 ~36dp 与工具卡折叠态等高。
-                    .padding(start = 12.dp, end = 10.dp, top = 4.dp, bottom = 4.dp)
+                    // Column padding(SpacingTokens.XS.dp)），总高 ~36dp 与工具卡折叠态等高。
+                    .padding(start = SpacingTokens.MD.dp, end = 10.dp, top = SpacingTokens.XS.dp, bottom = SpacingTokens.XS.dp)
             ) {
                 Row(
                     modifier = Modifier

@@ -89,7 +89,7 @@ private fun SkillToolCardContent(
                 text = "·",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                modifier = Modifier.padding(horizontal = 4.dp),
+                modifier = Modifier.padding(horizontal = SpacingTokens.XS.dp),
             )
             Text(
                 text = model.errorSummary ?: model.name,

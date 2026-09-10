@@ -19,6 +19,7 @@ import androidx.compose.ui.window.DialogProperties
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.components.amoledDialogParams
 import dev.leonardo.ocbeacon.ui.components.AppPickerList
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,7 +45,7 @@ internal fun LanguagePickerDialog(
             border = params.border,
             shape = params.shape,
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
+            Column(modifier = Modifier.padding(SpacingTokens.XL.dp)) {
                 Text(
                     text = stringResource(R.string.dialog_select_language),
                     style = MaterialTheme.typography.titleMedium,

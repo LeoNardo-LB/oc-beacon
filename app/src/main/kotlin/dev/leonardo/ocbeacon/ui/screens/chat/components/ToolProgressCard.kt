@@ -35,6 +35,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.AppMotion
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * 展示实时工具执行进度的卡片。
@@ -57,7 +58,7 @@ fun ToolProgressCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.SM.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // 动画图标

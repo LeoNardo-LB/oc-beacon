@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.AutoApproveRule
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * 设置中显示已保存权限自动批准规则的区块。
@@ -37,7 +38,7 @@ internal fun PermissionRulesSection(
     Column(modifier = modifier) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(vertical = 8.dp)
+            modifier = Modifier.padding(vertical = SpacingTokens.SM.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.Shield,
@@ -57,7 +58,7 @@ internal fun PermissionRulesSection(
                 text = stringResource(R.string.settings_no_auto_approve_rules),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
-                modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp)
+                modifier = Modifier.padding(horizontal = 28.dp, vertical = SpacingTokens.XS.dp)
             )
         } else {
             rules.forEachIndexed { index, rule ->
@@ -81,7 +82,7 @@ private fun RuleRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 28.dp, vertical = 8.dp),
+            .padding(horizontal = 28.dp, vertical = SpacingTokens.SM.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {

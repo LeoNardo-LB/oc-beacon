@@ -57,6 +57,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.SlashCommand
 import dev.leonardo.ocbeacon.ui.screens.chat.util.SlashCommandRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /** @file 提及正则：光标前最后一个 @query（onValueChange / 文件选择共用，L-7 预编译）。 */
 private val AT_MENTION_REGEX = Regex("@(\\S*)$")
@@ -665,7 +666,7 @@ internal fun ChatScreenBottomBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                    .padding(horizontal = 20.dp, vertical = SpacingTokens.MD.dp),
             )
         }
     }
@@ -738,7 +739,7 @@ private fun BusySendMenuPopup(
                 shadowElevation = 8.dp,
                 modifier = Modifier.onSizeChanged { bubbleHeight = it.height },
             ) {
-                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                Column(modifier = Modifier.padding(vertical = SpacingTokens.XS.dp)) {
                     BusyMenuItem(
                         title = stringResource(R.string.chat_busy_menu_send_now),
                         subtitle = stringResource(R.string.chat_busy_menu_send_now_desc),
@@ -788,7 +789,7 @@ private fun BusyMenuItem(
     Column(
         modifier = Modifier
             .clickable(enabled = enabled) { onClick() }
-            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .padding(horizontal = SpacingTokens.LG.dp, vertical = 10.dp)
             .widthIn(max = 300.dp),
     ) {
         Text(

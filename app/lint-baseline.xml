@@ -169,7 +169,7 @@
         errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/sections/StorageSection.kt"
-            line="31"
+            line="32"
             column="37"/>
     </issue>
 
@@ -180,7 +180,7 @@
         errorLine2="                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/sections/StorageSection.kt"
-            line="32"
+            line="33"
             column="33"/>
     </issue>
 
@@ -191,7 +191,7 @@
         errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/sections/StorageSection.kt"
-            line="33"
+            line="34"
             column="28"/>
     </issue>
 
@@ -213,7 +213,7 @@
         errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/TokenUsageCard.kt"
-            line="64"
+            line="65"
             column="32"/>
     </issue>
 
@@ -224,7 +224,7 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/TokenUsageCard.kt"
-            line="99"
+            line="100"
             column="20"/>
     </issue>
 
@@ -313,608 +313,6 @@
     </issue>
 
     <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(horizontal = 24.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/about/AboutScreen.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/sections/AdvancedSection.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(horizontal = 16.dp, vertical = 14.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/components/AppPickerList.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/sections/AppearanceSection.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（horizontalArrangement = Arrangement.spacedBy(4.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/tools/cards/BashToolCard.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(12.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/home/components/BatteryOptimizationBanner.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/sections/ChatBehaviorSection.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/sections/ChatDisplaySection.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（modifier = Modifier.padding(32.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/ChatEmptyState.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(32.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/ChatErrorState.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(bottom = 16.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/ChatFabMenu.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 16.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/ChatScreen.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(horizontal = 20.dp, vertical = 12.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/ChatScreenBottomBar.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（Column(modifier = Modifier.padding(24.dp)) {）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/dialog/ChatScreenDialogs.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(end = 4.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/ChatTopBar.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（Column(modifier = Modifier.padding(24.dp)) {）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/components/ConfirmDialog.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(32.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/components/ConnectionErrorScreen.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(horizontal = 16.dp, vertical = 4.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/ContextUsageBar.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(12.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/home/components/CrashNoticeBanner.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(horizontal = 16.dp, vertical = 8.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/DiagnosticsScreen.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/tools/DiffHelpers.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(horizontal = 16.dp, vertical = 8.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/server/providers/dsh/DshCustomProvidersSection.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/sessions/dsh/DshServerAdminSections.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(start = 16.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/components/dsh/DshTokenNeededBanner.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（modifier = Modifier.padding(4.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/tools/cards/EditToolCard.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（verticalArrangement = Arrangement.spacedBy(16.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/home/components/EmptyServersView.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/ErrorPayloadContent.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（modifier = Modifier.padding(vertical = 8.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/EventCard.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/FileCard.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(vertical = 4.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/input/FileMentionSuggestions.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/sections/GeneralSection.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/tools/cards/GlobToolCard.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/GoalSheet.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（contentPadding = PaddingValues(16.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/home/HomeScreen.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（horizontalArrangement = Arrangement.spacedBy(8.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/input/ImageAttachmentRow.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（Column(modifier = Modifier.padding(24.dp)) {）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/components/ImageCompressionDialog.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(horizontal = 8.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/dialog/ImagePreviewDialog.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（Column(modifier = Modifier.padding(24.dp)) {）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/components/LanguagePickerDialog.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(16.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/dialog/MarkdownPreviewDialog.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（horizontalArrangement = Arrangement.spacedBy(4.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/MessageBubble.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（horizontalArrangement = Arrangement.spacedBy(4.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/MessageCardAssistant.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（horizontalArrangement = Arrangement.spacedBy(4.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/MessageCardUser.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（Column(modifier = Modifier.padding(24.dp)) {）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/components/MessageCountPickerDialog.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（horizontalArrangement = Arrangement.spacedBy(8.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/dialog/ModelPickerDialog.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/sections/NotificationsSection.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(vertical = 4.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/PartContent.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(bottom = 24.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/PendingSheets.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（horizontalArrangement = Arrangement.spacedBy(8.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/dialog/PermissionRequestCard.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（modifier = Modifier.padding(vertical = 8.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/components/PermissionRulesSection.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(horizontal = 14.dp, vertical = 12.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/server/components/ProviderRow.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（horizontalArrangement = Arrangement.spacedBy(4.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/QuestionPartContent.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(4.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/tools/cards/ReadToolCard.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(start = 12.dp, end = 10.dp, top = 4.dp, bottom = 4.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/ReasoningBlock.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（Column(modifier = Modifier.padding(24.dp)) {）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/components/RecentDirectoryCountDialog.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（Column(modifier = Modifier.padding(24.dp)) {）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/components/ReconnectModePickerDialog.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(horizontal = 8.dp, vertical = 4.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/RevertBanner.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/tools/cards/SearchToolCard.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/components/SectionHeader.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（modifier = Modifier.padding(16.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/home/components/ServerCard.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(24.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/home/components/ServerDialog.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(horizontal = 16.dp, vertical = 4.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/components/ServerLinkBanner.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(horizontal = 16.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/server/ServerModelFilterScreen.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（modifier = Modifier.padding(24.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/server/ServerProvidersScreen.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(top = 8.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/server/ServerSettingsScreen.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（modifier = Modifier.padding(vertical = 4.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/sessions/SessionListScreen.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（modifier = Modifier.padding(12.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/components/SessionRetryCard.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(16.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/SettingsScreen.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(start = 20.dp, end = 8.dp, top = 16.dp, bottom = 4.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/navigation/ShareTargetPickerDialog.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（horizontalArrangement = Arrangement.spacedBy(4.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/tools/cards/ShellCard.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（modifier = Modifier.padding(horizontal = 4.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/tools/cards/SkillCard.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(vertical = 4.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/input/SlashCommandSuggestions.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(horizontal = 12.dp, vertical = 4.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/StepProgressIndicator.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/sections/StorageSection.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/SyntheticNotificationCard.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（Column(modifier = Modifier.padding(8.dp)) {）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/tools/cards/TaskToolCard.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（Column(modifier = Modifier.padding(24.dp)) {）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/components/TerminalFontSizeDialog.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（Column(modifier = Modifier.padding(24.dp)) {）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/components/ThemePickerDialog.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（Column(modifier = Modifier.padding(8.dp)) {）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/tools/cards/TodoListCard.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（modifier = Modifier.padding(12.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/TokenUsageCard.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（modifier = Modifier.padding(4.dp).codeHorizontalScroll()）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/tools/ToolCardRenderer.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（Column(modifier = Modifier.padding(4.dp)) {）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/tools/cards/ToolCardScaffold.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(vertical = 4.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/tools/ToolGroupList.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(horizontal = 12.dp, vertical = 8.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/ToolProgressCard.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/tools/cards/WebFetchToolCard.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/tools/cards/WebSearchToolCard.kt"/>
-    </issue>
-
-    <issue
-        id="SpacingTokenBypass"
-        message="标准间距绕过令牌（.padding(4.dp)）：请改用 SpacingTokens 常量（XS=4 / SM=8 / MD=12 / LG=16 / XL=24 / XXL=32，见 docs/ui-conventions.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/tools/cards/WriteToolCard.kt"/>
-    </issue>
-
-    <issue
         id="NewerVersionAvailable"
         message="A newer version of io.coil-kt.coil3:coil-compose than 3.6.0 is available: 3.6.2"
         errorLine1="    implementation(&quot;io.coil-kt.coil3:coil-compose:3.6.0&quot;)"
@@ -954,7 +352,7 @@
         errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/input/FileMentionSuggestions.kt"
-            line="58"
+            line="59"
             column="26"/>
     </issue>
 
@@ -1020,7 +418,7 @@
         errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/home/components/ServerDialog.kt"
-            line="119"
+            line="120"
             column="27"/>
     </issue>
 
@@ -1031,7 +429,7 @@
         errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/input/SlashCommandSuggestions.kt"
-            line="52"
+            line="53"
             column="26"/>
     </issue>
 
@@ -1042,7 +440,7 @@
         errorLine2="    ~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/ChatFabMenu.kt"
-            line="246"
+            line="247"
             column="5"/>
     </issue>
 
@@ -1086,7 +484,7 @@
         errorLine2="    ~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/components/SessionRetryCard.kt"
-            line="49"
+            line="50"
             column="5"/>
     </issue>
 
@@ -1141,7 +539,7 @@
         errorLine2="    ~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/tools/ToolGroupList.kt"
-            line="41"
+            line="42"
             column="5"/>
     </issue>
 
@@ -1188,7 +586,7 @@
         errorLine2="                         ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/PartContent.kt"
-            line="102"
+            line="103"
             column="26"/>
     </issue>
 
@@ -2339,7 +1737,7 @@
         errorLine2="                                             ~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/input/ImageAttachmentRow.kt"
-            line="53"
+            line="54"
             column="46"/>
     </issue>
 
@@ -2350,7 +1748,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/dialog/ImagePreviewDialog.kt"
-            line="60"
+            line="61"
             column="36"/>
     </issue>
 
@@ -2361,7 +1759,7 @@
         errorLine2="                                           ~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/ReasoningBlock.kt"
-            line="79"
+            line="80"
             column="44"/>
     </issue>
 
@@ -3164,7 +2562,7 @@
         errorLine2="                                                                             ~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/about/AboutScreen.kt"
-            line="120"
+            line="121"
             column="78"/>
     </issue>
 
@@ -3175,7 +2573,7 @@
         errorLine2="                                                                         ~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/about/AboutScreen.kt"
-            line="154"
+            line="155"
             column="74"/>
     </issue>
 
@@ -3186,7 +2584,7 @@
         errorLine2="                                                                         ~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/about/AboutScreen.kt"
-            line="181"
+            line="182"
             column="74"/>
     </issue>
 
@@ -3208,7 +2606,7 @@
         errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/home/HomeScreen.kt"
-            line="181"
+            line="182"
             column="57"/>
     </issue>
 
@@ -3219,7 +2617,7 @@
         errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/home/HomeScreen.kt"
-            line="241"
+            line="242"
             column="57"/>
     </issue>
 
@@ -3296,7 +2694,7 @@
         errorLine2="                                           ^">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/ErrorPayloadContent.kt"
-            line="94"
+            line="95"
             column="44"/>
     </issue>
 

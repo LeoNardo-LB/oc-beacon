@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlin.math.roundToInt
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /** 工具栏入口 id（沿用第十轮四入口独立 sheet 语义）。 */
 internal enum class ChatToolbarEntry { TODO, AGENT, SHELL, GOAL, QUEUE }
@@ -575,7 +576,7 @@ internal fun ChatScrollBottomFab(
                 // 2026-08-29 用户裁决「双 FAB 均贴边无边距」：去 start=16dp——该值
                 // 镜像的菜单按钮内部横距已随 08-27 稳定 API 复刻（按钮钉底贴边）
                 // 消失，保留即左右不对称（左 16dp/右 0，真机截图实证）。
-                .padding(bottom = 16.dp)
+                .padding(bottom = SpacingTokens.LG.dp)
                 .size(48.dp)
                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
             containerColor = MaterialTheme.colorScheme.secondaryContainer,

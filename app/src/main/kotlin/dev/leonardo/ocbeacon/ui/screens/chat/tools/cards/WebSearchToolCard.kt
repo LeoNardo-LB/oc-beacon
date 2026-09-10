@@ -38,6 +38,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 private data class SearchResult(
     val title: String,
@@ -111,7 +112,7 @@ internal fun WebSearchToolCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(max = 200.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                        contentPadding = PaddingValues(horizontal = SpacingTokens.SM.dp, vertical = SpacingTokens.XS.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         items(results, key = { "${it.title}_${it.url}" }) { result ->
@@ -136,7 +137,7 @@ internal fun WebSearchToolCard(
                                     MaterialTheme.colorScheme.onSecondaryContainer
                                 }
                             ),
-                            modifier = Modifier.padding(8.dp)
+                            modifier = Modifier.padding(SpacingTokens.SM.dp)
                         )
                     }
                 }

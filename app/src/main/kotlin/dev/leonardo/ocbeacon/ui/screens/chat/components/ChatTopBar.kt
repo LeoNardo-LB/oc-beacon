@@ -42,6 +42,7 @@ import dev.leonardo.ocbeacon.ui.components.AmoledDefaultBorder
 import dev.leonardo.ocbeacon.ui.screens.chat.util.ContextDetailState
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -133,7 +134,7 @@ fun ChatTopBar(
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .padding(end = 4.dp)
+                            .padding(end = SpacingTokens.XS.dp)
                             .clickable { showContextDialog = true }
                     ) {
                         CircularProgressIndicator(

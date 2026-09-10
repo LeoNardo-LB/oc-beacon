@@ -78,7 +78,7 @@ internal fun PermissionCard(
         ) {
             // 头部行：安全图标 + "权限请求"标题
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
@@ -104,7 +104,7 @@ internal fun PermissionCard(
                     CircularProgressIndicator(
                         modifier = Modifier
                             .size(16.dp)
-                            .padding(start = 4.dp),
+                            .padding(start = SpacingTokens.XS.dp),
                         strokeWidth = 2.dp,
                         color = contentColor
                     )

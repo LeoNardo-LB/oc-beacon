@@ -25,6 +25,7 @@ import dev.leonardo.ocbeacon.util.DateFormatters
 import java.util.*
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * 通过 ACTION_SEND 把图片分享进应用时显示的对话框。
@@ -83,7 +84,7 @@ internal fun ShareTargetPickerDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 20.dp, end = 8.dp, top = 16.dp, bottom = 4.dp),
+                        .padding(start = 20.dp, end = SpacingTokens.SM.dp, top = SpacingTokens.LG.dp, bottom = SpacingTokens.XS.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -107,7 +108,7 @@ internal fun ShareTargetPickerDialog(
                 }
 
                 HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 4.dp),
+                    modifier = Modifier.padding(vertical = SpacingTokens.XS.dp),
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                 )
 
@@ -121,7 +122,7 @@ internal fun ShareTargetPickerDialog(
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
                         ) {
                             Icon(
                                 Icons.Default.CloudOff,
@@ -147,7 +148,7 @@ internal fun ShareTargetPickerDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f),
-                        contentPadding = PaddingValues(vertical = 4.dp)
+                        contentPadding = PaddingValues(vertical = SpacingTokens.XS.dp)
                     ) {
                         items(items, key = { "${it.server.id}/${it.session.id}" }) { item ->
                             val projectName = item.session.directory
@@ -161,7 +162,7 @@ internal fun ShareTargetPickerDialog(
                                     .clickable { onSelectSession(item.server, item.session) }
                                     .padding(horizontal = 20.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                horizontalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp)
                             ) {
                                 Icon(
                                     Icons.AutoMirrored.Filled.Chat,
@@ -210,7 +211,7 @@ internal fun ShareTargetPickerDialog(
                 // 每个已激活服务器的"新建会话"按钮
                 if (activeServers.isNotEmpty()) {
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 4.dp),
+                        modifier = Modifier.padding(vertical = SpacingTokens.XS.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                     )
 
@@ -219,9 +220,9 @@ internal fun ShareTargetPickerDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { onNewSession(server) }
-                                .padding(horizontal = 20.dp, vertical = 12.dp),
+                                .padding(horizontal = 20.dp, vertical = SpacingTokens.MD.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp)
                         ) {
                             Icon(
                                 Icons.Default.Add,

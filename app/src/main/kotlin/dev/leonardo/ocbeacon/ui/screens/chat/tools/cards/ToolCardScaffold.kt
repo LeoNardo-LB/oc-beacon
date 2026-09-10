@@ -51,6 +51,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import kotlinx.coroutines.launch
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * #137（D2-L50）：聊天内复制反馈通道——上层（ChatMessageList）注入 Snackbar
@@ -122,7 +123,7 @@ internal fun ToolCardScaffold(
         // 2026-08-30 用户裁决：撤销展开补偿（TC-REVEAL 接线退役）
         modifier = modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(4.dp)) {
+        Column(modifier = Modifier.padding(SpacingTokens.XS.dp)) {
             // 标题行
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -173,7 +174,7 @@ internal fun ToolCardScaffold(
                 if (isRunning) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
                     ) {
                         rightSideExtras?.invoke(this)
                         PulsingDotsIndicator(
@@ -185,7 +186,7 @@ internal fun ToolCardScaffold(
                 } else if (hasContent) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
                     ) {
                         // 1. 左侧额外内容（diff 变更指示器）
                         rightSideExtras?.invoke(this)

@@ -41,6 +41,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 @Composable
 internal fun ToolCallCard(
@@ -193,7 +194,7 @@ internal fun ToolCallCard(
                                 Text(
                                     text = inputText.take(2000),
                                     style = CodeTypography.copy(fontSize = 11.sp, color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = AlphaTokens.HIGH)),
-                                    modifier = Modifier.padding(4.dp).codeHorizontalScroll()
+                                    modifier = Modifier.padding(SpacingTokens.XS.dp).codeHorizontalScroll()
                                 )
                             }
                         }
@@ -214,7 +215,7 @@ internal fun ToolCallCard(
                             Text(
                                 text = output.take(3000),
                                 style = CodeTypography.copy(fontSize = 11.sp, color = if (isAmoled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.AMOLED) else MaterialTheme.colorScheme.onSecondaryContainer),
-                                modifier = Modifier.padding(4.dp).codeHorizontalScroll()
+                                modifier = Modifier.padding(SpacingTokens.XS.dp).codeHorizontalScroll()
                             )
                         }
                     }

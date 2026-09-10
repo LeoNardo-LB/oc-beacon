@@ -40,6 +40,7 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.AgentError
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * 统一事件卡（#234 对话流事件卡片统一——spec §1–§2 严格同构模子）。
@@ -231,7 +232,7 @@ internal fun EventCard(
             if (actions != null) {
                 HorizontalDivider(
                     color = dividerColor,
-                    modifier = Modifier.padding(vertical = 8.dp),
+                    modifier = Modifier.padding(vertical = SpacingTokens.SM.dp),
                 )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

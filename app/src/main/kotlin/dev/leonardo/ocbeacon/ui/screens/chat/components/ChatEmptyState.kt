@@ -70,9 +70,9 @@ fun ChatEmptyState(
 
     Box(modifier = modifier) {
         Column(
-            modifier = Modifier.padding(32.dp),
+            modifier = Modifier.padding(SpacingTokens.XXL.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp)
         ) {
             Text(
                 text = stringResource(R.string.chat_empty),
@@ -135,7 +135,7 @@ private fun AgentPresetCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(horizontal = 14.dp, vertical = SpacingTokens.MD.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(

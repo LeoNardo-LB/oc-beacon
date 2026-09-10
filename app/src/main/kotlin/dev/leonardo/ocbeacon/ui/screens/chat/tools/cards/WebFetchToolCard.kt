@@ -32,6 +32,7 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * WebFetch tool card — shows URL + content summary.
@@ -84,7 +85,7 @@ internal fun WebFetchToolCard(
                             ),
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(horizontal = SpacingTokens.SM.dp, vertical = SpacingTokens.XS.dp)
                         )
                     }
                 }
@@ -98,7 +99,7 @@ internal fun WebFetchToolCard(
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
                     ),
-                    modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+                    modifier = Modifier.padding(start = SpacingTokens.XS.dp, bottom = SpacingTokens.XS.dp)
                 )
             }
 
@@ -125,7 +126,7 @@ internal fun WebFetchToolCard(
                                     MaterialTheme.colorScheme.onSecondaryContainer
                                 }
                             ),
-                            modifier = Modifier.padding(8.dp)
+                            modifier = Modifier.padding(SpacingTokens.SM.dp)
                         )
                     }
                 }

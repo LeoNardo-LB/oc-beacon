@@ -31,6 +31,7 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.CodeTypography
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.components.AmoledDefaultBorder
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * 后台 shell 命令卡片（V2 Shell part）——2 行布局，与 [TaskToolCard] 对称：
@@ -105,7 +106,7 @@ internal fun ShellCard(
                     )
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
                     ) {
                         Text(
                             text = statusText,
@@ -138,7 +139,7 @@ internal fun ShellCard(
                 .heightIn(max = halfScreenHeight)
                 .verticalScroll(scrollState)
         ) {
-            Column(modifier = Modifier.padding(8.dp)) {
+            Column(modifier = Modifier.padding(SpacingTokens.SM.dp)) {
                 Text(
                     text = stringResource(R.string.chat_shell_output_summary),
                     style = MaterialTheme.typography.labelSmall,

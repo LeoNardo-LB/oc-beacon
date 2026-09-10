@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,7 +55,7 @@ fun ServerSettingsScreen(
                 leadingContent = { Icon(Icons.Default.Hub, contentDescription = stringResource(R.string.a11y_icon_providers)) },
                 trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.a11y_icon_navigate_forward)) },
                 modifier = Modifier
-                    .padding(top = 8.dp)
+                    .padding(top = SpacingTokens.SM.dp)
                     .clickable(onClick = onOpenProviders)
             )
             HorizontalDivider()
