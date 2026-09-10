@@ -10,7 +10,10 @@ class BeaconIssueRegistry : IssueRegistry() {
 
     override val api: Int = CURRENT_API
 
-    override val issues: List<Issue> = listOf(ServerTypeWhitelistDetector.ISSUE)
+    override val issues: List<Issue> = listOf(
+        ServerTypeWhitelistDetector.ISSUE,
+        ServerTypeUiBoundaryDetector.ISSUE,
+    )
 
     override val vendor: Vendor = Vendor(
         vendorName = "oc-beacon",

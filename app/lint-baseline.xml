@@ -1,5 +1,80 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<issues format="6" by="lint 9.2.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.2.1)" variant="all" version="9.2.1">
+<issues format="6" by="lint 9.3.2" type="baseline" client="gradle" dependencies="false" name="AGP (9.3.2)" variant="all" version="9.3.2">
+
+    <issue
+        id="EmptySuperCall"
+        message="No need to call `super.onCleared`; the super method is defined to be empty"
+        errorLine1="        super.onCleared()"
+        errorLine2="              ~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/ChatViewModel.kt"
+            line="1290"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="EmptySuperCall"
+        message="No need to call `super.onCleared`; the super method is defined to be empty"
+        errorLine1="        super.onCleared()"
+        errorLine2="              ~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/viewer/FileViewerViewModel.kt"
+            line="473"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="EmptySuperCall"
+        message="No need to call `super.onCleared`; the super method is defined to be empty"
+        errorLine1="        super.onCleared()"
+        errorLine2="              ~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/home/HomeViewModel.kt"
+            line="470"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="ServerTypeUiBoundary"
+        message="通用界面不得 import / 声明服务器类型私有 UI 组件（private fun DshJobTimelineCard(）；请把该组件移入类型私有包并以界面插槽贡献（见 docs/architecture.md）。">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/ChatMessageList.kt"/>
+    </issue>
+
+    <issue
+        id="ServerTypeUiBoundary"
+        message="通用界面不得 import / 声明服务器类型私有 UI 组件（internal fun DshCustomProvidersSection(）；请把该组件移入类型私有包并以界面插槽贡献（见 docs/architecture.md）。">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/server/DshCustomProvidersSection.kt"/>
+    </issue>
+
+    <issue
+        id="ServerTypeUiBoundary"
+        message="通用界面不得 import / 声明服务器类型私有 UI 组件（fun DshPluginInventorySection(）；请把该组件移入类型私有包并以界面插槽贡献（见 docs/architecture.md）。">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/sessions/components/DshServerAdminSections.kt"/>
+    </issue>
+
+    <issue
+        id="ServerTypeUiBoundary"
+        message="通用界面不得 import / 声明服务器类型私有 UI 组件（fun DshTokenNeededBanner(）；请把该组件移入类型私有包并以界面插槽贡献（见 docs/architecture.md）。">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/components/DshTokenNeededBanner.kt"/>
+    </issue>
+
+    <issue
+        id="ServerTypeUiBoundary"
+        message="通用界面不得 import / 声明服务器类型私有 UI 组件（import dev.leonardo.ocbeacon.ui.components.DshTokenDialog）；请把该组件移入类型私有包并以界面插槽贡献（见 docs/architecture.md）。">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/sessions/SessionListScreen.kt"/>
+    </issue>
+
+    <issue
+        id="ServerTypeUiBoundary"
+        message="通用界面不得 import / 声明服务器类型私有 UI 组件（sealed interface DshTokenExchangeState {）；请把该组件移入类型私有包并以界面插槽贡献（见 docs/architecture.md）。">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/sessions/SessionListViewModel.kt"/>
+    </issue>
 
     <issue
         id="DefaultLocale"
@@ -26,11 +101,33 @@
     <issue
         id="DefaultLocale"
         message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="        count >= 1_000_000L -> String.format(&quot;%.1fM&quot;, count / 1_000_000.0)"
+        errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/util/ChatFormatters.kt"
+            line="21"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="        count >= 1_000L -> String.format(&quot;%.1fk&quot;, count / 1_000.0)"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/util/ChatFormatters.kt"
+            line="22"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
         errorLine1="        value >= 1024.0 * 1024.0 -> String.format(&quot;%.2f MB&quot;, value / (1024.0 * 1024.0))"
         errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/util/ChatFormatters.kt"
-            line="27"
+            line="36"
             column="37"/>
     </issue>
 
@@ -41,8 +138,52 @@
         errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/util/ChatFormatters.kt"
-            line="28"
+            line="37"
             column="28"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="                fun f(v: Double) = String.format(&quot;%.1f&quot;, v)"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/ChatPerfMonitor.kt"
+            line="145"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="        fun f(v: Double) = String.format(&quot;%.1f&quot;, v)"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/ChatPerfMonitor.kt"
+            line="170"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="private fun fmt(v: Double): String = String.format(&quot;%.1f&quot;, v)"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHud.kt"
+            line="55"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="    private fun f(v: Double) = String.format(&quot;%.1f&quot;, v)"
+        errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="90"
+            column="32"/>
     </issue>
 
     <issue
@@ -52,8 +193,52 @@
         errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/SessionActionsDelegate.kt"
-            line="430"
+            line="483"
             column="38"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="        value >= 1_073_741_824.0 -> String.format(&quot;%.2f GB&quot;, value / 1_073_741_824.0)"
+        errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/sections/StorageSection.kt"
+            line="31"
+            column="37"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="        value >= 1_048_576.0 -> String.format(&quot;%.2f MB&quot;, value / 1_048_576.0)"
+        errorLine2="                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/sections/StorageSection.kt"
+            line="32"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="        value >= 1024.0 -> String.format(&quot;%.1f KB&quot;, value / 1024.0)"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/settings/sections/StorageSection.kt"
+            line="33"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="                    Logger.logWarn(mClient, LOG_TAG, String.format(&quot;SGR unknown code %d&quot;, code));"
+        errorLine2="                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/terminal/TerminalEmulator.java"
+            line="1979"
+            column="54"/>
     </issue>
 
     <issue
@@ -63,7 +248,7 @@
         errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/TokenUsageCard.kt"
-            line="59"
+            line="64"
             column="32"/>
     </issue>
 
@@ -74,8 +259,52 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/TokenUsageCard.kt"
-            line="94"
+            line="99"
             column="20"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 31 (current min is 26): `android.view.FrameMetrics#GPU_DURATION`"
+        errorLine1="            worstPhases[5] = metrics.getMetric(FrameMetrics.GPU_DURATION) / 1e6"
+        errorLine2="                                               ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/ChatPerfMonitor.kt"
+            line="114"
+            column="48"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 31 (current min is 26): `android.view.FrameMetrics#GPU_DURATION`"
+        errorLine1="        val gpu = ns(FrameMetrics.GPU_DURATION)"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/ChatPerfMonitor.kt"
+            line="167"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 29 (current min is 26): `android.content.pm.ServiceInfo#FOREGROUND_SERVICE_TYPE_DATA_SYNC`"
+        errorLine1="                    onTimeout(startId, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)"
+        errorLine2="                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/service/OpenCodeConnectionService.kt"
+            line="250"
+            column="40"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 29 (current min is 26): `android.content.pm.ServiceInfo#FOREGROUND_SERVICE_TYPE_DATA_SYNC`"
+        errorLine1="            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/service/OpenCodeConnectionService.kt"
+            line="450"
+            column="13"/>
     </issue>
 
     <issue
@@ -97,6 +326,17 @@
     </issue>
 
     <issue
+        id="UnusedAttribute"
+        message="Attribute `enableOnBackInvokedCallback` is only used in API level 33 and higher (current min is 31)"
+        errorLine1="        android:enableOnBackInvokedCallback=&quot;false&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="21"
+            column="9"/>
+    </issue>
+
+    <issue
         id="AppBundleLocaleChanges"
         message="Found dynamic locale changes, but did not find corresponding Play Core library calls for downloading languages and splitting by language is not disabled in the `bundle` configuration"
         errorLine1="    config.setLocale(locale)"
@@ -108,322 +348,25 @@
     </issue>
 
     <issue
-        id="AndroidGradlePluginVersion"
-        message="A newer version of Gradle than 9.5.1 is available: 9.7.0"
-        errorLine1="distributionUrl=https\://services.gradle.org/distributions/gradle-9.5.1-bin.zip"
-        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="$HOME/Documents/code/mine/oc-beacon/gradle/wrapper/gradle-wrapper.properties"
-            line="3"
-            column="17"/>
-    </issue>
-
-    <issue
-        id="GradleDependency"
-        message="A newer version of androidx.core:core-ktx than 1.18.0 is available: 1.19.0"
-        errorLine1="    implementation(&quot;androidx.core:core-ktx:1.18.0&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="137"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="GradleDependency"
-        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.10.0 is available: 2.11.0"
-        errorLine1="    implementation(&quot;androidx.lifecycle:lifecycle-runtime-ktx:2.10.0&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="138"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="GradleDependency"
-        message="A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.10.0 is available: 2.11.0"
-        errorLine1="    implementation(&quot;androidx.lifecycle:lifecycle-runtime-compose:2.10.0&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="139"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="GradleDependency"
-        message="A newer version of androidx.lifecycle:lifecycle-process than 2.10.0 is available: 2.11.0"
-        errorLine1="    implementation(&quot;androidx.lifecycle:lifecycle-process:2.10.0&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="140"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="GradleDependency"
-        message="A newer version of androidx.hilt:hilt-lifecycle-viewmodel-compose than 1.3.0 is available: 1.4.0"
-        errorLine1="    implementation(&quot;androidx.hilt:hilt-lifecycle-viewmodel-compose:1.3.0&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="166"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="GradleDependency"
-        message="A newer version of androidx.appcompat:appcompat than 1.7.1 is available: 1.8.0"
-        errorLine1="    testImplementation(&quot;androidx.appcompat:appcompat:1.7.1&quot;) // 测试中模拟 Activity 用"
-        errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="219"
-            column="24"/>
-    </issue>
-
-    <issue
-        id="GradleDependency"
-        message="A newer version of androidx.test.ext:junit than 1.2.1 is available: 1.3.0"
-        errorLine1="    androidTestImplementation(&quot;androidx.test.ext:junit:1.2.1&quot;)"
-        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="226"
-            column="31"/>
-    </issue>
-
-    <issue
-        id="GradleDependency"
-        message="A newer version of androidx.test.espresso:espresso-core than 3.6.1 is available: 3.7.0"
-        errorLine1="    androidTestImplementation(&quot;androidx.test.espresso:espresso-core:3.6.1&quot;)"
-        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="227"
-            column="31"/>
-    </issue>
-
-    <issue
         id="NewerVersionAvailable"
-        message="A newer version of com.google.dagger:hilt-android than 2.59.2 is available: 2.60.1"
-        errorLine1="    implementation(&quot;com.google.dagger:hilt-android:2.59.2&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="163"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of com.google.dagger:hilt-compiler than 2.59.2 is available: 2.60.1"
-        errorLine1="    ksp(&quot;com.google.dagger:hilt-compiler:2.59.2&quot;)"
-        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="164"
-            column="9"/>
-    </issue>
-
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of io.ktor:ktor-client-core than 3.5.0 is available: 3.5.2"
-        errorLine1="    implementation(&quot;io.ktor:ktor-client-core:$ktorVersion&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="170"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of io.ktor:ktor-client-okhttp than 3.5.0 is available: 3.5.2"
-        errorLine1="    implementation(&quot;io.ktor:ktor-client-okhttp:$ktorVersion&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="171"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of io.ktor:ktor-client-content-negotiation than 3.5.0 is available: 3.5.2"
-        errorLine1="    implementation(&quot;io.ktor:ktor-client-content-negotiation:$ktorVersion&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="172"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of io.ktor:ktor-client-websockets than 3.5.0 is available: 3.5.2"
-        errorLine1="    implementation(&quot;io.ktor:ktor-client-websockets:$ktorVersion&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="173"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of io.ktor:ktor-serialization-kotlinx-json than 3.5.0 is available: 3.5.2"
-        errorLine1="    implementation(&quot;io.ktor:ktor-serialization-kotlinx-json:$ktorVersion&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="174"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of io.ktor:ktor-client-logging than 3.5.0 is available: 3.5.2"
-        errorLine1="    implementation(&quot;io.ktor:ktor-client-logging:$ktorVersion&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="175"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of io.ktor:ktor-client-auth than 3.5.0 is available: 3.5.2"
-        errorLine1="    implementation(&quot;io.ktor:ktor-client-auth:$ktorVersion&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="176"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of com.mikepenz:multiplatform-markdown-renderer than 0.43.0 is available: 0.44.0"
-        errorLine1="    implementation(&quot;com.mikepenz:multiplatform-markdown-renderer:$markdownRendererVersion&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="189"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of com.mikepenz:multiplatform-markdown-renderer-m3 than 0.43.0 is available: 0.44.0"
-        errorLine1="    implementation(&quot;com.mikepenz:multiplatform-markdown-renderer-m3:$markdownRendererVersion&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="190"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of com.mikepenz:multiplatform-markdown-renderer-coil3 than 0.43.0 is available: 0.44.0"
-        errorLine1="    implementation(&quot;com.mikepenz:multiplatform-markdown-renderer-coil3:$markdownRendererVersion&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="191"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of com.github.luben:zstd-jni than 1.5.7-13 is available: 1.5.7-15"
-        errorLine1="    implementation(&quot;com.github.luben:zstd-jni:1.5.7-13@aar&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="210"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of com.github.luben:zstd-jni than 1.5.7-13 is available: 1.5.7-15"
-        errorLine1="    testImplementation(&quot;com.github.luben:zstd-jni:1.5.7-13&quot;)"
-        errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="211"
-            column="24"/>
-    </issue>
-
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of io.coil-kt.coil3:coil-compose than 3.4.0 is available: 3.5.0"
-        errorLine1="    implementation(&quot;io.coil-kt.coil3:coil-compose:3.4.0&quot;)"
+        message="A newer version of io.coil-kt.coil3:coil-compose than 3.6.0 is available: 3.6.2"
+        errorLine1="    implementation(&quot;io.coil-kt.coil3:coil-compose:3.6.0&quot;)"
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="214"
+            line="267"
             column="20"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
-        message="A newer version of io.coil-kt.coil3:coil-network-okhttp than 3.4.0 is available: 3.5.0"
-        errorLine1="    implementation(&quot;io.coil-kt.coil3:coil-network-okhttp:3.4.0&quot;)"
+        message="A newer version of io.coil-kt.coil3:coil-network-okhttp than 3.6.0 is available: 3.6.2"
+        errorLine1="    implementation(&quot;io.coil-kt.coil3:coil-network-okhttp:3.6.0&quot;)"
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="215"
+            line="268"
             column="20"/>
-    </issue>
-
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of io.mockk:mockk than 1.14.9 is available: 1.14.11"
-        errorLine1="    testImplementation(&quot;io.mockk:mockk:1.14.9&quot;)"
-        errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="221"
-            column="24"/>
-    </issue>
-
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of io.ktor:ktor-client-mock than 3.5.0 is available: 3.5.2"
-        errorLine1="    testImplementation(&quot;io.ktor:ktor-client-mock:$ktorVersion&quot;)"
-        errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="223"
-            column="24"/>
-    </issue>
-
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of org.json:json than 20240303 is available: 20260814"
-        errorLine1="    testImplementation(&quot;org.json:json:20240303&quot;)"
-        errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="224"
-            column="24"/>
-    </issue>
-
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of com.google.dagger:hilt-android-testing than 2.59.2 is available: 2.60.1"
-        errorLine1="    androidTestImplementation(&quot;com.google.dagger:hilt-android-testing:2.59.2&quot;)"
-        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="230"
-            column="31"/>
     </issue>
 
     <issue
@@ -444,19 +387,41 @@
         errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/input/FileMentionSuggestions.kt"
-            line="50"
+            line="58"
             column="26"/>
     </issue>
 
     <issue
         id="ConfigurationScreenWidthHeight"
         message="Using Configuration.screenHeightDp instead of LocalWindowInfo.current.containerSize"
-        errorLine1="                    max = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * 0.75f"
-        errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        errorLine1="                    androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp *"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/dialog/ModelPickerDialog.kt"
-            line="92"
-            column="27"/>
+            line="129"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="ConfigurationScreenWidthHeight"
+        message="Using Configuration.screenHeightDp instead of LocalWindowInfo.current.containerSize"
+        errorLine1="                    LocalConfiguration.current.screenHeightDp.dp *"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/PendingSheets.kt"
+            line="106"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="ConfigurationScreenWidthHeight"
+        message="Using Configuration.screenHeightDp instead of LocalWindowInfo.current.containerSize"
+        errorLine1="                LocalConfiguration.current.screenHeightDp.dp *"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/PendingSheets.kt"
+            line="439"
+            column="17"/>
     </issue>
 
     <issue
@@ -466,19 +431,19 @@
         errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/QuestionPartContent.kt"
-            line="287"
+            line="294"
             column="26"/>
     </issue>
 
     <issue
         id="ConfigurationScreenWidthHeight"
         message="Using Configuration.screenHeightDp instead of LocalWindowInfo.current.containerSize"
-        errorLine1="                    max = LocalConfiguration.current.screenHeightDp.dp * 0.75f"
-        errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        errorLine1="                    LocalConfiguration.current.screenHeightDp.dp *"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/QuickNavigateSheet.kt"
-            line="135"
-            column="27"/>
+            line="140"
+            column="21"/>
     </issue>
 
     <issue
@@ -488,7 +453,7 @@
         errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/home/components/ServerDialog.kt"
-            line="98"
+            line="119"
             column="27"/>
     </issue>
 
@@ -499,19 +464,19 @@
         errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/input/SlashCommandSuggestions.kt"
-            line="46"
+            line="52"
             column="26"/>
     </issue>
 
     <issue
-        id="ConfigurationScreenWidthHeight"
-        message="Using Configuration.screenHeightDp instead of LocalWindowInfo.current.containerSize"
-        errorLine1="                    max = LocalConfiguration.current.screenHeightDp.dp * 0.75f"
-        errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    modifier: Modifier = Modifier,"
+        errorLine2="    ~~~~~~~~">
         <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/TaskSheet.kt"
-            line="125"
-            column="27"/>
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/ChatFabMenu.kt"
+            line="246"
+            column="5"/>
     </issue>
 
     <issue
@@ -521,7 +486,7 @@
         errorLine2="    ~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/ChatMessageList.kt"
-            line="195"
+            line="215"
             column="5"/>
     </issue>
 
@@ -565,18 +530,7 @@
         errorLine2="    ~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/sessions/components/SessionRow.kt"
-            line="86"
-            column="5"/>
-    </issue>
-
-    <issue
-        id="ModifierParameter"
-        message="Modifier parameter should be the first optional parameter"
-        errorLine1="    modifier: Modifier = Modifier,"
-        errorLine2="    ~~~~~~~~">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/terminal/SessionTerminalInline.kt"
-            line="47"
+            line="98"
             column="5"/>
     </issue>
 
@@ -608,19 +562,88 @@
         errorLine1="    modifier: Modifier = Modifier,"
         errorLine2="    ~~~~~~~~">
         <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/terminal/TermuxTerminalHost.kt"
+            line="55"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    modifier: Modifier = Modifier,"
+        errorLine2="    ~~~~~~~~">
+        <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/tools/ToolGroupList.kt"
             line="41"
             column="5"/>
     </issue>
 
     <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    modifier: Modifier = Modifier,"
+        errorLine2="    ~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/TurnLedgerRow.kt"
+            line="56"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="Aligned16KB"
+        message="The native library `arm64-v8a/libsqlite3x.so` (from `com.github.requery:sqlite-android:3.45.0`) is not 16 KB aligned"
+        errorLine1="    implementation(&quot;com.github.requery:sqlite-android:3.45.0&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="260"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="Aligned16KB"
+        message="The native library `arm64-v8a/libsqlite3x.so` (from `com.github.requery:sqlite-android:3.45.0`) is not 16 KB aligned">
+        <location
+            file="$GRADLE_USER_HOME/caches/9.7.1/transforms/4bff88509e599ecbf7924467ce56f459/transformed/sqlite-android-3.45.0/jni/arm64-v8a/libsqlite3x.so"/>
+    </issue>
+
+    <issue
+        id="Aligned16KB"
+        message="The native library `arm64-v8a/libsqlite3x.so` (from `com.github.requery:sqlite-android:3.45.0`) is not 16 KB aligned">
+        <location
+            file="$GRADLE_USER_HOME/caches/9.7.1/transforms/4bff88509e599ecbf7924467ce56f459/transformed/sqlite-android-3.45.0/jni/arm64-v8a/libsqlite3x.so"/>
+    </issue>
+
+    <issue
+        id="UnclosedTrace"
+        message="The `beginSection()` call is not always closed with a matching `endSection()` because the code in between may return early"
+        errorLine1="        android.os.Trace.beginSection(partTraceName(part))"
+        errorLine2="                         ~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/PartContent.kt"
+            line="102"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="UseRequiresApi"
+        message="Use `@RequiresApi(23)` instead of `@TargetApi` to propagate the requirement to callers of `onTouchEvent`"
+        errorLine1="    @TargetApi(23)"
+        errorLine2="    ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="605"
+            column="5"/>
+    </issue>
+
+    <issue
         id="MissingQuantity"
         message="For locale &quot;es&quot; (Spanish) the following quantity should also be defined: `many`"
         errorLine1="    &lt;plurals name=&quot;chat_status_edits_plural&quot;>"
         errorLine2="    ^">
         <location
             file="src/main/res/values-es/strings.xml"
-            line="158"
+            line="199"
             column="5"/>
     </issue>
 
@@ -631,7 +654,7 @@
         errorLine2="    ^">
         <location
             file="src/main/res/values-fr/strings.xml"
-            line="158"
+            line="199"
             column="5"/>
     </issue>
 
@@ -642,7 +665,7 @@
         errorLine2="    ^">
         <location
             file="src/main/res/values-it/strings.xml"
-            line="158"
+            line="199"
             column="5"/>
     </issue>
 
@@ -653,7 +676,7 @@
         errorLine2="    ^">
         <location
             file="src/main/res/values-pt-rBR/strings.xml"
-            line="158"
+            line="199"
             column="5"/>
     </issue>
 
@@ -664,7 +687,7 @@
         errorLine2="    ^">
         <location
             file="src/main/res/values-es/strings.xml"
-            line="162"
+            line="203"
             column="5"/>
     </issue>
 
@@ -675,7 +698,7 @@
         errorLine2="    ^">
         <location
             file="src/main/res/values-fr/strings.xml"
-            line="162"
+            line="203"
             column="5"/>
     </issue>
 
@@ -686,7 +709,7 @@
         errorLine2="    ^">
         <location
             file="src/main/res/values-it/strings.xml"
-            line="162"
+            line="203"
             column="5"/>
     </issue>
 
@@ -697,7 +720,7 @@
         errorLine2="    ^">
         <location
             file="src/main/res/values-pt-rBR/strings.xml"
-            line="162"
+            line="203"
             column="5"/>
     </issue>
 
@@ -708,7 +731,7 @@
         errorLine2="    ^">
         <location
             file="src/main/res/values-es/strings.xml"
-            line="166"
+            line="207"
             column="5"/>
     </issue>
 
@@ -719,7 +742,7 @@
         errorLine2="    ^">
         <location
             file="src/main/res/values-fr/strings.xml"
-            line="166"
+            line="207"
             column="5"/>
     </issue>
 
@@ -730,7 +753,7 @@
         errorLine2="    ^">
         <location
             file="src/main/res/values-it/strings.xml"
-            line="166"
+            line="207"
             column="5"/>
     </issue>
 
@@ -741,7 +764,7 @@
         errorLine2="    ^">
         <location
             file="src/main/res/values-pt-rBR/strings.xml"
-            line="166"
+            line="207"
             column="5"/>
     </issue>
 
@@ -752,7 +775,7 @@
         errorLine2="    ^">
         <location
             file="src/main/res/values-es/strings.xml"
-            line="203"
+            line="260"
             column="5"/>
     </issue>
 
@@ -763,7 +786,7 @@
         errorLine2="    ^">
         <location
             file="src/main/res/values-fr/strings.xml"
-            line="203"
+            line="260"
             column="5"/>
     </issue>
 
@@ -774,7 +797,7 @@
         errorLine2="    ^">
         <location
             file="src/main/res/values-it/strings.xml"
-            line="203"
+            line="260"
             column="5"/>
     </issue>
 
@@ -785,7 +808,7 @@
         errorLine2="    ^">
         <location
             file="src/main/res/values-pt-rBR/strings.xml"
-            line="203"
+            line="260"
             column="5"/>
     </issue>
 
@@ -796,7 +819,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="76"
+            line="92"
             column="5"/>
     </issue>
 
@@ -807,7 +830,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="77"
+            line="93"
             column="5"/>
     </issue>
 
@@ -818,7 +841,40 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="87"
+            line="103"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;queued&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;pending_clear_confirm_text&quot;>%1$d queued messages will be removed.&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="136"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;steps&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;chat_turn_ledger_summary&quot;>Turn %1$d · %2$s · %3$d steps · %4$d tools&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="210"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;more&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;chat_produced_files_more&quot;>+%1$d more&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="218"
             column="5"/>
     </issue>
 
@@ -829,7 +885,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="195"
+            line="271"
             column="5"/>
     </issue>
 
@@ -840,7 +896,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="208"
+            line="300"
             column="5"/>
     </issue>
 
@@ -851,7 +907,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="255"
+            line="351"
             column="5"/>
     </issue>
 
@@ -862,7 +918,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="256"
+            line="352"
             column="5"/>
     </issue>
 
@@ -873,7 +929,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="316"
+            line="414"
             column="5"/>
     </issue>
 
@@ -884,7 +940,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="426"
+            line="560"
             column="5"/>
     </issue>
 
@@ -895,7 +951,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="428"
+            line="562"
             column="5"/>
     </issue>
 
@@ -906,7 +962,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="495"
+            line="625"
             column="5"/>
     </issue>
 
@@ -917,7 +973,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="496"
+            line="626"
             column="5"/>
     </issue>
 
@@ -928,7 +984,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="508"
+            line="636"
             column="5"/>
     </issue>
 
@@ -939,7 +995,18 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="641"
+            line="772"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;messages&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;search_content_hit_count&quot;>%1$d messages&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="790"
             column="5"/>
     </issue>
 
@@ -950,7 +1017,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="673"
+            line="820"
             column="5"/>
     </issue>
 
@@ -961,7 +1028,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="674"
+            line="821"
             column="5"/>
     </issue>
 
@@ -972,7 +1039,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="706"
+            line="853"
             column="5"/>
     </issue>
 
@@ -980,39 +1047,6 @@
         id="UnusedQuantity"
         message="For language &quot;id&quot; (Indonesian) the following quantities are not relevant: `one`"
         errorLine1="    &lt;plurals name=&quot;chat_status_edits_plural&quot;>"
-        errorLine2="    ^">
-        <location
-            file="src/main/res/values-id/strings.xml"
-            line="90"
-            column="5"/>
-    </issue>
-
-    <issue
-        id="UnusedQuantity"
-        message="For language &quot;id&quot; (Indonesian) the following quantities are not relevant: `one`"
-        errorLine1="    &lt;plurals name=&quot;chat_status_commands_plural&quot;>"
-        errorLine2="    ^">
-        <location
-            file="src/main/res/values-id/strings.xml"
-            line="94"
-            column="5"/>
-    </issue>
-
-    <issue
-        id="UnusedQuantity"
-        message="For language &quot;id&quot; (Indonesian) the following quantities are not relevant: `one`"
-        errorLine1="    &lt;plurals name=&quot;chat_status_steps_plural&quot;>"
-        errorLine2="    ^">
-        <location
-            file="src/main/res/values-id/strings.xml"
-            line="98"
-            column="5"/>
-    </issue>
-
-    <issue
-        id="UnusedQuantity"
-        message="For language &quot;id&quot; (Indonesian) the following quantities are not relevant: `one`"
-        errorLine1="    &lt;plurals name=&quot;chat_files_changed_plural&quot;>"
         errorLine2="    ^">
         <location
             file="src/main/res/values-id/strings.xml"
@@ -1022,107 +1056,74 @@
 
     <issue
         id="UnusedQuantity"
-        message="For language &quot;ja&quot; (Japanese) the following quantities are not relevant: `one`"
-        errorLine1="    &lt;plurals name=&quot;chat_status_edits_plural&quot;>"
-        errorLine2="    ^">
-        <location
-            file="src/main/res/values-ja/strings.xml"
-            line="158"
-            column="5"/>
-    </issue>
-
-    <issue
-        id="UnusedQuantity"
-        message="For language &quot;ko&quot; (Korean) the following quantities are not relevant: `one`"
-        errorLine1="    &lt;plurals name=&quot;chat_status_edits_plural&quot;>"
-        errorLine2="    ^">
-        <location
-            file="src/main/res/values-ko/strings.xml"
-            line="158"
-            column="5"/>
-    </issue>
-
-    <issue
-        id="UnusedQuantity"
-        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`"
-        errorLine1="    &lt;plurals name=&quot;chat_status_edits_plural&quot;>"
-        errorLine2="    ^">
-        <location
-            file="src/main/res/values-zh-rCN/strings.xml"
-            line="160"
-            column="5"/>
-    </issue>
-
-    <issue
-        id="UnusedQuantity"
-        message="For language &quot;ja&quot; (Japanese) the following quantities are not relevant: `one`"
+        message="For language &quot;id&quot; (Indonesian) the following quantities are not relevant: `one`"
         errorLine1="    &lt;plurals name=&quot;chat_status_commands_plural&quot;>"
         errorLine2="    ^">
         <location
-            file="src/main/res/values-ja/strings.xml"
-            line="162"
+            file="src/main/res/values-id/strings.xml"
+            line="139"
             column="5"/>
     </issue>
 
     <issue
         id="UnusedQuantity"
-        message="For language &quot;ko&quot; (Korean) the following quantities are not relevant: `one`"
-        errorLine1="    &lt;plurals name=&quot;chat_status_commands_plural&quot;>"
-        errorLine2="    ^">
-        <location
-            file="src/main/res/values-ko/strings.xml"
-            line="162"
-            column="5"/>
-    </issue>
-
-    <issue
-        id="UnusedQuantity"
-        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`"
-        errorLine1="    &lt;plurals name=&quot;chat_status_commands_plural&quot;>"
-        errorLine2="    ^">
-        <location
-            file="src/main/res/values-zh-rCN/strings.xml"
-            line="164"
-            column="5"/>
-    </issue>
-
-    <issue
-        id="UnusedQuantity"
-        message="For language &quot;ja&quot; (Japanese) the following quantities are not relevant: `one`"
+        message="For language &quot;id&quot; (Indonesian) the following quantities are not relevant: `one`"
         errorLine1="    &lt;plurals name=&quot;chat_status_steps_plural&quot;>"
         errorLine2="    ^">
         <location
-            file="src/main/res/values-ja/strings.xml"
-            line="166"
+            file="src/main/res/values-id/strings.xml"
+            line="143"
             column="5"/>
     </issue>
 
     <issue
         id="UnusedQuantity"
-        message="For language &quot;ko&quot; (Korean) the following quantities are not relevant: `one`"
-        errorLine1="    &lt;plurals name=&quot;chat_status_steps_plural&quot;>"
-        errorLine2="    ^">
-        <location
-            file="src/main/res/values-ko/strings.xml"
-            line="166"
-            column="5"/>
-    </issue>
-
-    <issue
-        id="UnusedQuantity"
-        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`"
-        errorLine1="    &lt;plurals name=&quot;chat_status_steps_plural&quot;>"
-        errorLine2="    ^">
-        <location
-            file="src/main/res/values-zh-rCN/strings.xml"
-            line="168"
-            column="5"/>
-    </issue>
-
-    <issue
-        id="UnusedQuantity"
-        message="For language &quot;ja&quot; (Japanese) the following quantities are not relevant: `one`"
+        message="For language &quot;id&quot; (Indonesian) the following quantities are not relevant: `one`"
         errorLine1="    &lt;plurals name=&quot;chat_files_changed_plural&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-id/strings.xml"
+            line="196"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;ja&quot; (Japanese) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;chat_status_edits_plural&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-ja/strings.xml"
+            line="199"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;ko&quot; (Korean) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;chat_status_edits_plural&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-ko/strings.xml"
+            line="199"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;chat_status_edits_plural&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-zh-rCN/strings.xml"
+            line="201"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;ja&quot; (Japanese) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;chat_status_commands_plural&quot;>"
         errorLine2="    ^">
         <location
             file="src/main/res/values-ja/strings.xml"
@@ -1133,7 +1134,7 @@
     <issue
         id="UnusedQuantity"
         message="For language &quot;ko&quot; (Korean) the following quantities are not relevant: `one`"
-        errorLine1="    &lt;plurals name=&quot;chat_files_changed_plural&quot;>"
+        errorLine1="    &lt;plurals name=&quot;chat_status_commands_plural&quot;>"
         errorLine2="    ^">
         <location
             file="src/main/res/values-ko/strings.xml"
@@ -1144,11 +1145,77 @@
     <issue
         id="UnusedQuantity"
         message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;chat_status_commands_plural&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-zh-rCN/strings.xml"
+            line="205"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;ja&quot; (Japanese) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;chat_status_steps_plural&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-ja/strings.xml"
+            line="207"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;ko&quot; (Korean) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;chat_status_steps_plural&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-ko/strings.xml"
+            line="207"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;chat_status_steps_plural&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-zh-rCN/strings.xml"
+            line="209"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;ja&quot; (Japanese) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;chat_files_changed_plural&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-ja/strings.xml"
+            line="260"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;ko&quot; (Korean) the following quantities are not relevant: `one`"
+        errorLine1="    &lt;plurals name=&quot;chat_files_changed_plural&quot;>"
+        errorLine2="    ^">
+        <location
+            file="src/main/res/values-ko/strings.xml"
+            line="260"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`"
         errorLine1="    &lt;plurals name=&quot;chat_files_changed_plural&quot;>"
         errorLine2="    ^">
         <location
             file="src/main/res/values-zh-rCN/strings.xml"
-            line="206"
+            line="264"
             column="5"/>
     </issue>
 
@@ -1181,7 +1248,29 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/service/AppNotificationManager.kt"
-            line="81"
+            line="92"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 26"
+        errorLine1="        if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.N) return"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/ChatPerfMonitor.kt"
+            line="86"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 26"
+        errorLine1="        if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.N) return"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/ChatPerfMonitor.kt"
+            line="91"
             column="13"/>
     </issue>
 
@@ -1192,8 +1281,19 @@
         errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/home/HomeViewModel.kt"
-            line="331"
+            line="393"
             column="21"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="        Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &amp;&amp; Settings.canDrawOverlays(context)"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="35"
+            column="9"/>
     </issue>
 
     <issue
@@ -1203,8 +1303,239 @@
         errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/SessionActionsDelegate.kt"
-            line="401"
+            line="448"
             column="17"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="    @RequiresApi(api = Build.VERSION_CODES.O)"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="100"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="    @RequiresApi(api = Build.VERSION_CODES.O)"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="114"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 23"
+        errorLine1="    @TargetApi(23)"
+        errorLine2="    ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="605"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="    @RequiresApi(api = Build.VERSION_CODES.O)"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="1066"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="    @RequiresApi(api = Build.VERSION_CODES.O)"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="1076"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="    @RequiresApi(api = Build.VERSION_CODES.O)"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="1082"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="    @RequiresApi(api = Build.VERSION_CODES.O)"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="1088"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="    @RequiresApi(api = Build.VERSION_CODES.O)"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="1094"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="    @RequiresApi(api = Build.VERSION_CODES.O)"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="1100"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 26"
+        errorLine1="        if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.O) return null;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="1109"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 26"
+        errorLine1="        if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.O) return false;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="1122"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? new String[]{View.AUTOFILL_HINT_USERNAME} :"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="1135"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? new String[]{View.AUTOFILL_HINT_PASSWORD} :"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="1141"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 26"
+        errorLine1="        if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.O) return;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="1146"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 26"
+        errorLine1="        if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.O) return;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="1167"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 23"
+        errorLine1="        @RequiresApi(api = Build.VERSION_CODES.M)"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="1462"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 23"
+        errorLine1="    @RequiresApi(api = Build.VERSION_CODES.M)"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="1471"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 23"
+        errorLine1="    @RequiresApi(api = Build.VERSION_CODES.M)"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="1479"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &amp;&amp; getTextSelectionActionMode() != null) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TerminalView.java"
+            line="1488"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 26"
+        errorLine1="        if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.M) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TextSelectionCursorController.java"
+            line="165"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 26"
+        errorLine1="        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/termux/view/TextSelectionHandleView.java"
+            line="77"
+            column="13"/>
     </issue>
 
     <issue
@@ -1276,8 +1607,19 @@
         errorLine2="                                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/QuestionPartContent.kt"
-            line="361"
+            line="369"
             column="70"/>
+    </issue>
+
+    <issue
+        id="FrequentlyChangingValue"
+        message="Reading a value annotated with @FrequentlyChangingValue inside composition"
+        errorLine1="    val revealWasAtTop = listState.firstVisibleItemIndex == 0"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/sessions/components/SessionTreeList.kt"
+            line="132"
+            column="36"/>
     </issue>
 
     <issue
@@ -1403,23 +1745,12 @@
 
     <issue
         id="AutoboxingStateCreation"
-        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
-        errorLine1="    var listTopY by remember { mutableStateOf(-1f) }"
-        errorLine2="                               ~~~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/ChatMessageList.kt"
-            line="438"
-            column="32"/>
-    </issue>
-
-    <issue
-        id="AutoboxingStateCreation"
         message="Prefer `mutableLongStateOf` instead of `mutableStateOf`"
         errorLine1="    var suppressFnTildeUntil by remember { mutableStateOf(0L) }"
         errorLine2="                                           ~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/terminal/ChatTerminalView.kt"
-            line="97"
+            line="105"
             column="44"/>
     </issue>
 
@@ -1458,56 +1789,177 @@
 
     <issue
         id="AutoboxingStateCreation"
-        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
-        errorLine1="    var latestH by remember { mutableStateOf(0) }"
-        errorLine2="                              ~~~~~~~~~~~~~~">
+        message="Prefer `mutableLongStateOf` instead of `mutableStateOf`"
+        errorLine1="    val fallbackStart = rememberSaveable { mutableStateOf(System.currentTimeMillis()) }.value"
+        errorLine2="                                           ~~~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/MessageCardUser.kt"
-            line="175"
-            column="31"/>
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/ReasoningBlock.kt"
+            line="79"
+            column="44"/>
     </issue>
 
     <issue
         id="AutoboxingStateCreation"
         message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
-        errorLine1="    var savedLazyIndex by mutableStateOf(0)"
-        errorLine2="                          ~~~~~~~~~~~~~~">
+        errorLine1="    var version by androidx.compose.runtime.mutableStateOf(0)"
+        errorLine2="                                            ~~~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/ScrollPositionDelegate.kt"
-            line="26"
-            column="27"/>
+            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/ScrollCompensation.kt"
+            line="52"
+            column="45"/>
     </issue>
 
     <issue
-        id="AutoboxingStateCreation"
-        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
-        errorLine1="    var savedScrollOffset by mutableStateOf(0)"
-        errorLine2="                             ~~~~~~~~~~~~~~">
+        id="UnusedResources"
+        message="The resource `R.string.pending_sheet_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;pending_sheet_title&quot;>Queued&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/ScrollPositionDelegate.kt"
-            line="29"
-            column="30"/>
+            file="src/main/res/values/strings.xml"
+            line="128"
+            column="13"/>
     </issue>
 
     <issue
-        id="AutoboxingStateCreation"
-        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
-        errorLine1="    var scrollRestoreVersion by mutableStateOf(0)"
-        errorLine2="                                ~~~~~~~~~~~~~~">
+        id="UnusedResources"
+        message="The resource `R.string.pending_tab_stacked` appears to be unused"
+        errorLine1="    &lt;string name=&quot;pending_tab_stacked&quot;>Queued %1$d&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/ScrollPositionDelegate.kt"
-            line="44"
-            column="33"/>
+            file="src/main/res/values/strings.xml"
+            line="129"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.pending_tab_todo` appears to be unused"
+        errorLine1="    &lt;string name=&quot;pending_tab_todo&quot;>TODO %1$d/%2$d&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="130"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.pending_continue` appears to be unused"
+        errorLine1="    &lt;string name=&quot;pending_continue&quot;>Continue&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="133"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.pending_clear` appears to be unused"
+        errorLine1="    &lt;string name=&quot;pending_clear&quot;>Clear&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="134"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.pending_clear_confirm_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;pending_clear_confirm_title&quot;>Clear queued messages?&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="135"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.pending_clear_confirm_text` appears to be unused"
+        errorLine1="    &lt;string name=&quot;pending_clear_confirm_text&quot;>%1$d queued messages will be removed.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="136"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.pending_edit_dialog_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;pending_edit_dialog_title&quot;>Edit queued message&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="137"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.pending_item_edit` appears to be unused"
+        errorLine1="    &lt;string name=&quot;pending_item_edit&quot;>Edit&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="138"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.pending_item_delete` appears to be unused"
+        errorLine1="    &lt;string name=&quot;pending_item_delete&quot;>Delete&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="139"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.pending_item_send` appears to be unused"
+        errorLine1="    &lt;string name=&quot;pending_item_send&quot;>Send now&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="140"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.pending_item_sending` appears to be unused"
+        errorLine1="    &lt;string name=&quot;pending_item_sending&quot;>Sending…&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="141"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.chat_response` appears to be unused"
+        errorLine1="    &lt;string name=&quot;chat_response&quot;>Response&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="185"
+            column="13"/>
     </issue>
 
     <issue
         id="UnusedResources"
         message="The resource `R.string.chat_task_completed` appears to be unused"
-        errorLine1="    &lt;string name=&quot;chat_task_completed&quot;>Task completed&lt;/string>"
+        errorLine1="    &lt;string name=&quot;chat_task_completed&quot;>Turn completed&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="144"
+            line="203"
             column="13"/>
     </issue>
 
@@ -1518,40 +1970,29 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="145"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.string.chat_system_notification` appears to be unused"
-        errorLine1="    &lt;string name=&quot;chat_system_notification&quot;>Sub-agent completed&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="146"
+            line="204"
             column="13"/>
     </issue>
 
     <issue
         id="UnusedResources"
         message="The resource `R.string.chat_subagent_completed_notification` appears to be unused"
-        errorLine1="    &lt;string name=&quot;chat_subagent_completed_notification&quot;>Sub-agent completed&lt;/string>"
+        errorLine1="    &lt;string name=&quot;chat_subagent_completed_notification&quot;>Subagent completed&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="155"
+            line="230"
             column="13"/>
     </issue>
 
     <issue
         id="UnusedResources"
         message="The resource `R.string.chat_subagent_failed_notification` appears to be unused"
-        errorLine1="    &lt;string name=&quot;chat_subagent_failed_notification&quot;>Sub-agent failed&lt;/string>"
+        errorLine1="    &lt;string name=&quot;chat_subagent_failed_notification&quot;>Subagent failed&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="156"
+            line="231"
             column="13"/>
     </issue>
 
@@ -1562,7 +2003,95 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="182"
+            line="258"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.dsh_jobs_empty` appears to be unused"
+        errorLine1="    &lt;string name=&quot;dsh_jobs_empty&quot;>No background jobs&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="288"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.a11y_icon_tasks` appears to be unused"
+        errorLine1="    &lt;string name=&quot;a11y_icon_tasks&quot;>Task activities&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="301"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.task_sheet_subagents_tab` appears to be unused"
+        errorLine1="    &lt;string name=&quot;task_sheet_subagents_tab&quot;>Subagents&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="302"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.task_sheet_shells_tab` appears to be unused"
+        errorLine1="    &lt;string name=&quot;task_sheet_shells_tab&quot;>Shells&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="303"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.task_sheet_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;task_sheet_title&quot;>Tasks&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="306"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.task_foreground` appears to be unused"
+        errorLine1="    &lt;string name=&quot;task_foreground&quot;>Foreground&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="308"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.task_background` appears to be unused"
+        errorLine1="    &lt;string name=&quot;task_background&quot;>Background&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="309"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.task_sheet_history_tab` appears to be unused"
+        errorLine1="    &lt;string name=&quot;task_sheet_history_tab&quot;>History&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="310"
             column="13"/>
     </issue>
 
@@ -1573,18 +2102,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="454"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.string.no_favorites_in_category` appears to be unused"
-        errorLine1="    &lt;string name=&quot;no_favorites_in_category&quot;>No favorites in this category&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="455"
+            line="588"
             column="13"/>
     </issue>
 
@@ -1595,7 +2113,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="456"
+            line="589"
             column="13"/>
     </issue>
 
@@ -1606,18 +2124,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="457"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.string.set_category` appears to be unused"
-        errorLine1="    &lt;string name=&quot;set_category&quot;>Set category&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="458"
+            line="590"
             column="13"/>
     </issue>
 
@@ -1628,7 +2135,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="460"
+            line="592"
             column="13"/>
     </issue>
 
@@ -1639,29 +2146,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="461"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.string.no_category` appears to be unused"
-        errorLine1="    &lt;string name=&quot;no_category&quot;>No category&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="463"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.string.new_category` appears to be unused"
-        errorLine1="    &lt;string name=&quot;new_category&quot;>New category&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="464"
+            line="593"
             column="13"/>
     </issue>
 
@@ -1672,7 +2157,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="480"
+            line="610"
             column="13"/>
     </issue>
 
@@ -1683,7 +2168,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="488"
+            line="618"
             column="13"/>
     </issue>
 
@@ -1694,7 +2179,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="534"
+            line="661"
             column="13"/>
     </issue>
 
@@ -1705,7 +2190,18 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="623"
+            line="754"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.search_content_coverage_hint` appears to be unused"
+        errorLine1="    &lt;string name=&quot;search_content_coverage_hint&quot;>Full history not synced for this session&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="789"
             column="13"/>
     </issue>
 
@@ -1716,7 +2212,18 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="673"
+            line="820"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.a11y_icon_agent_preset` appears to be unused"
+        errorLine1="    &lt;string name=&quot;a11y_icon_agent_preset&quot;>Agent preset&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="904"
             column="13"/>
     </issue>
 
@@ -1727,41 +2234,349 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="94"
+            line="131"
             column="13"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;server_pair_help_deeplink&quot;>Ou exécutez ./scripts/dsh-pair.sh --lan sur l\&apos;hôte et scannez ou touchez le lien ocbeacon:// pour préremplir ce formulaire&lt;/string>"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-fr/strings.xml"
+            line="869"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;server_pair_help_deeplink&quot;>Oder führen Sie ./scripts/dsh-pair.sh --lan auf dem Host aus und scannen oder tippen Sie auf den ocbeacon://-Link, um dieses Formular vorzufüllen&lt;/string>"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-de/strings.xml"
+            line="871"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;server_pair_help_deeplink&quot;>O ejecute ./scripts/dsh-pair.sh --lan en el host y escanee o toque el enlace ocbeacon:// para rellenar este formulario&lt;/string>"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-es/strings.xml"
+            line="871"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;server_pair_help_deeplink&quot;>Oppure esegui ./scripts/dsh-pair.sh --lan sull\&apos;host e scansiona o tocca il link ocbeacon:// per precompilare questo modulo&lt;/string>"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-it/strings.xml"
+            line="871"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;server_pair_help_deeplink&quot;>またはホストで ./scripts/dsh-pair.sh --lan を実行し、ocbeacon:// リンクをスキャンまたはタップしてこのフォームを自動入力できます&lt;/string>"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-ja/strings.xml"
+            line="871"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;server_pair_help_deeplink&quot;>또는 호스트에서 ./scripts/dsh-pair.sh --lan을 실행하고 ocbeacon:// 링크를 스캔하거나 탭하여 이 양식을 자동으로 채울 수 있습니다&lt;/string>"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-ko/strings.xml"
+            line="871"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;server_pair_help_deeplink&quot;>Ou execute ./scripts/dsh-pair.sh --lan no host e leia ou toque no link ocbeacon:// para preencher este formulário&lt;/string>"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-pt-rBR/strings.xml"
+            line="871"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;server_pair_help_deeplink&quot;>Veya ana makinede ./scripts/dsh-pair.sh --lan çalıştırın ve bu formu doldurmak için ocbeacon:// bağlantısını tarayın veya dokunun&lt;/string>"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-tr/strings.xml"
+            line="871"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;server_pair_help_deeplink&quot;>或在宿主机运行 ./scripts/dsh-pair.sh --lan，扫描/点击 ocbeacon:// 链接自动填表&lt;/string>"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-zh-rCN/strings.xml"
+            line="874"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;server_pair_help_deeplink&quot;>Atau jalankan ./scripts/dsh-pair.sh --lan di host lalu pindai atau ketuk tautan ocbeacon:// untuk mengisi formulir ini&lt;/string>"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-id/strings.xml"
+            line="877"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;server_pair_help_deeplink&quot;>Albo uruchom ./scripts/dsh-pair.sh --lan na hoście i zeskanuj lub dotknij linku ocbeacon://, aby wypełnić ten formularz&lt;/string>"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-pl/strings.xml"
+            line="879"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;server_pair_help_deeplink&quot;>Або запустіть ./scripts/dsh-pair.sh --lan на хості та відскануйте або торкніться посилання ocbeacon://, щоб заповнити цю форму&lt;/string>"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-uk/strings.xml"
+            line="879"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;server_pair_help_deeplink&quot;>Или выполните ./scripts/dsh-pair.sh --lan на хосте и отсканируйте или нажмите ссылку ocbeacon://, чтобы заполнить эту форму&lt;/string>"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-ru/strings.xml"
+            line="880"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;server_pair_help_deeplink&quot;>أو شغّل ./scripts/dsh-pair.sh --lan على المضيف وامسح رابط ocbeacon:// أو انقر عليه لتعبئة هذا النموذج تلقائيًا&lt;/string>"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-ar/strings.xml"
+            line="887"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="TypographyDashes"
+        message="Replace &quot;--&quot; with an &quot;em dash&quot; character (—, &amp;#8212;) ?"
+        errorLine1="    &lt;string name=&quot;server_pair_help_deeplink&quot;>Or run ./scripts/dsh-pair.sh --lan on the host and scan or tap the ocbeacon:// link to pre-fill this form&lt;/string>"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="954"
+            column="46"/>
     </issue>
 
     <issue
         id="TypographyEllipsis"
         message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
-        errorLine1="    &lt;string name=&quot;chat_shell_placeholder&quot;>أدخل أمر shell...&lt;/string>"
-        errorLine2="                                          ~~~~~~~~~~~~~~~~~">
+        errorLine1="    &lt;string name=&quot;chat_shell_placeholder&quot;>أدخل أمر شل...&lt;/string>"
+        errorLine2="                                          ~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values-ar/strings.xml"
-            line="359"
+            line="426"
             column="43"/>
     </issue>
 
     <issue
-        id="MonochromeLauncherIcon"
-        message="The application adaptive icon is missing a monochrome tag"
-        errorLine1="&lt;adaptive-icon xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;>"
-        errorLine2="^">
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;dsh_token_dialog_message&quot;>Collez le jeton ou l\&apos;URL complète de la ligne de démarrage du serveur (elle contient token=...).&lt;/string>"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/res/mipmap-anydpi-v26/ic_launcher.xml"
-            line="2"
-            column="1"/>
+            file="src/main/res/values-fr/strings.xml"
+            line="862"
+            column="45"/>
     </issue>
 
     <issue
-        id="MonochromeLauncherIcon"
-        message="The application adaptive roundIcon is missing a monochrome tag"
-        errorLine1="&lt;adaptive-icon xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;>"
-        errorLine2="^">
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;dsh_token_dialog_message&quot;>Fügen Sie das Token oder die vollständige URL aus der Startzeile des Servers ein (enthält token=...).&lt;/string>"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml"
-            line="2"
-            column="1"/>
+            file="src/main/res/values-de/strings.xml"
+            line="864"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;dsh_token_dialog_message&quot;>Pega el token o la URL completa de la línea de inicio del servidor (contiene token=...).&lt;/string>"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-es/strings.xml"
+            line="864"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;dsh_token_dialog_message&quot;>Incolla il token o l\&apos;URL completo dalla riga di avvio del server (contiene token=...).&lt;/string>"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-it/strings.xml"
+            line="864"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;dsh_token_dialog_message&quot;>サーバーの起動行からトークンまたは完全な URL を貼り付けてください（token=... を含みます）。&lt;/string>"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-ja/strings.xml"
+            line="864"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;dsh_token_dialog_message&quot;>서버 시작 줄에서 토큰 또는 전체 URL을 붙여넣으세요(token=... 포함).&lt;/string>"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-ko/strings.xml"
+            line="864"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;dsh_token_dialog_message&quot;>Cole o token ou a URL completa da linha de inicialização do servidor (contém token=...).&lt;/string>"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-pt-rBR/strings.xml"
+            line="864"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;dsh_token_dialog_message&quot;>Sunucunun başlangıç satırından belirteci veya tam URL\&apos;yi yapıştırın (token=... içerir).&lt;/string>"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-tr/strings.xml"
+            line="864"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;dsh_token_dialog_message&quot;>粘贴服务器启动行中的令牌或完整 URL（含 token=...）。&lt;/string>"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-zh-rCN/strings.xml"
+            line="867"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;dsh_token_dialog_message&quot;>Tempel token atau URL lengkap dari baris startup server (berisi token=...).&lt;/string>"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-id/strings.xml"
+            line="870"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;dsh_token_dialog_message&quot;>Wklej token lub pełny adres URL z wiersza startowego serwera (zawiera token=...).&lt;/string>"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-pl/strings.xml"
+            line="872"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;dsh_token_dialog_message&quot;>Вставте токен або повну URL-адресу з рядка запуску сервера (містить token=...).&lt;/string>"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-uk/strings.xml"
+            line="872"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;dsh_token_dialog_message&quot;>Вставьте токен или полный URL из строки запуска сервера (содержит token=...).&lt;/string>"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-ru/strings.xml"
+            line="873"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;dsh_token_dialog_message&quot;>الصق الرمز أو عنوان URL الكامل من سطر بدء تشغيل الخادم (يحتوي على token=...).&lt;/string>"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-ar/strings.xml"
+            line="880"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="TypographyEllipsis"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
+        errorLine1="    &lt;string name=&quot;dsh_token_dialog_message&quot;>Paste the token or the full URL from the server startup line (it contains token=...).&lt;/string>"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="947"
+            column="45"/>
     </issue>
 
     <issue
@@ -1815,7 +2630,7 @@
         errorLine2="                          ~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/input/ChatAttachmentsHandler.kt"
-            line="97"
+            line="99"
             column="27"/>
     </issue>
 
@@ -1826,7 +2641,7 @@
         errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/home/HomeScreen.kt"
-            line="156"
+            line="181"
             column="57"/>
     </issue>
 
@@ -1837,7 +2652,7 @@
         errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/home/HomeScreen.kt"
-            line="216"
+            line="241"
             column="57"/>
     </issue>
 
@@ -1850,6 +2665,17 @@
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/LinkUriHandler.kt"
             line="78"
             column="57"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                        android.net.Uri.parse(&quot;package:$packageName&quot;),"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/MainActivity.kt"
+            line="212"
+            column="25"/>
     </issue>
 
     <issue
@@ -1870,7 +2696,7 @@
         errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/OpenCodeApp.kt"
-            line="179"
+            line="252"
             column="17"/>
     </issue>
 
@@ -1881,7 +2707,7 @@
         errorLine2="                ~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/dev/leonardo/ocbeacon/OpenCodeApp.kt"
-            line="232"
+            line="305"
             column="17"/>
     </issue>
 
@@ -1905,6 +2731,215 @@
             file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/ErrorPayloadContent.kt"
             line="94"
             column="44"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        line1?.text = &quot;~&quot; + d.fpsEstimate + &quot;fps  p50 &quot; + f(d.p50Ms) + &quot;  p95 &quot; + f(d.p95Ms) + &quot;ms&quot;"
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="79"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        line1?.text = &quot;~&quot; + d.fpsEstimate + &quot;fps  p50 &quot; + f(d.p50Ms) + &quot;  p95 &quot; + f(d.p95Ms) + &quot;ms&quot;"
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="79"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        line1?.text = &quot;~&quot; + d.fpsEstimate + &quot;fps  p50 &quot; + f(d.p50Ms) + &quot;  p95 &quot; + f(d.p95Ms) + &quot;ms&quot;"
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="79"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        line1?.text = &quot;~&quot; + d.fpsEstimate + &quot;fps  p50 &quot; + f(d.p50Ms) + &quot;  p95 &quot; + f(d.p95Ms) + &quot;ms&quot;"
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="79"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        line1?.text = &quot;~&quot; + d.fpsEstimate + &quot;fps  p50 &quot; + f(d.p50Ms) + &quot;  p95 &quot; + f(d.p95Ms) + &quot;ms&quot;"
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="79"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        line1?.text = &quot;~&quot; + d.fpsEstimate + &quot;fps  p50 &quot; + f(d.p50Ms) + &quot;  p95 &quot; + f(d.p95Ms) + &quot;ms&quot;"
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="79"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="        line1?.text = &quot;~&quot; + d.fpsEstimate + &quot;fps  p50 &quot; + f(d.p50Ms) + &quot;  p95 &quot; + f(d.p95Ms) + &quot;ms&quot;"
+        errorLine2="                                             ~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="79"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="        line1?.text = &quot;~&quot; + d.fpsEstimate + &quot;fps  p50 &quot; + f(d.p50Ms) + &quot;  p95 &quot; + f(d.p95Ms) + &quot;ms&quot;"
+        errorLine2="                                                                        ~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="79"
+            column="73"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="        line1?.text = &quot;~&quot; + d.fpsEstimate + &quot;fps  p50 &quot; + f(d.p50Ms) + &quot;  p95 &quot; + f(d.p95Ms) + &quot;ms&quot;"
+        errorLine2="                                                                                                ~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="79"
+            column="97"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        line2?.text = &quot;over &quot; + f(d.overBudgetPct) + &quot;%  jank &quot; + d.totalJank +"
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="81"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        line2?.text = &quot;over &quot; + f(d.overBudgetPct) + &quot;%  jank &quot; + d.totalJank +"
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="81"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        line2?.text = &quot;over &quot; + f(d.overBudgetPct) + &quot;%  jank &quot; + d.totalJank +"
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="81"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        line2?.text = &quot;over &quot; + f(d.overBudgetPct) + &quot;%  jank &quot; + d.totalJank +"
+        errorLine2="                      ^">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="81"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        line2?.text = &quot;over &quot; + f(d.overBudgetPct) + &quot;%  jank &quot; + d.totalJank +"
+        errorLine2="                      ^">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="81"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        line2?.text = &quot;over &quot; + f(d.overBudgetPct) + &quot;%  jank &quot; + d.totalJank +"
+        errorLine2="                      ^">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="81"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        line2?.text = &quot;over &quot; + f(d.overBudgetPct) + &quot;%  jank &quot; + d.totalJank +"
+        errorLine2="                      ^">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="81"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        line2?.text = &quot;over &quot; + f(d.overBudgetPct) + &quot;%  jank &quot; + d.totalJank +"
+        errorLine2="                      ^">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="81"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="        line2?.text = &quot;over &quot; + f(d.overBudgetPct) + &quot;%  jank &quot; + d.totalJank +"
+        errorLine2="                       ~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="81"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="        line2?.text = &quot;over &quot; + f(d.overBudgetPct) + &quot;%  jank &quot; + d.totalJank +"
+        errorLine2="                                                      ~~~~~~~~">
+        <location
+            file="src/main/kotlin/dev/leonardo/ocbeacon/debug/PerfHudOverlay.kt"
+            line="81"
+            column="55"/>
     </issue>
 
 </issues>
