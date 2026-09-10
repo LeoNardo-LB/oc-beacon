@@ -2,52 +2,53 @@ package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.outlined.Compress
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.CompactionStateInfo
 import dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent
+import dev.leonardo.ocbeacon.ui.theme.AgentError
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
- * 压缩通知卡（#389 二轮终型，2026-09-10 用户裁决）——后台通知卡片样式，全服务器
- * 类型（V1 摘要线/V2 触发线/DSH 转录实体）压缩呈现的唯一视觉本体。
+ * 压缩通知卡（#389 三轮终型，2026-09-10 用户裁决）——消息卡家族规格
+ *（[MessageBubble] 骨架：透明底＋外描边＋10sp 标签行＋13dp 前导图标＋右贴
+ * trailing 组），全服务器类型（V1 摘要线/V2 触发线/DSH 转录实体）压缩呈现的
+ * 唯一视觉本体。
  *
- * 形态：透明底＋外描边（EventCard 族容器语言），左侧 32dp 圆形徽章内状态图标
- * （压缩中＝圈进度条、完成＝对钩、失败＝error 破色），右侧标题（状态文案）＋
- * 支持行（失败原因/#384 结算），有摘要时整卡点击展开 Markdown 摘要体。
- * 演化存档：#217 分割线形态 → #389 一轮思考壳（用户反馈「突兀」）→ 本终型。
+ * 布局：[时间] [压缩图标 13dp] [状态文案·flush] — 右缘 [状态图标 14dp（压缩中
+ * 圈进度/完成对钩/失败 error）] [展开箭头]。展开体＝Markdown 摘要，240dp 限高
+ * 内滚（对齐思考卡）；#384 结算/失败原因以 labelSmall 支持行常驻。
+ * 演化存档：#217 分割线 → #389 一轮思考壳（「突兀」）→ 二轮通知卡（徽章偏重）
+ * → 本三轮家族规格。
  *
  * 文案族（三认领点统一）：chat_compressing_context(_plain) / chat_summarized /
  * chat_session_compact_failed。
@@ -63,120 +64,128 @@ internal fun CompactionNoticeCard(
     body: String?,
     expanded: Boolean,
     onToggle: () -> Unit,
+    timeMs: Long,
     modifier: Modifier = Modifier,
 ) {
     val canExpand = !body.isNullOrBlank()
-    val badgeColor = if (failed) {
-        MaterialTheme.colorScheme.errorContainer
+    val borderColor = if (failed) {
+        AgentError.copy(alpha = AlphaTokens.MEDIUM)
     } else {
-        MaterialTheme.colorScheme.surfaceContainerHighest
+        MaterialTheme.colorScheme.outline.copy(alpha = AlphaTokens.MEDIUM)
     }
-    val iconTint = if (failed) {
-        MaterialTheme.colorScheme.error
+    val labelIconTint = if (failed) {
+        AgentError
+    } else {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
+    }
+    val statusTint = if (failed) {
+        AgentError
     } else {
         MaterialTheme.colorScheme.tertiary
     }
+    // 尾部兜底等无消息时间戳的认领点：取首组合时刻（活体压缩≈当下）
+    val displayTime = remember(timeMs) {
+        if (timeMs > 0) timeMs else System.currentTimeMillis()
+    }
 
-    Surface(
+    MessageBubble(
+        alignEnd = false,
+        containerColor = Color.Transparent,
+        border = BorderStroke(1.dp, borderColor),
         shape = ShapeTokens.medium,
-        color = Color.Transparent,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.MEDIUM)),
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        Column(modifier = Modifier.padding(horizontal = SpacingTokens.MD.dp, vertical = SpacingTokens.SM.dp)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .let { m -> if (canExpand) m.clickable(onClick = onToggle) else m },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // 状态徽章：压缩中圈进度条 / 完成对钩 / 失败 error
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(badgeColor, CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    when {
-                        active -> CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = iconTint,
-                        )
-                        failed -> Icon(
-                            imageVector = Icons.Outlined.ErrorOutline,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = iconTint,
-                        )
-                        else -> Icon(
-                            imageVector = Icons.Filled.CheckCircle,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = iconTint,
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.width(SpacingTokens.MD.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                    )
-                    if (!errorText.isNullOrBlank()) {
-                        Text(
-                            text = errorText,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error,
-                            maxLines = 2,
-                        )
-                    }
-                    if (!resultText.isNullOrBlank()) {
-                        Text(
-                            text = resultText,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (resultIsError) {
-                                MaterialTheme.colorScheme.error
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
-                            },
-                            maxLines = 2,
-                        )
-                    }
-                }
-                if (canExpand) {
-                    Spacer(modifier = Modifier.width(SpacingTokens.SM.dp))
-                    Icon(
-                        imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                        contentDescription = if (expanded) {
-                            stringResource(R.string.chat_collapse)
-                        } else {
-                            stringResource(R.string.chat_expand)
-                        },
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
-                    )
-                }
+        label = title,
+        timeMs = displayTime,
+        labelRowHorizontalPadding = 8.dp,
+        labelFillRemaining = true,
+        onCardClick = if (canExpand) ({ onToggle() }) else null,
+        labelLeading = {
+            Icon(
+                imageVector = Icons.Outlined.Compress,
+                contentDescription = null,
+                modifier = Modifier.size(13.dp),
+                tint = labelIconTint,
+            )
+        },
+        labelTrailing = {
+            // 状态图标（右贴组首位）：压缩中圈进度条 / 完成对钩 / 失败 error
+            when {
+                active -> CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 1.5.dp,
+                    color = statusTint,
+                )
+                failed -> Icon(
+                    imageVector = Icons.Outlined.ErrorOutline,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = statusTint,
+                )
+                else -> Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = statusTint,
+                )
             }
             if (canExpand) {
-                AnimatedVisibility(
-                    visible = expanded,
-                    enter = CardExpandEnterTransition,
-                    exit = CardExpandExitTransition,
+                Icon(
+                    imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = if (expanded) {
+                        stringResource(R.string.chat_collapse)
+                    } else {
+                        stringResource(R.string.chat_expand)
+                    },
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+                )
+            }
+        },
+        modifier = modifier,
+    ) {
+        // 支持行：失败原因（排障优先）＋ #384 吸收的源命令结算
+        if (!errorText.isNullOrBlank()) {
+            Text(
+                text = errorText,
+                style = MaterialTheme.typography.labelSmall,
+                color = AgentError,
+                maxLines = 2,
+            )
+        }
+        if (!resultText.isNullOrBlank()) {
+            Text(
+                text = resultText,
+                style = MaterialTheme.typography.labelSmall,
+                color = if (resultIsError) {
+                    AgentError
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
+                },
+                maxLines = 2,
+            )
+        }
+        // 展开体：Markdown 摘要，240dp 限高内滚（对齐思考卡 #2026-08-16 定档）
+        if (canExpand) {
+            AnimatedVisibility(
+                visible = expanded,
+                enter = CardExpandEnterTransition,
+                exit = CardExpandExitTransition,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 240.dp)
+                        .clipToBounds()
+                        .verticalScroll(rememberScrollState()),
                 ) {
-                    Column(modifier = Modifier.padding(top = SpacingTokens.SM.dp)) {
-                        androidx.compose.foundation.text.selection.SelectionContainer {
-                            MarkdownContent(
-                                markdown = body,
-                                textColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                    alpha = AlphaTokens.MUTED,
-                                ),
-                                isUser = false,
-                                customFontSize = "small",
-                            )
-                        }
+                    androidx.compose.foundation.text.selection.SelectionContainer {
+                        MarkdownContent(
+                            markdown = body,
+                            textColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                alpha = AlphaTokens.MUTED,
+                            ),
+                            isUser = false,
+                            customFontSize = "small",
+                        )
                     }
                 }
             }
@@ -199,6 +208,8 @@ internal fun CompactionCard(
     /** #227：受控展开态。 */
     expanded: Boolean = false,
     onExpandedChange: (Boolean) -> Unit = {},
+    /** 认领消息时间戳（0=尾部兜底等无时间源→取当下）。 */
+    timeMs: Long = 0L,
 ) {
     val activeState = if (state != null && state.isActive) state else null
     val liveText = when {
@@ -229,5 +240,6 @@ internal fun CompactionCard(
         body = expandableText,
         expanded = expanded,
         onToggle = { if (expandableText != null) onExpandedChange(!expanded) },
+        timeMs = timeMs,
     )
 }

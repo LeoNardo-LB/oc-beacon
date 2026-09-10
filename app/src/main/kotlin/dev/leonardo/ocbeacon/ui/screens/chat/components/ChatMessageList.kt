@@ -1440,6 +1440,7 @@ fun ChatMessageList(
                                         summary = v1Spec.summary,
                                         failed = v1Spec.failed,
                                         expandedStates = compactionExpandedStates,
+                                        timeMs = msg.message.time.created,
                                         // 撤销边界（V1 语义：撤到压缩点之前）判定在 policy；
                                         // #276：DSH 无 revert 域——按能力位置 null（槽位
                                         // 撤销手势/无障碍动作整体消失）
@@ -1747,6 +1748,7 @@ fun ChatMessageList(
                                             summary = compactionClaim.summary,
                                             failed = compactionClaim.failed,
                                             expandedStates = compactionExpandedStates,
+                                            timeMs = chatMessage.message.time.created,
                                             revertTargetId = if (revertSupported) chatMessage.message.id else null,
                                             onRevert = revertCompaction,
                                         )
