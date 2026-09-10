@@ -139,6 +139,9 @@ internal fun EventCard(
         // （label fill=false 与 Spacer 瓜分弹性，trailing 随标题长度浮动）。
         // labelFillRemaining 让 label 独吃弹性，箭头/chevron 恒贴右缘。
         labelFillRemaining = true,
+        // #389 三轮b：无可见内容（无描述行且未展开）时内容栏整栏不渲染——
+        // 修事件卡收起态上下边距不对称（同压缩卡）。
+        contentVisible = description != null || (hasBody && expanded),
         onCardClick = if (hasBody) ({ expandedStates[eventKey] = !expanded }) else null,
         labelTrailing = {
             // 跳转箭头（Q4 常驻折叠+展开两态；点击不冒泡到整卡 toggle）

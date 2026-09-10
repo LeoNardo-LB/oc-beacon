@@ -98,11 +98,12 @@ internal fun MessageBubble(
                 // 水平缩进下沉到节级（原为 Column 级整段 padding）——渲染几何等价；
                 // 拆开的目的是让标签行可独立收窄内边距（标题行贴边，#234 V6 反馈）。
                 val contentHPad = if (compact) 10.dp else SpacingTokens.LG.dp
-                // ① 标签栏（统一）：[时间] [前导图标?] [类型标签] [Spacer] [右侧操作]
-                // #312① 相对时间戳：当天 <1m/5m/2h 形态，≥7d 回退绝对格式
-                // （DateFormatters.timeAgo——阈值边界见 DateFormattersTest）
+                // ① 标签栏（统一）：[前导图标?] [类型标签] [Spacer] [右侧时间] [右侧操作]
+                // #312②（2026-09-10 用户裁决）：时间戳从行首撤下——绝对格式
+                //（messageTimestamp：当天 HH:mm:ss、跨天 yyyy-MM-dd HH:mm:ss）
+                // 右置于 trailing 图标组之前；行首只留前导图标+标签。
                 val timeText = remember(timeMs) {
-                    DateFormatters.timeAgo(timeMs)
+                    DateFormatters.messageTimestamp(timeMs)
                 }
                 Row(
                     modifier = Modifier
@@ -110,11 +111,6 @@ internal fun MessageBubble(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Text(
-                        text = timeText,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
-                    )
                     labelLeading?.invoke()
                     if (labelFillRemaining) {
                         // flush 模式：label 独占弹性（fill 吃满，长文本省略）——
@@ -141,6 +137,12 @@ internal fun MessageBubble(
                     if (!labelFillRemaining) {
                         Spacer(modifier = Modifier.weight(1f))
                     }
+                    // #312②：时间右置（trailing 图标组左侧；无 trailing 即行末）
+                    Text(
+                        text = timeText,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
+                    )
                     labelTrailing?.invoke(this)
                 }
 

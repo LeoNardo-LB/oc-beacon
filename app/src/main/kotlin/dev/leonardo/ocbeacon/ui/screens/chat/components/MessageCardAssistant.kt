@@ -619,13 +619,6 @@ internal fun ChunkedAssistantMessage(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier.padding(bottom = if (compact) SpacingTokens.XS.dp else 10.dp),
                 ) {
-                    Text(
-                        text = remember(currentMessage.message.time.created) {
-                            dev.leonardo.ocbeacon.util.DateFormatters.timeAgo(currentMessage.message.time.created)
-                        },
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                    )
                     androidx.compose.material3.Icon(
                         imageVector = androidx.compose.material.icons.Icons.Filled.SmartToy,
                         contentDescription = null,
@@ -639,6 +632,15 @@ internal fun ChunkedAssistantMessage(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
+                    )
+                    // #312②：时间右置（绝对格式，同 MessageBubble 标签栏）
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = remember(currentMessage.message.time.created) {
+                            dev.leonardo.ocbeacon.util.DateFormatters.messageTimestamp(currentMessage.message.time.created)
+                        },
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
                     )
                 }
             }
@@ -894,13 +896,6 @@ internal fun SegmentedAssistantMessage(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier.padding(bottom = if (compact) SpacingTokens.XS.dp else 10.dp),
                 ) {
-                    Text(
-                        text = remember(currentMessage.message.time.created) {
-                            dev.leonardo.ocbeacon.util.DateFormatters.timeAgo(currentMessage.message.time.created)
-                        },
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                    )
                     androidx.compose.material3.Icon(
                         imageVector = androidx.compose.material.icons.Icons.Filled.SmartToy,
                         contentDescription = null,
@@ -914,6 +909,15 @@ internal fun SegmentedAssistantMessage(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
+                    )
+                    // #312②：时间右置（绝对格式，同 MessageBubble 标签栏）
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = remember(currentMessage.message.time.created) {
+                            dev.leonardo.ocbeacon.util.DateFormatters.messageTimestamp(currentMessage.message.time.created)
+                        },
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
                     )
                 }
             }
