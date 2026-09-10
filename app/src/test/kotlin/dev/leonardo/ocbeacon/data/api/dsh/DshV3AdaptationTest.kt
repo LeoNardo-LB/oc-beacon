@@ -65,6 +65,25 @@ class DshV3AdaptationTest {
     }
 
     @Test
+    fun `assistant-stream chunk synthesised as legacy chunk maps to part delta`() {
+        // 引擎把 assistant-stream chunk 帧合成为 {type:assistant/chunk, data:{turn,step,chunk}}
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s1",
+            env(
+                """{"type":"assistant/chunk","seq":0,"time":42,"data":
+                   {"turn":1,"step":2,"chunk":{"type":"text-delta","index":0,"text":"hi"}}}"""
+            ),
+        )
+        val delta = mapped.filterIsInstance<DshMappedEvent.Sse>()
+            .map { it.event }
+            .filterIsInstance<SseEvent.MessagePartDelta>()
+        assertEquals(1, delta.size)
+        assertEquals("hi", delta[0].delta)
+        // 流式宿主 id 契约：dsh-t{turn}s{step}（chunk 帧的 turn/step 由 start 帧登记换算）
+        assertEquals("dsh-t1s2", delta[0].messageId)
+    }
+
+    @Test
     fun `surfaceOp replace reads V3 startSeq endSeq`() {
         val mapped = DshEventMapper.mapSessionEvent(
             "s1",

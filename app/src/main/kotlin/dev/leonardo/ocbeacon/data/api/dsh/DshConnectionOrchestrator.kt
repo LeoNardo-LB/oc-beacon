@@ -78,9 +78,17 @@ internal const val FOLLOW_CLOCK_SKEW_MS = 30L * 60 * 1000
 
 /** follow 开流目标：会话 id + 已装配的 SessionAddress wire 参数（#310①）。 */
 data class DshFollowTarget(val sessionId: String, val address: JsonObject) {
-    /** session/follow open 帧 args：{request:{address}}（SessionFollowRequest）。 */
-    internal fun followArgs(): JsonObject = buildJsonObject {
-        put("request", buildJsonObject { put("address", address) })
+    /**
+     * session/follow open 帧 args：{request:{address}}（SessionFollowRequest）。
+     *
+     * #391 切片7：0.1.2+ 宿主显式 [assistantStream]（V3 实时 token 流的 opt-in 开关；
+     * V011 不得携带——旧 zod 契约不认识该键）。
+     */
+    internal fun followArgs(assistantStream: Boolean = false): JsonObject = buildJsonObject {
+        put("request", buildJsonObject {
+            put("address", address)
+            if (assistantStream) put("assistantStream", true)
+        })
     }
 }
 
@@ -168,6 +176,8 @@ private class DshProtocolRoutingFrameSource(
                 scope = scope,
                 baseUrl = baseUrl,
                 registry = registry,
+                // #391 切片7：仅 0.1.2+ 宿主带 assistantStream opt-in（V011 不得携带）
+                assistantStream = registry.protocolOf(baseUrl) == DshWireProtocol.V012,
                 listFollowTargets = { refreshTargets() },
                 resolveFollowTarget = { sid ->
                     targetCache[sid]?.let { DshFollowTarget(sid, it) }

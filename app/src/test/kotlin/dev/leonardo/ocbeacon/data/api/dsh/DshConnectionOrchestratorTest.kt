@@ -12,8 +12,10 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -586,6 +588,16 @@ class DshConnectionOrchestratorTest {
         val request = args["request"] as? JsonObject
         val address = request?.get("address") as? JsonObject
         assertEquals("subagent", address?.strOfKey("kind"))
+    }
+
+    /** #391 切片7：assistantStream 是 opt-in（仅在显式开启时进入 request；V011 不得携带）。 */
+    @Test
+    fun followTarget_assistantStreamIsOptIn() {
+        val target = followTargets(listOf(subagentItem("s-child", mode = "continuable")), 1_000_000_000_000L).single()
+        val enabled = target.followArgs(assistantStream = true)["request"] as? JsonObject
+        assertEquals(true, enabled?.get("assistantStream")?.jsonPrimitive?.boolean)
+        val legacy = target.followArgs()["request"] as? JsonObject
+        assertNull(legacy?.get("assistantStream"))
     }
 
 

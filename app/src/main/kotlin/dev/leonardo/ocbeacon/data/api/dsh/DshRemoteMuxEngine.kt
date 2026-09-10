@@ -62,6 +62,8 @@ class DshRemoteMuxEngine(
     /** 动态补开时按 sessionId 解析目标（added/status/activity 只带 id，地址由
      *  调用方从 session.list 缓存/刷新解析）；null = 无法寻址，放弃补开。 */
     private val resolveFollowTarget: suspend (String) -> DshFollowTarget? = { null },
+    /** #391 切片7：follow 请求是否携带 assistantStream:true（仅 0.1.2+ 宿主）。 */
+    private val assistantStream: Boolean = false,
     private val backoff: DshBackoff = DshBackoff(),
     private val opener: DshWebSocketOpener = DshWebSocketOpener { client, request, listener ->
         client.newWebSocket(request, listener)
@@ -151,7 +153,7 @@ class DshRemoteMuxEngine(
             val ws = activeSocket ?: return
             if (!followed.add(target.sessionId)) return
             val sent = runCatching {
-                ws.send(openFrame(followStreamId(target.sessionId), "session/follow", target.followArgs()))
+                ws.send(openFrame(followStreamId(target.sessionId), "session/follow", target.followArgs(assistantStream)))
             }.getOrDefault(false)
             if (!sent) {
                 followed.remove(target.sessionId)
@@ -346,6 +348,9 @@ class DshMuxSynthesizer(
 ) {
 
     private var chunkRowsSkipped = 0L
+
+    /** #391 切片7：assistant-stream attemptId → [turn, step]（chunk 帧无 turn/step）。 */
+    private val streamingAttempts = java.util.concurrent.ConcurrentHashMap<String, LongArray>()
 
     fun onItem(
         streamId: String,
@@ -544,6 +549,7 @@ class DshMuxSynthesizer(
                     put("event", it)
                 })
             }
+            "assistant-stream" -> onAssistantStream(sessionId, value["frame"] as? JsonObject)
             else -> AppLogger.d(TAG, "follow 未知值型: " + value.toString().take(120))
         }
     }
@@ -563,6 +569,8 @@ class DshMuxSynthesizer(
                     AppLogger.i(TAG, "chunk 压缩行跳过（累计 " + chunkRowsSkipped + "）——展示走 REST 补全")
                 }
             }
+            // V3 客户端态记录（assistant/live-chunk 等 transient）——不进转录，静默
+            "transient" -> Unit
             else -> AppLogger.d(TAG, "record 未知型: " + rec.toString().take(100))
         }
     }
@@ -694,6 +702,41 @@ class DshMuxSynthesizer(
 
     private fun JsonObject.strOf(key: String): String? =
         (this[key] as? kotlinx.serialization.json.JsonPrimitive)?.content
+
+    private fun JsonObject.longOf(key: String): Long? = strOf(key)?.toLongOrNull()
+
+    /**
+     * #391 切片7：V3 实时流式帧（session/follow opt-in assistantStream）→ 合成 0.1.1
+     * `assistant/chunk` SessionEvent，复用既有 [DshEventMapper] chunk 映射与 ID 契约
+     * （流式宿主 id = dsh-t{turn}s{step}）。`start` 帧登记 attemptId → (turn,step)；
+     * `chunk` 帧按登记换算；`end` 帧仅清理登记（终态由整装 assistant/message 拆除骨架）。
+     */
+    private fun onAssistantStream(sessionId: String, frame: JsonObject?) {
+        val f = frame ?: return
+        val attemptId = f.strOf("attemptId") ?: return
+        when (f.strOf("type")) {
+            "start" -> streamingAttempts[attemptId] = longArrayOf(f.longOf("turn") ?: 0L, f.longOf("step") ?: 0L)
+            "chunk" -> {
+                val chunk = f["chunk"] as? JsonObject ?: return
+                val ts = streamingAttempts[attemptId] ?: longArrayOf(0L, 0L)
+                frame("session/event", buildJsonObject {
+                    put("sessionId", sessionId)
+                    put("event", buildJsonObject {
+                        put("type", "assistant/chunk")
+                        put("seq", f.longOf("index") ?: 0L)
+                        put("time", f.longOf("time") ?: 0L)
+                        put("data", buildJsonObject {
+                            put("turn", ts[0])
+                            put("step", ts[1])
+                            put("chunk", chunk)
+                        })
+                    })
+                })
+            }
+            "end" -> streamingAttempts.remove(attemptId)
+            else -> AppLogger.d(TAG, "assistant-stream 未知帧型: " + f.toString().take(100))
+        }
+    }
 
     private fun frame(method: String, payload: JsonObject, rpcId: String = "") {
         onFrame(method, payload, rpcId)

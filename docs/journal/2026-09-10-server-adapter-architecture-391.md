@@ -140,3 +140,19 @@
 - P0-3 实时流式：session/follow opt-in assistantStream:true（V012+）+ mux transient/assistant-stream 值型分派 + mapper start/chunk/end 帧 → Part delta；无此改动 0.1.5 宿主仍无实时 token 流。
 - P1 渲染增强：system/message 系统节点、assistant/attempt 失败尝试、deliverables 产物卡。
 - 按代 EventVocabulary 表 + V015 世代（研究 §9 建议容错优先而非硬版本门禁）。
+
+### 切片7（下）：V3 实时流式通道（assistant-stream）
+
+- DshFollowTarget.followArgs(assistantStream=false)：0.1.2+ 宿主显式带 assistantStream:true（V011 不得携带，旧 zod 契约不认识该键）。
+- DshRemoteMuxEngine 增 assistantStream 构造参数（构造点按 registry.protocolOf(baseUrl)==V012 判定）；follow open 帧据此带开关。
+- DshMuxSynthesizer：onFollowValue 增 assistant-stream 值型分派；onAssistantStream 把 start/chunk/end 帧**合成 0.1.1 assistant/chunk SessionEvent**（attemptId → (turn,step) 登记，chunk 透传原 StreamChunk），复用既有 DshEventMapper chunk 映射与 dsh-t{turn}s{step} 流式宿主 ID 契约；end 仅清登记（终态骨架由整装 assistant/message 拆除）。
+- emitRecord 增 transient 记录静默（V3 client-only 记录型）。
+
+**验证**
+- DshConnectionOrchestratorTest 增 assistantStream opt-in 断言（不显式开启则 request 无该键）。
+- DshV3AdaptationTest 增合成 chunk → Part delta 契约断言（messageId=dsh-t1s2）。
+- 全量单测 + androidTest 编译 BUILD SUCCESSFUL。
+
+**残留**
+- assistant-stream end(abandoned) 无对应 legacy 终态事件：骨架清理依赖整装消息，abandoned 场景可能留空骨架（待后续具名事件）。
+- 按代 EventVocabulary 表 / V015 世代描述符未落地（当前为容错优先 + V012 分支）。
