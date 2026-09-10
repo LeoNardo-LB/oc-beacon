@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions.components
 
 import androidx.compose.foundation.clickable
+import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -208,12 +209,12 @@ internal fun SessionTreeList(
                         onToggleFavorite = {
                             viewModel.toggleFavorite(node.session.session)
                         },
-                        deleteSupported = serverCapabilities.sessionDeleteSupported,
+                        deleteSupported = ServerFeatures.SESSION_DELETE in serverCapabilities,
                         // #311：主列表行经 builder 已滤除归档集合——isArchived 恒 false；
                         // 能力位门控（非 DSH 无归档项/不可左滑）
-                        archiveSupported = serverCapabilities.archiveSupported,
+                        archiveSupported = ServerFeatures.SESSION_ARCHIVE in serverCapabilities,
                         onArchive = { onArchive(node.id) },
-                        agentPresetSupported = serverCapabilities.agentPresetSupported,
+                        agentPresetSupported = ServerFeatures.AGENT_PRESET in serverCapabilities,
                         agentPresetNames = agentPresetNames,
                         syncState = syncStates[node.id],
                         onRequestSync = { onRequestSync(node.id) },
@@ -254,7 +255,7 @@ internal fun SessionTreeList(
         // 任何移除路径（全包 grep 无 unarchive，官方 web 客户端同无恢复入口），
         // 归档单向。故本区行菜单只留「详情」，无「取消归档」入口——后续勿在
         // 无 wire 动词时误加恢复入口。
-        val archiveSupported = serverCapabilities.archiveSupported
+        val archiveSupported = ServerFeatures.SESSION_ARCHIVE in serverCapabilities
         if (archiveSupported && archivedSessions.isNotEmpty()) {
             item(key = "archived_sessions_section") {
                 var expanded by rememberSaveable { mutableStateOf(false) }
@@ -314,10 +315,10 @@ internal fun SessionTreeList(
                                 onToggleFavorite = {
                                     viewModel.toggleFavorite(archivedItem.session)
                                 },
-                                deleteSupported = serverCapabilities.sessionDeleteSupported,
+                                deleteSupported = ServerFeatures.SESSION_DELETE in serverCapabilities,
                                 isArchived = true,
                                 archiveSupported = archiveSupported,
-                                agentPresetSupported = serverCapabilities.agentPresetSupported,
+                                agentPresetSupported = ServerFeatures.AGENT_PRESET in serverCapabilities,
                                 agentPresetNames = agentPresetNames,
                                 syncState = syncStates[archivedItem.session.id],
                                 onRequestSync = { onRequestSync(archivedItem.session.id) },

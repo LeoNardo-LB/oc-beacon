@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions
 
+import dev.leonardo.ocbeacon.testing.FakeServerAdapterResolver
 import android.util.Log
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.repository.FileRepository
@@ -144,6 +145,7 @@ class SessionListViewModelPaginationTest {
             )
         )
         return SessionListViewModel(
+            serverAdapters = FakeServerAdapterResolver(),
             sseConnectionManager = sseConnectionManager,
             savedStateHandle = savedStateHandle,
             sessionRepository = sessionRepository,

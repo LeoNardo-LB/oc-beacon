@@ -73,6 +73,7 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.CompactionStateInfo
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
+import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.StepProgressInfo
 import dev.leonardo.ocbeacon.domain.model.ToolProgressInfo
@@ -245,11 +246,11 @@ fun ChatMessageList(
     // #276 后端接口补全：DSH 无 revert/unrevert——撤销/重做 UI 入口（消息长按
     // 撤销、压缩分割线撤销、RevertBanner 重做）按能力位整体隐藏。
     val serverCapabilities by viewModel.serverCapabilities.collectAsStateWithLifecycle()
-    val revertSupported = serverCapabilities.revertSupported
+    val revertSupported = ServerFeatures.SESSION_REVERT in serverCapabilities
     // ============ #310② 消息反馈 👍/👎 ============
     // #366：能力位门控（原裸 serverType 特判收敛——「UI 入口按能力位隐藏」约定）
     val messageFeedbackMap by viewModel.messageFeedbackItems.collectAsStateWithLifecycle()
-    val feedbackEnabled = serverCapabilities.messageFeedbackSupported
+    val feedbackEnabled = ServerFeatures.FEEDBACK in serverCapabilities
 
     /**
      * 点击动作：toggle（裁决+冲突重试在委托内建）→ outcome 映射

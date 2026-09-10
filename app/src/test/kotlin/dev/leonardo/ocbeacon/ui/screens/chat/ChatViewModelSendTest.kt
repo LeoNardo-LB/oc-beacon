@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
+import dev.leonardo.ocbeacon.testing.FakeServerAdapterResolver
 import dev.leonardo.ocbeacon.domain.repository.ToolSnapshotCache
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
@@ -159,6 +160,7 @@ class ChatViewModelSendTest {
         ))
         every { sessionStateRepository.statusFlow } returns MutableStateFlow(emptyMap())
         return ChatViewModel(
+            serverAdapters = FakeServerAdapterResolver(),
             sseConnectionManager = sseConnectionManager,
             savedStateHandle = savedState,
             sendMessageUseCase = sendMessageUseCase,

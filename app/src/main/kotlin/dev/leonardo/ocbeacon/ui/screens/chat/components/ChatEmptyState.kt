@@ -27,6 +27,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.AgentPreset
+import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatViewModel
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
@@ -63,7 +64,7 @@ fun ChatEmptyState(
         }
     }
 
-    val showCards = capabilities.agentPresetSupported &&
+    val showCards = ServerFeatures.AGENT_PRESET in capabilities &&
         sessionMeta.sessionIsBlank &&
         agentPresets.isNotEmpty()
 

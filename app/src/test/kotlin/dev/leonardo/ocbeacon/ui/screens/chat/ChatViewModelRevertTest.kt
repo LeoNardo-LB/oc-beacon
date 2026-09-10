@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
+import dev.leonardo.ocbeacon.testing.FakeServerAdapterResolver
 import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
 import dev.leonardo.ocbeacon.data.repository.ShellJobsStore
 
@@ -227,6 +228,7 @@ class ChatViewModelRevertTest {
             "sessionId"  to sessionId
         ))
         return ChatViewModel(
+            serverAdapters = FakeServerAdapterResolver(),
             sseConnectionManager = sseConnectionManager,
             savedStateHandle = savedState,
             sendMessageUseCase = sendMessageUseCase,

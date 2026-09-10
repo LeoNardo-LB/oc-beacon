@@ -10,7 +10,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.domain.model.ApiVersion
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
+import dev.leonardo.ocbeacon.domain.adapter.ServerAdapterResolver
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
+import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import dev.leonardo.ocbeacon.data.repository.ServerTerminalRegistry
 import dev.leonardo.ocbeacon.data.terminal.TerminalTabState
 import dev.leonardo.ocbeacon.data.terminal.TerminalTabUi
@@ -101,6 +103,8 @@ class ChatViewModel @Inject constructor(
     private val historySyncManager: dev.leonardo.ocbeacon.data.repository.HistorySyncManager,
     // #267：连接三态真源（断连条幅 + 写操作快速失败守卫，spec docs/specs/2026-08-30-server-disconnect-gating-design.md）
     private val sseConnectionManager: dev.leonardo.ocbeacon.service.SseConnectionManager,
+    /** #391：能力位唯一来源（适配器解析器）；UI 不接触服务器类型。 */
+    private val serverAdapters: ServerAdapterResolver,
 ) : ViewModel() {
 
     // ============ 工具快照缓存（已提取到 ToolCacheDelegate） ============
@@ -142,7 +146,7 @@ class ChatViewModel @Inject constructor(
     // 服务器 API 版本（backlog #78：V2 服务器当前无 share 端点 → UI 隐藏
     // Share/Unshare 菜单项；V1 保留。加载完成前为 null（本地 Room 毫秒级）。
     // #172：UI 门控只读能力位（null 版本 = 全开放，与原 permissive 比较语义一致）
-    private val _serverCapabilities = MutableStateFlow(dev.leonardo.ocbeacon.domain.model.ServerCapabilities.of(null))
+    private val _serverCapabilities = MutableStateFlow(serverAdapters.defaultCapabilities())
     val serverCapabilities: StateFlow<dev.leonardo.ocbeacon.domain.model.ServerCapabilities> = _serverCapabilities.asStateFlow()
 
     // 服务器类型（DSH 数据源门控：Shell 面板 jobs 分流 / token 弹窗子代理区）。
@@ -160,7 +164,7 @@ class ChatViewModel @Inject constructor(
 
     /** 读 roster（DSH-only；能力位外 no-op；失败软降级空列表 → 卡区隐藏）。 */
     fun loadAgentPresets() {
-        if (!_serverCapabilities.value.agentPresetSupported) return
+        if (ServerFeatures.AGENT_PRESET !in _serverCapabilities.value) return
         viewModelScope.launch {
             chatRepository.listAgentPresets(serverId)
                 .onSuccess { _agentPresets.value = it }
@@ -170,7 +174,7 @@ class ChatViewModel @Inject constructor(
 
     /** 点卡即 select（会话此时必 blank）；成功回显由 agent-preset/selected 事件驱动。 */
     fun selectAgentPreset(presetId: String) {
-        if (!_serverCapabilities.value.agentPresetSupported) return
+        if (ServerFeatures.AGENT_PRESET !in _serverCapabilities.value) return
         viewModelScope.launch {
             // 新会话懒创建：先 ensureSession 落 blank 会话（幂等；已有会话瞬时返回）再 select
             val sid = runCatching { sessionLifecycle.ensureSession() }.getOrElse { e ->
@@ -419,7 +423,7 @@ class ChatViewModel @Inject constructor(
             val conn = config?.let {
                 ServerConnection.from(it)
             } ?: ServerConnection.from("", "", null)
-            _serverCapabilities.value = conn.capabilities
+            _serverCapabilities.value = serverAdapters.capabilities(conn)
             _serverType.value = conn.serverType
             terminalRegistry.updateConn(serverId, conn)
             // UI-A：DSH-only 读 Agent 预设 roster（能力位内才发 agentPreset.list）
@@ -589,20 +593,20 @@ class ChatViewModel @Inject constructor(
         // V2 事件驱动（started/delta/ended），HTTP 返回不杀进行中分割线；
         // V1 HTTP 挂起期间本地置态驱动同一分割线（单一数据源 compactionState）。
         compactionAsyncProvider = {
-            _serverCapabilities.value.compactionAsync
+            _serverCapabilities.value.coreFlags.compactionAsync
         },
         // #276 终验 V5：DSH /compact 命令通道与模型无关——「no model selected」
         // 护栏按能力位旁路（OpenCode 维持原拦截）。
         compactionModelIndependentProvider = {
-            _serverCapabilities.value.compactionModelIndependent
+            _serverCapabilities.value.coreFlags.compactionModelIndependent
         },
         // #276 后端接口补全：DSH 无 shell 域——runShellCommand 按能力位短路。
         shellCommandSupportedProvider = {
-            _serverCapabilities.value.shellCommandSupported
+            ServerFeatures.SHELL in _serverCapabilities.value
         },
         // #276 终验 V6：DSH 导出载荷是 ZIP 归档——写盘前显示名规范 .zip。
         exportIsArchiveProvider = {
-            _serverCapabilities.value.exportIsArchive
+            _serverCapabilities.value.coreFlags.exportIsArchive
         },
         compactionLocalState = { sid, started ->
             val next = if (started) {
@@ -755,7 +759,7 @@ class ChatViewModel @Inject constructor(
             combine(sessionLifecycle.sessionIdFlow, serverCapabilities) { sid, caps -> sid to caps }
                 .distinctUntilChanged()
                 .collect { (sid, caps) ->
-                    if (caps.messageFeedbackSupported) {
+                    if (ServerFeatures.FEEDBACK in caps) {
                         messageFeedbackDelegate.seed(sid)
                     } else {
                         messageFeedbackDelegate.reset()
@@ -826,7 +830,7 @@ class ChatViewModel @Inject constructor(
     /** #356：V2 inbox 排队拉取（QueueSheet 打开/变更后/进入会话；失败保旧值）。 */
     fun refreshQueueItems() {
         if (serverType.value == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) return
-        if (!_serverCapabilities.value.queueSupported) return
+        if (ServerFeatures.QUEUE !in _serverCapabilities.value) return
         v2QueuePulled = true
         viewModelScope.launch {
             val sid = runCatching { sessionLifecycle.ensureSession() }.getOrElse { e ->
@@ -913,7 +917,7 @@ class ChatViewModel @Inject constructor(
 
     /** goal.create（新会话懒建：先 ensureSession 落会话——goal 不破坏 blank，空白页卡不受扰）。 */
     fun createGoal(objective: String, maxGoalRounds: Long?) {
-        if (!_serverCapabilities.value.goalSupported) return
+        if (ServerFeatures.GOALS !in _serverCapabilities.value) return
         viewModelScope.launch {
             val sid = runCatching { sessionLifecycle.ensureSession() }.getOrElse { e ->
                 AppLogger.w(TAG, "ensureSession failed before createGoal: " + e.message)

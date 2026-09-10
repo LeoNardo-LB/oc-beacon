@@ -5,6 +5,8 @@ import dev.leonardo.ocbeacon.data.api.v2.V2ApiClient
 import dev.leonardo.ocbeacon.domain.model.ApiVersion
 import dev.leonardo.ocbeacon.domain.model.CoreFlags
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
+import dev.leonardo.ocbeacon.domain.model.ServerFeature
+import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import dev.leonardo.ocbeacon.domain.model.ServerType
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -49,6 +51,27 @@ class OpenCodeServerAdapter @Inject constructor(
             // V2 /api/config 只读（PATCH 404，backlog #85）；V1 / UNKNOWN / null 可写
             configEditable = !isV2,
         )
+    }
+
+    /**
+     * 非端口派生的能力声明（共享语义用 core.* 常量）：
+     * - 两代共有的端口内子能力：命令、文件内容读、vcs、文件搜索、会话删除、撤销；
+     * - V2：前台会话后台化 + inbox 排队；V1/UNKNOWN：会话分享（V2 无 share 端点）；
+     * - 逐位与迁移前的集中矩阵一致（切片 2 等价网见 ServerCapabilitiesDerivationTest）。
+     */
+    override fun privateFeatures(conn: ServerConnection): Set<ServerFeature> = buildSet {
+        add(ServerFeatures.COMMANDS)
+        add(ServerFeatures.FILE_READ)
+        add(ServerFeatures.VCS)
+        add(ServerFeatures.FILE_SEARCH)
+        add(ServerFeatures.SESSION_DELETE)
+        add(ServerFeatures.SESSION_REVERT)
+        if (conn.apiVersion.isV2) {
+            add(ServerFeatures.SESSION_BACKGROUND)
+            add(ServerFeatures.QUEUE)
+        } else {
+            add(ServerFeatures.SESSION_SHARE)
+        }
     }
 
     companion object {

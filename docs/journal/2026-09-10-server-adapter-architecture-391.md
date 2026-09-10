@@ -25,3 +25,22 @@
 - 全量 :app:testDevDebugUnitTest：3253 例，1 败 = DraftInputDelegateTest.restorePersistedDraft 的 UncaughtExceptionsBeforeTest（跨类污染已知 flake：单独跑绿；journal 2026-08-30 #277 与 2026-09-01 有同型记录）。与本切片无引用关系。
 
 **改动**：见 commit refactor: #391 切片1（领域契约 + 注册表 + 七门面改走唯一 seam）。
+
+## 切片 2：能力改为端口派生 + 核心标志；删集中矩阵与连接对象能力 getter
+
+**落地**
+- ServerCapabilities 改为 (coreFlags, features) 值对象，只提供成员查询（in / supports）；逐能力布尔 getter 与集中矩阵 ServerCapabilities.of 删除。
+- ServerConnection 退回纯数据（删除 capabilities getter）。
+- 能力 = adapter.coreFlags(conn) + ports(conn).derivedFeatures() + adapter.privateFeatures(conn)，由注册表计算；适配器不手写布尔矩阵。
+- 适配器声明非端口派生能力：OpenCode（命令 / 文件读 / vcs / 文件搜索 / 会话删除 / 撤销；V2 另加后台与排队，非 V2 为分享）；DSH（命令 / 目标 / 反馈 / 权限档 / 预设 / 归档 / 排队 / 排队编辑）。
+- 领域接口新增 defaultCapabilities()（未就绪连接初始态由数据层按缺省类型解析，领域不硬编码类型语义）。
+- 消费点迁移：5 个 ViewModel 注入 ServerAdapterResolver；UI 门控由 xSupported 改 ServerFeatures.X in caps，覆盖 ChatScreen / ChatScreenBottomBar / ChatEmptyState / ChatMessageList / SessionListScreen / SessionTreeList / ServerSettingsViewModel / WorkspaceViewModel 共 47 处主代码站点。
+- Hilt：ServerAdapterModule 增加 @Binds ServerAdapterResolver -> ServerAdapterRegistry。
+
+**验证**
+- :app:compileDevDebugKotlin 绿；:app:compileDevDebugUnitTestKotlin 绿。
+- 新增 ServerCapabilitiesDerivationTest（逐位等价网：OpenCode V1/V2/UNKNOWN、DSH；端口缺席不产生能力；缺省能力；逐连接计算）。
+- 新增测试替身 FakeServerAdapterResolver（test 源集）；13 个 ViewModel 测试构造点 + 23 处 WorkspaceViewModel 构造点补齐依赖；PaginationCursorPolicyTest 的能力映射断言迁入新测试。
+- 定向测试（Derivation / Registry / Pagination / ChatViewModelSend / SessionListShellState / WorkspaceViewModel）全绿。
+- 全量 :app:testDevDebugUnitTest BUILD SUCCESSFUL。
+- :app:lintDevDebug 仍红（4 项，均为存量：HiltEntryActivity MissingClass ×1 @6c41d0a2 2026-08-16；LocalContextGetResourceValueCall ×3 @f2df106c/2e4a4d58/54cbc555 2026-08-31~09-01）。ChatScreen numstat 9/9（行数不变、命中行未改），SettingsScreen 与 debug manifest 本批次零改动 → 与本切片无关，已登记 backlog。

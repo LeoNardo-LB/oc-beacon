@@ -9,6 +9,9 @@ import dev.leonardo.ocbeacon.data.api.dsh.DshApiError
 import dev.leonardo.ocbeacon.data.api.dsh.DshRpcErrorCode
 import dev.leonardo.ocbeacon.domain.model.FileNode
 import dev.leonardo.ocbeacon.domain.model.VcsChange
+import dev.leonardo.ocbeacon.domain.adapter.ServerAdapterResolver
+import dev.leonardo.ocbeacon.domain.model.ServerConnection
+import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import dev.leonardo.ocbeacon.domain.model.isDirectory
 import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
 import dev.leonardo.ocbeacon.domain.usecase.FindFilesUseCase
@@ -36,7 +39,9 @@ class WorkspaceViewModel @Inject constructor(
     private val getVcsStatus: GetVcsStatusUseCase,
     private val findFiles: FindFilesUseCase,
     /** #276：能力位来源（serverType 维度——DSH 下 vcs/文件搜索/文件读全 false）。 */
-    private val serverConfigRepository: ServerConfigRepository
+    private val serverConfigRepository: ServerConfigRepository,
+    /** #391：能力位唯一来源（适配器解析器）；UI 不接触服务器类型。 */
+    private val serverAdapters: ServerAdapterResolver,
 ) : ViewModel() {
 
     private val serverId = savedStateHandle.get<String>(ServerRouteParams.PARAM_SERVER_ID).orEmpty()
@@ -76,18 +81,18 @@ class WorkspaceViewModel @Inject constructor(
             viewModelScope.launch {
                 val config = serverConfigRepository.getServer(serverId)
                 val caps = config?.let {
-                    dev.leonardo.ocbeacon.domain.model.ServerCapabilities.of(it.serverType, it.apiVersion)
+                    serverAdapters.capabilities(ServerConnection.from(it))
                 }
                 if (caps != null) {
                     _uiState.update {
                         it.copy(
-                            vcsSupported = caps.vcsSupported,
-                            fileSearchSupported = caps.fileSearchSupported,
-                            fileReadSupported = caps.fileReadSupported,
+                            vcsSupported = ServerFeatures.VCS in caps,
+                            fileSearchSupported = ServerFeatures.FILE_SEARCH in caps,
+                            fileReadSupported = ServerFeatures.FILE_READ in caps,
                         )
                     }
                 }
-                if (caps?.vcsSupported != false) {
+                if (caps?.let { ServerFeatures.VCS in it } != false) {
                     prefetchGitCount()
                 }
             }

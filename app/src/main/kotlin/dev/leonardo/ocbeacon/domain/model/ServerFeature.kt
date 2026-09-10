@@ -42,4 +42,51 @@ object ServerFeatures {
 
     /** shell 命令端口在场。 */
     val SHELL = ServerFeature("core.shell")
+
+    // ---- 端口内子能力（端口在场但子能力因类型/世代而异） --------------------
+
+    /** 文件内容读取。 */
+    val FILE_READ = ServerFeature("core.files.read")
+
+    /** Git / vcs 面板。 */
+    val VCS = ServerFeature("core.files.vcs")
+
+    /** 文件内容搜索（find）。 */
+    val FILE_SEARCH = ServerFeature("core.files.search")
+
+    /** 会话删除。 */
+    val SESSION_DELETE = ServerFeature("core.session.delete")
+
+    /** 会话分享。 */
+    val SESSION_SHARE = ServerFeature("core.session.share")
+
+    /** 前台会话后台化（堆积队列）。 */
+    val SESSION_BACKGROUND = ServerFeature("core.session.background")
+
+    /** 撤销 / 重做（revert/unrevert）。 */
+    val SESSION_REVERT = ServerFeature("core.session.revert")
+
+    /** 会话归档。 */
+    val SESSION_ARCHIVE = ServerFeature("core.session.archive")
+
+    /** 斜杠命令面板与命令执行。 */
+    val COMMANDS = ServerFeature("core.commands")
+
+    /** 排队可见性（消息队列域）。 */
+    val QUEUE = ServerFeature("core.queue")
+
+    /** 排队项编辑动词（部分实现只有移除/插话，无编辑）。 */
+    val QUEUE_EDIT = ServerFeature("core.queue.edit")
+
+    /** 目标（goal）动作面板。 */
+    val GOALS = ServerFeature("core.goals")
+
+    /** 消息 👍/👎 反馈。 */
+    val FEEDBACK = ServerFeature("core.feedback")
+
+    /** 权限预设切换器（沙箱 × 审批组合档位）。 */
+    val PERMISSION_SWITCH = ServerFeature("core.permissionSwitch")
+
+    /** Agent 预设选择器。 */
+    val AGENT_PRESET = ServerFeature("core.agentPreset")
 }

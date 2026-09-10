@@ -1,7 +1,5 @@
 package dev.leonardo.ocbeacon.domain.usecase
 
-import dev.leonardo.ocbeacon.domain.model.ApiVersion
-import dev.leonardo.ocbeacon.domain.model.ServerCapabilities
 import dev.leonardo.ocbeacon.domain.util.CursorCodec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -10,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * #172 游标策略双版本契约 + 能力位映射。
+ * #172 游标策略双版本契约（能力位映射断言已迁至 data/adapter/ServerCapabilitiesDerivationTest）。
  * V2 行为规格来源：2026-08-16 cursor-400 根治注释链（窗口语义，curl 实证）。
  */
 class PaginationCursorPolicyTest {
@@ -89,22 +87,4 @@ class PaginationCursorPolicyTest {
         assertFalse(DshCursorPolicy.supportsNewerDirection)
     }
 
-    @Test
-    fun `capabilities mapping per version`() {
-        val v2 = ServerCapabilities.of(ApiVersion.V2)
-        assertFalse(v2.shareSupported)
-        assertTrue(v2.backgroundSessionsSupported)
-        assertFalse(v2.configEditable)
-
-        val v1 = ServerCapabilities.of(ApiVersion.V1)
-        assertTrue(v1.shareSupported)
-        assertFalse(v1.backgroundSessionsSupported)
-        assertTrue(v1.configEditable)
-
-        // null（未知/未加载）→ 全开放（原 permissive 比较语义保持）
-        val unknown = ServerCapabilities.of(null)
-        assertTrue(unknown.shareSupported)
-        assertTrue(unknown.backgroundSessionsSupported)
-        assertTrue(unknown.configEditable)
-    }
 }

@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions
 
+import dev.leonardo.ocbeacon.testing.FakeServerAdapterResolver
 import android.util.Log
 import dev.leonardo.ocbeacon.domain.model.AppSettings
 import dev.leonardo.ocbeacon.domain.model.Project
@@ -494,6 +495,7 @@ class SessionListViewModelWorkspaceConnectTest {
             mapOf("serverId" to "srv1")
         )
         return SessionListViewModel(
+            serverAdapters = FakeServerAdapterResolver(),
             sseConnectionManager = sseConnectionManager,
             savedStateHandle = savedStateHandle,
             sessionRepository = sessionRepository,

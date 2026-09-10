@@ -67,6 +67,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.AgentPreset
+import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import dev.leonardo.ocbeacon.service.ServerLinkState
 import dev.leonardo.ocbeacon.ui.components.DshTokenDialog
 import dev.leonardo.ocbeacon.ui.components.DshTokenNeededBanner
@@ -609,11 +610,11 @@ viewModel.consumePendingReadSessionId()
                         onUpdateTag = viewModel::updateSessionTag,
                         onDeleteTag = viewModel::removeSessionTag,
                         onRemoveTagAssignment = viewModel::removeSessionTagAssignment,
-                        permissionSwitchSupported = viewModel.serverCapabilities.collectAsStateWithLifecycle().value.permissionSwitchSupported,
+                        permissionSwitchSupported = (ServerFeatures.PERMISSION_SWITCH in viewModel.serverCapabilities.collectAsStateWithLifecycle().value),
                         permissionDefault = viewModel.permissionDefault.collectAsStateWithLifecycle().value,
                         onSetPermissionDefault = viewModel::setPermissionDefault,
                         permissionDefaultBlocked = viewModel.permissionDefaultBlocked.collectAsStateWithLifecycle().value,
-                        agentPresetSupported = viewModel.serverCapabilities.collectAsStateWithLifecycle().value.agentPresetSupported,
+                        agentPresetSupported = (ServerFeatures.AGENT_PRESET in viewModel.serverCapabilities.collectAsStateWithLifecycle().value),
                         agentPresets = viewModel.agentPresetsList.collectAsStateWithLifecycle().value,
                         agentPresetDefault = viewModel.agentPresetDefault.collectAsStateWithLifecycle().value,
                         onSetAgentPresetDefault = viewModel::setAgentPresetDefault,

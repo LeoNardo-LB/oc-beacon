@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
+import dev.leonardo.ocbeacon.testing.FakeServerAdapterResolver
 import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
 import dev.leonardo.ocbeacon.data.repository.ShellJobsStore
 import dev.leonardo.ocbeacon.data.repository.UnreadBadgeService
@@ -252,6 +253,7 @@ class ChatViewModelPermissionTest {
         every { chatRepo.getParts(any()) } returns flowOf(emptyList())
         every { chatRepo.getAllPartsMap() } returns eventDispatcher.parts
         return ChatViewModel(
+            serverAdapters = FakeServerAdapterResolver(),
             sseConnectionManager = sseConnectionManager,
             savedStateHandle = savedState,
             sendMessageUseCase = sendMessageUseCase,

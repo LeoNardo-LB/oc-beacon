@@ -5,6 +5,8 @@ import dev.leonardo.ocbeacon.data.api.dsh.DshProtocolSource
 import dev.leonardo.ocbeacon.data.api.dsh.DshWireProtocol
 import dev.leonardo.ocbeacon.domain.model.CoreFlags
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
+import dev.leonardo.ocbeacon.domain.model.ServerFeature
+import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import dev.leonardo.ocbeacon.domain.model.ServerType
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -54,6 +56,21 @@ class DshServerAdapter @Inject constructor(
         // settings 特权面 UI 不开放
         configEditable = false,
     )
+
+    /**
+     * 非端口派生的能力声明（DSH 域动词）：命令、目标、反馈、权限档、Agent 预设、
+     * 归档、排队与排队编辑。终端 / shell 不在此声明——那两者由端口缺席表达。
+     */
+    override fun privateFeatures(conn: ServerConnection): Set<ServerFeature> = buildSet {
+        add(ServerFeatures.COMMANDS)
+        add(ServerFeatures.GOALS)
+        add(ServerFeatures.FEEDBACK)
+        add(ServerFeatures.PERMISSION_SWITCH)
+        add(ServerFeatures.AGENT_PRESET)
+        add(ServerFeatures.SESSION_ARCHIVE)
+        add(ServerFeatures.QUEUE)
+        add(ServerFeatures.QUEUE_EDIT)
+    }
 
     companion object {
         const val WIRE_V011 = "v011"

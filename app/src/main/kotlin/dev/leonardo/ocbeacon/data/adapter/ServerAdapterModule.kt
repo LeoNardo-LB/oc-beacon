@@ -5,6 +5,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
+import dev.leonardo.ocbeacon.domain.adapter.ServerAdapterResolver
 
 /**
  * 适配器注册模块（#391）——每个适配器在自己包内以 @IntoSet 贡献实例。
@@ -15,6 +16,10 @@ import dagger.multibindings.IntoSet
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class ServerAdapterModule {
+
+    /** 领域层唯一路由/能力入口（上层只依赖该接口，不依赖数据层注册表）。 */
+    @Binds
+    abstract fun bindServerAdapterResolver(impl: ServerAdapterRegistry): ServerAdapterResolver
 
     @Binds
     @IntoSet

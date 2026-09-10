@@ -36,4 +36,10 @@ interface ServerAdapterResolver {
 
     /** 该连接在界面层声明有内容的插槽（纯声明，不含界面代码）。 */
     fun uiSlots(conn: ServerConnection): Set<ServerUiSlot>
+
+    /**
+     * 未就绪连接的默认能力（UI 初始态，尚无 conn 时使用）——由数据层按缺省类型解析，
+     * 领域层不硬编码任何服务器类型语义。
+     */
+    fun defaultCapabilities(): ServerCapabilities
 }

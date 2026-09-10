@@ -22,6 +22,7 @@ import dev.leonardo.ocbeacon.domain.model.ProviderCatalog
 import dev.leonardo.ocbeacon.domain.model.ProviderOauthAuthorization
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
+import dev.leonardo.ocbeacon.domain.adapter.ServerAdapterResolver
 import dev.leonardo.ocbeacon.domain.model.ServerType
 import dev.leonardo.ocbeacon.domain.repository.AgentRepository
 import dev.leonardo.ocbeacon.domain.repository.DshSettingsForbiddenException
@@ -109,6 +110,8 @@ class ServerSettingsViewModel @Inject constructor(
     private val serverConfigRepository: ServerConfigRepository,
     // #324①：DSH provider 目录/凭据/自定义增删（仅 DSH 连接使用）
     private val dshSettingsRepository: DshSettingsRepository,
+    /** #391：能力位唯一来源（适配器解析器）。 */
+    private val serverAdapters: ServerAdapterResolver,
 ) : ViewModel() {
 
     private companion object {
@@ -149,7 +152,7 @@ class ServerSettingsViewModel @Inject constructor(
             if (config != null) {
                 serverDisplayName = config.displayName
                 // #276：能力位带 serverType 维度（DSH settings 特权面不开放 UI）
-                configEditable = dev.leonardo.ocbeacon.domain.model.ServerCapabilities.of(config.serverType, config.apiVersion).configEditable
+                configEditable = serverAdapters.capabilities(ServerConnection.from(config)).coreFlags.configEditable
                 _uiState.update { it.copy(serverName = serverDisplayName) }
                 // #324①：DSH 专属 provider 目录区块（V1/V2 不渲染）
                 if (config.serverType == ServerType.Dsh) {

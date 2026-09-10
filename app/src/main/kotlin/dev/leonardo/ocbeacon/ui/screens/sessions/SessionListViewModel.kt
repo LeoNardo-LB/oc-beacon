@@ -15,7 +15,9 @@ import dev.leonardo.ocbeacon.domain.model.DshAgentPresetDocument
 import dev.leonardo.ocbeacon.domain.model.FileNode
 import dev.leonardo.ocbeacon.domain.model.McpServerStatus
 import dev.leonardo.ocbeacon.domain.model.Project
+import dev.leonardo.ocbeacon.domain.adapter.ServerAdapterResolver
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
+import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import dev.leonardo.ocbeacon.domain.model.ServerPaths
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
@@ -113,6 +115,8 @@ class SessionListViewModel @Inject constructor(
     private val sseConnectionManager: dev.leonardo.ocbeacon.service.SseConnectionManager,
     // #317：DSH 0.1.2 token 交换（TokenNeeded UX；直依赖先例同 unreadBadgeService）
     private val dshConnectionRegistry: dev.leonardo.ocbeacon.data.api.dsh.DshConnectionRegistry,
+    /** #391：能力位唯一来源（适配器解析器）；UI 不接触服务器类型。 */
+    private val serverAdapters: ServerAdapterResolver,
 ) : ViewModel() {
 
     companion object {
@@ -194,7 +198,7 @@ class SessionListViewModel @Inject constructor(
 
     /** #276：服务器能力位（serverType 维度投影；配置加载完成前 permissive 全开放）。 */
     private val _serverCapabilities = MutableStateFlow(
-        dev.leonardo.ocbeacon.domain.model.ServerCapabilities.of(null)
+        serverAdapters.defaultCapabilities()
     )
     val serverCapabilities: StateFlow<dev.leonardo.ocbeacon.domain.model.ServerCapabilities> =
         _serverCapabilities.asStateFlow()
@@ -250,7 +254,7 @@ class SessionListViewModel @Inject constructor(
             _mcpConn = conn
             mcpRepository.setConnection(conn)
             // #276：能力位投影（DSH 删除动作等 UI 门控依据）
-            _serverCapabilities.value = conn.capabilities
+            _serverCapabilities.value = serverAdapters.capabilities(conn)
             // #311 Task3：DSH 判定（对话框回退分支）
             _serverIsDsh.value =
                 conn.serverType == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh
@@ -385,7 +389,7 @@ class SessionListViewModel @Inject constructor(
 
     /** 读 settings.describe ns=permission 默认档（DSH-only；能力位外 no-op）。 */
     fun loadPermissionDefault() {
-        if (!_serverCapabilities.value.permissionSwitchSupported) return
+        if (ServerFeatures.PERMISSION_SWITCH !in _serverCapabilities.value) return
         val conn = _mcpConn ?: return
         viewModelScope.launch {
             _permissionDefaultBlocked.value = false
@@ -401,7 +405,7 @@ class SessionListViewModel @Inject constructor(
 
     /** 写 settings.mutate 默认档；成功后回读刷新（DSH-only）。 */
     fun setPermissionDefault(preset: String) {
-        if (!_serverCapabilities.value.permissionSwitchSupported) return
+        if (ServerFeatures.PERMISSION_SWITCH !in _serverCapabilities.value) return
         val conn = _mcpConn ?: return
         viewModelScope.launch {
             try {
@@ -440,7 +444,7 @@ class SessionListViewModel @Inject constructor(
 
     /** 读 roster + 默认档（DSH-only；能力位外 no-op；roster 失败软降级空列表）。 */
     fun loadAgentPresets() {
-        if (!_serverCapabilities.value.agentPresetSupported) return
+        if (ServerFeatures.AGENT_PRESET !in _serverCapabilities.value) return
         val conn = _mcpConn ?: return
         viewModelScope.launch {
             _agentPresetDefaultBlocked.value = false
@@ -465,7 +469,7 @@ class SessionListViewModel @Inject constructor(
 
     /** 写 settings.mutate 默认 Agent 预设；成功后回读刷新（DSH-only）。 */
     fun setAgentPresetDefault(preset: String) {
-        if (!_serverCapabilities.value.agentPresetSupported) return
+        if (ServerFeatures.AGENT_PRESET !in _serverCapabilities.value) return
         val conn = _mcpConn ?: return
         viewModelScope.launch {
             try {

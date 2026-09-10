@@ -469,7 +469,7 @@ fun ChatScreen(
         onRemoveDraftAttachment = { viewModel.composer.removeDraftAttachment(it) },
         onExportSession = { ctx, uri, callback -> viewModel.exportSession(ctx, uri, callback) },
         // #279：DSH 导出是 ZIP 流——SAF 预填 .zip + application/zip
-        exportIsArchiveProvider = { viewModel.serverCapabilities.value.exportIsArchive },
+        exportIsArchiveProvider = { viewModel.serverCapabilities.value.coreFlags.exportIsArchive },
         onShowSnackbar = { msg -> snackbarHostState.showSnackbar(msg) },
     )
     val attachments = attachmentHandler.attachments
@@ -736,9 +736,9 @@ fun ChatScreen(
                                 }
                             }
                         },
-                        isShareSupported = serverCapabilities.shareSupported,
-                        isBackgroundSupported = serverCapabilities.backgroundSessionsSupported,
-                        isTerminalSupported = serverCapabilities.terminalSupported,
+                        isShareSupported = ServerFeatures.SESSION_SHARE in serverCapabilities,
+                        isBackgroundSupported = ServerFeatures.SESSION_BACKGROUND in serverCapabilities,
+                        isTerminalSupported = ServerFeatures.TERMINAL in serverCapabilities,
                         onShare = {
                             viewModel.shareSession { url ->
                                 coroutineScope.launch {
@@ -767,7 +767,7 @@ fun ChatScreen(
                                 .ifBlank { "session" }
                             // #279：扩展名随能力位（DSH=zip，OpenCode=json）——
                             // SAF 建议名与 MIME 一致，免落盘后 renameDocument 兜底
-                            val ext = if (viewModel.serverCapabilities.value.exportIsArchive) "zip" else "json"
+                            val ext = if (viewModel.serverCapabilities.value.coreFlags.exportIsArchive) "zip" else "json"
                             attachmentHandler.launchExport("$slug.$ext")
                         },
                         onBackgroundSession = { viewModel.backgroundSession() },
@@ -1039,9 +1039,9 @@ fun ChatScreen(
                       entries = buildList {
                           add(ChatToolbarEntry.TODO)
                           add(ChatToolbarEntry.AGENT)
-                          if (serverCapabilities.goalSupported) add(ChatToolbarEntry.GOAL)
-                          if (serverCapabilities.terminalSupported) add(ChatToolbarEntry.SHELL)
-                          if (serverCapabilities.queueSupported) add(ChatToolbarEntry.QUEUE)
+                          if (ServerFeatures.GOALS in serverCapabilities) add(ChatToolbarEntry.GOAL)
+                          if (ServerFeatures.TERMINAL in serverCapabilities) add(ChatToolbarEntry.SHELL)
+                          if (ServerFeatures.QUEUE in serverCapabilities) add(ChatToolbarEntry.QUEUE)
                       },
                       // 2026-08-29 基线对齐：菜单 08-27 稳定 API 复刻把按钮钉底（内部
                       // 底距移除）后，与 ⬇ FAB 的 padding(bottom=16dp) 失配 16dp——
@@ -1154,7 +1154,7 @@ fun ChatScreen(
                 items = queueItems,
                 isRunning = sessionMeta.sessionStatus is SessionStatus.Busy,
                 isReadOnly = sessionMeta.sessionParentId != null,
-                editSupported = serverCapabilities.queueEditSupported,
+                editSupported = ServerFeatures.QUEUE_EDIT in serverCapabilities,
                 onDismiss = { toolbarSheet = null },
                 onSaveEdit = { itemId, text ->
                     viewModel.updateQueueItem(

@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.adapter
 
 import dev.leonardo.ocbeacon.domain.adapter.ServerAdapterResolver
+import dev.leonardo.ocbeacon.domain.model.ApiVersion
 import dev.leonardo.ocbeacon.domain.model.CoreFlags
 import dev.leonardo.ocbeacon.domain.model.ServerCapabilities
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
@@ -25,9 +26,8 @@ private const val TAG = "ServerAdapterRegistry"
  * - [capabilities] / [wireGeneration] / [uiSlots] / [supportedTypes] 实现领域接口
  *   [ServerAdapterResolver]，是上层唯一的能力查询入口。
  *
- * 行为等价说明（切片 1）：[capabilities] 暂由既有中心矩阵 [ServerCapabilities.of]
- * 计算，逐位与迁移前一致；切片 2 改为
- * "coreFlags + derivedFeatures + privateFeatures" 派生并删除中心矩阵。
+ * 能力派生（切片 2）：[capabilities] = 核心行为标志 + 端口可选性派生能力 +
+ * 适配器声明的非端口派生能力；集中的服务器类型能力矩阵已删除，适配器不手写布尔矩阵。
  */
 @Singleton
 class ServerAdapterRegistry @Inject constructor(
@@ -68,8 +68,28 @@ class ServerAdapterRegistry @Inject constructor(
     override fun wireGeneration(conn: ServerConnection): String =
         adapterFor(conn).wireGeneration(conn)
 
-    override fun capabilities(conn: ServerConnection): ServerCapabilities =
-        ServerCapabilities.of(conn.serverType, conn.apiVersion)
+    override fun capabilities(conn: ServerConnection): ServerCapabilities {
+        val adapter = adapterFor(conn)
+        return ServerCapabilities(
+            coreFlags = adapter.coreFlags(conn),
+            features = adapter.ports(conn).derivedFeatures() + adapter.privateFeatures(conn),
+        )
+    }
+
+    /**
+     * 未就绪连接的默认能力（无服务器上下文时 UI 的初始态）：按缺省类型 OpenCode 的
+     * V1 语义解析（与原 permissive 缺省一致；唯一的差异是 background 位，旧实现以
+     * "版本为 null" 表达、现不可表示，未探测一律按 V1）。
+     */
+    override fun defaultCapabilities(): ServerCapabilities =
+        capabilities(
+            ServerConnection(
+                baseUrl = "",
+                authHeader = null,
+                apiVersion = ApiVersion.V1,
+                serverType = ServerType.OpenCode,
+            )
+        )
 
     override fun uiSlots(conn: ServerConnection): Set<ServerUiSlot> =
         adapterFor(conn).uiSlots

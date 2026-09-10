@@ -43,6 +43,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.util.copyToClipboard
 import dev.leonardo.ocbeacon.domain.model.PromptPart
+import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.ui.screens.chat.input.BusyIndicatorSmoother
 import dev.leonardo.ocbeacon.ui.screens.chat.input.ChatAttachmentsHandler
@@ -112,7 +113,7 @@ internal fun ChatScreenBottomBar(
     } else ""
     // #276 能力位门控：DSH 无 command 执行端点——斜杠命令面板与 /cmd 发送拦截均停用
     val serverCapabilities by viewModel.serverCapabilities.collectAsStateWithLifecycle()
-    val slashCommandsSupported = serverCapabilities.commandsSupported
+    val slashCommandsSupported = ServerFeatures.COMMANDS in serverCapabilities
     // #356：busy 气泡菜单态（立即发送[steer]/消息排队[queue]；V1 无队列域仅前者）
     var showBusyMenu by remember { mutableStateOf(false) }
     // 稳定 busy 指示提升（原内联于 ChatInputBar 参数——#348 拦截发送需要读它）
@@ -132,12 +133,12 @@ internal fun ChatScreenBottomBar(
     )
     // #276 后端接口补全：DSH 无 shell 域——shell 模式入口（！ 前缀自动切换/
     //   长按切换/面板 shell 项）与 shell 发送全部停用，！ 前缀按普通消息发送。
-    val shellCommandSupported = serverCapabilities.shellCommandSupported
+    val shellCommandSupported = ServerFeatures.SHELL in serverCapabilities
     // #276 后端接口补全：DSH 无 revert/unrevert——undo/redo 停用（消息长按撤销
     //   入口在 ChatMessageList 同位门控）。
-    val revertSupported = serverCapabilities.revertSupported
+    val revertSupported = ServerFeatures.SESSION_REVERT in serverCapabilities
     // 权限预设切换器（DSH 专属）：能力位门控 + 会话 permissions 投影驱动回显
-    val permissionSwitchSupported = serverCapabilities.permissionSwitchSupported
+    val permissionSwitchSupported = ServerFeatures.PERMISSION_SWITCH in serverCapabilities
     // #310③ Plan 状态 chip（DSH-only）：投影 {active,pending} 驱动——无投影/有效
     // 目标态为关时不出 chip（PlanChipGate 纯逻辑，单测钉死）
     val planState by viewModel.planState.collectAsStateWithLifecycle()
@@ -630,7 +631,7 @@ internal fun ChatScreenBottomBar(
             if (showBusyMenu) {
                 BusySendMenuPopup(
                     hasAttachments = attachments.isNotEmpty(),
-                    showQueueOption = serverCapabilities.queueSupported,
+                    showQueueOption = ServerFeatures.QUEUE in serverCapabilities,
                     onDismiss = { showBusyMenu = false },
                     onSendNow = {
                         showBusyMenu = false

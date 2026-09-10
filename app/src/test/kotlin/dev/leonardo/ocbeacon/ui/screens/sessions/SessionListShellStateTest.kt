@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions
 
+import dev.leonardo.ocbeacon.testing.FakeServerAdapterResolver
 import android.util.Log
 import app.cash.turbine.test
 import dev.leonardo.ocbeacon.domain.model.Session
@@ -152,6 +153,7 @@ class SessionListShellStateTest {
             )
         )
         return SessionListViewModel(
+            serverAdapters = FakeServerAdapterResolver(),
             sseConnectionManager = sseConnectionManager,
             savedStateHandle = savedStateHandle,
             sessionRepository = sessionRepository,
