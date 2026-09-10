@@ -63,15 +63,12 @@ internal fun MessageBubble(
     /** 标签行水平内边距（#234 V6 反馈：事件卡标题行右贴边）；null=沿用内容内边距
      *  （用户/智能体气泡默认路径，渲染几何不变）。 */
     labelRowHorizontalPadding: androidx.compose.ui.unit.Dp? = null,
-    /** 标签行右端贴齐模式（#234 二轮 V6 实证）：true 时 label 以 weight(fill)
-     *  吃满全部行内弹性（超长省略），trailing 图标组恒贴行右缘。false=历史几何
-     *  （label fill=false 与 Spacer 均分弹性——trailing 随标签长度浮动）。
-     *  仅事件卡启用；suffix 槽位在 flush 模式下紧邻 trailing 排布。 */
-    labelFillRemaining: Boolean = false,
-    /** #389 三轮b：内容区可见性——false 时内容 Column 整体不渲染（空内容仍占
-     *  spacedBy 间距 → 收起态上下边距不对称的头号根因）。缺省 true：既有调用方
-     *  （用户/智能体气泡、事件卡）行为零变化。可选内容/折叠体卡片按可见态传入。 */
-    contentVisible: Boolean = true,
+    /** #389 三轮c：内容栏展开态。null＝恒渲染（用户/智能体气泡——内容常驻，
+     *  缺省零变化）；非 null＝内容栏整体包 AnimatedVisibility（统一 CardExpand*
+     *  动画）——空内容动画收起为 0 高度，不再占 spacedBy 间距（收起态上下边距
+     *  对称），展开/收起恒有动画（取代三轮b 的 contentVisible 条件卸载——它把
+     *  收起动画截胡成了瞬间消失）。 */
+    contentExpanded: Boolean? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val compact = LocalChatDensity.current == ChatDensity.Compact
@@ -98,10 +95,10 @@ internal fun MessageBubble(
                 // 水平缩进下沉到节级（原为 Column 级整段 padding）——渲染几何等价；
                 // 拆开的目的是让标签行可独立收窄内边距（标题行贴边，#234 V6 反馈）。
                 val contentHPad = if (compact) 10.dp else SpacingTokens.LG.dp
-                // ① 标签栏（统一）：[前导图标?] [类型标签] [Spacer] [右侧时间] [右侧操作]
-                // #312②（2026-09-10 用户裁决）：时间戳从行首撤下——绝对格式
-                //（messageTimestamp：当天 HH:mm:ss、跨天 yyyy-MM-dd HH:mm:ss）
-                // 右置于 trailing 图标组之前；行首只留前导图标+标签。
+                // ① 标签栏（统一）三段式：[左区: 前导图标+标签+suffix] [中区: 时间] [右区: trailing 组]
+                // #312③（2026-09-10 用户裁决「时间放在中央」）：左右两区等权（weight 1f），
+                // 时间恒在整行水平中央（titlebar 模式）；labelFillRemaining 机制随之退役。
+                // 时间格式＝绝对（messageTimestamp：当天 HH:mm:ss、跨天 yyyy-MM-dd HH:mm:ss）。
                 val timeText = remember(timeMs) {
                     DateFormatters.messageTimestamp(timeMs)
                 }
@@ -111,19 +108,13 @@ internal fun MessageBubble(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    labelLeading?.invoke()
-                    if (labelFillRemaining) {
-                        // flush 模式：label 独占弹性（fill 吃满，长文本省略）——
-                        // 其后所有元素被推到行右缘（V4/F1 修复：消除双权重均分浮动）
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                    } else {
+                    // 左区（weight 1f）：图标 + 标签（区内省略） + suffix
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        labelLeading?.invoke()
                         Text(
                             text = label,
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
@@ -132,29 +123,44 @@ internal fun MessageBubble(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false)
                         )
+                        labelSuffix?.invoke()
                     }
-                    labelSuffix?.invoke()
-                    if (!labelFillRemaining) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                    // #312②：时间右置（trailing 图标组左侧；无 trailing 即行末）
+                    // 中区：绝对时间（整行中央）
                     Text(
                         text = timeText,
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                     )
-                    labelTrailing?.invoke(this)
+                    // 右区（weight 1f，尾对齐）：trailing 图标组
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        labelTrailing?.invoke(this)
+                    }
                 }
 
                 // ② 正文栏（水平缩进在节级；内层 spacedBy 复刻原 Column 级间距）
-                // #389 三轮b：contentVisible=false 整栏不渲染——空内容不再贡献
-                // spacedBy 间距（收起态上下边距对称）。
-                if (contentVisible) {
+                // #389 三轮c：contentExpanded 非 null 时整体 AnimatedVisibility
+                //（统一 CardExpand* 动画；空内容动画归零 → 不占 spacedBy 间距）。
+                val contentBody: @Composable () -> Unit = {
                     Column(
                         modifier = Modifier.padding(horizontal = contentHPad),
                         verticalArrangement = Arrangement.spacedBy(if (compact) SpacingTokens.XS.dp else 10.dp)
                     ) {
                         content()
+                    }
+                }
+                if (contentExpanded == null) {
+                    contentBody()
+                } else {
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = contentExpanded,
+                        enter = CardExpandEnterTransition,
+                        exit = CardExpandExitTransition,
+                    ) {
+                        contentBody()
                     }
                 }
 

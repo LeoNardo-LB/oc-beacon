@@ -633,7 +633,7 @@ internal fun ChunkedAssistantMessage(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
                     )
-                    // #312②：时间右置（绝对格式，同 MessageBubble 标签栏）
+                    // #312③：时间居中（左右等权区，同 MessageBubble 三段式标签栏）
                     Spacer(modifier = Modifier.weight(1f))
                     Text(
                         text = remember(currentMessage.message.time.created) {
@@ -642,6 +642,7 @@ internal fun ChunkedAssistantMessage(
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
                     )
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
             // ② 首段：巨型 part 之前的 renderItems（reasoning / 工具卡等）
@@ -910,7 +911,7 @@ internal fun SegmentedAssistantMessage(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
                     )
-                    // #312②：时间右置（绝对格式，同 MessageBubble 标签栏）
+                    // #312③：时间居中（左右等权区，同 MessageBubble 三段式标签栏）
                     Spacer(modifier = Modifier.weight(1f))
                     Text(
                         text = remember(currentMessage.message.time.created) {
@@ -919,6 +920,7 @@ internal fun SegmentedAssistantMessage(
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
                     )
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
             // ② 段主体

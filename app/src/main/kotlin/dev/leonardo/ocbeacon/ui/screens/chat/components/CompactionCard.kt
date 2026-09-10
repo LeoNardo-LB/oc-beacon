@@ -97,7 +97,6 @@ internal fun CompactionNoticeCard(
         label = title,
         timeMs = displayTime,
         labelRowHorizontalPadding = 8.dp,
-        labelFillRemaining = true,
         onCardClick = if (canExpand) ({ onToggle() }) else null,
         labelLeading = {
             Icon(
@@ -142,9 +141,9 @@ internal fun CompactionNoticeCard(
             }
         },
         modifier = modifier,
-        // #389 三轮b：无可见内容（收起且无支持行）时内容栏整栏不渲染——
-        // 消除空内容占 spacedBy 间距造成的上下边距不对称。
-        contentVisible = hasSupportRows || expanded,
+        // #389 三轮c：内容栏 AnimatedVisibility（统一展开/收起动画）。
+        // 有支持行＝内容常驻（null，正文走卡内 AV）；无支持行＝随展开态动画。
+        contentExpanded = if (hasSupportRows) null else expanded,
     ) {
         // 支持行：失败原因（排障优先）＋ #384 吸收的源命令结算
         if (!errorText.isNullOrBlank()) {

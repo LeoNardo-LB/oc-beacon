@@ -348,7 +348,7 @@ internal fun ChunkedUserMessage(
                         maxLines = 1,
                         modifier = Modifier.weight(1f, fill = false),
                     )
-                    // #312②：时间右置（绝对格式，同 MessageBubble 标签栏）
+                    // #312③：时间居中（左右等权区，同 MessageBubble 三段式标签栏）
                     Spacer(modifier = Modifier.weight(1f))
                     Text(
                         text = remember(currentMessage.message.time.created) {
@@ -357,6 +357,7 @@ internal fun ChunkedUserMessage(
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
                     )
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
             // ② 分段正文（所有段）——纯 Text（用户消息不渲染 Markdown，官方 TUI 对齐）
