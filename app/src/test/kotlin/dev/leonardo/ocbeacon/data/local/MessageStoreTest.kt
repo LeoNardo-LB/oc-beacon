@@ -84,9 +84,11 @@ class MessageStoreTest {
 
     @Test
     fun upsertMessages_persistOldBeyondWindowFalse_skipsMessagesOlderThanOldestCached() = runTest {
-        // 本地已有 msg_3（created=300）为最旧 → 窗口边界 = 300
+        // 本地已有 msg_3（created=300）为最旧 → 窗口边界 = 300（#386：过滤仅在
+        // 裁剪边界生效——缓存满限才激活，桩 count=LIMIT）
         coEvery { dao.oldestMessageId("ses_1") } returns "msg_3"
         coEvery { dao.messageCreatedAt("msg_3") } returns 300L
+        coEvery { dao.countForSession("ses_1") } returns MessageCacheRepository.SESSION_MESSAGE_LIMIT
         val older = msg("msg_1", 100)
         val newer = msg("msg_4", 400)
 
@@ -227,15 +229,31 @@ class MessageStoreTest {
 
     @Test
     fun upsertMessages_windowSkip_noArchiveNoPrune() = runTest {
-        // 窗口外消息全部跳过 → 不落库 → 不触发归档
+        // 窗口外消息全部跳过 → 不落库 → 不触发归档（#386：过滤仅在裁剪边界生效，
+        // 缓存满限才激活——桩 count=LIMIT）
         coEvery { dao.oldestMessageId("ses_1") } returns "msg_9"
         coEvery { dao.messageCreatedAt("msg_9") } returns 900L
+        coEvery { dao.countForSession("ses_1") } returns MessageCacheRepository.SESSION_MESSAGE_LIMIT
         val older = msg("msg_1", 100)
 
         store.upsertMessages("ses_1", listOf(older), persistOldBeyondWindow = false)
 
         coVerify(exactly = 0) { archiveDao.upsertAll(any()) }
         coVerify(exactly = 0) { dao.upsertMessages(any()) }
+    }
+
+    @Test
+    fun upsertMessages_belowLimit_persistsEarlyBootstrapHole() = runTest {
+        // #386：缓存未满限（引导洞：迁移清库后部分行幸存）→ 早期消息不再被
+        // oldest 锚静默滤掉，全量落库自愈
+        coEvery { dao.oldestMessageId("ses_1") } returns "msg_9"
+        coEvery { dao.messageCreatedAt("msg_9") } returns 900L
+        coEvery { dao.countForSession("ses_1") } returns 5
+        val older = msg("msg_1", 100)
+
+        store.upsertMessages("ses_1", listOf(older), persistOldBeyondWindow = false)
+
+        coVerify(exactly = 1) { dao.upsertMessages(any()) }
     }
 
     @Test

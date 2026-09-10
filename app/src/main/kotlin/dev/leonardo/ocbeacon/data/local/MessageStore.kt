@@ -22,7 +22,9 @@ import javax.inject.Singleton
  * 消息本地缓存存储（Room）。
  *
  * 限量策略：每会话最近 [SESSION_MESSAGE_LIMIT] 条；翻页拉到窗口外的更早消息
- * 默认不落库（persistOldBeyondWindow=false），避免"写了又被裁"循环。
+ * 默认不落库（persistOldBeyondWindow=false），避免"写了又被裁"循环——该过滤仅在
+ * 裁剪边界（缓存已满限）生效，未满限会话全量持久化（#386 引导洞自愈：迁移清库/
+ * 缺口后早期事件可回填）。
  *
  * 归档：超 [SESSION_MESSAGE_LIMIT] 时，prune 删除前先整桶 zstd 归档到 archive_buckets
  * （时间窗口 + 200 条/512KB 分桶）。#271：桶无上限（全量保留），无自动淘汰。
@@ -133,7 +135,15 @@ class MessageStore @Inject constructor(
             databaseRecovery.withCorruptionRecovery {
                 val oldestId = dao.oldestMessageId(sessionId)
                 val oldestCreated = oldestId?.let { dao.messageCreatedAt(it) }
-                val toPersist = if (persistOldBeyondWindow || oldestCreated == null) {
+                // #386：窗口过滤仅在**裁剪边界**生效（缓存 ≥ SESSION_MESSAGE_LIMIT 才有
+                // 「写了又被裁」循环压力）。未满限的会话全量持久化——自愈引导洞：
+                // 迁移清库/崩溃缺口后缓存非空但缺早期消息时，oldest 锚定在幸存行上，
+                // 重放回的早期事件（会话开场注入/首轮消息）不再被静默丢弃
+                // （实测 v8 清库后 dsh-call 幸存行成锚，seq-9..12 全滤掉致注入项隐形）。
+                val cachedCount = dao.countForSession(sessionId)
+                val toPersist = if (persistOldBeyondWindow || oldestCreated == null ||
+                    cachedCount < SESSION_MESSAGE_LIMIT
+                ) {
                     messages
                 } else {
                     messages.filter { m -> m.info.time.created >= oldestCreated }
