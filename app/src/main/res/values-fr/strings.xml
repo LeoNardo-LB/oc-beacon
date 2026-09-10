@@ -27,11 +27,6 @@
     <string name="command_feedback_running">Exécution…</string>
     <string name="command_feedback_accepted">Accepté</string>
     <string name="command_feedback_completed">Terminé</string>
-    <string name="chat_compaction_title">Compression de session</string>
-    <string name="chat_compaction_done">Session compactée</string>
-    <string name="chat_compaction_in_progress">Compression…</string>
-    <string name="chat_compaction_failed">Échec de la compression</string>
-    <string name="chat_compaction_expand">Déplier le résumé de compression</string>
     <string name="command_feedback_failed">Échec</string>
     <string name="command_feedback_a11y_running">Commande en cours d\'exécution</string>
     <!-- Chat Screen -->

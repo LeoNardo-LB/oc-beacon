@@ -27,11 +27,6 @@
     <string name="command_feedback_running">실행 중…</string>
     <string name="command_feedback_accepted">접수됨</string>
     <string name="command_feedback_completed">완료됨</string>
-    <string name="chat_compaction_title">세션 압축</string>
-    <string name="chat_compaction_done">세션 압축됨</string>
-    <string name="chat_compaction_in_progress">압축 중…</string>
-    <string name="chat_compaction_failed">압축 실패</string>
-    <string name="chat_compaction_expand">압축 요약 펼치기</string>
     <string name="command_feedback_failed">실패</string>
     <string name="command_feedback_a11y_running">명령 실행 중</string>
     <!-- Chat Screen -->

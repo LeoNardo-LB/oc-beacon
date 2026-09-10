@@ -27,11 +27,6 @@
     <string name="command_feedback_running">In esecuzione…</string>
     <string name="command_feedback_accepted">Accettato</string>
     <string name="command_feedback_completed">Completato</string>
-    <string name="chat_compaction_title">Compattazione della sessione</string>
-    <string name="chat_compaction_done">Sessione compattata</string>
-    <string name="chat_compaction_in_progress">Compattazione…</string>
-    <string name="chat_compaction_failed">Compattazione non riuscita</string>
-    <string name="chat_compaction_expand">Espandi riepilogo compattazione</string>
     <string name="command_feedback_failed">Non riuscito</string>
     <string name="command_feedback_a11y_running">Comando in esecuzione</string>
     <!-- Chat Screen -->

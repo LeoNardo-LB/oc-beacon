@@ -15,6 +15,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,6 +44,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -64,8 +66,29 @@ import kotlinx.coroutines.delay
 internal fun resolveReasoningDisplayDuration(durationMs: Long?, frozenElapsedMs: Long): Long? =
     durationMs?.takeIf { it > 0 } ?: frozenElapsedMs.takeIf { it > 0 }
 
+/**
+ * #389（2026-09-10 用户裁决）：思考卡容器通用化——压缩卡（V1 摘要线/V2 触发线/
+ * DSH 转录实体三认领点）弃分割线形态，借本卡为容器改文案复用，全服务器类型
+ * 压缩 UIUX 单一（ui-conventions 服务器类型交互统一铁律）。思考路径零行为变化：
+ * [headerOverride]/[accentOverride]/[belowHeader] 三参仅压缩借壳方使用，缺省时
+ * 与通用化前完全一致（时长文案/脉冲/计时器均不动）。
+ */
 @Composable
-internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleExpand: () -> Unit = {}, durationMs: Long? = null, isStreaming: Boolean = false, startTimeMs: Long? = null) {
+internal fun ReasoningBlock(
+    text: String,
+    isExpanded: Boolean = false,
+    onToggleExpand: () -> Unit = {},
+    durationMs: Long? = null,
+    isStreaming: Boolean = false,
+    startTimeMs: Long? = null,
+    /** 标题行文案覆盖（压缩：正在压缩上下文…/上下文已压缩/压缩会话失败）。非空时
+     *  不显示思考计时文案（计时 ticker 仍按 isStreaming 运行驱动脉冲圆点）。 */
+    headerOverride: String? = null,
+    /** 强调色覆盖（左条+圆点：压缩失败=error 破色）。null=默认 primary。 */
+    accentOverride: Color? = null,
+    /** 标题行与展开体之间的常驻行（压缩结算 #384 commandDone / 失败原因）。 */
+    belowHeader: (@Composable ColumnScope.() -> Unit)? = null,
+) {
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
     val expanded = isExpanded
@@ -98,7 +121,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
         }
     }
 
-    val accentColor = MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.MEDIUM)
+    val accentColor = accentOverride ?: MaterialTheme.colorScheme.primary.copy(alpha = AlphaTokens.MEDIUM)
     val containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = AlphaTokens.MEDIUM)
     val textColor = MaterialTheme.colorScheme.onSurface
 
@@ -126,7 +149,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
         )
         alpha
     }
-    val headerText = when {
+    val headerText = headerOverride ?: when {
         isStreaming -> stringResource(R.string.chat_thinking_in_progress, formatReasoningDuration(elapsedMs.longValue))
         // #338：时长未知（durationMs 零/负且无本地冻结样本——DSH 整装事件
         // start=end 同信封族）→ 无时长变体，不显示伪造 0ms（#263 round2 哲学收口）。
@@ -201,6 +224,11 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                         }
                     }
                     // #215 批3：chevron IconButton 移除——本体点击=展开唯一入口
+                }
+
+                // #389：借壳方常驻行（压缩结算/失败原因）——思考路径 null 不渲染
+                if (belowHeader != null) {
+                    belowHeader()
                 }
 
                 // 可展开内容（2026-08-30 用户裁决：撤销全部展开补偿改造，回归

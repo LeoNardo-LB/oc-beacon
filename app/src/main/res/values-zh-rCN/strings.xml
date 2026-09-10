@@ -27,11 +27,6 @@
     <string name="command_feedback_running">执行中…</string>
     <string name="command_feedback_accepted">已受理</string>
     <string name="command_feedback_completed">已完成</string>
-    <string name="chat_compaction_title">会话压缩</string>
-    <string name="chat_compaction_done">会话已压缩</string>
-    <string name="chat_compaction_in_progress">压缩中…</string>
-    <string name="chat_compaction_failed">压缩失败</string>
-    <string name="chat_compaction_expand">展开压缩摘要</string>
     <string name="command_feedback_failed">失败</string>
     <string name="command_feedback_a11y_running">命令执行中</string>
     <!-- Chat Screen -->

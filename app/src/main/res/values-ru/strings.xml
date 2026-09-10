@@ -41,11 +41,6 @@
     <string name="command_feedback_running">Выполняется…</string>
     <string name="command_feedback_accepted">Принято</string>
     <string name="command_feedback_completed">Завершено</string>
-    <string name="chat_compaction_title">Сжатие сессии</string>
-    <string name="chat_compaction_done">Сессия сжата</string>
-    <string name="chat_compaction_in_progress">Сжатие…</string>
-    <string name="chat_compaction_failed">Не удалось сжать</string>
-    <string name="chat_compaction_expand">Развернуть сводку сжатия</string>
     <string name="command_feedback_failed">Не удалось</string>
     <string name="command_feedback_a11y_running">Команда выполняется</string>
     <string name="session_rename">Переименовать сессию</string>

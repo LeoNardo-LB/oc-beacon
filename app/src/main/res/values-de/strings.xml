@@ -27,11 +27,6 @@
     <string name="command_feedback_running">Wird ausgeführt…</string>
     <string name="command_feedback_accepted">Angenommen</string>
     <string name="command_feedback_completed">Abgeschlossen</string>
-    <string name="chat_compaction_title">Sitzungskomprimierung</string>
-    <string name="chat_compaction_done">Sitzung komprimiert</string>
-    <string name="chat_compaction_in_progress">Wird komprimiert…</string>
-    <string name="chat_compaction_failed">Komprimierung fehlgeschlagen</string>
-    <string name="chat_compaction_expand">Komprimierungs Zusammenfassung ausklappen</string>
     <string name="command_feedback_failed">Fehlgeschlagen</string>
     <string name="command_feedback_a11y_running">Befehl wird ausgeführt</string>
     <!-- Chat Screen -->

@@ -27,11 +27,6 @@
     <string name="command_feedback_running">Çalışıyor…</string>
     <string name="command_feedback_accepted">Kabul edildi</string>
     <string name="command_feedback_completed">Tamamlandı</string>
-    <string name="chat_compaction_title">Oturum sıkıştırma</string>
-    <string name="chat_compaction_done">Oturum sıkıştırıldı</string>
-    <string name="chat_compaction_in_progress">Sıkıştırılıyor…</string>
-    <string name="chat_compaction_failed">Sıkıştırma başarısız</string>
-    <string name="chat_compaction_expand">Sıkıştırma özetini genişlet</string>
     <string name="command_feedback_failed">Başarısız</string>
     <string name="command_feedback_a11y_running">Komut çalışıyor</string>
     <!-- Chat Screen -->

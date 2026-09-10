@@ -27,11 +27,6 @@
     <string name="command_feedback_running">قيد التشغيل…</string>
     <string name="command_feedback_accepted">تم القبول</string>
     <string name="command_feedback_completed">اكتمل</string>
-    <string name="chat_compaction_title">ضغط الجلسة</string>
-    <string name="chat_compaction_done">تم ضغط الجلسة</string>
-    <string name="chat_compaction_in_progress">جارٍ الضغط…</string>
-    <string name="chat_compaction_failed">فشل الضغط</string>
-    <string name="chat_compaction_expand">توسيع ملخص الضغط</string>
     <string name="command_feedback_failed">فشل</string>
     <string name="command_feedback_a11y_running">الأمر قيد التنفيذ</string>
     <!-- Chat Screen -->
