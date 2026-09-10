@@ -1,6 +1,5 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
-import dev.leonardo.ocbeacon.domain.model.ServerType
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.logging.AppLogger
@@ -35,16 +34,16 @@ internal class SubagentModeTracker(
     fun modeFlow(
         sessionIdFlow: Flow<String>,
         sessionsFlow: Flow<List<Session>>,
-        serverTypeFlow: Flow<ServerType>,
+        subagentsSupportedFlow: Flow<Boolean>,
     ): Flow<String?> = combine(
         sessionIdFlow,
         sessionsFlow,
-        serverTypeFlow,
-    ) { sid, sessions, type ->
-        Triple(sid, sessions.firstOrNull { it.id == sid }?.parentId, type)
+        subagentsSupportedFlow,
+    ) { sid, sessions, supported ->
+        Triple(sid, sessions.firstOrNull { it.id == sid }?.parentId, supported)
     }.distinctUntilChanged()
-        .flatMapLatest { (sid, parentId, type) ->
-            if (parentId == null || type != ServerType.Dsh) {
+        .flatMapLatest { (sid, parentId, supported) ->
+            if (parentId == null || !supported) {
                 flowOf(null)
             } else {
                 flow<String?> {

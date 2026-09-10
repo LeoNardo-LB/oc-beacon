@@ -206,7 +206,7 @@ class SessionListViewModel @Inject constructor(
     /** #311 Task3：本服务器是否 DSH（空 workspace 快照的回退分支判定——
      * DSH=listProjects 投影（V011 workspace.list / V012 session.list distinct
      * cwd），非 DSH=既有最近目录行为零回归）。 */
-    private val _serverIsDsh = MutableStateFlow(false)
+    private val _usesWorkspaceProjections = MutableStateFlow(false)
 
     // 以下五个可变状态**必须声明在 init 块之前**：init 的配置加载协程
     // （Main.immediate——测试 Main=Unconfined 时 eager 执行）会触达
@@ -256,8 +256,8 @@ class SessionListViewModel @Inject constructor(
             // #276：能力位投影（DSH 删除动作等 UI 门控依据）
             _serverCapabilities.value = serverAdapters.capabilities(conn)
             // #311 Task3：DSH 判定（对话框回退分支）
-            _serverIsDsh.value =
-                conn.serverType == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh
+            // #391 切片9：能力位代替类型判定（服务器设置特权面 = workspace 投影域）
+            _usesWorkspaceProjections.value = ServerFeatures.SERVER_SETTINGS in _serverCapabilities.value
             // 权限预设切换器门控：DSH-only 读默认档（能力位内才发 settings.describe）
             loadPermissionDefault()
             // UI-B/UI-C：DSH-only 读 Agent 预设 roster + 默认档（能力位内才发请求）
@@ -538,7 +538,7 @@ class SessionListViewModel @Inject constructor(
 
     /** 加载清单 + 配置表单（DSH-only；非 DSH no-op）。 */
     fun loadServerAdmin() {
-        if (!_serverIsDsh.value) return
+        if (!_usesWorkspaceProjections.value) return
         val conn = _mcpConn ?: return
         viewModelScope.launch {
             _pluginInventory.value = serverSettingsRepository.listPluginInventory(conn)
@@ -765,7 +765,7 @@ class SessionListViewModel @Inject constructor(
         chatRepository.getWorkspaceSnapshotFlow(serverId),
         sessionRepository.getSessionsFlow(serverId).distinctUntilChanged(),
         _projects,
-        _serverIsDsh,
+        _usesWorkspaceProjections,
         recentDirectoryCount,
     ) { snapshot, sessions, projects, isDsh, limit ->
         when {
@@ -982,7 +982,7 @@ class SessionListViewModel @Inject constructor(
         }
         // #322：DSH 专属服务器历史搜索（防抖同窗；角色/时间 chips 仅作用本地
         // FTS——服务器无对应过滤参数，chips 变化不重发）
-        if (_serverIsDsh.value) {
+        if (_usesWorkspaceProjections.value) {
             serverSearchJob = viewModelScope.launch {
                 delay(SEARCH_DEBOUNCE_MS)
                 _serverSearch.value = runServerSearch(query)

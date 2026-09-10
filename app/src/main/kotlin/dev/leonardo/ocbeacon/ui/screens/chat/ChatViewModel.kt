@@ -149,11 +149,6 @@ class ChatViewModel @Inject constructor(
     private val _serverCapabilities = MutableStateFlow(serverAdapters.defaultCapabilities())
     val serverCapabilities: StateFlow<dev.leonardo.ocbeacon.domain.model.ServerCapabilities> = _serverCapabilities.asStateFlow()
 
-    // 服务器类型（DSH 数据源门控：Shell 面板 jobs 分流 / token 弹窗子代理区）。
-    // 加载完成前缺省 OpenCode（面板走 V2 shell 行为，弹窗不渲染子代理区）。
-    private val _serverType = MutableStateFlow(dev.leonardo.ocbeacon.domain.model.ServerType.OpenCode)
-    val serverType: StateFlow<dev.leonardo.ocbeacon.domain.model.ServerType> = _serverType.asStateFlow()
-
     // ============ DSH Agent 预设（空白页预设卡，UI-A） ============
     private val _agentPresets = MutableStateFlow<List<AgentPreset>>(emptyList())
     val agentPresets: StateFlow<List<AgentPreset>> = _agentPresets.asStateFlow()
@@ -326,7 +321,7 @@ class ChatViewModel @Inject constructor(
         chatRepository = chatRepository,
         shellJobsStore = shellJobsStore,
         dshJobsStore = dshJobsStore,
-        serverTypeFlow = serverType,
+        capabilitiesFlow = serverCapabilities,
         serverId = serverId,
         sessionIdFlow = sessionLifecycle.sessionIdFlow,
         scope = viewModelScope,
@@ -424,7 +419,6 @@ class ChatViewModel @Inject constructor(
                 ServerConnection.from(it)
             } ?: ServerConnection.from("", "", null)
             _serverCapabilities.value = serverAdapters.capabilities(conn)
-            _serverType.value = conn.serverType
             terminalRegistry.updateConn(serverId, conn)
             // UI-A：DSH-only 读 Agent 预设 roster（能力位内才发 agentPreset.list）
             loadAgentPresets()
@@ -791,7 +785,7 @@ class ChatViewModel @Inject constructor(
         .modeFlow(
             sessionIdFlow = sessionLifecycle.sessionIdFlow,
             sessionsFlow = sessionRepository.getSessionsFlow(serverId),
-            serverTypeFlow = serverType,
+            subagentsSupportedFlow = serverCapabilities.map { ServerFeatures.SUBAGENTS in it },
         )
         .stateIn(viewModelScope, WhileSubscribed5s, null)
 

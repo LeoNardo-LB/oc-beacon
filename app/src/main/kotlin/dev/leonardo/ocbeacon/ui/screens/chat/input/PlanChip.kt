@@ -22,13 +22,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.DshPlanProjection
-import dev.leonardo.ocbeacon.domain.model.ServerType
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * #310③ PlanChip 显隐纯逻辑（仿 SubagentComposerGate 风格，单测 PlanChipGateTest）：
- * - DSH only（serverType 门——OpenCode 无 plan 投影域）；
+ * - 仅 plan 能力位在场时可用（无 plan 投影域的类型恒不出）；
  * - 无投影（首帧前/清空）→ 不出；
  * - 有效目标态（[DshPlanProjection.effective]，pending ? !active : active——
  *   官方 dsh-client-ui-plan PlanChip 同判据）→ 出 chip：切换中=进行中语义，
@@ -37,8 +36,8 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
  */
 internal object PlanChipGate {
 
-    fun chipVisible(serverType: ServerType, plan: DshPlanProjection?): Boolean =
-        serverType == ServerType.Dsh && plan != null && plan.effective
+    fun chipVisible(planSupported: Boolean, plan: DshPlanProjection?): Boolean =
+        planSupported && plan != null && plan.effective
 }
 
 /**

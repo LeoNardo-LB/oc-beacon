@@ -124,12 +124,11 @@ internal fun ChatScreenBottomBar(
     )
     // #310① 子会话续聊门控：DSH 子会话 mode=continuable → 解禁 composer
     //（one-shot 只读提示行）；加载中/失败保守隐藏——防 one-shot 误发。
-    val serverType by viewModel.serverType.collectAsStateWithLifecycle()
     // #310⑤ 会话源候选（与 fileSearchResults 同源同清,composer 统一状态）
     val sessionMentionResults by viewModel.composer.sessionSearchResults.collectAsStateWithLifecycle()
     val subagentMode by viewModel.subagentModeState.collectAsStateWithLifecycle()
     val subagentComposerVisible = SubagentComposerGate.composerVisible(
-        sessionMeta.sessionParentId, serverType, subagentMode,
+        sessionMeta.sessionParentId, ServerFeatures.SUBAGENTS in serverCapabilities, subagentMode,
     )
     // #276 后端接口补全：DSH 无 shell 域——shell 模式入口（！ 前缀自动切换/
     //   长按切换/面板 shell 项）与 shell 发送全部停用，！ 前缀按普通消息发送。
@@ -142,7 +141,7 @@ internal fun ChatScreenBottomBar(
     // #310③ Plan 状态 chip（DSH-only）：投影 {active,pending} 驱动——无投影/有效
     // 目标态为关时不出 chip（PlanChipGate 纯逻辑，单测钉死）
     val planState by viewModel.planState.collectAsStateWithLifecycle()
-    val planChipVisible = PlanChipGate.chipVisible(serverType, planState)
+    val planChipVisible = PlanChipGate.chipVisible(ServerFeatures.PLAN in serverCapabilities, planState)
     val planExitFailedMsg = stringResource(R.string.plan_exit_failed)
 
     // #106 lint 清偿（LocalContextGetResourceValueCall）：snackbar 文案 hoist 到
@@ -652,7 +651,7 @@ internal fun ChatScreenBottomBar(
     }
     // #310① one-shot 子会话只读提示行（明确不可续聊；加载中/失败保持全隐藏——
     // 与 composer 同位替换渲染，占位底部栏避免布局跳变）
-    if (SubagentComposerGate.readOnlyHintVisible(sessionMeta.sessionParentId, serverType, subagentMode) &&
+    if (SubagentComposerGate.readOnlyHintVisible(sessionMeta.sessionParentId, ServerFeatures.SUBAGENTS in serverCapabilities, subagentMode) &&
         !isTerminalMode
     ) {
         Surface(

@@ -1,7 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.input
 
 import dev.leonardo.ocbeacon.domain.model.DshPlanProjection
-import dev.leonardo.ocbeacon.domain.model.ServerType
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -17,24 +16,24 @@ class PlanChipGateTest {
 
     @Test
     fun `no projection hides chip`() {
-        assertFalse(PlanChipGate.chipVisible(ServerType.Dsh, null))
+        assertFalse(PlanChipGate.chipVisible(true, null))
     }
 
     @Test
     fun `steady on shows chip on dsh`() {
-        assertTrue(PlanChipGate.chipVisible(ServerType.Dsh, DshPlanProjection(active = true)))
+        assertTrue(PlanChipGate.chipVisible(true, DshPlanProjection(active = true)))
     }
 
     @Test
     fun `steady off hides chip`() {
-        assertFalse(PlanChipGate.chipVisible(ServerType.Dsh, DshPlanProjection(active = false)))
+        assertFalse(PlanChipGate.chipVisible(true, DshPlanProjection(active = false)))
     }
 
     @Test
     fun `pending switch on shows chip with progress semantics`() {
         assertTrue(
             PlanChipGate.chipVisible(
-                ServerType.Dsh,
+                true,
                 DshPlanProjection(active = false, pending = true),
             ),
         )
@@ -44,7 +43,7 @@ class PlanChipGateTest {
     fun `pending leave hides chip`() {
         assertFalse(
             PlanChipGate.chipVisible(
-                ServerType.Dsh,
+                true,
                 DshPlanProjection(active = true, pending = true),
             ),
         )
@@ -55,7 +54,7 @@ class PlanChipGateTest {
         // 防御性：OpenCode 无 plan 域（投影恒 null），若出现非空投影也不出 chip
         assertFalse(
             PlanChipGate.chipVisible(
-                ServerType.OpenCode,
+                false,
                 DshPlanProjection(active = true),
             ),
         )

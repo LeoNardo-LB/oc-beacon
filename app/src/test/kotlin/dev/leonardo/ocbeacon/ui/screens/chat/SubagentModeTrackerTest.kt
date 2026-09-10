@@ -1,6 +1,5 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
-import dev.leonardo.ocbeacon.domain.model.ServerType
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SubagentCatalog
 import dev.leonardo.ocbeacon.domain.model.SubagentCatalogEntry
@@ -49,7 +48,7 @@ class SubagentModeTrackerTest {
             SubagentModeTracker(repo, "srv-1").modeFlow(
                 flowOf("child-1"),
                 flowOf(listOf(session("child-1", "parent-1"))),
-                flowOf(ServerType.Dsh),
+                flowOf(true),
             ).collect { emissions.add(it) }
         }
         advanceUntilIdle()
@@ -66,7 +65,7 @@ class SubagentModeTrackerTest {
             SubagentModeTracker(repo, "srv-1").modeFlow(
                 flowOf("s-main"),
                 flowOf(listOf(session("s-main", null))),
-                flowOf(ServerType.Dsh),
+                flowOf(true),
             ).collect { emissions.add(it) }
         }
         advanceUntilIdle()
@@ -83,7 +82,7 @@ class SubagentModeTrackerTest {
             SubagentModeTracker(repo, "srv-1").modeFlow(
                 flowOf("child-1"),
                 flowOf(listOf(session("child-1", "parent-1"))),
-                flowOf(ServerType.OpenCode),
+                flowOf(false),
             ).collect { emissions.add(it) }
         }
         advanceUntilIdle()
@@ -102,7 +101,7 @@ class SubagentModeTrackerTest {
             SubagentModeTracker(repo, "srv-1").modeFlow(
                 flowOf("child-1"),
                 flowOf(listOf(session("child-1", "parent-1"))),
-                flowOf(ServerType.Dsh),
+                flowOf(true),
             ).collect { emissions.add(it) }
         }
         advanceUntilIdle()
@@ -120,7 +119,7 @@ class SubagentModeTrackerTest {
             SubagentModeTracker(repo, "srv-1").modeFlow(
                 flowOf("child-1"),
                 flowOf(listOf(session("child-1", "parent-1"))),
-                flowOf(ServerType.Dsh),
+                flowOf(true),
             ).collect { emissions.add(it) }
         }
         advanceUntilIdle()

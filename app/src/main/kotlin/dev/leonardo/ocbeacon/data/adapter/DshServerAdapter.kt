@@ -105,6 +105,9 @@ class DshServerAdapter @Inject constructor(
         add(ServerFeatures.QUEUE_EDIT)
         // 队列由 session/queue 控制帧推送（对比 V2 inbox 的客户端拉取）
         add(ServerFeatures.QUEUE_PUSH)
+        // 后台任务帧推送 + plan 投影域（DSH 专属）
+        add(ServerFeatures.JOBS_PUSH)
+        add(ServerFeatures.PLAN)
     }
 
     companion object {

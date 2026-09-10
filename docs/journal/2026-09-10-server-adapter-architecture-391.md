@@ -180,4 +180,20 @@
 
 **验证**：compile + 全量单测 + androidTest 编译 BUILD SUCCESSFUL；主代码 serverType 引用减少 2 处。
 
-（两轴 code review 子代理仍在运行：standards=47d94616 / spec=778d5be9，报告落 /tmp/review/。）
+（两轴 code review：Spec 轴 778d5be9 已完成，报告 /tmp/review/spec.md；Standards 轴 47d94616 运行时被暂停点截断。）
+
+## 切片 9（步骤 2-3）：类型分支归零（领域层 / 子智能体 / 计划 / 任务面板 / 会话列表）
+
+**步骤 2（32b2a26c）**：PaginationCursorPolicyFactory 不再读 ServerConfig.serverType；改注入领域安全的 ServerAdapterResolver 并按 transportKind 投影判定 MUX。
+
+**步骤 3**：
+- 新增能力位 JOBS_PUSH（core.jobs.push）与 PLAN（core.plan），DshServerAdapter 声明。
+- SubagentComposerGate / PlanChipGate 参数由 ServerType 改为能力布尔；SubagentModeTracker 改 subagentsSupportedFlow。
+- TaskAggregator 改 capabilitiesFlow（SHELL / JOBS_PUSH 决定数据源）；TaskUiState 删除 serverType 字段（UI 零消费）。
+- ChatViewModel 删除 _serverType / serverType（StateFlow）；ChatScreenBottomBar 改读能力位。
+- SessionListViewModel _serverIsDsh → _usesWorkspaceProjections（SERVER_SETTINGS 能力位）。
+- 测试：SubagentComposerGateTest / PlanChipGateTest / SubagentModeTrackerTest / TaskAggregatorJobsBranchingTest 改能力断言；FakeServerAdapterResolver 改为按连接类型给能力（DSH 预设）。
+
+**验证**：compile + 全量单测 + androidTest 编译 BUILD SUCCESSFUL。
+
+**仍余（切片9 后续）**：ChatRepositoryImpl archive/listBlank/mention 三处守卫、ServerCard 类型徽标（持久化身份展示）、uiSlots 声明消费与 seam-1 断言、STRUCTURAL_VIOLATION 无发射点、architecture.md 措辞。

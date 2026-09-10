@@ -5,7 +5,6 @@ import dev.leonardo.ocbeacon.data.repository.DshJobsStore
 import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.domain.model.JobView
 import dev.leonardo.ocbeacon.domain.model.Part
-import dev.leonardo.ocbeacon.domain.model.ServerType
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.ShellJob
 import dev.leonardo.ocbeacon.domain.model.ToolState
@@ -53,8 +52,6 @@ data class TaskUiState(
     val shells: List<ShellJob> = emptyList(),
     /** DSH 后台任务整快照（session/jobs 帧）；非 DSH 会话恒空。 */
     val dshJobs: List<JobView> = emptyList(),
-    /** 当前服务器类型——ShellSheet 分流数据源（V2 shell / DSH jobs）。 */
-    val serverType: ServerType = ServerType.OpenCode,
     val subagents: List<SubagentSummary> = emptyList(),
     /** 运行中的 subagent 数（角标计数） */
     val runningSubagentCount: Int = 0,
@@ -87,8 +84,8 @@ class TaskAggregator(
     private val chatRepository: ChatRepository,
     private val shellJobsStore: ShellJobsStore,
     private val dshJobsStore: DshJobsStore,
-    /** 服务器类型流（DSH 数据源门控——面板两代共用，分流点在仓库层）。 */
-    private val serverTypeFlow: kotlinx.coroutines.flow.Flow<ServerType>,
+    /** 能力位流（数据源门控：shell 端口在场 / 后台任务由服务器帧推送）。 */
+    private val capabilitiesFlow: kotlinx.coroutines.flow.Flow<dev.leonardo.ocbeacon.domain.model.ServerCapabilities>,
     private val serverId: String,
     sessionIdFlow: kotlinx.coroutines.flow.Flow<String>,
     scope: CoroutineScope,
@@ -314,7 +311,6 @@ class TaskAggregator(
      * [ShellJobsStore]——V2 会话行为零改动（shells 恒走原 store）。
      */
     private data class JobsPanelData(
-        val serverType: ServerType,
         val shells: List<ShellJob>,
         val dshJobs: List<JobView>,
     )
@@ -322,14 +318,17 @@ class TaskAggregator(
     private val jobsPanelData = combine(
         shellJobsStore.jobsBySession,
         dshJobsStore.jobsBySession,
-        serverTypeFlow,
+        capabilitiesFlow,
         sessionIdFlow,
-    ) { shellsMap, dshJobsMap, serverType, currentSessionId ->
-        val isDsh = serverType == ServerType.Dsh
+    ) { shellsMap, dshJobsMap, caps, currentSessionId ->
+        // #391 切片9：数据源由能力位决定（SHELL 端口在场 → shell；JOBS_PUSH → 服务器帧推送）
         JobsPanelData(
-            serverType = serverType,
-            shells = if (isDsh) emptyList() else shellsMap[currentSessionId].orEmpty(),
-            dshJobs = if (isDsh) dshJobsMap[currentSessionId].orEmpty() else emptyList(),
+            shells = if (dev.leonardo.ocbeacon.domain.model.ServerFeatures.SHELL in caps) {
+                shellsMap[currentSessionId].orEmpty()
+            } else emptyList(),
+            dshJobs = if (dev.leonardo.ocbeacon.domain.model.ServerFeatures.JOBS_PUSH in caps) {
+                dshJobsMap[currentSessionId].orEmpty()
+            } else emptyList(),
         )
     }.distinctUntilChanged()
 
@@ -350,7 +349,6 @@ class TaskAggregator(
         TaskUiState(
             shells = jobs.shells,
             dshJobs = jobs.dshJobs,
-            serverType = jobs.serverType,
             subagents = subagents,
             runningSubagentCount = runningSubagents.size,
             foregroundSubagentCount = foregroundCount,

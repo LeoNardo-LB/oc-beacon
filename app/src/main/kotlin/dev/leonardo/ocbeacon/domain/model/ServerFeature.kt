@@ -81,6 +81,12 @@ object ServerFeatures {
     /** 队列由服务器**推送**（帧快照）而非客户端拉取——数据源差异对上层只暴露为能力位。 */
     val QUEUE_PUSH = ServerFeature("core.queue.push")
 
+    /** 后台任务由服务器帧推送（session/jobs）。 */
+    val JOBS_PUSH = ServerFeature("core.jobs.push")
+
+    /** Plan 模式投影域（计划 chip 的显隐依据）。 */
+    val PLAN = ServerFeature("core.plan")
+
     /** 目标（goal）动作面板。 */
     val GOALS = ServerFeature("core.goals")
 

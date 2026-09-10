@@ -31,10 +31,27 @@ class FakeServerAdapterResolver(
     override fun wireGeneration(conn: ServerConnection): String = "v1"
 
     override fun transportKind(conn: ServerConnection): dev.leonardo.ocbeacon.domain.adapter.TransportKind =
-        dev.leonardo.ocbeacon.domain.adapter.TransportKind.SSE
+        if (conn.serverType == ServerType.Dsh) {
+            dev.leonardo.ocbeacon.domain.adapter.TransportKind.MUX
+        } else {
+            dev.leonardo.ocbeacon.domain.adapter.TransportKind.SSE
+        }
 
+    /** 按连接的服务器类型给出能力（镜像真实注册表的按类型解析，便于 DSH 路径测试）。 */
     override fun capabilities(conn: ServerConnection): ServerCapabilities =
-        ServerCapabilities(coreFlags, features)
+        if (conn.serverType == ServerType.Dsh) {
+            ServerCapabilities(
+                CoreFlags(
+                    compactionAsync = true,
+                    compactionModelIndependent = true,
+                    exportIsArchive = true,
+                    configEditable = false,
+                ),
+                DSH,
+            )
+        } else {
+            ServerCapabilities(coreFlags, features)
+        }
 
     override fun uiSlots(conn: ServerConnection): Set<ServerUiSlot> = emptySet()
 
@@ -57,6 +74,28 @@ class FakeServerAdapterResolver(
             ServerFeatures.SESSION_DELETE,
             ServerFeatures.SESSION_REVERT,
             ServerFeatures.SESSION_SHARE,
+        )
+
+        /** DSH 语义的能力集合（镜像 DshServerAdapter 的派生 + 声明位）。 */
+        val DSH: Set<ServerFeature> = setOf(
+            ServerFeatures.SESSION,
+            ServerFeatures.MESSAGES,
+            ServerFeatures.SYSTEM,
+            ServerFeatures.FILES,
+            ServerFeatures.PROVIDERS,
+            ServerFeatures.COMMANDS,
+            ServerFeatures.PERMISSION_SWITCH,
+            ServerFeatures.AGENT_PRESET,
+            ServerFeatures.SESSION_ARCHIVE,
+            ServerFeatures.QUEUE,
+            ServerFeatures.QUEUE_EDIT,
+            ServerFeatures.QUEUE_PUSH,
+            ServerFeatures.JOBS_PUSH,
+            ServerFeatures.PLAN,
+            ServerFeatures.GOALS,
+            ServerFeatures.FEEDBACK,
+            ServerFeatures.SUBAGENTS,
+            ServerFeatures.SERVER_SETTINGS,
         )
     }
 }

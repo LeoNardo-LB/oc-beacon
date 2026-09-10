@@ -1,6 +1,5 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
-import dev.leonardo.ocbeacon.domain.model.ServerType
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -16,24 +15,24 @@ class SubagentComposerGateTest {
     @Test
     fun `main session always shows composer regardless of mode and server type`() {
         assertTrue(
-            SubagentComposerGate.composerVisible(null, ServerType.Dsh, null),
+            SubagentComposerGate.composerVisible(null, true, null),
         )
         assertTrue(
-            SubagentComposerGate.composerVisible(null, ServerType.OpenCode, "one-shot"),
+            SubagentComposerGate.composerVisible(null, false, "one-shot"),
         )
     }
 
     @Test
     fun `dsh continuable child shows composer`() {
         assertTrue(
-            SubagentComposerGate.composerVisible("parent-1", ServerType.Dsh, "continuable"),
+            SubagentComposerGate.composerVisible("parent-1", true, "continuable"),
         )
     }
 
     @Test
     fun `dsh one-shot child hides composer`() {
         assertFalse(
-            SubagentComposerGate.composerVisible("parent-1", ServerType.Dsh, "one-shot"),
+            SubagentComposerGate.composerVisible("parent-1", true, "one-shot"),
         )
     }
 
@@ -41,7 +40,7 @@ class SubagentComposerGateTest {
     fun `loading and failure modes are conservatively hidden for dsh child`() {
         // mode=null = 加载中 / 失败降级 / 目录无本行——保守隐藏（防 one-shot 误发）
         assertFalse(
-            SubagentComposerGate.composerVisible("parent-1", ServerType.Dsh, null),
+            SubagentComposerGate.composerVisible("parent-1", true, null),
         )
     }
 
@@ -49,7 +48,7 @@ class SubagentComposerGateTest {
     fun `opencode parented child stays hidden even with continuable mode`() {
         // OpenCode 子会话维持既有只读镜像（无 subagents 域——mode 不会非空，防御性断言）
         assertFalse(
-            SubagentComposerGate.composerVisible("parent-1", ServerType.OpenCode, "continuable"),
+            SubagentComposerGate.composerVisible("parent-1", false, "continuable"),
         )
     }
 
@@ -58,23 +57,23 @@ class SubagentComposerGateTest {
     @Test
     fun `one-shot dsh child shows read-only hint row`() {
         assertTrue(
-            SubagentComposerGate.readOnlyHintVisible("parent-1", ServerType.Dsh, "one-shot"),
+            SubagentComposerGate.readOnlyHintVisible("parent-1", true, "one-shot"),
         )
     }
 
     @Test
     fun `hint row hidden for continuable loading failure and main session`() {
         assertFalse(
-            SubagentComposerGate.readOnlyHintVisible("parent-1", ServerType.Dsh, "continuable"),
+            SubagentComposerGate.readOnlyHintVisible("parent-1", true, "continuable"),
         )
         assertFalse(
-            SubagentComposerGate.readOnlyHintVisible("parent-1", ServerType.Dsh, null),
+            SubagentComposerGate.readOnlyHintVisible("parent-1", true, null),
         )
         assertFalse(
-            SubagentComposerGate.readOnlyHintVisible(null, ServerType.Dsh, "one-shot"),
+            SubagentComposerGate.readOnlyHintVisible(null, true, "one-shot"),
         )
         assertFalse(
-            SubagentComposerGate.readOnlyHintVisible("parent-1", ServerType.OpenCode, "one-shot"),
+            SubagentComposerGate.readOnlyHintVisible("parent-1", false, "one-shot"),
         )
     }
 }
