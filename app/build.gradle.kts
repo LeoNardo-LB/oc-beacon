@@ -174,6 +174,8 @@ android {
 }
 
 dependencies {
+    // #391 切片8 / #397：自定义 Lint 规则（服务器类型引用白名单门禁）
+    lintChecks(project(":lint-checks"))
     // Android 核心
     implementation("androidx.core:core-ktx:1.19.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.11.0")

@@ -14,9 +14,9 @@ domain/          Pure Kotlin, 无 Android 依赖
 
 data/            Android 相关实现
   api/           ApiClient.kt + 按域拆分的域端口 SessionApi/MessageApi/FileApi/TerminalApi/ProviderApi/SystemApi
-                  + 私有能力端口 goal/feedback/subagent/queue (Ktor HTTP), SseClient.kt
+                  + 扩展域端口 attachment/workspace/reference/goal/feedback/subagent/queue (Ktor HTTP), SseClient.kt
   adapter/       服务器适配层（#391）：ServerAdapter/ServerPorts/ConnectionStrategy/注册表
-                  + dsh/（DSH 端口薄委托实现）
+                  + dsh/、opencode/（各类型端口薄委托实现）
   dto/           API 数据传输对象（request/ response/ common/）
   mapper/        DTO ↔ 领域模型转换器
   repository/    Impl 类 + EventDispatcher + EventHandler 策略模式
@@ -84,9 +84,11 @@ Application 启动期强制解析一次）。上层只依赖**领域接口 `Serv
   监督层按 `wireKind` 选传输，不读服务器类型；平台服务生命周期不进入策略。
 - **世代差异只在适配器内部**：wire 世代 id 是跨层契约，世代画像（端点/载荷规格）与
   事件词汇表是适配器内部细节。**事件映射容错优先**：未知 SessionEvent 词汇具名降级
-  + 日志遥测，仅结构性违约（乱序 / 种子缺失 / surfaceOp 越界）才拒绝重建。
-- **界面插槽**：适配器只**声明** `uiSlots`；界面层扩展在自己包内 `@IntoSet` 注册，
-  通用屏幕经 `LocalServerUiSlots` 渲染，只做「能力过滤 → 排序 → 统一壳」。
+  + 日志遥测；结构性违约才拒绝重建，当前实发射点 = user/message 的 `surfaceOp.replace`
+  区间越界（`end < start`），乱序 / 种子缺失保留判据位待信封取证。
+- **界面插槽**：适配器只**声明** `uiSlots`；界面层扩展在自己包内 `@IntoSet` 注册。
+  通用屏幕渲染为**两级门禁**：先按适配器声明（`uiSlots` 含该槽位）决定是否进入渲染，
+  再由贡献方 `isEnabled(caps)` 做细粒度能力过滤，最后排序 + 统一壳。
 
 **承重规则**：服务器类型判断只允许出现在白名单——类型定义（`ServerType`）、持久化
 身份（`ServerConfig.serverType`）、用户选择（服务器对话框）、调试入口；其余位置

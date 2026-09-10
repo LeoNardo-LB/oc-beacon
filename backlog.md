@@ -81,6 +81,8 @@
   - 背景：#391 切片8 的静态强制部分未落——spec 要求走自定义 Android Lint 规则，但 Lint 检查必须是独立 Gradle 模块，与 spec Out of Scope「不把单模块拆成多 Gradle 模块」存在取舍，需用户裁决。
   - 现状：本机 Gradle 缓存已具备 lint-api/lint-checks 32.3.2（与 AGP 9.3.2 匹配），可离线新增 :lint-checks 模块（com.android.lint 插件 + Detector + IssueRegistry + META-INF services）+ app 端 lintChecks(project(:lint-checks))。建议先只落「ServerType 分支白名单」一条（文本级 Detector，白名单：类型定义/ServerConfig/ServerConnection/data-adapter/ServerDialog/调试入口），跑通后再扩 UI 分层与令牌两条（存量需入 baseline）。
   - 替代方案：脚本门禁（grep）复用现有 release 门禁，零新模块但表达力弱。当前兜底：架构文档承重规则 + code review。
+  - 进度（2026-09-11）：:lint-checks 模块已落并接入 app 的 lintChecks；首条规则 ServerTypeWhitelist（剥离注释后判 ServerType 词元 + 路径白名单）经探针实证可拦截、当前树 lintDevDebug 绿。
+  - 剩余「通用界面 import 具体类型组件」「令牌绕过（硬编码色值/间距/时长）」两条未落。
 
 - [ ] **#395 立即发送（steer）上屏消息缺标识徽标——chat_queued 徽章链整撤连带丢失** `queue`
   - 用户裁决（2026-09-10）：排队不上屏 ✓ + 立刻发送（steer）上屏 ✓，但 steer 消息上屏后无任何徽标标识是有问题的——需恢复徽标（建议 steer 专属文案如「插话/注入中」而非「排队中」，文案待用户裁决；i18n ×15 + MessageCardUser 两变体渲染点）。注意 steer 无 wire 侧标记——识别依赖发送路径（steer=true 时 seedTranscript 播种），徽章状态需随消息携带或按 rpcId 关联。

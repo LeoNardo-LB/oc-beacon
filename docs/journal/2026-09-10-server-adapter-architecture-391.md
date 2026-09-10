@@ -229,3 +229,18 @@
 
 **验证**：DSH 定向测试 + 全量单测 + androidTest 编译 BUILD SUCCESSFUL。
 
+
+## 切片 8（下）：自定义 Android Lint 规则模块（#397 首条规则）
+
+- 新增工具链模块 :lint-checks（java-library + kotlin jvm 插件；Kotlin 版本由 AGP 9.3.2 引入的插件 classpath 提供，缓存具 lint-api 32.3.2，离线可构建）；settings.gradle.kts 纳入，app 端 `lintChecks(project(":lint-checks"))` 接入既有 lint{baseline; abortOnError=true} 门禁（工具链模块，非应用层拆分，不进 APK）。
+- 首条规则 ServerTypeWhitelist：文本级 Detector（剥离行/块注释后命中 ServerType 词元）+ 路径白名单（domain/model、domain/adapter、data/adapter、ServerDataStore、service、ui/screens/home、MainActivity、PaginationCursorPolicy）；越界报 ERROR。
+- 包名落 lintrules（lint/ 目录名撞 .gitignore 既有 lint/ 规则，改名规避）。
+- 实证：临时探针文件触发 "ServerTypeWhitelist from dev.leonardo.ocbeacon.lintrules" error（lint 中止并 abortOnError 失败）；删除探针后 :app:lintDevDebug 绿——规则确已加载且能拦截。
+- 剩余两条规则（通用界面 import 具体服务器类型组件 / 令牌绕过：硬编码色值·间距·时长）仍挂 #397。
+
+**验证**：:app:lintDevDebug BUILD SUCCESSFUL；:app:testDevDebugUnitTest（3273 例）+ :app:compileDevDebugAndroidTestKotlin 绿。另：RenderSupplyCoordinatorTest T11 在 --rerun-tasks 全量运行时一次性失败、隔离运行绿（既有跨类污染 flake，与本批改动无关）。
+
+## 切片 9（步骤 7）：架构文档与代码对齐
+
+- docs/architecture.md：目录树补 attachment/workspace/reference 扩展域端口与 opencode/ 端口实现；插槽段改为「适配器声明 + 贡献方能力过滤」两级门禁；拒绝重建判据措辞与实发射点（surfaceOp 越界）对齐。
+
