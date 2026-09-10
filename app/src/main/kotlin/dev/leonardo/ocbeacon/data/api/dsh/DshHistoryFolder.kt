@@ -107,9 +107,9 @@ object DshHistoryFolder {
 /**
  * 折叠产物：SseEvent 序列（保序）+ 拒绝重建判据 + 已应用水位 + 会话 id。
  *
- * [refusedRebuild] 为 true 时调用方不得用 [sseEvents] 重建——**仅结构性违约**
- * （乱序 / 种子缺失 / surfaceOp 越界，映射层判据 [DshIgnoreReason.STRUCTURAL_VIOLATION]）
- * 才拒绝；未知词汇已由映射层具名降级（#391 切片7 容错优先），不再导致整页空白。
+ * [refusedRebuild] 为 true 时调用方不得用 [sseEvents] 重建——**仅结构性违约**才拒绝；
+ * 当前映射层唯一实发射点 = user/message 的 surfaceOp.replace 区间越界（end < start）。
+ * 未知词汇已由映射层具名降级（#391 切片7 容错优先），不再导致整页空白。
  * [lastSeq] 仍可安全上报（水位与事件语义无关）。
  */
 data class DshFoldResult(

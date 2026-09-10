@@ -218,3 +218,14 @@
 
 **仍余（切片9 后续）**：STRUCTURAL_VIOLATION 无发射点（拒绝路径死代码）、architecture.md 措辞与代码对齐、SessionListScreen 令牌横幅等两处类型私有界面未迁插槽。
 
+
+## 切片 9（步骤 6）：激活拒绝重建判据（surfaceOp 越界）
+
+- 问题：DshIgnoreReason.STRUCTURAL_VIOLATION 曾被声明为「拒绝重建的唯一判据」，但映射层无任何发射点——DshHistoryFolder.refusedRebuild 恒 false，属死路径（两轴 review 已标记）。
+- 落点：user/message 的 surfaceOp.replace 区间判定（DshEventMapper.mapUserMessage）。原实现把「残缺（缺 start/end）」与「越界（end < start）」合并为一条日志忽略；现拆分为：残缺仍只记日志（不拒绝），越界发射 DshMappedEvent.Ignored(STRUCTURAL_VIOLATION)。
+- 拒绝语义：该行进入 DshHistoryFolder 后 structuralViolations 非空 → refusedRebuild=true，调用方放弃本次残缺重建（DshConnectionOrchestrator / DshApiClient 既有消费路径不变）。
+- 判据边界诚实化：mapper / folder 的 KDoc 由「乱序 / 种子缺失 / surfaceOp 越界」改为「当前唯一实发射点 = surfaceOp 越界；乱序 / 种子缺失保留判据位待取证」。
+- 测试：DshEventMapperCompaction378Test 越界用例改断言 Ignored(STRUCTURAL_VIOLATION)，新增残缺用例断言不落违约；DshHistoryFolderTest 新增越界行整页拒绝用例。
+
+**验证**：DSH 定向测试 + 全量单测 + androidTest 编译 BUILD SUCCESSFUL。
+

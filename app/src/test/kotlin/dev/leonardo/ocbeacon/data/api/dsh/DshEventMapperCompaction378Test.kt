@@ -184,13 +184,27 @@ class DshEventMapperCompaction378Test {
     }
 
     @Test
-    fun `malformed surfaceOp is dropped without range event`() {
+    fun `out of range surfaceOp marks a structural violation instead of a range event`() {
         val mapped = DshEventMapper.mapSessionEvent(
             "s1",
             envelope("user/message", """{"content":[],"surfaceOp":{"op":"replace","start":50,"end":9},"role":"user","id":"u2"}""", seq = 101),
         )
         val events = mapped.filterIsInstance<DshMappedEvent.Sse>().map { it.event }
         assertTrue(events.none { it is SseEvent.SurfaceRangeReplaced })
+        // #391 切片9：越界区间（end < start）是结构性违约——拒绝重建判据的实发射点
+        assertEquals(
+            listOf(DshMappedEvent.Ignored(DshIgnoreReason.STRUCTURAL_VIOLATION)),
+            mapped.filterIsInstance<DshMappedEvent.Ignored>(),
+        )
+    }
+
+    @Test
+    fun `incomplete surfaceOp range stays a non structural ignore`() {
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s1",
+            envelope("user/message", """{"content":[],"surfaceOp":{"op":"replace","start":0},"role":"user","id":"u3"}""", seq = 102),
+        )
+        assertTrue(mapped.none { it is DshMappedEvent.Ignored && it.reason == DshIgnoreReason.STRUCTURAL_VIOLATION })
     }
 
     @Test

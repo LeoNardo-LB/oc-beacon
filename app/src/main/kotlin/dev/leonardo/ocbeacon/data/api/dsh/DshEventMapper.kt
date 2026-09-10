@@ -32,8 +32,9 @@ private const val TAG = "DshEventMapper"
  * #391 切片7（DSH 0.1.5 / 会话格式 V3 容错优先）：未知 **SessionEvent 类型** 落
  * [DshIgnoreReason.UNKNOWN_DEGRADED] **具名降级**，不再拒绝重建——词汇演进
  * （V3 的 system/message、assistant/attempt、tool/ptc-dispatch* 等）零成本吸收；
- * 仅结构性违约（乱序 / 种子缺失 / surfaceOp 越界）落
- * [DshIgnoreReason.STRUCTURAL_VIOLATION] 时才由 DshHistoryFolder 拒绝重建。
+ * 仅结构性违约落 [DshIgnoreReason.STRUCTURAL_VIOLATION] 时才由 DshHistoryFolder
+ * 拒绝重建；当前实发射点唯一：user/message 的 surfaceOp.replace 区间越界（end < start）。
+ * 乱序 / 种子缺失 两项保留判据位，尚无运行时判据（待信封粒度取证）。
  *
  * ## ID 契约（写死，跨重放/实况稳定）
  * - 整装消息 id："seq-{event.seq}"（历史重放与实况同键——已定决策）；
@@ -890,7 +891,7 @@ object DshEventMapper {
         val id = messageId(sessionId, seq)
         val injectionKind = data.obj("source")?.str("kind")
             ?.takeIf { it.isNotBlank() && it != "user" }
-        val events = mutableListOf(
+        val events = mutableListOf<DshMappedEvent>(
             DshMappedEvent.Sse(
                 SseEvent.MessageUpdated(
                     Message.User(
@@ -926,15 +927,21 @@ object DshEventMapper {
             // 优先回落）。注意 compaction shadowedRange 的 start/end 保持不变（另一处）。
             val start = op.long("startSeq") ?: op.long("start")
             val end = op.long("endSeq") ?: op.long("end")
-            if (start != null && end != null && end >= start) {
-                events += DshMappedEvent.Sse(
+            when {
+                start == null || end == null ->
+                    AppLogger.w(TAG, "user/message surfaceOp.replace 残缺（start=$start end=$end），忽略折叠指令")
+                end < start -> {
+                    // surfaceOp 越界（end < start）是结构性违约：历史折叠遇此放弃本次重建，
+                    // 而非产出被截断的转录（#391 切片7 拒绝重建判据的实发射点）。
+                    AppLogger.w(TAG, "user/message surfaceOp.replace 越界（start=$start end=$end），标记结构性违约")
+                    events += DshMappedEvent.Ignored(DshIgnoreReason.STRUCTURAL_VIOLATION)
+                }
+                else -> events += DshMappedEvent.Sse(
                     SseEvent.SurfaceRangeReplaced(
                         sessionId = sessionId, startSeq = start, endSeq = end,
                         byMessageId = id, seq = seq, time = time,
                     )
                 )
-            } else {
-                AppLogger.w(TAG, "user/message surfaceOp.replace 残缺（start=$start end=$end），忽略折叠指令")
             }
         }
         (data.arr("content") ?: emptyList()).forEachIndexed { i, el ->

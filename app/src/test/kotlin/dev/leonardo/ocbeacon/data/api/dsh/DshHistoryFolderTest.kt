@@ -233,6 +233,20 @@ class DshHistoryFolderTest {
     }
 
     @Test
+    fun `out of range surfaceOp row refuses rebuild`() {
+        val rows = listOf(
+            json.parseToJsonElement("""{"type":"session","version":0,"id":"r-1","createdAt":1,"cwd":"/w"}""").jsonObject,
+            json.parseToJsonElement(
+                """{"type":"user/message","seq":5,"time":6,"data":{"content":[],"surfaceOp":{"op":"replace","startSeq":9,"endSeq":3},"role":"user","id":"u2"}}"""
+            ).jsonObject,
+        )
+        val result = DshHistoryFolder.fold(rows, sessionId = "r-1")
+        // 越界区间是唯一实发射的结构性违约——调用方据此放弃残缺重建（#391 切片9）
+        assertEquals(listOf("user/message"), result.structuralViolations)
+        assertTrue(result.refusedRebuild)
+    }
+
+    @Test
     fun `unknown vocabulary degrades without structural violations`() {
         val rows = listOf(
             json.parseToJsonElement("""{"type":"session","version":0,"id":"u-1","createdAt":1,"cwd":"/w"}""").jsonObject,
