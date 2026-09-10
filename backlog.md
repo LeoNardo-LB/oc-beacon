@@ -101,6 +101,8 @@
   - 剩余「通用界面 import 具体类型组件」「令牌绕过（硬编码色值/间距/时长）」两条未落。
   - 白名单已收窄到文件级精确清单（ServerTypeWhitelist 含 MainActivity/DebugProfile/domain-model 三件/server-adapter/存储/重复后端比较/用户选择四件）；architecture.md 同步点名。
   - 剩余两条规则未落：通用界面 import 具体服务器类型组件 / 令牌绕过（硬编码色值·间距·时长）。
+  - 第二条规则 ServerTypeUiBoundary 已落（通用界面禁 import/声明 Dsh/OpenCode 前缀 UI 符号，排除 /dsh/、/opencode/、ui/theme/）；6 处存量经 baseline 豁免，lintDevDebug 0 new issues、lintDevRelease 绿。
+  - 仅剩令牌门禁：分析见 journal——建议窄化为「非 theme 的 Color(0x…) + 动画时长 tween/durationMillis」，间距（令牌值 .dp 372 处/padding 193 处）因 ui-conventions 允许 dp 常量，需独立迁移批次。
 
 - [ ] **#395 立即发送（steer）上屏消息缺标识徽标——chat_queued 徽章链整撤连带丢失** `queue`
   - 用户裁决（2026-09-10）：排队不上屏 ✓ + 立刻发送（steer）上屏 ✓，但 steer 消息上屏后无任何徽标标识是有问题的——需恢复徽标（建议 steer 专属文案如「插话/注入中」而非「排队中」，文案待用户裁决；i18n ×15 + MessageCardUser 两变体渲染点）。注意 steer 无 wire 侧标记——识别依赖发送路径（steer=true 时 seedTranscript 播种），徽章状态需随消息携带或按 rpcId 关联。

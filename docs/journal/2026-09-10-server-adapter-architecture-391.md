@@ -303,3 +303,20 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 
 结论：审计矩阵两条 BAD 项在功能面已归零；slice9 剩余为**声明式条目动作贡献注册表**（把 ChatScreen 内联 `X in caps` 换成条目动作贡献）与令牌门禁（硬编码色值/间距/时长），已挂 #399。
 
+
+## 切片 8（下-2）：第二条静态规则 ServerTypeUiBoundary + baseline 再生
+
+- 规则：通用界面（ui 目录，排除类型私有包 /dsh/、/opencode/ 与 ui/theme/）不得 import 或声明 Dsh / OpenCode 前缀 UI 符号；类型私有界面必须落私有包并经界面插槽贡献。
+- 调试实证：首跑 19 errors——import 正则误纳 domain.model.Dsh* 域模型（非 UI 组件）；收窄到 `dev.leonardo.ocbeacon.ui.` 前缀后为 6 errors，落在 6 个存量文件（ChatMessageList 的 DshJobTimelineCard、DshCustomProvidersSection、DshServerAdminSections、DshTokenNeededBanner、SessionListScreen 的 DshTokenDialog import、SessionListViewModel 的 DshTokenExchangeState）。
+- baseline：`updateLintBaselineDevDebug` 再生 app/lint-baseline.xml（header 由 lint 9.2.1 → 9.3.2 追平 AGP 9.3.2；6 errors + 257 warnings 入 baseline）。存量 6 处私有 UI 留待 #399 的界面迁移批次；新引用一律拦截。
+- 入口 KDoc 踩坑记录：Kotlin 块注释可嵌套，KDoc 内写 `ui/**` 会开嵌套注释吞掉类体——已改写措辞。
+
+**验证**：`:app:lintDevDebug` = Lint found no new issues；`:app:lintDevRelease`（CI 门禁变体）= BUILD SUCCESSFUL；全量单测 + androidTest 编译 BUILD SUCCESSFUL。
+
+### 令牌门禁（第三条静态规则）分析
+
+- 色值：52 处，全部集中在 ui/theme（定义）与 SessionCategoryStyle.kt（分类调色板，合法）——规则只会误报，宜窄化到「非 theme 的 Color(0x…)」并豁免调色板文件。
+- 时长：动画字面量（tween/durationMillis）仅 2 处（CopyButton 150/100）；`delay(n)` 属协程逻辑非动画，不应纳入。
+- 间距：令牌值（4/8/12/16/24/32）.dp 共 372 处，其中 padding/spacedBy/PaddingValues 193 处；ui-conventions.md 明文允许「dp 常量或 Material token」，全量入 baseline 约 2000 行且多为约定允许项。
+- 结论：令牌门禁需先定窄化范围（建议仅 color 字面量 + 动画时长），间距走独立迁移批次；记 #399 并附本分析。
+
