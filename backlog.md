@@ -76,6 +76,8 @@
   - 因此本条剩余 = 声明式条目动作贡献注册表 + 令牌门禁（硬编码色值/间距/时长，接 :lint-checks，存量入 baseline）。
   - 进度（2026-09-11）：3 个 DSH 私有 UI 文件已迁入类型私有包（ui/components/dsh、ui/screens/server/providers/dsh、ui/screens/sessions/dsh），ServerTypeUiBoundary 豁免 6→3。
   - 剩余：ChatMessageList 的私有 DshJobTimelineCard、SessionListScreen 的 DshTokenDialog、SessionListViewModel 的 DshTokenExchangeState（需 token 对话框+交换状态下沉到 DSH 扩展）；86 文件标准间距存量迁移；声明式条目动作注册表。
+  - 进度：DSH token 录入状态已下沉 DshTokenEntryViewModel（ServerTypeUiBoundary 豁免 6→1，仅余 ChatMessageList 私有 DshJobTimelineCard——需新增消息列表插槽，见本卡）。
+  - 剩余：86 文件标准间距存量迁移（SpacingTokenBypass baseline）；声明式条目动作注册表。
 
 - [ ] **#398 V3 新事件族渲染（切片7 P1）+ 按代事件词汇表** `dsh` `arch`
   - 现状：#391 两轴评审确认 V3 五类新事件（system/message、assistant/attempt、feedback/message-put|delete、subagent/catalog、deliverables/presented）仅 Ignored(SESSION_FORMAT_V3) 降级不渲染；事件映射仍是单体 when + protocolOf==V012 硬判。

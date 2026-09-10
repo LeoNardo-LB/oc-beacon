@@ -355,3 +355,16 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 
 **验证**：主/单测/androidTest 编译 + lintDevDebug（no new issues）+ lintDevRelease（BUILD SUCCESSFUL）+ 全量单测 BUILD SUCCESSFUL。
 
+
+## 切片 9（步骤 10）：DSH token 录入状态下沉（ServerTypeUiBoundary 豁免 6→1）
+
+- 新增 `ui/screens/sessions/dsh/DshTokenEntryViewModel`（@HiltViewModel）：承载 tokenNeeded + 交换结果态（Idle/Exchanging/Rejected）+ submit/dismiss；baseUrl 经 ServerRepository 解析，交换走 DshConnectionRegistry。
+- `DshTokenBannerExtension` 自持横幅 + 凭据对话框 + 自动关窗 LaunchedEffect（原 SessionListScreen 语义），经 hiltViewModel 取同 NavBackStackEntry 实例。
+- 共享 `SessionListViewModel` 删除 DshTokenExchangeState / dshTokenExchange / submitDshToken / dismissDshTokenDialog 与 dshConnectionRegistry 依赖；dshTokenNeeded 更名 authTokenNeeded（仅作通用断连条幅回退依据）。
+- `SessionListHeaderSlotHost` 去掉 onEnterToken（对话框归 DSH 扩展自有），只留 tokenNeeded。
+- SessionListScreen 删除 showDshTokenDialog/dshTokenExchangePending/对话框渲染/DshTokenDialog import。
+- 6 个 VM 测试移除 dshConnectionRegistry 装配。
+- baseline：ServerTypeUiBoundary 3→1（余 ChatMessageList 私有 DshJobTimelineCard——移出需新增消息列表插槽，另立）。
+
+**验证**：主/单测/androidTest 编译 + 全量单测 + lintDevDebug（no new issues）+ lintDevRelease（BUILD SUCCESSFUL）。
+
