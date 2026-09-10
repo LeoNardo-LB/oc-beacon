@@ -14,6 +14,7 @@ class BeaconIssueRegistry : IssueRegistry() {
         ServerTypeWhitelistDetector.ISSUE,
         ServerTypeUiBoundaryDetector.ISSUE,
         TokenBypassDetector.ISSUE,
+        SpacingTokenBypassDetector.ISSUE,
     )
 
     override val vendor: Vendor = Vendor(

@@ -329,3 +329,16 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 
 **静态强制现状**：spec 四条中，「服务器类型分支」「服务器类型引用超出白名单」（同一规则 ServerTypeWhitelist）、「通用界面 import 具体类型组件」（ServerTypeUiBoundary）、「硬编码色/时长绕过令牌」（TokenBypass）均已落地；仅「硬编码间距 dp」因 ui-conventions 允许多为约定内写法，另立迁移批次（#399）。
 
+
+## 切片 8（下-4）：第四条静态规则 SpacingTokenBypass（窄化）+ baseline
+
+- 规则：ui 目录（排除 ui/theme）中 padding / spacedBy / PaddingValues 实参出现 SpacingTokens 标准值（4/8/12/16/24/32）.dp → error。非标准值（3/20.dp）、尺寸位（size）不入列——ui-conventions 允许非标准 dp 常量。
+- 首跑 86 errors（86 个文件，逐文件一条报告）；存量经 updateLintBaselineDevDebug 吸收（baseline +602 行 / 86 条）。
+- 验证：`:app:lintDevDebug` = no new issues；`:app:lintDevRelease`（CI 变体）BUILD SUCCESSFUL（92 errors 全部 baseline 内）。
+
+**静态强制收官**：spec 四条全部落地——
+1. 服务器类型分支 / 引用超出白名单 → `ServerTypeWhitelist`（文件级白名单）；
+2. 通用界面 import 具体类型组件 → `ServerTypeUiBoundary`（6 处存量 baseline）；
+3. 硬编码色值 / 动画时长 → `TokenBypass`（CopyButton 真实改用 AppMotion，0 存量）；
+4. 硬编码标准间距 → `SpacingTokenBypass`（86 处存量 baseline，迁移批次 #399）。
+
