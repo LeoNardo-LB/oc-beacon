@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#390**（2026-09-10 #389 压缩卡容器改用思考卡样式（弃分割线形态））。
+**编号**：全局递增，不回收。下一编号：**#391**（2026-09-10 #390 服务器断连时会话页空白/弹回服务器管理无重连提示）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。
 
@@ -53,77 +53,17 @@
 
 ## P0 — 主流程阻塞
 
-
-
-（#308 已完结迁 journal：2026-09-05 AI 真机验收关卡，见 `docs/journal/2026-09-04-fix-308-always-326-327.md` §十一）
-（#356/#354/#358/#357 已完结迁 journal：2026-09-08 验收演示批（A 模式五节点全过），见 `docs/journal/2026-09-08-2.md` §三-§六；演示期新卡 #360-#365 待办）
-
 ## P1 — 核心功能需求
-（#378 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
-（#375 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
-（#376 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
-（#377 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
-（#374 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
-（#380 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
-（#363 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
-（#326 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
-（#313 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
-（#383 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
-
-
-
-
-（#365 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
-
-（#346 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
-（#320 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
-（#309 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
-（#310 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
 
 ## P2 — 优化与锦上添花
-
-（#372/#366/#367/#353 已完结迁 journal：2026-09-09 演示批过验，见 `docs/journal/2026-09-09-365-353-359-uiux-consistency.md` §八）
-（#382 已完结迁 journal：2026-09-09-docs-consolidation.md（2026-09-09））
-（#379 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
-
-（#355 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
-（#351 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
-（#348 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
-（#343 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
-（#323 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
-（#325 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
-（#311 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
-（#312 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
-（#322 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
-（#344 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
-（#347 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
-
-
-
-（#349 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
-（#384 已完结迁 journal：2026-09-10-384-385.md（2026-09-10））
-（#385 已完结迁 journal：2026-09-10-384-385.md（2026-09-10））
-（#386 已完结迁 journal：2026-09-10-384-385.md（2026-09-10））
-（#389 已完结迁 journal：2026-09-10-384-385.md（2026-09-10））
 
 - [ ] **#387 V2注入刷新消息渲染为用户气泡文字墙** `chat` `ui` `v2`
   - skill-catalog/上下文刷新类注入（<system-reminder>包裹、无source.kind标记）按普通用户气泡整文渲染，[Ack] 3 会话顶部现存活例（VLM 09-41 复核：calculator 全文蓝色气泡墙，而同位插件配置已是收起小卡）。初判服务端对此类刷新不带 kind，mapper 按普通 user 落库。根因方向：对齐 dsh web 对 system-reminder 注入的识别与收起呈现（内容嗅探或等价机制），修在映射/渲染层单点。证据：/tmp/n2_acklink_top.png n2_ackthree_top.png；演示批 journal 待补
 
 ## P3 — 观察与低价值改进
 
-（#359 已完结迁 journal：2026-09-09 演示批（§八）；旧「#372 三面面板 tap 行为不一致」观察卡系 #372 裁决前登记的重复卡，随终卡一并迁出清理）
-（#368 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
-（#369 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
-（#370 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
-（#371 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
-（#373 已完结迁 journal：2026-09-09-378-380-wire.md（2026-09-09））
-（#338 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
-（#342 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
-（#341 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-09））
-（#324 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
-（#336 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
-（#339 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
-（#340 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
+- [ ] **#390 服务器断连时会话页空白/弹回服务器管理无重连提示** `resilience`
+  - 今日链路闪断窗口多帧实证（VLM 确认仅剩状态栏）：reverse 隧道拆→app 断连→会话数据释放（EventDispatcher releaseSessionData）→转录空白或弹回服务器管理界面，期间无重连横幅/按钮，用户无路可走。需断连 UX 兜底（提示+重连入口），证据链 journal 2026-09-09-378-380-wire.md §十五
 
 - [ ] **#388 V2服务端注入推送条件不明：今日新会话零注入** `chat` `v2` `server`
   - 同一服务进程（4199，9-7 22:17 起未重启）下：05-40 前后的 ack 会话有插件配置/工作区指令注入，09-14 后新建会话（leo-tkp 与 oc-beacon 工作区各一，含首轮 hi/1+1 提问）零注入事件（InjCard 全程 kind=null，转录顶无卡）。注入到底何时推送（每工作区一次性？目录变更才推？）未定；需以服务端历史 API 与 dsh web 同会话对照定责（服务端没推 vs 客户端漏收）。定责前不动客户端。证据：/tmp/n1_*.png n2_top_injections.png InjCard logcat
@@ -133,7 +73,6 @@
   - 本批定向复现未再现(IME 抬起+乱序 tap 串轰击后交互正常);缓解纪律已沉淀 device-testing.md(IME 判定用 dumpsys input_method 勿用像素分析;tap 失活二分定位;冷启恢复配方)。保持观察:真手指复现才升级为 app 卡
   - → 证据:journal §二十五 #345 节 + /tmp/e2e-instr/r1-r3.xml(复现尝试全程交互正常)
 
-
 ## P4 — 外部前提阻塞
 
 - [ ] **#381 192.168.110.248:248 重配——凭据宿主零痕迹不可探查（2026-09-09 用户裁决入 P4）** `infra`
@@ -142,7 +81,6 @@
 - [ ] **#352 长按菜单「取消归档」——wire 层无恢复动词（2026-09-07 用户裁决要求，服务器阻塞）** `dsh` `archive` `ui`
   - 裁决原文:「归档单向契约同删除一样在长按弹出框中增加即可」——用户要求已归档行长按菜单加「取消归档」
   - **前提**：上游 dsh 服务器提供恢复动词——实测证据（2026-09-07 深夜，当前部署源码 dsh-api-workspace-controller typert）：WorkspaceArchiveSessionRequest={sessionId} **add-only**，全 API 面仅 archiveSession 一个归档动词，官方 web 客户端同无恢复入口（SessionRowMenu 2026-09-05 四重取证注释仍有效）；动词就位后：菜单项+RPC+已归档折叠区行刷新一步到位（#351 能力位先例同款）
-
 
 - [ ] **#350 V1/V2 归档 API 接线——统一归档面收尾（统一审计批 4）** `v2` `archive`
   - 方向(若端点就位):V2ApiClient.updateSessionFields 补归档真线面(现仅 title 走 rename,归档字段 no-op 回 getSession);ServerCapabilities V1/V2 archiveSupported 翻 true→长按菜单归档项+已归档折叠区自动统一(能力位门控现成)

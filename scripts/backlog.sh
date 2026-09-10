@@ -12,7 +12,7 @@
 #                 [-l "<链接>"] [--premise "<前提（P4 必填）>"]
 #   backlog.sh note <N> [-s "<明细行>"]...          # 追加明细（无 -s 则读 stdin）
 #   backlog.sh status <N> <todo|verify>             # [ ] ↔ [~]
-#   backlog.sh migrate <N> [-j <journal>] [-r "<依据>"]  # 完结迁移：卡→journal+墓碑+删卡
+#   backlog.sh migrate <N> [-j <journal>] [-r "<依据>"]  # 完结迁移：卡→journal+删卡（不留墓碑，2026-09-10 用户裁决）
 #   backlog.sh show [N | <模式>]                    # 列卡 / 看单卡 / 按模式筛
 #   backlog.sh next                                 # 下一编号
 #   backlog.sh check                                # 委托 backlog-check.sh
@@ -126,8 +126,6 @@ migrate)
   fi
   if [ -z "$R" ]; then R="用户验收通过"; fi
   E=$(block_end "$A")
-  P=$(section_of_line "$A")
-  if [ -z "$P" ]; then die "migrate: 卡 #$N 不在任何 Pn 节"; fi
   if [ -z "$J" ]; then J=$(ls -t docs/journal/*.md 2>/dev/null | head -1); fi
   if [ -z "$J" ] || [ ! -f "$J" ]; then die "migrate: 找不到 journal 目标（-j 指定或 docs/journal/ 为空）"; fi
   # 1) 抽卡块 → journal 迁入节（append-only 追加）
@@ -153,12 +151,7 @@ migrate)
     L1=$(sed -n "${PREV}p" "$BL"); L2=$(sed -n "${A}p" "$BL" || true)
     if [ -z "$L1" ] && [ -z "${L2:-}" ]; then sed -i "${A}d" "$BL"; fi
   fi
-  # 3) 墓碑行（并入节顶墓碑簇：置于簇末行后、卡区空行之前）
-  H=$(section_header_line "$P"); K=$(top_insert_point "$H")
-  KM=$((K-1)); if [ "$KM" -lt "$H" ]; then KM="$H"; fi
-  printf '（#%s 已完结迁 journal：%s（%s））\n' "$N" "$JBL" "$TODAY" > "$TD/tomb"
-  ins_after "$KM" "$TD/tomb"
-  echo "已迁移 #$N → $JBL；$P 节加墓碑；依据：$R"
+  echo "已迁移 #$N → $JBL；依据：$R"
   run_check
   ;;
 # -------------------------------------------------------------- show / next / check
