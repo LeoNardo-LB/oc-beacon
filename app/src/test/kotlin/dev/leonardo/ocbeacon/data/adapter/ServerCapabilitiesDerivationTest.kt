@@ -109,6 +109,7 @@ class ServerCapabilitiesDerivationTest {
         assertTrue(has(c, ServerFeatures.QUEUE_EDIT))
         assertTrue(has(c, ServerFeatures.SUBAGENTS))
         assertTrue(has(c, ServerFeatures.SERVER_SETTINGS))
+        assertTrue(has(c, ServerFeatures.AUTH_TOKEN))
         // 端口缺席 ⇒ 无能力（终端 / shell）
         assertFalse(has(c, ServerFeatures.TERMINAL))
         assertFalse(has(c, ServerFeatures.SHELL))

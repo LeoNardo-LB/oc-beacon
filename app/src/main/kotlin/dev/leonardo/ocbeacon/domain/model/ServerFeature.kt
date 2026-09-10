@@ -107,4 +107,7 @@ object ServerFeatures {
 
     /** 服务器设置特权面（设置描述 / 变更 / 插件清单 / 预设管理 / 提供商目录）。 */
     val SERVER_SETTINGS = ServerFeature("core.serverSettings")
+
+    /** 凭据（token / cookie）输入式鉴权——断连时需引导用户录入凭据。 */
+    val AUTH_TOKEN = ServerFeature("core.auth.token")
 }

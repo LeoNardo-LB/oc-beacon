@@ -15,6 +15,8 @@ import dev.leonardo.ocbeacon.testing.FakeServerAdapter
 import dev.leonardo.ocbeacon.ui.extension.ServerUiExtension
 import dev.leonardo.ocbeacon.ui.extension.ServerUiSlotRegistry
 import dev.leonardo.ocbeacon.ui.screens.server.providers.dsh.DshProviderDirectoryExtension
+import dev.leonardo.ocbeacon.ui.screens.sessions.dsh.DshServerAdminExtension
+import dev.leonardo.ocbeacon.ui.screens.sessions.dsh.DshTokenBannerExtension
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -117,8 +119,15 @@ class ServerAdapterContractTest {
     }
 
     @Test
-    fun `dsh adapter declares the provider settings slot`() {
-        assertTrue(real.uiSlots(conn(ServerType.Dsh)).contains(ServerUiSlot.PROVIDER_SETTINGS))
+    fun `dsh adapter declares its private ui slots`() {
+        assertEquals(
+            setOf(
+                ServerUiSlot.PROVIDER_SETTINGS,
+                ServerUiSlot.SERVER_SETTINGS,
+                ServerUiSlot.SESSION_LIST_HEADER,
+            ),
+            real.uiSlots(conn(ServerType.Dsh)),
+        )
         assertTrue(real.uiSlots(conn(ServerType.OpenCode)).isEmpty())
     }
 
@@ -145,7 +154,11 @@ class ServerAdapterContractTest {
      */
     @Test
     fun `declared slots cover every enabled ui extension`() {
-        val extensions = setOf<ServerUiExtension>(DshProviderDirectoryExtension())
+        val extensions = setOf<ServerUiExtension>(
+            DshProviderDirectoryExtension(),
+            DshServerAdminExtension(),
+            DshTokenBannerExtension(),
+        )
         val slotRegistry = ServerUiSlotRegistry(extensions)
 
         // 正向：任一类上被启用的贡献，其槽位必须在该类的声明集合内
@@ -165,7 +178,16 @@ class ServerAdapterContractTest {
 
         // 反向：声明与注册表不空集一致（DSH 声明且确有 PROVIDER_SETTINGS 贡献）
         assertTrue(slotRegistry.registeredSlots().contains(ServerUiSlot.PROVIDER_SETTINGS))
-        assertEquals(setOf(ServerUiSlot.PROVIDER_SETTINGS), real.uiSlots(conn(ServerType.Dsh)))
+        assertTrue(slotRegistry.registeredSlots().contains(ServerUiSlot.SERVER_SETTINGS))
+        assertTrue(slotRegistry.registeredSlots().contains(ServerUiSlot.SESSION_LIST_HEADER))
+        assertEquals(
+            setOf(
+                ServerUiSlot.PROVIDER_SETTINGS,
+                ServerUiSlot.SERVER_SETTINGS,
+                ServerUiSlot.SESSION_LIST_HEADER,
+            ),
+            real.uiSlots(conn(ServerType.Dsh)),
+        )
         assertTrue(real.uiSlots(conn(ServerType.OpenCode)).isEmpty())
     }
 }

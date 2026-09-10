@@ -104,7 +104,11 @@ class DshServerAdapter @Inject constructor(
      * 界面插槽声明（#391 切片5）：DSH 在提供商设置槽位有内容（自定义 provider 目录）。
      * 纯声明，不含界面代码；通用屏幕按该声明 + 能力位渲染。
      */
-    override val uiSlots: Set<ServerUiSlot> = setOf(ServerUiSlot.PROVIDER_SETTINGS)
+    override val uiSlots: Set<ServerUiSlot> = setOf(
+        ServerUiSlot.PROVIDER_SETTINGS,
+        ServerUiSlot.SERVER_SETTINGS,
+        ServerUiSlot.SESSION_LIST_HEADER,
+    )
 
     /**
      * 非端口派生的能力声明（DSH 域动词）：命令、目标、反馈、权限档、Agent 预设、
@@ -114,6 +118,8 @@ class DshServerAdapter @Inject constructor(
         add(ServerFeatures.COMMANDS)
         add(ServerFeatures.PERMISSION_SWITCH)
         add(ServerFeatures.AGENT_PRESET)
+        // token/cookie 凭据式鉴权（断连引导录入凭据的界面插槽门禁）
+        add(ServerFeatures.AUTH_TOKEN)
         // SESSION_ARCHIVE / WORKSPACE 不在此声明——由 workspace 端口在场派生
         // 排队可编辑是端口内子能力（端口在场之外的部分支持）
         add(ServerFeatures.QUEUE_EDIT)

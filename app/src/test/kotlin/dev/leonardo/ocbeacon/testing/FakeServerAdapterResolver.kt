@@ -97,6 +97,7 @@ class FakeServerAdapterResolver(
             ServerFeatures.FEEDBACK,
             ServerFeatures.SUBAGENTS,
             ServerFeatures.SERVER_SETTINGS,
+            ServerFeatures.AUTH_TOKEN,
         )
     }
 }

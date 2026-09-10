@@ -244,3 +244,15 @@
 
 - docs/architecture.md：目录树补 attachment/workspace/reference 扩展域端口与 opencode/ 端口实现；插槽段改为「适配器声明 + 贡献方能力过滤」两级门禁；拒绝重建判据措辞与实发射点（surfaceOp 越界）对齐。
 
+
+## 切片 9（步骤 8）：剩余两处 DSH 私有界面迁插槽
+
+- **会话列表头部**（SessionListScreen:199 的 dshTokenNeeded 硬嵌分支）→ SESSION_LIST_HEADER 槽位：新增 SessionListHeaderSlotHost（tokenNeeded + onEnterToken），DshTokenBannerExtension 按新增能力位 AUTH_TOKEN（core.auth.token）启用，DshServerAdapter 声明 AUTH_TOKEN 与三个 uiSlots。通用屏幕只提供断连上下文与出路回调。
+- **服务器设置区块**（ServerSettingsContent 的 DshServerConfigSection/DshPluginInventorySection 两个硬嵌 item）→ SERVER_SETTINGS 槽位：ServerSettingsSlotHost（无上下文，贡献方经 hiltViewModel<SessionListViewModel> 读同作用域 VM）；ServerSettingsContent 删除 5 个 DSH 参数与 DSH 组件 import，只传 serverCapabilities。
+- 契约测试：uiSlots 断言扩到三槽位；seam-1 断言扩展集纳入两个新扩展（启用贡献的槽位必须在适配器声明内）；derivation 测试补 AUTH_TOKEN。
+
+**行为等价论证**（无真机/模拟器验证，按代码路径推演）：token 横幅三态（DSH+token→横幅；DSH 无 token→通用横幅；OpenCode→通用横幅）与迁移前逐态一致；SERVER_SETTINGS 区块原为「空表单/空清单自门控 + VM 仅 DSH 填充」，改插槽后贡献方 isEnabled(SERVER_SETTINGS) 承担同一门控，OpenCode 侧视觉不变。
+
+**验证**：compile + 全量单测（3273 例）+ androidTest 编译 + lintDevDebug BUILD SUCCESSFUL。
+**待人工/模拟器确认**：会话列表页断连横幅与设置页 DSH 两区块的视觉与交互（Compose UI 无 JVM 断言面）。
+

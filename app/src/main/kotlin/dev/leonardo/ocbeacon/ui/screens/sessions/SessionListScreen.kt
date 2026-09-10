@@ -68,10 +68,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.AgentPreset
 import dev.leonardo.ocbeacon.domain.model.ServerFeatures
+import dev.leonardo.ocbeacon.domain.model.ServerUiSlot
 import dev.leonardo.ocbeacon.service.ServerLinkState
 import dev.leonardo.ocbeacon.ui.components.DshTokenDialog
-import dev.leonardo.ocbeacon.ui.components.DshTokenNeededBanner
 import dev.leonardo.ocbeacon.ui.components.ServerLinkBanner
+import dev.leonardo.ocbeacon.ui.extension.LocalServerUiSlots
+import dev.leonardo.ocbeacon.ui.extension.SessionListHeaderSlotHost
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.AgentPresetContentDialog
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.AgentPresetCopyDialog
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.AgentPresetDeleteConfirmDialog
@@ -195,11 +197,17 @@ viewModel.consumePendingReadSessionId()
                 // #317：token 待输入优先于一般断连横幅（给出路而非干等重连）
                 val dshTokenNeeded by viewModel.dshTokenNeeded.collectAsStateWithLifecycle()
                 if (serverLinkState != ServerLinkState.Connected) {
-                    if (dshTokenNeeded) {
-                        DshTokenNeededBanner(onEnterToken = { showDshTokenDialog = true })
-                    } else {
-                        ServerLinkBanner()
-                    }
+                    // #391 切片9：类型私有横幅经 SESSION_LIST_HEADER 插槽渲染——通用屏幕只
+                    // 提供断连上下文与出路回调，不认识具体横幅实现。
+                    LocalServerUiSlots.current.Render(
+                        slot = ServerUiSlot.SESSION_LIST_HEADER,
+                        caps = viewModel.serverCapabilities.collectAsStateWithLifecycle().value,
+                        host = SessionListHeaderSlotHost(
+                            tokenNeeded = dshTokenNeeded,
+                            onEnterToken = { showDshTokenDialog = true },
+                        ),
+                    )
+                    if (!dshTokenNeeded) ServerLinkBanner()
                 }
                 TopAppBar(
                 title = {
@@ -627,12 +635,8 @@ viewModel.consumePendingReadSessionId()
                         },
                         onCopyAgentPreset = { preset -> pendingCopyPreset = preset },
                         onDeleteAgentPreset = { preset -> pendingDeletePreset = preset },
-                        // #324④：插件清单 + 服务器配置表单
-                        pluginInventory = viewModel.pluginInventory.collectAsStateWithLifecycle().value,
-                        settingsForms = viewModel.settingsForms.collectAsStateWithLifecycle().value,
-                        settingsFormsBlocked = viewModel.settingsFormsBlocked.collectAsStateWithLifecycle().value,
-                        onSaveSettingField = viewModel::saveSettingField,
-                        onSaveSettingSecret = viewModel::saveSecretField,
+                        // #391 切片9：SERVER_SETTINGS 插槽门禁用能力位（贡献方自行渲染）
+                        serverCapabilities = viewModel.serverCapabilities.collectAsStateWithLifecycle().value,
                     )
                 }
             }

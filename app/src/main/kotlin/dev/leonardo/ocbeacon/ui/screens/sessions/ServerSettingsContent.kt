@@ -28,11 +28,13 @@ import dev.leonardo.ocbeacon.domain.model.AgentPreset
 import dev.leonardo.ocbeacon.domain.model.DshAgentPresetDefault
 import dev.leonardo.ocbeacon.domain.model.DshPermissionDefault
 import dev.leonardo.ocbeacon.domain.model.McpServerStatus
+import dev.leonardo.ocbeacon.domain.model.ServerCapabilities
+import dev.leonardo.ocbeacon.domain.model.ServerUiSlot
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.Tag
+import dev.leonardo.ocbeacon.ui.extension.LocalServerUiSlots
+import dev.leonardo.ocbeacon.ui.extension.ServerSettingsSlotHost
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.AgentPresetDefaultRow
-import dev.leonardo.ocbeacon.ui.screens.sessions.components.DshPluginInventorySection
-import dev.leonardo.ocbeacon.ui.screens.sessions.components.DshServerConfigSection
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.McpServerRow
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.PermissionDefaultRow
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.SettingsSectionHeader
@@ -71,12 +73,11 @@ fun ServerSettingsContent(
     onViewAgentPreset: (AgentPreset) -> Unit = {},
     onCopyAgentPreset: (AgentPreset) -> Unit = {},
     onDeleteAgentPreset: (AgentPreset) -> Unit = {},
-    // #324④：插件清单 + 服务器配置动态表单（空清单/空表单 + 非 DSH 不渲染）
-    pluginInventory: dev.leonardo.ocbeacon.domain.model.DshPluginInventory? = null,
-    settingsForms: List<dev.leonardo.ocbeacon.domain.model.DshSettingsNamespaceForm> = emptyList(),
-    settingsFormsBlocked: Boolean = false,
-    onSaveSettingField: (String, Long, dev.leonardo.ocbeacon.domain.model.DshSettingsOp) -> Unit = { _, _, _ -> },
-    onSaveSettingSecret: (String, String) -> Unit = { _, _ -> },
+    // #391 切片9：类型私有设置区块经 SERVER_SETTINGS 插槽渲染，通用内容只传能力位
+    serverCapabilities: ServerCapabilities = ServerCapabilities(
+        coreFlags = dev.leonardo.ocbeacon.domain.model.CoreFlags(false, false, false, false),
+        features = emptySet(),
+    ),
 ) {
     var mcpExpanded by remember { mutableStateOf(false) }
 
@@ -111,20 +112,14 @@ fun ServerSettingsContent(
             }
         }
 
-        // #324④：服务器配置（动态表单）+ 插件清单——与预设位解耦（#367：
-        // 原嵌在 agentPresetSupported 分支内为潜伏耦合，今日两比特同值无症状、
-        // 结构错；两区块自门控——空表单/空清单即整块不渲染）。
+        // #324④ / #391 切片9：服务器配置动态表单 + 插件清单是 DSH 私有区块，迁到
+        // SERVER_SETTINGS 插槽（贡献方按能力位自门控；通用内容零类型知识）。
         item {
-            DshServerConfigSection(
-                forms = settingsForms,
-                blocked = settingsFormsBlocked,
-                onSaveField = onSaveSettingField,
-                onSaveSecret = onSaveSettingSecret,
+            LocalServerUiSlots.current.Render(
+                slot = ServerUiSlot.SERVER_SETTINGS,
+                caps = serverCapabilities,
+                host = ServerSettingsSlotHost(),
             )
-        }
-
-        item {
-            DshPluginInventorySection(inventory = pluginInventory)
         }
 
         // 区块标题：MCP 服务器
