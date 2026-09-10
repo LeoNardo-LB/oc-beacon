@@ -141,7 +141,7 @@ data class ServerPorts(
     val subagents: SubagentRepository? = null, val goals: GoalRepository? = null,
     val feedback: FeedbackRepository? = null,
     val serverSettings: ServerSettingsRepository? = null,
-    val queue: ServerQueueRepository? = null,
+    val queue: MessageQueueRepository? = null,
 ) { fun derivedFeatures(): Set<ServerFeature> /* 端口存在 => 对应能力 */ }
 
 fun ServerAdapter.capabilities(conn: ServerConnection): ServerCapabilities =
@@ -150,13 +150,15 @@ fun ServerAdapter.capabilities(conn: ServerConnection): ServerCapabilities =
 - ServerFeature 是开放的带命名空间 id（如 core.goals、dsh.providerDirectory）；通用能力有具名常量，私有能力由适配器自带命名空间，新增私有能力不改共享代码。
 
 私有能力端口
-- 新增通用命名的领域端口：子智能体、目标、反馈、服务器设置（由现有 DSH 专用设置仓库更名而来）、服务器队列。
+- 新增通用命名的领域端口：子智能体、目标、反馈、服务器设置（由现有 DSH 专用设置仓库更名而来）、消息队列。**端口命名不得暗示实现来源**（叫「消息队列」而非「服务器队列」——它可能由客户端实现）。
 - 非支持类型语义：端口缺席；读操作返回空，写操作抛"能力不可用"。
 
 能力供给来源（服务器原生 / 客户端实现 / 不提供）
 - 端口的存在性表达的是"客户端能否提供该能力"，不是"服务器是否支持"。
 - 适配器对每个端口在三种供给间选择：① 服务器原生实现；② 服务器没有但客户端实现（含客户端模拟——范例：排队在 DSH 走服务器 queue 域、在 OpenCode 面由客户端自实现队列）；③ 客户端也无法提供（此时端口缺席、能力位为假、入口隐藏）。
+- 选择默认**优先服务器原生**（语义更完整、可跨客户端与重启保留），仅在服务器无该能力时才用客户端实现；选择结果对用户不可见。
 - **实现来源对用户不可见**：同一种能力无论原生还是模拟，入口 / 手势 / 形态 / 状态呈现必须一致（属 L0 统一层；见 UI 约定文档的「实现与形态解耦」）。
+- **同构不止形态，还包括用户可观察语义**：客户端实现必须覆盖重启保留、跨客户端可见性、顺序与去重、错误语义等可观察边界；**无法覆盖的差异不得假装同构**，必须按 L1 显式降级（隐藏该项、禁用、或标注"仅本地"）。范例：一面的排队由服务器队列承载（跨客户端、重启保留），另一面的客户端模拟队列是进程内状态（重启即失、他端不可见）——若产品对跨端有预期，该项应表达为部分可用，而非完全同构。
 - 同一能力内的部分支持（如某服务器的排队可移除 / 插话但不可编辑）用端口内的子能力表达，按 L1 隐藏或禁用对应入口，不改形态层。
 - 推论：探测失败只影响"用哪种实现"与 L1 子能力，不应把客户端可实现的能力翻成不可用。
 
@@ -227,6 +229,7 @@ fun ServerAdapter.capabilities(conn: ServerConnection): ServerCapabilities =
 - 失败回落：探测不可用时回落适配器基线并标记降级，不翻成 false、不假设全支持。
 - 缓存：按（服务器，世代）失效；重连或世代变化重算。
 - 不可判别协议（未知路径返回 200 兜底页面的服务器）走 L0 + L2，不假装 L3 可用。
+- 同一能力若存在两条实现（服务器原生 / 客户端模拟），两条必须通过**同一契约测试**；并对模拟实现额外断言用户可观察语义边界（重启保留、跨客户端可见性、顺序与去重）——覆盖不到的边界必须已在能力位上显式降级，不得静默。
 
 ## Out of Scope
 
