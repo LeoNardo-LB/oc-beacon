@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#396**（2026-09-10 #395 立即发送（steer）上屏消息缺标识徽标——ch）。
+**编号**：全局递增，不回收。下一编号：**#397**（2026-09-10 #396 Android Lint devDebug 门禁）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。
 
@@ -62,6 +62,11 @@
   - 开发切片数更新：9（原 8 + 通用 UIUX 统一落地，见 spec Further Notes）。
 
 ## P1 — 核心功能需求
+
+- [ ] **#396 Android Lint devDebug 门禁 4 项存量错误** `lint` `ci`
+  - 现象：./gradlew :app:lintDevDebug 红（abortOnError），4 error——HiltEntryActivity MissingClass ×1（src/debug/AndroidManifest.xml:18，类仅存在于 androidTest 源集）+ LocalContextGetResourceValueCall ×3（ChatScreen.kt:786/1067、SettingsScreen.kt:97 的 context.getString 应走 stringResource）。
+  - 归因：blame 分别为 6c41d0a2(2026-08-16)/f2df106c/2e4a4d58/54cbc555(2026-08-31~09-01)，#106 批次曾清至 0 后回归；与 #391 切片1/2 无关（ChatScreen numstat 9/9 行数不变，命中行未改）。
+  - 影响：#391 切片8 的自定义 Lint 规则要接入同一门禁，需先清此 4 项或确认 lintRelease 路径。
 
 - [ ] **#394 跳转终点 5s 高亮未生效 + 疑似破坏会话渲染（优化2 复验未过）** `chat`
   - 用户复验（2026-09-10）：搜索命中行点击进会话后无 5s 高亮，且报告「似乎破坏会话渲染」。疑点：①Displayed 相位 hook 的 itemKey 键式推导（assistant 目标 t_ 键）与渲染 itemKey 实际格式不匹配→不设键不高亮；②async 跳转路径 entry 查空→静默不设键；③渲染破坏待复现取证（当前帧 /tmp/n5_regression.png VLM 复核健康——你好 会话轮次 19-21 气泡/台账正常，疑为 search-jump 进入路径暂时性）。实现：commit a0b24103。
