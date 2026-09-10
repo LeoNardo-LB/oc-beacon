@@ -4,8 +4,6 @@ import dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry
 import dev.leonardo.ocbeacon.data.dto.response.*
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.ServerHealth
-import javax.inject.Inject
-import javax.inject.Singleton
 
 interface SystemApi {
     suspend fun getHealth(conn: ServerConnection): ServerHealth
@@ -52,51 +50,4 @@ interface SystemApi {
     suspend fun connectMcpServer(conn: ServerConnection, name: String): Boolean
 
     suspend fun disconnectMcpServer(conn: ServerConnection, name: String): Boolean
-}
-
-/**
- * C1-4（2026-08-27，#238 五域收编）：分发层收缩为单点路由 + 逐方法单行委托。
- * [V1ApiClient]/[V2ApiClient] 已直接实现 [SystemApi]，本类不再逐方法
- * if (conn.apiVersion.isV2) 分发。
- */
-@Singleton
-class SystemApiImpl @Inject constructor(
-    private val adapters: ServerAdapterRegistry,
-) : SystemApi {
-
-    /**
-     * #391 切片 1：路由改走适配器注册表（唯一 seam）；行为与迁移前逐位一致
-     * （DSH 优先于 apiVersion 二分）。
-     */
-    private fun pick(conn: ServerConnection): SystemApi = adapters.ports(conn).system
-
-    override suspend fun getHealth(conn: ServerConnection): ServerHealth =
-        pick(conn).getHealth(conn)
-
-    override suspend fun getServerPaths(conn: ServerConnection): ServerPaths =
-        pick(conn).getServerPaths(conn)
-
-    override suspend fun listAgents(conn: ServerConnection): List<AgentInfo> =
-        pick(conn).listAgents(conn)
-
-    override suspend fun listCommands(conn: ServerConnection): List<CommandInfo> =
-        pick(conn).listCommands(conn)
-
-    override suspend fun listCommands(conn: ServerConnection, sessionId: String?): List<CommandInfo> =
-        pick(conn).listCommands(conn, sessionId)
-
-    override suspend fun listSkills(conn: ServerConnection, directory: String?): List<SkillInfo> =
-        pick(conn).listSkills(conn, directory)
-
-    override suspend fun listSessionSkills(conn: ServerConnection, sessionId: String): List<dev.leonardo.ocbeacon.domain.model.DshSkillInfo> =
-        pick(conn).listSessionSkills(conn, sessionId)
-
-    override suspend fun getMcpStatus(conn: ServerConnection): Map<String, McpStatusEntry> =
-        pick(conn).getMcpStatus(conn)
-
-    override suspend fun connectMcpServer(conn: ServerConnection, name: String): Boolean =
-        pick(conn).connectMcpServer(conn, name)
-
-    override suspend fun disconnectMcpServer(conn: ServerConnection, name: String): Boolean =
-        pick(conn).disconnectMcpServer(conn, name)
 }

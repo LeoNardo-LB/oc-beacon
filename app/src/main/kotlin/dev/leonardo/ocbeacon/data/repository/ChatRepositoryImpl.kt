@@ -4,11 +4,6 @@ import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.logging.AppLogger
 
 import dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry
-import dev.leonardo.ocbeacon.data.api.file.FileApi
-import dev.leonardo.ocbeacon.data.api.message.MessageApi
-import dev.leonardo.ocbeacon.data.api.provider.ProviderApi
-import dev.leonardo.ocbeacon.data.api.session.SessionApi
-import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.data.dto.common.ModelSelection as DataModelSelection
 import dev.leonardo.ocbeacon.data.dto.request.PromptPart as DataPromptPart
@@ -67,11 +62,6 @@ import dev.leonardo.ocbeacon.util.runCatchingCancellable
  */
 @Singleton
 class ChatRepositoryImpl @Inject constructor(
-    private val messageApi: MessageApi,
-    private val sessionApi: SessionApi,
-    private val terminalApi: TerminalApi,
-    private val shellApi: dev.leonardo.ocbeacon.data.api.shell.ShellApi,
-    private val providerApi: ProviderApi,
     private val eventDispatcher: EventDispatcher,
     private val serverRepo: ServerDataStore,
     private val permissionAutoApprover: PermissionAutoApprover,
@@ -79,8 +69,6 @@ class ChatRepositoryImpl @Inject constructor(
     // #287：DSH 附件字节拉取（session.attachment → data URL）。
     // DshApiClient @Singleton 可注入；非 DSH 服务器由 readAttachment 失败自然降级 null。
     private val dshApiClient: dev.leonardo.ocbeacon.data.api.dsh.DshApiClient,
-    // #310⑤/#321：非 DSH @ 文件补全回落 findFiles（FileApiImpl 三分路由现路径）。
-    private val fileApi: FileApi,
     // #311 Task1：workspace 快照读取（workspace/follow baseline 维护的单一真相源）。
     private val dshWorkspaceStore: DshWorkspaceStore,
     // #391：唯一路由 seam——私有能力经端口挂载，不按服务器类型分派。
@@ -202,7 +190,7 @@ class ChatRepositoryImpl @Inject constructor(
     override suspend fun sendMessage(sessionId: String, parts: List<Part>): Result<Message> = runCatchingCancellable {
         val conn = resolveConnectionForSession(sessionId)
         val promptParts = parts.map { it.toDataPromptPart() }
-        messageApi.promptAsync(conn, sessionId, promptParts)
+        adapters.ports(conn).message.promptAsync(conn, sessionId, promptParts)
         // 实际消息通过 SSE 到达——返回一个轻量占位符。
         // 调用方应通过 [getMessagesFlow] 观察真实 Message。
         Message.User(
@@ -219,7 +207,7 @@ class ChatRepositoryImpl @Inject constructor(
         // #130：V2 form reply 需要领域问题（key/value 映射）——从 pending 状态查找。
         val question = eventDispatcher.questions.value.values.flatten()
             .firstOrNull { it.id == questionId }
-        messageApi.replyToQuestion(conn, questionId, listOf(listOf(answer)), question = question)
+        adapters.ports(conn).message.replyToQuestion(conn, questionId, listOf(listOf(answer)), question = question)
     }
 
     override suspend fun promptAsync(
@@ -234,7 +222,7 @@ class ChatRepositoryImpl @Inject constructor(
         seedTranscript: Boolean
     ): Result<Unit> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        val admission = messageApi.promptAsync(
+        val admission = adapters.ports(conn).message.promptAsync(
             conn, sessionId, parts.map { it.toData() }, model?.toData(), agent, variant, directory, steer
         )
         // 2026-08-14 根治（用户消息"发送后无气泡"系统性修复）：
@@ -267,12 +255,12 @@ class ChatRepositoryImpl @Inject constructor(
 
     override suspend fun revertSession(serverId: String, sessionId: String, messageId: String): Result<Unit> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        sessionApi.revertSession(conn, sessionId, messageId)
+        adapters.ports(conn).session.revertSession(conn, sessionId, messageId)
     }
 
     override suspend fun unrevertSession(serverId: String, sessionId: String): Result<Unit> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        sessionApi.unrevertSession(conn, sessionId)
+        adapters.ports(conn).session.unrevertSession(conn, sessionId)
     }
 
     override suspend fun respondPermission(
@@ -288,7 +276,7 @@ class ChatRepositoryImpl @Inject constructor(
         // 传 null，DSH 适配层回退 permissionId 尽力而为。
         val metadata = eventDispatcher.permissions.value.values.flatten()
             .firstOrNull { it.id == permissionId }?.metadata
-        messageApi.replyToPermission(conn, sessionId, permissionId, reply, directory = directory, metadata = metadata)
+        adapters.ports(conn).message.replyToPermission(conn, sessionId, permissionId, reply, directory = directory, metadata = metadata)
     }
 
     // ============ 待处理查询 ============
@@ -296,12 +284,12 @@ class ChatRepositoryImpl @Inject constructor(
     override suspend fun listPendingPermissions(serverId: String, directory: String?): Result<List<PermissionState>?> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         // #314：null=端点缺席（DSH）原样上抛——上游跳过同步，不当权威空表
-        messageApi.listPendingPermissions(conn, directory)?.map { it.toDomainPermissionState() }
+        adapters.ports(conn).message.listPendingPermissions(conn, directory)?.map { it.toDomainPermissionState() }
     }
 
     override suspend fun listPendingQuestions(serverId: String, directory: String?): Result<List<QuestionState>?> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        messageApi.listPendingQuestions(conn, directory)?.map { it.toDomainQuestionState() }
+        adapters.ports(conn).message.listPendingQuestions(conn, directory)?.map { it.toDomainQuestionState() }
     }
 
     override suspend fun replyToQuestion(
@@ -315,7 +303,7 @@ class ChatRepositoryImpl @Inject constructor(
         // V1 分支忽略该参数；找不到时 V2 返回 false（调用方移除卡片兜底）。
         val question = eventDispatcher.questions.value.values.flatten()
             .firstOrNull { it.id == requestId }
-        messageApi.replyToQuestion(conn, requestId, answers, directory, question)
+        adapters.ports(conn).message.replyToQuestion(conn, requestId, answers, directory, question)
     }
 
     override suspend fun rejectQuestion(
@@ -327,7 +315,7 @@ class ChatRepositoryImpl @Inject constructor(
         // #130：V2 form cancel 需要 sessionID（路径参数）。
         val sessionId = eventDispatcher.questions.value.entries
             .firstOrNull { (_, qs) -> qs.any { it.id == requestId } }?.key
-        messageApi.rejectQuestion(conn, requestId, directory, sessionId)
+        adapters.ports(conn).message.rejectQuestion(conn, requestId, directory, sessionId)
     }
 
     // ============ 命令执行 ============
@@ -340,7 +328,7 @@ class ChatRepositoryImpl @Inject constructor(
         directory: String?
     ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        sessionApi.executeCommand(conn, sessionId, command, arguments, directory)
+        adapters.ports(conn).session.executeCommand(conn, sessionId, command, arguments, directory)
     }
 
     override suspend fun setPermissionPreset(
@@ -349,12 +337,12 @@ class ChatRepositoryImpl @Inject constructor(
         preset: String,
     ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        sessionApi.setPermissionPreset(conn, sessionId, preset)
+        adapters.ports(conn).session.setPermissionPreset(conn, sessionId, preset)
     }
 
     override suspend fun listAgentPresets(serverId: String): Result<List<AgentPreset>> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        sessionApi.listAgentPresets(conn)
+        adapters.ports(conn).session.listAgentPresets(conn)
     }
 
     override suspend fun selectAgentPreset(
@@ -363,7 +351,7 @@ class ChatRepositoryImpl @Inject constructor(
         presetId: String,
     ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        sessionApi.selectAgentPreset(conn, sessionId, presetId)
+        adapters.ports(conn).session.selectAgentPreset(conn, sessionId, presetId)
     }
 
     /** #287：附件字节 → data URL（仅 DSH 有 session.attachment；其他类型直接 null）。 */
@@ -382,7 +370,7 @@ class ChatRepositoryImpl @Inject constructor(
         editText: String?,
     ): dev.leonardo.ocbeacon.domain.model.QueueMutationResult {
         val conn = resolveConnection(serverId)
-        return sessionApi.updateQueue(conn, sessionId, itemId, action, editText)
+        return adapters.ports(conn).session.updateQueue(conn, sessionId, itemId, action, editText)
     }
 
     override suspend fun listQueueItems(
@@ -550,7 +538,7 @@ class ChatRepositoryImpl @Inject constructor(
     ): Result<List<MentionCandidate>> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
         if (conn.serverType != dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
-            val paths = fileApi.findFiles(
+            val paths = adapters.ports(conn).requireFile(conn).findFiles(
                 conn, query,
                 directory = directory,
                 limit = 15,
@@ -656,25 +644,25 @@ class ChatRepositoryImpl @Inject constructor(
         val model = if (providerId != null && modelId != null) {
             DataModelSelection(providerId = providerId, modelId = modelId)
         } else null
-        terminalApi.runShellCommand(conn, sessionId, command, agent, model, directory)
+        adapters.ports(conn).requireTerminal(conn).runShellCommand(conn, sessionId, command, agent, model, directory)
     }
 
     override suspend fun backgroundSession(serverId: String, sessionId: String): Result<Boolean> =
         runCatchingCancellable {
             val conn = resolveConnection(serverId)
-            sessionApi.backgroundSession(conn, sessionId)
+            adapters.ports(conn).session.backgroundSession(conn, sessionId)
         }
 
     override suspend fun listActiveSessions(serverId: String): Result<Map<String, ActiveSessionInfo>> =
         runCatchingCancellable {
             val conn = resolveConnection(serverId)
-            sessionApi.activeSessions(conn)
+            adapters.ports(conn).session.activeSessions(conn)
         }
 
     override suspend fun listShells(serverId: String, directory: String?): Result<List<ShellJob>> =
         runCatchingCancellable {
             val conn = resolveConnection(serverId)
-            shellApi.listShells(conn, directory)
+            adapters.ports(conn).requireShell(conn).listShells(conn, directory)
         }
 
     override suspend fun getShellOutput(
@@ -685,7 +673,7 @@ class ChatRepositoryImpl @Inject constructor(
         directory: String?
     ): Result<ShellOutput?> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        shellApi.getShellOutput(conn, shellId, cursor, limit, directory)
+        adapters.ports(conn).requireShell(conn).getShellOutput(conn, shellId, cursor, limit, directory)
     }
 
     override suspend fun removeShell(
@@ -694,7 +682,7 @@ class ChatRepositoryImpl @Inject constructor(
         directory: String?
     ): Result<Boolean> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        shellApi.removeShell(conn, shellId, directory)
+        adapters.ports(conn).requireShell(conn).removeShell(conn, shellId, directory)
     }
 
     // ============ 私有辅助方法 ============

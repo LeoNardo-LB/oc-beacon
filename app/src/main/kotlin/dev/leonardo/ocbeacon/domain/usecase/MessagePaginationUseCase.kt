@@ -97,7 +97,7 @@ class MessagePaginationUseCase @Inject constructor(
             }
             // 本地有缓存时，只拉取本地最旧游标之后的新消息
             // 2026-08-16 根治（cursor 400 → 增量静默失效）：原实现无条件用 V1
-            // 格式 CursorCodec.encode(id,time)，经 MessageApiImpl V2 分支以
+            // 格式 CursorCodec.encode(id,time)，经 V2 端口实现以
             // cursor 参数名发送 → 部署版 V2 服务器对 V1 格式 cursor 直接 400
             //（curl 三组对照实证）→ 空页 → mergeLocalAndRemote 回退本地，
             // 增量同步静默失效。且 curl 进一步实证：V2 cursor 是**服务器窗口

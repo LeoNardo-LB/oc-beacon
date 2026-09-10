@@ -1,13 +1,9 @@
 package dev.leonardo.ocbeacon.data.api.terminal
 
-import dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry
-import dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability
 import dev.leonardo.ocbeacon.data.dto.common.*
 import dev.leonardo.ocbeacon.data.dto.request.*
 import dev.leonardo.ocbeacon.data.dto.response.*
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
-import javax.inject.Inject
-import javax.inject.Singleton
 
 interface TerminalApi {
     suspend fun createPty(
@@ -48,59 +44,4 @@ interface TerminalApi {
         model: ModelSelection? = null,
         directory: String? = null
     ): Boolean
-}
-
-/**
- * C1-5（2026-08-27，#238 五域收编）：分发层收缩为单点路由 + 逐方法单行委托。
- * [V1ApiClient]/[V2ApiClient] 已直接实现 [TerminalApi]。
- */
-@Singleton
-class TerminalApiImpl @Inject constructor(
-    private val adapters: ServerAdapterRegistry,
-) : TerminalApi {
-
-    /**
-     * #391 切片 1：路由改走适配器注册表（唯一 seam）。可选端口缺席 = 该类型不提供
-     * 该能力；抛错语义与迁移前具体客户端的降级实现一致。
-     */
-    private fun pick(conn: ServerConnection): TerminalApi =
-        adapters.ports(conn).terminal
-            ?: throw UnsupportedServerCapability("terminal", conn.serverType.name)
-
-    override suspend fun createPty(
-        conn: ServerConnection,
-        title: String?,
-        cwd: String?,
-        directory: String?
-    ): PtyInfo = pick(conn).createPty(conn, title, cwd, directory)
-
-    override suspend fun removePty(conn: ServerConnection, ptyId: String): Boolean =
-        pick(conn).removePty(conn, ptyId)
-
-    override suspend fun updatePtySize(
-        conn: ServerConnection,
-        ptyId: String,
-        cols: Int,
-        rows: Int,
-        directory: String?
-    ): Boolean = pick(conn).updatePtySize(conn, ptyId, cols, rows, directory)
-
-    override suspend fun openPtySocket(
-        conn: ServerConnection,
-        ptyId: String,
-        cursor: Int,
-        directory: String?
-    ): PtySocket = pick(conn).openPtySocket(conn, ptyId, cursor, directory)
-
-    override suspend fun listPtyShells(conn: ServerConnection, directory: String?): List<ShellInfo> =
-        pick(conn).listPtyShells(conn, directory)
-
-    override suspend fun runShellCommand(
-        conn: ServerConnection,
-        sessionId: String,
-        command: String,
-        agent: String,
-        model: ModelSelection?,
-        directory: String?
-    ): Boolean = pick(conn).runShellCommand(conn, sessionId, command, agent, model, directory)
 }

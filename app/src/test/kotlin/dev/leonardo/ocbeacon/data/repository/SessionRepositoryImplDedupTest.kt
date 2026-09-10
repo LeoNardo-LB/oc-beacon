@@ -37,8 +37,7 @@ class SessionRepositoryImplDedupTest {
     private val messageApi = mockk<MessageApi>()
     private val serverStore = mockk<ServerDataStore>()
     private val repo = SessionRepositoryImpl(
-        sessionApi = mockk<SessionApi>(relaxed = true),
-        messageApi = messageApi,
+        adapters = dev.leonardo.ocbeacon.testing.testAdapterRegistry(message = messageApi),
         eventDispatcher = dispatcher,
         serverRepo = serverStore,
         sessionCache = mockk<SessionCacheStore>(relaxed = true),

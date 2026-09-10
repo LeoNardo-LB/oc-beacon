@@ -15,7 +15,7 @@ class AgentRepositoryImplTest {
 
     @Test
     fun `impl creates successfully`() = runTest {
-        val repo: AgentRepository = AgentRepositoryImpl(systemApi, fileApi, serverRepo)
+        val repo: AgentRepository = AgentRepositoryImpl(dev.leonardo.ocbeacon.testing.testAdapterRegistry(system = systemApi, file = fileApi), serverRepo)
         assertNotNull(repo)
     }
 }

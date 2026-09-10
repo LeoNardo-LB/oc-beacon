@@ -79,7 +79,7 @@ class SessionRepositoryImplTest {
         cachedJson = Json { ignoreUnknownKeys = true; isLenient = true }
         testScope = CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob())
         repo = SessionRepositoryImpl(
-            sessionApi, messageApi, eventDispatcher, serverRepo,
+            dev.leonardo.ocbeacon.testing.testAdapterRegistry(session = sessionApi, message = messageApi), eventDispatcher, serverRepo,
             SessionCacheStore(cachedDao, cachedJson), testScope,
         )
     }

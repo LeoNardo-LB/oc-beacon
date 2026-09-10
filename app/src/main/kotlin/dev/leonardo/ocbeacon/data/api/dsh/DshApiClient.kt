@@ -98,7 +98,7 @@ private const val SNIPPET_MAX_CODE_POINTS = 240
 /**
  * DSH 七域 API 实现（backlog #276 步骤③；设计 §2.6 方法面 → 域接口映射表）。
  *
- * 与 V1ApiClient/V2ApiClient 并列实现同一批域接口，由七个 *ApiImpl.pick 三分路由。
+ * 与 V1ApiClient/V2ApiClient 并列实现同一批域接口；#391 切片4 后由适配器注册表按连接解析端口。
  * 方法面（52 方法）：session.×12 / subagent.×4 / workspace.×7 / host.×5 / llm.×3 /
  * agentPreset.×6 / goal.×6 / credentials.×3 / settings.×5 / skill.list。
  *

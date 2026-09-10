@@ -32,7 +32,7 @@ class FileRepositoryImplTest {
     @Before
     fun setup() {
         coEvery { serverRepository.resolveConnection(serverId) } returns testConn
-        sut = FileRepositoryImpl(api, systemApi, serverRepository)
+        sut = FileRepositoryImpl(dev.leonardo.ocbeacon.testing.testAdapterRegistry(file = api, system = systemApi), serverRepository)
     }
 
     @Test

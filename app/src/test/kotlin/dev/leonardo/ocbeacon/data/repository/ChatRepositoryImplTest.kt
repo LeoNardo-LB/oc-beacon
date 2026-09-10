@@ -93,19 +93,14 @@ class ChatRepositoryImplTest {
         every { sessionStateRepository.statusFlow } returns MutableStateFlow(emptyMap())
         dshApiClient = mockk(relaxed = true)
         dshWorkspaceStore = DshWorkspaceStore()
-        adapters = dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry(
-            setOf(
-                dev.leonardo.ocbeacon.data.adapter.OpenCodeServerAdapter(mockk(relaxed = true), mockk(relaxed = true)),
-                dev.leonardo.ocbeacon.data.adapter.DshServerAdapter(
-                    dshApiClient,
-                    object : dev.leonardo.ocbeacon.data.api.dsh.DshProtocolSource {
-                        override fun protocolOf(baseUrl: String): dev.leonardo.ocbeacon.data.api.dsh.DshWireProtocol? =
-                            dev.leonardo.ocbeacon.data.api.dsh.DshWireProtocol.V012
-                    },
-                ),
-            )
+        // #391：被测类只经注册表取端口——把测试自己的 mock 端口塞进注册表
+        adapters = dev.leonardo.ocbeacon.testing.testAdapterRegistry(
+            session = sessionApi,
+            message = messageApi,
+            provider = providerApi,
+            terminal = terminalApi,
         )
-        repo = ChatRepositoryImpl(messageApi, sessionApi, terminalApi, mockk(relaxed = true), providerApi, eventDispatcher, serverRepo, permissionAutoApprover, messageStore, dshApiClient, mockk(relaxed = true), dshWorkspaceStore, adapters)
+        repo = ChatRepositoryImpl(eventDispatcher, serverRepo, permissionAutoApprover, messageStore, dshApiClient, dshWorkspaceStore, adapters)
     }
 
     // ============ getMessagesFlow ============

@@ -17,7 +17,7 @@ class ServerRepositoryImplCacheTest {
     fun `removeServer clears session cache`() = runTest {
         val dataRepo = mockk<ServerDataStore>(relaxed = true)
         val cache = mockk<SessionCacheStore>(relaxed = true)
-        val repo = ServerRepositoryImpl(dataRepo, mockk<ProviderApi>(relaxed = true), cache)
+        val repo = ServerRepositoryImpl(dataRepo, dev.leonardo.ocbeacon.testing.testAdapterRegistry(provider = mockk(relaxed = true)), cache)
 
         repo.removeServer("srv1").getOrThrow()
 
@@ -31,7 +31,7 @@ class ServerRepositoryImplCacheTest {
         val dataRepo = mockk<ServerDataStore>(relaxed = true)
         val cache = mockk<SessionCacheStore>()
         coEvery { cache.deleteForServer(any()) } throws IllegalStateException("db closed")
-        val repo = ServerRepositoryImpl(dataRepo, mockk<ProviderApi>(relaxed = true), cache)
+        val repo = ServerRepositoryImpl(dataRepo, dev.leonardo.ocbeacon.testing.testAdapterRegistry(provider = mockk(relaxed = true)), cache)
 
         val result = repo.removeServer("srv1")
 

@@ -1,7 +1,6 @@
 package dev.leonardo.ocbeacon.data.repository
 
-import dev.leonardo.ocbeacon.data.api.file.FileApi
-import dev.leonardo.ocbeacon.data.api.system.SystemApi
+import dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry
 import dev.leonardo.ocbeacon.data.mapper.FileMapper
 import dev.leonardo.ocbeacon.domain.model.FileContent
 import dev.leonardo.ocbeacon.domain.model.FileNode
@@ -17,8 +16,7 @@ import dev.leonardo.ocbeacon.util.runCatchingCancellable
 
 @Singleton
 class FileRepositoryImpl @Inject constructor(
-    private val api: FileApi,
-    private val systemApi: SystemApi,
+    private val adapters: ServerAdapterRegistry,
     private val serverRepository: ServerRepository
 ) : FileRepository {
 
@@ -29,7 +27,7 @@ class FileRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             runCatchingCancellable {
                 val conn = serverRepository.resolveConnection(serverId)
-                api.listDirectory(conn, path, directory).map { FileMapper.toDomain(it) }
+                adapters.ports(conn).requireFile(conn).listDirectory(conn, path, directory).map { FileMapper.toDomain(it) }
             }
         }
 
@@ -38,7 +36,7 @@ class FileRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             runCatchingCancellable {
                 val conn = serverRepository.resolveConnection(serverId)
-                api.createDirectory(conn, parentDirectory, folderName)
+                adapters.ports(conn).requireFile(conn).createDirectory(conn, parentDirectory, folderName)
             }
         }
 
@@ -48,7 +46,7 @@ class FileRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             runCatchingCancellable {
                 val conn = serverRepository.resolveConnection(serverId)
-                FileMapper.toDomain(api.readFile(conn, path, directory), path)
+                FileMapper.toDomain(adapters.ports(conn).requireFile(conn).readFile(conn, path, directory), path)
             }
         }
 
@@ -56,7 +54,7 @@ class FileRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             runCatchingCancellable {
                 val conn = serverRepository.resolveConnection(serverId)
-                api.findFiles(conn, query = query, type = "file", directory = directory, limit = limit, dirs = null)
+                adapters.ports(conn).requireFile(conn).findFiles(conn, query = query, type = "file", directory = directory, limit = limit, dirs = null)
             }
         }
 
@@ -64,7 +62,7 @@ class FileRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             runCatchingCancellable {
                 val conn = serverRepository.resolveConnection(serverId)
-                api.listProjects(conn)
+                adapters.ports(conn).requireFile(conn).listProjects(conn)
             }
         }
 
@@ -72,7 +70,7 @@ class FileRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             runCatchingCancellable {
                 val conn = serverRepository.resolveConnection(serverId)
-                api.probeDirectory(conn, directory)
+                adapters.ports(conn).requireFile(conn).probeDirectory(conn, directory)
             }
         }
 
@@ -80,7 +78,7 @@ class FileRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             runCatchingCancellable {
                 val conn = serverRepository.resolveConnection(serverId)
-                FileMapper.toDomain(systemApi.getServerPaths(conn))
+                FileMapper.toDomain(adapters.ports(conn).system.getServerPaths(conn))
             }
         }
 
@@ -93,7 +91,7 @@ class FileRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) {
             runCatchingCancellable {
                 val conn = serverRepository.resolveConnection(serverId)
-                api.findFiles(conn, query = query, type = "directory", directory = directory, limit = limit, dirs = null)
+                adapters.ports(conn).requireFile(conn).findFiles(conn, query = query, type = "directory", directory = directory, limit = limit, dirs = null)
             }
         }
 }

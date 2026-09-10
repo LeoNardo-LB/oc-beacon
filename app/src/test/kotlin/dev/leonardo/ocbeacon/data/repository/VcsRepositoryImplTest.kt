@@ -32,7 +32,7 @@ class VcsRepositoryImplTest {
     @Before
     fun setup() {
         coEvery { serverRepository.resolveConnection(serverId) } returns testConn
-        sut = VcsRepositoryImpl(api, serverRepository)
+        sut = VcsRepositoryImpl(dev.leonardo.ocbeacon.testing.testAdapterRegistry(file = api), serverRepository)
     }
 
     @Test

@@ -63,3 +63,25 @@
 - ChatRepositoryImpl 残留 3 处类型守卫：archiveSession / listSessionsIncludingBlank / mentionCandidates（无对应端口）。
 - TaskDelegate Shell 面板分流、PaginationCursorPolicy.forServer 手写三分、ChatViewModel queue 数据源分流（DSH 帧推送 vs V2 拉取）——归切片4/5。
 - 端口载荷仍为 DSH 域模型（DshGoalRef / MessageFeedback* 等），端口命名已中立；模型重命名不在本切片。
+
+## 切片 4：删除七个手写路由门面，调用方经解析器取端口
+
+**落地**
+- 删除 7 个门面类：SessionApiImpl / MessageApiImpl / SystemApiImpl / FileApiImpl / ProviderApiImpl / TerminalApiImpl / ShellApiImpl（接口保留）。
+- 删除 di/ApiModule.kt（7 个 @Binds）与 androidTest di/FakeApiModule.kt（@TestInstallIn replaces=ApiModule）。
+- ServerPorts 增可选端口取值入口：requireFile / requireProvider / requireTerminal / requireShell（缺席抛 UnsupportedServerCapability）。
+- 11 个调用方改注入 ServerAdapterRegistry 并逐站点改经端口：SessionRepositoryImpl、ChatRepositoryImpl、AgentRepositoryImpl、ServerDataStore、FileRepositoryImpl、McpRepositoryImpl、VcsRepositoryImpl、ServerRepositoryImpl、ServerTerminalRegistry、ServerTerminalWorkspace、SseConnectionManager。
+  - ServerDataStore 的 SystemApi 依赖本为死代码（零调用），直接删除。
+  - ServerTerminalWorkspace 保留内部 api getter（按 conn 解析终端端口），调用点形态不变。
+- 测试：新增 testing/TestServerAdapters.kt（FakeServerAdapter + testAdapterRegistry）；V1V2DialectContractTest 改为按连接解析端口（路由断言不变）、MessageApiCursorTest / FileApiVcsTest 同改；8 个仓储/服务测试构造点改经注册表。
+- 清理 6 处指向已删除门面的现状性注释。
+- 顺带修复 androidTest 存量漂移：FakeMessageCacheRepository 缺 deleteMessage（78023ffb 接口扩展后未跟）导致 androidTest 源集无法编译——补内存实现。
+
+**验证**
+- :app:compileDevDebugKotlin / :app:compileDevDebugUnitTestKotlin / :app:compileDevDebugAndroidTestKotlin 三者 BUILD SUCCESSFUL。
+- 全量 :app:testDevDebugUnitTest BUILD SUCCESSFUL（3244 例）。
+- 期间一次的 V1V2DialectContractTest 8 红为测试改写缺陷（把同一 api 绑定到单一连接），已改为逐调用按连接解析后全绿。
+
+**残留（归切片5/8）**
+- ChatRepositoryImpl archiveSession / listSessionsIncludingBlank / mentionCandidates 三处类型守卫（无端口）。
+- TaskDelegate Shell 面板分流、PaginationCursorPolicy.forServer、ChatViewModel queue 双数据源分流。

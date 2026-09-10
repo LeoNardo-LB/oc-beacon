@@ -5,8 +5,6 @@ import dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability
 import dev.leonardo.ocbeacon.data.dto.response.*
 import dev.leonardo.ocbeacon.domain.model.Project
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
-import javax.inject.Inject
-import javax.inject.Singleton
 
 interface FileApi {
     suspend fun findFiles(
@@ -59,67 +57,4 @@ interface FileApi {
     suspend fun listProjects(conn: ServerConnection): List<Project>
 
     suspend fun getCurrentProject(conn: ServerConnection): Project
-}
-
-/**
- * C1-6（2026-08-27，#238 五域收编）：分发层收缩为单点路由 + 逐方法单行委托。
- * [V1ApiClient]/[V2ApiClient] 已直接实现 [FileApi]。
- */
-@Singleton
-class FileApiImpl @Inject constructor(
-    private val adapters: ServerAdapterRegistry,
-) : FileApi {
-
-    /**
-     * #391 切片 1：路由改走适配器注册表（唯一 seam）；行为与迁移前逐位一致
-     * （DSH 优先于 apiVersion 二分）。
-     */
-    private fun pick(conn: ServerConnection): FileApi =
-        adapters.ports(conn).file
-            ?: throw UnsupportedServerCapability("file", conn.serverType.name)
-
-    override suspend fun findFiles(
-        conn: ServerConnection,
-        query: String,
-        type: String?,
-        directory: String?,
-        limit: Int?,
-        dirs: String?
-    ): List<String> = pick(conn).findFiles(conn, query, type, directory, limit, dirs)
-
-    override suspend fun readFile(conn: ServerConnection, path: String, directory: String?): FileContentDto =
-        pick(conn).readFile(conn, path, directory)
-
-    override suspend fun searchText(conn: ServerConnection, pattern: String): List<SearchMatchDto> =
-        pick(conn).searchText(conn, pattern)
-
-    override suspend fun probeDirectory(conn: ServerConnection, directory: String): Boolean =
-        pick(conn).probeDirectory(conn, directory)
-
-    override suspend fun listDirectory(conn: ServerConnection, path: String, directory: String?): List<FileNodeDto> =
-        pick(conn).listDirectory(conn, path, directory)
-
-    override suspend fun createDirectory(conn: ServerConnection, parentDirectory: String, folderName: String): String =
-        pick(conn).createDirectory(conn, parentDirectory, folderName)
-
-    override suspend fun findSymbols(conn: ServerConnection, query: String, directory: String?): List<SymbolInfo> =
-        pick(conn).findSymbols(conn, query, directory)
-
-    override suspend fun getFileStatus(conn: ServerConnection, directory: String?): List<FileStatusInfo> =
-        pick(conn).getFileStatus(conn, directory)
-
-    override suspend fun getVcs(conn: ServerConnection, directory: String?): VcsBranchDto =
-        pick(conn).getVcs(conn, directory)
-
-    override suspend fun getVcsStatus(conn: ServerConnection, directory: String?): List<VcsChangeDto> =
-        pick(conn).getVcsStatus(conn, directory)
-
-    override suspend fun getVcsDiff(conn: ServerConnection, mode: String, context: Int, directory: String?): List<FileDiffDto> =
-        pick(conn).getVcsDiff(conn, mode, context, directory)
-
-    override suspend fun listProjects(conn: ServerConnection): List<Project> =
-        pick(conn).listProjects(conn)
-
-    override suspend fun getCurrentProject(conn: ServerConnection): Project =
-        pick(conn).getCurrentProject(conn)
 }

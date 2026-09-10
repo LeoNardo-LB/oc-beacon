@@ -6,7 +6,6 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import dev.leonardo.ocbeacon.data.api.system.SystemApi
 import dev.leonardo.ocbeacon.data.security.SecretCipher
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
@@ -31,7 +30,6 @@ private const val SERVERS_KEY = "servers"
 @Singleton
 class ServerDataStore @Inject constructor(
     private val dataStore: DataStore<Preferences>,
-    private val api: SystemApi,
     private val json: Json,
     private val secretCipher: SecretCipher,
     private val versionDetector: dev.leonardo.ocbeacon.data.api.version.ApiVersionDetector

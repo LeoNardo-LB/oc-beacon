@@ -5,6 +5,7 @@ import dev.leonardo.ocbeacon.logging.AppLogger
 import android.content.Context
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
 import dev.leonardo.ocbeacon.data.dto.common.PtySocket
 import dev.leonardo.ocbeacon.data.terminal.PtyToTermlibAdapter
@@ -41,10 +42,13 @@ data class TerminalTabUi(
 )
 
 internal class ServerTerminalWorkspace(
-    private val api: TerminalApi,
+    private val adapters: ServerAdapterRegistry,
     @Volatile internal var conn: ServerConnection,
     private val context: Context,
 ) {
+
+    /** #391：终端端口按连接解析（端口缺席显式失败；终端面板按能力位门控）。 */
+    private val api: TerminalApi get() = adapters.ports(conn).requireTerminal(conn)
     private class RuntimeTab(
         val id: String,
         var title: String,

@@ -5,8 +5,6 @@ import dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability
 import dev.leonardo.ocbeacon.data.dto.request.*
 import dev.leonardo.ocbeacon.data.dto.response.*
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
-import javax.inject.Inject
-import javax.inject.Singleton
 
 interface ProviderApi {
     /**
@@ -95,68 +93,4 @@ interface ProviderApi {
      * POST /instance/dispose
      */
     suspend fun disposeInstance(conn: ServerConnection): Boolean
-}
-
-/**
- * C1-7（2026-08-27，#238 五域收编）：分发层收缩为单点路由 + 逐方法单行委托。
- * [V1ApiClient]/[V2ApiClient] 已直接实现 [ProviderApi]。
- */
-@Singleton
-class ProviderApiImpl @Inject constructor(
-    private val adapters: ServerAdapterRegistry,
-) : ProviderApi {
-
-    /**
-     * #391 切片 1：路由改走适配器注册表（唯一 seam）；行为与迁移前逐位一致
-     * （DSH 优先于 apiVersion 二分）。
-     */
-    private fun pick(conn: ServerConnection): ProviderApi =
-        adapters.ports(conn).provider
-            ?: throw UnsupportedServerCapability("provider", conn.serverType.name)
-
-    override suspend fun getProviders(conn: ServerConnection): ProvidersResponse =
-        pick(conn).getProviders(conn)
-
-    override suspend fun listProviderCatalog(conn: ServerConnection): ProviderCatalogResponse =
-        pick(conn).listProviderCatalog(conn)
-
-    override suspend fun getProviderAuthMethods(conn: ServerConnection): Map<String, List<ProviderAuthMethod>> =
-        pick(conn).getProviderAuthMethods(conn)
-
-    override suspend fun authorizeProviderOauth(
-        conn: ServerConnection,
-        providerId: String,
-        methodIndex: Int
-    ): ProviderOauthAuthorization? = pick(conn).authorizeProviderOauth(conn, providerId, methodIndex)
-
-    override suspend fun completeProviderOauth(
-        conn: ServerConnection,
-        providerId: String,
-        methodIndex: Int,
-        code: String?
-    ): Boolean = pick(conn).completeProviderOauth(conn, providerId, methodIndex, code)
-
-    override suspend fun setProviderApiKey(conn: ServerConnection, providerId: String, apiKey: String): Boolean =
-        pick(conn).setProviderApiKey(conn, providerId, apiKey)
-
-    override suspend fun removeProviderCredential(conn: ServerConnection, providerId: String): Boolean =
-        pick(conn).removeProviderCredential(conn, providerId)
-
-    override suspend fun getConfig(conn: ServerConnection): ServerConfigResponse =
-        pick(conn).getConfig(conn)
-
-    override suspend fun getGlobalConfig(conn: ServerConnection): ServerConfigResponse =
-        pick(conn).getGlobalConfig(conn)
-
-    override suspend fun updateConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse =
-        pick(conn).updateConfig(conn, patch)
-
-    override suspend fun updateGlobalConfig(conn: ServerConnection, patch: ServerConfigPatch): ServerConfigResponse =
-        pick(conn).updateGlobalConfig(conn, patch)
-
-    override suspend fun disposeGlobal(conn: ServerConnection): Boolean =
-        pick(conn).disposeGlobal(conn)
-
-    override suspend fun disposeInstance(conn: ServerConnection): Boolean =
-        pick(conn).disposeInstance(conn)
 }

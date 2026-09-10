@@ -10,7 +10,9 @@ import dev.leonardo.ocbeacon.data.api.subagent.SubagentApi
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.api.shell.ShellApi
 import dev.leonardo.ocbeacon.data.api.system.SystemApi
+import dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
+import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.repository.ServerSettingsRepository
 import dev.leonardo.ocbeacon.domain.model.ServerFeature
 import dev.leonardo.ocbeacon.domain.model.ServerFeatures
@@ -57,4 +59,18 @@ data class ServerPorts(
         queue?.let { add(ServerFeatures.QUEUE) }
         serverSettings?.let { add(ServerFeatures.SERVER_SETTINGS) }
     }
+
+    // ---- 可选端口取值：缺席即显式失败（读空 / 写抛的统一入口） ----------------
+
+    fun requireFile(conn: ServerConnection): FileApi =
+        file ?: throw UnsupportedServerCapability("file", conn.serverType.name)
+
+    fun requireProvider(conn: ServerConnection): ProviderApi =
+        provider ?: throw UnsupportedServerCapability("provider", conn.serverType.name)
+
+    fun requireTerminal(conn: ServerConnection): TerminalApi =
+        terminal ?: throw UnsupportedServerCapability("terminal", conn.serverType.name)
+
+    fun requireShell(conn: ServerConnection): ShellApi =
+        shell ?: throw UnsupportedServerCapability("shell", conn.serverType.name)
 }

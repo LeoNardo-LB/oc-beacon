@@ -2,7 +2,7 @@ package dev.leonardo.ocbeacon.data.repository
 
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
-import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
+import dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.data.terminal.ServerTerminalWorkspace
 import javax.inject.Inject
@@ -16,7 +16,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class ServerTerminalRegistry @Inject constructor(
-    private val api: TerminalApi,
+    private val adapters: ServerAdapterRegistry,
     @param:ApplicationContext private val context: Context,
 ) {
     private val lock = Any()
@@ -27,7 +27,7 @@ class ServerTerminalRegistry @Inject constructor(
         conn: ServerConnection,
     ): ServerTerminalWorkspace {
         synchronized(lock) {
-            return byServer.getOrPut(serverId) { ServerTerminalWorkspace(api, conn, context) }
+            return byServer.getOrPut(serverId) { ServerTerminalWorkspace(adapters, conn, context) }
         }
     }
 

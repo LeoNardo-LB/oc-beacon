@@ -10,9 +10,7 @@ import dev.leonardo.ocbeacon.data.api.dsh.DshFrameSourceFactory
 import dev.leonardo.ocbeacon.data.api.dsh.DshRpcClient
 import dev.leonardo.ocbeacon.data.api.dsh.DshRpcHistorySource
 import dev.leonardo.ocbeacon.data.api.dsh.DshSessionSeqTracker
-import dev.leonardo.ocbeacon.data.api.file.FileApi
-import dev.leonardo.ocbeacon.data.api.message.MessageApi
-import dev.leonardo.ocbeacon.data.api.session.SessionApi
+import dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.ServerType
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
@@ -74,9 +72,7 @@ data class ServerConnectionState(
  */
 @Singleton
 class SseConnectionManager @Inject constructor(
-    private val sessionApi: SessionApi,
-    private val messageApi: MessageApi,
-    private val fileApi: FileApi,
+    private val adapters: ServerAdapterRegistry,
     private val sseClient: SseClient,
     private val sseClientV2: dev.leonardo.ocbeacon.data.api.v2.SseClientV2,
     private val eventDispatcher: EventDispatcher,
@@ -614,7 +610,7 @@ class SseConnectionManager @Inject constructor(
 
     private suspend fun preLoadSessions(server: ServerConfig, conn: ServerConnection) {
         try {
-            val projects = fileApi.listProjects(conn)
+            val projects = adapters.ports(conn).requireFile(conn).listProjects(conn)
             // 状态先行（#278）：播种（syncFromRest）先于会话正文预载——僵尸 Busy
             // 收敛依赖 running 语义尽早落地；正文预载（百级会话列表）在启动期
             // 占大头，若播种排其后会拉宽「强杀重启→Busy 恢复显示」窗口
@@ -635,7 +631,7 @@ class SseConnectionManager @Inject constructor(
                 // #304：NonCancellable+超时（对齐 #278 播种保护）——重连风暴下
                 // finally cancelAndJoin 掐向在途 listSessions，基线丢失=列表短暂空白。
                 val sessions = withContext(NonCancellable) {
-                    withTimeout(PRELOAD_SEED_TIMEOUT_MS) { sessionApi.listSessions(conn) }
+                    withTimeout(PRELOAD_SEED_TIMEOUT_MS) { adapters.ports(conn).session.listSessions(conn) }
                 }
                 eventDispatcher.setSessions(server.id, sessions)
                 AppLogger.i(TAG, "[${server.displayName}] Pre-loaded ${sessions.size} sessions (no projects)")
@@ -654,7 +650,7 @@ class SseConnectionManager @Inject constructor(
                         launch {
                             permits.withPermit {
                                 try {
-                                    val sessions = sessionApi.listSessions(conn, directory = project.worktree)
+                                    val sessions = adapters.ports(conn).session.listSessions(conn, directory = project.worktree)
                                     eventDispatcher.setSessions(server.id, sessions)
                                     totalSessions.addAndGet(sessions.size)
                                 } catch (e: Exception) {
@@ -695,7 +691,7 @@ class SseConnectionManager @Inject constructor(
         var recoveredCount = 0
         for (sessionId in sessionIds) {
             try {
-                val messages = messageApi.listMessages(conn, sessionId).messages
+                val messages = adapters.ports(conn).message.listMessages(conn, sessionId).messages
                 eventDispatcher.upsertMessages(sessionId, messages, MergeStrategy.REST_AUTHORITY)
                 recoveredCount++
             } catch (e: Exception) {
@@ -710,7 +706,7 @@ class SseConnectionManager @Inject constructor(
         // NoTransformationFoundException。阶段 1 的消息恢复此时已完成，
         // 因此阶段 2 的失败不应传播并中断重连循环。
         try {
-            val projects = fileApi.listProjects(conn)
+            val projects = adapters.ports(conn).requireFile(conn).listProjects(conn)
             sessionStateRepository.setServerId(server.id)
             sessionStateRepository.syncFromRest(projects)
         } catch (e: Exception) {

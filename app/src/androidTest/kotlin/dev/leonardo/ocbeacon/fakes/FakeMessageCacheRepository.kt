@@ -72,4 +72,11 @@ class FakeMessageCacheRepository @Inject constructor() : MessageCacheRepository 
 
     // #223/#230 空 part 清扫（接口 2026-08-26 扩展）：内存 Fake 无空 part 累积，零动作
     override suspend fun sweepEmptyStreamParts(): Int = 0
+
+    // 78023ffb 接口扩展（echo 拆除 Room 行同删）：内存 Fake 同语义逐会话移除该行
+    override suspend fun deleteMessage(sessionId: String, messageId: String) {
+        messagesBySession.value = messagesBySession.value.mapValues { (id, list) ->
+            if (id == sessionId) list.filterNot { it.info.id == messageId } else list
+        }
+    }
 }

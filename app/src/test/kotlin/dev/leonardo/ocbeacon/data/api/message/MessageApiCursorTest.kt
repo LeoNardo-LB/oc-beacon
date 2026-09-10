@@ -20,7 +20,7 @@ class MessageApiCursorTest {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    private fun apiWith(engine: MockEngine): MessageApiImpl {
+    private fun apiWith(engine: MockEngine): MessageApi {
         val client = HttpClient(engine) {
             install(ContentNegotiation) { json(json) }
         }
@@ -41,7 +41,7 @@ class MessageApiCursorTest {
                 ),
             )
         )
-        return MessageApiImpl(registry)
+        return registry.ports(conn).message
     }
 
     private val conn = ServerConnection.from("http://test.local", username = "u", password = "p")

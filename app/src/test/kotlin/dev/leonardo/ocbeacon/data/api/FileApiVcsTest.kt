@@ -1,7 +1,6 @@
 package dev.leonardo.ocbeacon.data.api
 
 import dev.leonardo.ocbeacon.data.api.file.FileApi
-import dev.leonardo.ocbeacon.data.api.file.FileApiImpl
 import dev.leonardo.ocbeacon.data.dto.response.FileDiffDto
 import dev.leonardo.ocbeacon.data.dto.response.VcsBranchDto
 import dev.leonardo.ocbeacon.data.dto.response.VcsChangeDto
@@ -34,7 +33,7 @@ class FileApiVcsTest {
         val dsh = dev.leonardo.ocbeacon.data.api.dsh.DshApiClient(
             dev.leonardo.ocbeacon.data.api.dsh.DshRpcClient(apiClient, io.mockk.mockk(relaxed = true)),
         )
-        return FileApiImpl(registryOf(v1, v2, dsh))
+        return registryOf(v1, v2, dsh).ports(conn).requireFile(conn)
     }
 
     private fun registryOf(

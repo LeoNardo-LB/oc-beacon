@@ -1,7 +1,6 @@
 package dev.leonardo.ocbeacon.data.repository
 
-import dev.leonardo.ocbeacon.data.api.provider.ProviderApi
-import dev.leonardo.ocbeacon.data.api.system.SystemApi
+import dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.McpServerStatus
 import dev.leonardo.ocbeacon.domain.repository.McpRepository
@@ -11,8 +10,7 @@ import dev.leonardo.ocbeacon.util.runCatchingCancellable
 
 @Singleton
 class McpRepositoryImpl @Inject constructor(
-    private val systemApi: SystemApi,
-    private val providerApi: ProviderApi
+    private val adapters: ServerAdapterRegistry
 ) : McpRepository {
 
     @Volatile
@@ -26,8 +24,8 @@ class McpRepositoryImpl @Inject constructor(
         connection ?: throw IllegalStateException("McpRepository: ServerConnection not set. Call setConnection() first.")
 
     override suspend fun getMcpServers(conn: ServerConnection): Result<List<McpServerStatus>> = runCatchingCancellable {
-        val statusMap = systemApi.getMcpStatus(conn)
-        val configMap = providerApi.getConfig(conn).mcp ?: emptyMap()
+        val statusMap = adapters.ports(conn).system.getMcpStatus(conn)
+        val configMap = adapters.ports(conn).requireProvider(conn).getConfig(conn).mcp ?: emptyMap()
 
         statusMap.map { (name, entry) ->
             val config = configMap[name]
@@ -43,9 +41,9 @@ class McpRepositoryImpl @Inject constructor(
 
     override suspend fun toggleMcpServer(conn: ServerConnection, name: String, connect: Boolean): Result<Boolean> = runCatchingCancellable {
         if (connect) {
-            systemApi.connectMcpServer(conn, name)
+            adapters.ports(conn).system.connectMcpServer(conn, name)
         } else {
-            systemApi.disconnectMcpServer(conn, name)
+            adapters.ports(conn).system.disconnectMcpServer(conn, name)
         }
     }
 }

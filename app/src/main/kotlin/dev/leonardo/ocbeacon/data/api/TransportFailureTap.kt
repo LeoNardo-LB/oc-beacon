@@ -16,7 +16,7 @@ import javax.inject.Singleton
  * ——SSE 读循环可能仍阻塞在半开 TCP 上（OS 超时前无感知），不等它。
  *
  * Holder 形态解依赖环：NetworkModule/ApiClient 无法反向注入 manager
- * （manager → *ApiImpl → ApiClient → HttpClient，若 HttpClient 直依赖 manager
+ * （manager → 端口实现 → ApiClient → HttpClient，若 HttpClient 直依赖 manager
  * 即成环），故经此可变回调中转，由 manager init 接线。
  */
 @Singleton

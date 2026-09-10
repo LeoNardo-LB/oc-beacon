@@ -11,7 +11,7 @@ import javax.inject.Singleton
 /**
  * 所有领域 API 实现共享的 HTTP 客户端 + JSON 序列化器持有者。
  *
- * 每个领域 `*ApiImpl` 注入此类以访问在
+ * 各领域端口实现（V1/V2/Dsh 协议客户端）注入此类以访问在
  * [dev.leonardo.ocbeacon.di.NetworkModule] 中配置的 Ktor [httpClient] 和 [json]。
  * 将两者放在这里可避免每个实现重复相同的构造函数依赖。
  */

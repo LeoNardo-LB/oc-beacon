@@ -97,9 +97,7 @@ class SseConnectionManagerTest {
         every { settingsRepository.reconnectMode() } returns flowOf("normal")
 
         val manager = SseConnectionManager(
-            sessionApi = mockk(relaxed = true),
-            messageApi = mockk(relaxed = true),
-            fileApi = fileApi,
+            adapters = dev.leonardo.ocbeacon.testing.testAdapterRegistry(file = fileApi),
             sseClient = sseClient,
             sseClientV2 = mockk(relaxed = true),
             eventDispatcher = mockk(relaxed = true),
@@ -188,9 +186,7 @@ class SseConnectionManagerTest {
         }
 
         val manager = SseConnectionManager(
-            sessionApi = mockk(relaxed = true),
-            messageApi = mockk(relaxed = true),
-            fileApi = fileApi,
+            adapters = dev.leonardo.ocbeacon.testing.testAdapterRegistry(file = fileApi),
             sseClient = sseClient,
             sseClientV2 = mockk(relaxed = true),
             eventDispatcher = mockk(relaxed = true),
@@ -263,9 +259,7 @@ class SseConnectionManagerTest {
         every { settingsRepository.reconnectMode() } returns flowOf("normal")
 
         val manager = SseConnectionManager(
-            sessionApi = sessionApi,
-            messageApi = mockk(relaxed = true),
-            fileApi = fileApi,
+            adapters = dev.leonardo.ocbeacon.testing.testAdapterRegistry(session = sessionApi, file = fileApi),
             sseClient = mockk(relaxed = true),
             sseClientV2 = sseClientV2,
             eventDispatcher = dispatcher,
@@ -304,9 +298,7 @@ class SseConnectionManagerTest {
     @Test
     fun `transport failure kick throttled within cooldown window`() {
         val manager = SseConnectionManager(
-            sessionApi = mockk(relaxed = true),
-            messageApi = mockk(relaxed = true),
-            fileApi = mockk(relaxed = true),
+            adapters = dev.leonardo.ocbeacon.testing.testAdapterRegistry(),
             sseClient = mockk(relaxed = true),
             sseClientV2 = mockk(relaxed = true),
             eventDispatcher = mockk(relaxed = true),
@@ -363,9 +355,7 @@ class SseConnectionManagerTest {
         every { settingsRepository.reconnectMode() } returns flowOf("normal")
 
         val manager = SseConnectionManager(
-            sessionApi = mockk(relaxed = true),
-            messageApi = mockk(relaxed = true),
-            fileApi = fileApi,
+            adapters = dev.leonardo.ocbeacon.testing.testAdapterRegistry(file = fileApi),
             sseClient = mockk(relaxed = true),
             sseClientV2 = sseClientV2,
             eventDispatcher = mockk(relaxed = true),

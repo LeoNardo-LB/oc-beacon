@@ -1,7 +1,6 @@
 package dev.leonardo.ocbeacon.data.repository
 
-import dev.leonardo.ocbeacon.data.api.file.FileApi
-import dev.leonardo.ocbeacon.data.api.system.SystemApi
+import dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.AgentInfo
 import dev.leonardo.ocbeacon.domain.model.CommandInfo
@@ -12,24 +11,23 @@ import dev.leonardo.ocbeacon.util.runCatchingCancellable
 
 @Singleton
 class AgentRepositoryImpl @Inject constructor(
-    private val systemApi: SystemApi,
-    private val fileApi: FileApi,
+    private val adapters: ServerAdapterRegistry,
     private val serverRepo: ServerDataStore
 ) : AgentRepository {
 
     override suspend fun listAgents(serverId: String): Result<List<AgentInfo>> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        systemApi.listAgents(conn).map { it.toDomain() }
+        adapters.ports(conn).system.listAgents(conn).map { it.toDomain() }
     }
 
     override suspend fun loadCommands(serverId: String, sessionId: String?): Result<List<CommandInfo>> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        systemApi.listCommands(conn, sessionId).map { it.toDomain() }
+        adapters.ports(conn).system.listCommands(conn, sessionId).map { it.toDomain() }
     }
 
     override suspend fun listSessionSkills(serverId: String, sessionId: String): Result<List<dev.leonardo.ocbeacon.domain.model.DshSkillInfo>> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        systemApi.listSessionSkills(conn, sessionId)
+        adapters.ports(conn).system.listSessionSkills(conn, sessionId)
     }
 
     override suspend fun searchFiles(
@@ -40,7 +38,7 @@ class AgentRepositoryImpl @Inject constructor(
         limit: Int
     ): Result<List<String>> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        fileApi.findFiles(conn, query, dirs = dirs, directory = directory, limit = limit)
+        adapters.ports(conn).requireFile(conn).findFiles(conn, query, dirs = dirs, directory = directory, limit = limit)
     }
 
     private suspend fun resolveConnection(serverId: String): ServerConnection {
