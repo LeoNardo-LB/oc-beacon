@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.data.adapter.dsh
 
 import dev.leonardo.ocbeacon.data.adapter.ConnectionStatus
 import dev.leonardo.ocbeacon.data.adapter.ConnectionStrategy
+import dev.leonardo.ocbeacon.data.adapter.DshServerAdapter
 import dev.leonardo.ocbeacon.data.adapter.Handshake
 import dev.leonardo.ocbeacon.data.adapter.WireKind
 import dev.leonardo.ocbeacon.data.api.dsh.DshProbeOutcome
@@ -47,13 +48,9 @@ class DshConnectionStrategy(
         )
     }
 
+    // 世代 id 常量与适配器同源（单一真相，避免两处字面量漂移）
     private fun generation(protocol: DshWireProtocol?): String = when (protocol) {
-        DshWireProtocol.V012 -> WIRE_V012
-        DshWireProtocol.V011, null -> WIRE_V011
-    }
-
-    companion object {
-        const val WIRE_V011 = "v011"
-        const val WIRE_V012 = "v012"
+        DshWireProtocol.V012 -> DshServerAdapter.WIRE_V012
+        DshWireProtocol.V011, null -> DshServerAdapter.WIRE_V011
     }
 }

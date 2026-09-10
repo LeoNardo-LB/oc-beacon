@@ -90,10 +90,14 @@ Application 启动期强制解析一次）。上层只依赖**领域接口 `Serv
   通用屏幕渲染为**两级门禁**：先按适配器声明（`uiSlots` 含该槽位）决定是否进入渲染，
   再由贡献方 `isEnabled(caps)` 做细粒度能力过滤，最后排序 + 统一壳。
 
-**承重规则**：服务器类型判断只允许出现在白名单——类型定义（`ServerType`）、持久化
-身份（`ServerConfig.serverType`）、用户选择（服务器对话框）、调试入口；其余位置
-（数据/服务/界面通用代码）一律经端口或能力位。新增服务器类型 = 新增一个适配器单元 +
-同目录注册，不改既有共享代码。DDL 细节见 `docs/specs/2026-09-10-server-adapter-architecture-design.md`。
+**承重规则**：服务器类型判断只允许出现在白名单——类型定义与持久化身份（`ServerType` /
+`ServerConfig` / `ServerConnection` / `ServerDataStore` / 重复后端同一性比较）、用户选择
+（服务器对话框与类型集合）、调试入口（`MainActivity` / `DebugProfile`）；适配器实现与
+注册表（`data/adapter/`）是类型的唯一解析落点。其余位置（通用界面 / 通用壳 / 仓库）
+一律经能力位（`ServerCapabilities`）或端口（`ServerPorts`）。白名单的机械真相源是
+`lint-checks/` 的 `ServerTypeWhitelist` 规则（`abortOnError` 拦截新增引用）。
+新增服务器类型 = 新增一个适配器单元 + 同目录注册，不改既有共享代码。DDL 细节见
+`docs/specs/2026-09-10-server-adapter-architecture-design.md`。
 
 ## 承重架构规则（违反会引入回归，勿破坏）
 

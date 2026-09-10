@@ -73,11 +73,10 @@ fun ServerSettingsContent(
     onViewAgentPreset: (AgentPreset) -> Unit = {},
     onCopyAgentPreset: (AgentPreset) -> Unit = {},
     onDeleteAgentPreset: (AgentPreset) -> Unit = {},
-    // #391 切片9：类型私有设置区块经 SERVER_SETTINGS 插槽渲染，通用内容只传能力位
-    serverCapabilities: ServerCapabilities = ServerCapabilities(
-        coreFlags = dev.leonardo.ocbeacon.domain.model.CoreFlags(false, false, false, false),
-        features = emptySet(),
-    ),
+    // #391 切片9：SERVER_SETTINGS 插槽两级门禁的输入（适配器声明 + 能力位）由调用方
+    // 显式传入——漏传即编译失败，不留「默认空能力位静默隐藏全部插槽」的失败不可见面。
+    serverCapabilities: ServerCapabilities,
+    serverUiSlots: Set<ServerUiSlot>,
 ) {
     var mcpExpanded by remember { mutableStateOf(false) }
 
@@ -113,13 +112,15 @@ fun ServerSettingsContent(
         }
 
         // #324④ / #391 切片9：服务器配置动态表单 + 插件清单是 DSH 私有区块，迁到
-        // SERVER_SETTINGS 插槽（贡献方按能力位自门控；通用内容零类型知识）。
-        item {
-            LocalServerUiSlots.current.Render(
-                slot = ServerUiSlot.SERVER_SETTINGS,
-                caps = serverCapabilities,
-                host = ServerSettingsSlotHost(),
-            )
+        // SERVER_SETTINGS 插槽；两级门禁：适配器声明先决 + 贡献方能力过滤。
+        if (ServerUiSlot.SERVER_SETTINGS in serverUiSlots) {
+            item {
+                LocalServerUiSlots.current.Render(
+                    slot = ServerUiSlot.SERVER_SETTINGS,
+                    caps = serverCapabilities,
+                    host = ServerSettingsSlotHost(),
+                )
+            }
         }
 
         // 区块标题：MCP 服务器

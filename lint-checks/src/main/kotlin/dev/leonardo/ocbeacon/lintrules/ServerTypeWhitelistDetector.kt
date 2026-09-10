@@ -43,29 +43,40 @@ class ServerTypeWhitelistDetector : Detector(), SourceCodeScanner {
     }
 
     private fun isWhitelisted(path: String): Boolean =
-        WHITELIST_PREFIXES.any { path.contains(it) } || path.endsWith(MAIN_ACTIVITY_SUFFIX)
+        path.endsWith(MAIN_ACTIVITY) ||
+            path.contains(ADAPTER_DIR) ||
+            WHITELIST_PATHS.any { path.endsWith(it) }
 
     companion object {
-        private const val MAIN_ACTIVITY_SUFFIX = "/dev/leonardo/ocbeacon/MainActivity.kt"
+        private const val MAIN_ACTIVITY = "/dev/leonardo/ocbeacon/MainActivity.kt"
+        /** 适配器实现与注册表——类型的唯一解析落点（整目录豁免）。 */
+        private const val ADAPTER_DIR = "/dev/leonardo/ocbeacon/data/adapter/"
         private val BLOCK_COMMENT = Regex("/\\*[\\s\\S]*?\\*/")
         private val LINE_COMMENT = Regex("//[^\\n]*")
 
-        /** 白名单路径前缀（相对仓库根的包路径片段）。 */
-        private val WHITELIST_PREFIXES = listOf(
-            // 类型定义 / 持久化身份 / 连接对象
-            "/dev/leonardo/ocbeacon/domain/model/",
-            // 领域解析器契约与按 transportKind 的世代投影
-            "/dev/leonardo/ocbeacon/domain/adapter/",
-            // 分页游标策略：只经 transportKind 投影，类型仅作默认参数
-            "/dev/leonardo/ocbeacon/domain/usecase/PaginationCursorPolicy.kt",
-            // 适配器实现与注册表（类型的唯一落点）
-            "/dev/leonardo/ocbeacon/data/adapter/",
-            // 服务器存储默认值（持久化身份）
+        /**
+         * 白名单文件（精确路径）——逐条对应 docs/architecture.md 的四类合法落点：
+         * 类型定义 / 持久化身份（含重复后端同一性比较）、用户选择面、调试入口。
+         * 注释里的提及已剥离，不进白名单。
+         */
+        private val WHITELIST_PATHS = listOf(
+            // 类型定义与持久化身份
+            "/dev/leonardo/ocbeacon/domain/model/ServerType.kt",
+            "/dev/leonardo/ocbeacon/domain/model/ServerConfig.kt",
+            "/dev/leonardo/ocbeacon/domain/model/ServerConnection.kt",
+            "/dev/leonardo/ocbeacon/domain/model/DebugProfile.kt",
+            // 领域解析器契约（supportedTypes = 已注册类型集合）
+            "/dev/leonardo/ocbeacon/domain/adapter/ServerAdapterResolver.kt",
+            // 服务器存储（持久化身份缺省）
             "/dev/leonardo/ocbeacon/data/repository/ServerDataStore.kt",
-            // 连接监督层默认参数（壳内 plumbing）
-            "/dev/leonardo/ocbeacon/service/",
-            // 用户选择面（服务器对话框 / 卡片身份徽标 / home 默认参数）
-            "/dev/leonardo/ocbeacon/ui/screens/home/",
+            // 重复后端同一性比较（type+url+username；非能力分支）
+            "/dev/leonardo/ocbeacon/service/ConnectionLifecycleCoordinator.kt",
+            "/dev/leonardo/ocbeacon/service/OpenCodeConnectionService.kt",
+            // 用户选择面：注册表驱动的类型集合 + 选择对话框 + 卡片身份徽标
+            "/dev/leonardo/ocbeacon/ui/screens/home/HomeScreen.kt",
+            "/dev/leonardo/ocbeacon/ui/screens/home/HomeViewModel.kt",
+            "/dev/leonardo/ocbeacon/ui/screens/home/components/ServerCard.kt",
+            "/dev/leonardo/ocbeacon/ui/screens/home/components/ServerDialog.kt",
         )
 
         val ISSUE: Issue = Issue.create(

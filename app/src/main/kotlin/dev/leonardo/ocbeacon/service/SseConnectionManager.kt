@@ -462,11 +462,14 @@ class SseConnectionManager @Inject constructor(
                 // recoverMessages（REST 全量重拉）而走 DSH reconciler（subscribed
                 // 基线 → seq 缺口 → session.history 精确回填，§1.6-5）。
                 val strategy = adapters.connectionStrategy(conn)
+                // #391 切片6：两种线面统一先做一次握手——OpenCode 为投影型（ApiVersionDetector
+                // 双探结果已在健康检查持久化，此处恒 ONLINE，仅 degraded 态可观测），
+                // DSH 为 0.1.2 双形态探测（版本×鉴权），其 AUTH_REQUIRED/UNREACHABLE 在下方分派。
+                val handshake = strategy.probe(conn)
                 if (strategy.wireKind == dev.leonardo.ocbeacon.data.adapter.WireKind.MUX) {
                     // #317（2026-09-04）：0.1.2 双形态探测（版本×鉴权）先于一切
                     // DSH 流量——TokenNeeded 挂起等 token（避免 RPC/WS 401 空转风暴），
                     // Unreachable 走既有退避；Online 才进预加载+事件循环。
-                    val handshake = strategy.probe(conn)
                     when (handshake.status) {
                         dev.leonardo.ocbeacon.data.adapter.ConnectionStatus.AUTH_REQUIRED -> {
                             updateServerConnected(server.id, false)
@@ -511,6 +514,10 @@ class SseConnectionManager @Inject constructor(
                     if (!connections.containsKey(server.id)) break
                     delay(calculateBackoff(attempt))
                     continue
+                }
+                // SSE 线面消费同一握手产物：UNKNOWN 回落 V1 基线仅记降级（不改变行为）
+                if (handshake.degraded && BuildConfig.DEBUG) {
+                    AppLogger.d(TAG, "[${server.displayName}] handshake degraded: " + handshake.detail)
                 }
                 val attemptNow = attempt
                 val preloadJob = scope.launch {

@@ -64,14 +64,14 @@ class ConnectionStrategyTest {
         assertEquals(WireKind.MUX, online.wireKind)
         val h1 = online.probe(dsh())
         assertEquals(ConnectionStatus.ONLINE, h1.status)
-        assertEquals(DshConnectionStrategy.WIRE_V012, h1.wireGeneration)
+        assertEquals(DshServerAdapter.WIRE_V012, h1.wireGeneration)
         assertTrue(h1.authenticated)
 
         val token = DshConnectionStrategy(FakeSource(null, DshProbeOutcome.TokenNeeded))
         val h2 = token.probe(dsh())
         assertEquals(ConnectionStatus.AUTH_REQUIRED, h2.status)
         assertFalse(h2.authenticated)
-        assertEquals(DshConnectionStrategy.WIRE_V012, h2.wireGeneration)
+        assertEquals(DshServerAdapter.WIRE_V012, h2.wireGeneration)
 
         val down = DshConnectionStrategy(FakeSource(null, DshProbeOutcome.Unreachable("boom")))
         val h3 = down.probe(dsh())
@@ -87,7 +87,7 @@ class ConnectionStrategyTest {
         )
         val handshake = strategy.probe(dsh())
         assertEquals(ConnectionStatus.UNREACHABLE, handshake.status)
-        assertEquals(DshConnectionStrategy.WIRE_V011, handshake.wireGeneration)
+        assertEquals(DshServerAdapter.WIRE_V011, handshake.wireGeneration)
         assertFalse(handshake.degraded)
     }
 

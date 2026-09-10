@@ -53,7 +53,13 @@ data class ServerPorts(
     val attachments: AttachmentApi? = null,
 ) {
 
-    /** 端口在场 => 对应通用能力。 */
+    /**
+     * 端口在场 => 对应通用能力。
+     *
+     * 只映射**有用户可见开关的能力**；纯数据层操作端口（references / attachments）
+     * 不派发能力位——其权威仍是端口在场性本身（调用方判 null / requireX），
+     * 避免为无人消费的端口制造悬空能力位。
+     */
     fun derivedFeatures(): Set<ServerFeature> = buildSet {
         add(ServerFeatures.SESSION)
         add(ServerFeatures.MESSAGES)
@@ -76,21 +82,19 @@ data class ServerPorts(
 
     // ---- 可选端口取值：缺席即显式失败（读空 / 写抛的统一入口） ----------------
 
-    fun requireFile(conn: ServerConnection): FileApi =
-        file ?: throw UnsupportedServerCapability("file", conn.serverType.name)
+    /** 可选端口强制取值：缺席即显式失败；两个名字仅用于诊断（端口名 + 连接类型名）。 */
+    private fun <T> requirePort(port: T?, name: String, conn: ServerConnection): T =
+        port ?: throw UnsupportedServerCapability(name, conn.serverType.name)
 
-    fun requireProvider(conn: ServerConnection): ProviderApi =
-        provider ?: throw UnsupportedServerCapability("provider", conn.serverType.name)
+    fun requireFile(conn: ServerConnection): FileApi = requirePort(file, "file", conn)
 
-    fun requireTerminal(conn: ServerConnection): TerminalApi =
-        terminal ?: throw UnsupportedServerCapability("terminal", conn.serverType.name)
+    fun requireProvider(conn: ServerConnection): ProviderApi = requirePort(provider, "provider", conn)
 
-    fun requireShell(conn: ServerConnection): ShellApi =
-        shell ?: throw UnsupportedServerCapability("shell", conn.serverType.name)
+    fun requireTerminal(conn: ServerConnection): TerminalApi = requirePort(terminal, "terminal", conn)
 
-    fun requireWorkspace(conn: ServerConnection): WorkspaceApi =
-        workspace ?: throw UnsupportedServerCapability("workspace", conn.serverType.name)
+    fun requireShell(conn: ServerConnection): ShellApi = requirePort(shell, "shell", conn)
 
-    fun requireReferences(conn: ServerConnection): ReferenceApi =
-        references ?: throw UnsupportedServerCapability("references", conn.serverType.name)
+    fun requireWorkspace(conn: ServerConnection): WorkspaceApi = requirePort(workspace, "workspace", conn)
+
+    fun requireReferences(conn: ServerConnection): ReferenceApi = requirePort(references, "references", conn)
 }

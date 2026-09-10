@@ -151,6 +151,8 @@ var showMoreMenu by remember { mutableStateOf(false) }
     val searchTimeRange by viewModel.searchTimeRange.collectAsStateWithLifecycle()
     // #271：drain 同步状态（长按菜单详情区数据源）
     val syncStates by viewModel.syncStates.collectAsStateWithLifecycle()
+    // #391 切片9：适配器声明的界面插槽（通用屏幕的渲染先决条件）
+    val sessionUiSlots by viewModel.uiSlots.collectAsStateWithLifecycle()
 
     val pagerState = rememberPagerState(pageCount = { 2 })
     val currentViewMode by viewModel.viewMode.collectAsStateWithLifecycle()
@@ -198,15 +200,17 @@ viewModel.consumePendingReadSessionId()
                 val dshTokenNeeded by viewModel.dshTokenNeeded.collectAsStateWithLifecycle()
                 if (serverLinkState != ServerLinkState.Connected) {
                     // #391 切片9：类型私有横幅经 SESSION_LIST_HEADER 插槽渲染——通用屏幕只
-                    // 提供断连上下文与出路回调，不认识具体横幅实现。
-                    LocalServerUiSlots.current.Render(
-                        slot = ServerUiSlot.SESSION_LIST_HEADER,
-                        caps = viewModel.serverCapabilities.collectAsStateWithLifecycle().value,
-                        host = SessionListHeaderSlotHost(
-                            tokenNeeded = dshTokenNeeded,
-                            onEnterToken = { showDshTokenDialog = true },
-                        ),
-                    )
+                    // 提供断连上下文与出路回调；两级门禁：适配器声明先决 + 贡献方能力过滤。
+                    if (ServerUiSlot.SESSION_LIST_HEADER in sessionUiSlots) {
+                        LocalServerUiSlots.current.Render(
+                            slot = ServerUiSlot.SESSION_LIST_HEADER,
+                            caps = viewModel.serverCapabilities.collectAsStateWithLifecycle().value,
+                            host = SessionListHeaderSlotHost(
+                                tokenNeeded = dshTokenNeeded,
+                                onEnterToken = { showDshTokenDialog = true },
+                            ),
+                        )
+                    }
                     if (!dshTokenNeeded) ServerLinkBanner()
                 }
                 TopAppBar(
@@ -635,8 +639,9 @@ viewModel.consumePendingReadSessionId()
                         },
                         onCopyAgentPreset = { preset -> pendingCopyPreset = preset },
                         onDeleteAgentPreset = { preset -> pendingDeletePreset = preset },
-                        // #391 切片9：SERVER_SETTINGS 插槽门禁用能力位（贡献方自行渲染）
+                        // #391 切片9：SERVER_SETTINGS 插槽两级门禁（声明 + 能力位）
                         serverCapabilities = viewModel.serverCapabilities.collectAsStateWithLifecycle().value,
+                        serverUiSlots = sessionUiSlots,
                     )
                 }
             }

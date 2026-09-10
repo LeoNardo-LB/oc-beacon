@@ -203,6 +203,10 @@ class SessionListViewModel @Inject constructor(
     val serverCapabilities: StateFlow<dev.leonardo.ocbeacon.domain.model.ServerCapabilities> =
         _serverCapabilities.asStateFlow()
 
+    /** #391 切片9：本类型声明的界面插槽——通用屏幕按声明门禁渲染（能力位之外的先决条件）。 */
+    private val _uiSlots = MutableStateFlow<Set<dev.leonardo.ocbeacon.domain.model.ServerUiSlot>>(emptySet())
+    val uiSlots: StateFlow<Set<dev.leonardo.ocbeacon.domain.model.ServerUiSlot>> = _uiSlots.asStateFlow()
+
     /** #311 Task3：本服务器是否 DSH（空 workspace 快照的回退分支判定——
      * DSH=listProjects 投影（V011 workspace.list / V012 session.list distinct
      * cwd），非 DSH=既有最近目录行为零回归）。 */
@@ -255,6 +259,7 @@ class SessionListViewModel @Inject constructor(
             mcpRepository.setConnection(conn)
             // #276：能力位投影（DSH 删除动作等 UI 门控依据）
             _serverCapabilities.value = serverAdapters.capabilities(conn)
+            _uiSlots.value = serverAdapters.uiSlots(conn)
             // #311 Task3：DSH 判定（对话框回退分支）
             // #391 切片9：能力位代替类型判定（服务器设置特权面 = workspace 投影域）
             _usesWorkspaceProjections.value = ServerFeatures.WORKSPACE in _serverCapabilities.value
