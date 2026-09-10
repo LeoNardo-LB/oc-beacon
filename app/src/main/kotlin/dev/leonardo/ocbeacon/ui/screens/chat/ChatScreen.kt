@@ -172,8 +172,6 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.screens.chat.util.toolOutputContainerColor
 import dev.leonardo.ocbeacon.ui.screens.chat.util.agentColor
 import dev.leonardo.ocbeacon.ui.screens.chat.util.agentColorCycle
-import dev.leonardo.ocbeacon.ui.theme.QueuedBadgeColor
-import dev.leonardo.ocbeacon.ui.theme.QueuedBadgeTextColor
 import dev.leonardo.ocbeacon.ui.screens.chat.util.formatTokenCount
 import dev.leonardo.ocbeacon.ui.screens.chat.util.formatAssistantErrorMessage
 import dev.leonardo.ocbeacon.ui.screens.chat.util.formatDuration

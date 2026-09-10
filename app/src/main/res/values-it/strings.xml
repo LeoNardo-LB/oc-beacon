@@ -516,7 +516,6 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="chat_webfetch_prompt">Prompt: %s</string>
     <string name="tool_web_search">WebSearch</string>
     <string name="chat_context_usage">Contesto: %1$d%%</string>
-    <string name="chat_queued">IN CODA</string>
     <string name="chat_retry_send">Riprova</string>
     <string name="chat_title_placeholder">Chat</string>
     <string name="chat_context_detail_title">Dettagli utilizzo contesto</string>

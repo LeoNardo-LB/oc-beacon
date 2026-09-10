@@ -532,7 +532,6 @@
     <string name="chat_webfetch_prompt">الملف: %s</string>
     <string name="tool_web_search">WebSearch</string>
     <string name="chat_context_usage">السياق: %1$d%%</string>
-    <string name="chat_queued">في الانتظار</string>
     <string name="chat_retry_send">إعادة المحاولة</string>
     <string name="chat_title_placeholder">Chat</string>
     <string name="chat_context_detail_title">تفاصيل استخدام السياق</string>

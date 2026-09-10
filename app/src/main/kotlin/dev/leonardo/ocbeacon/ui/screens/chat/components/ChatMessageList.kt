@@ -695,11 +695,12 @@ fun ChatMessageList(
         derivedStateOf { findCurrentAnchorTimestamp(listState, displayItems, bannerCount, chatEntries.entryDisplayIndex) }
     }
 
-    // 高亮 key（3 秒后自动清除）—— scrollToDisplayItem / onLocateTask 共用。
+    // 高亮 key（5 秒后自动清除）—— 2026-09-10 用户裁决：跳转终点统一 5s 高亮
+    //（内容检索进会话定位/快速定位/onLocateTask 共用；原 3s 手动设键链收编相位派生）。
     var highlightedTurnKey by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(highlightedTurnKey) {
         if (highlightedTurnKey != null) {
-            delay(3000)
+            delay(5000)
             highlightedTurnKey = null
         }
     }
@@ -769,6 +770,25 @@ fun ChatMessageList(
     // 走查 #1：跳转视口锁上提（守卫重锚/锚底让位依据）——只上传变化，不在本组件消费
     androidx.compose.runtime.LaunchedEffect(jumpController) {
         jumpController.jumpLockActive.collect { onJumpLockChanged(it) }
+    }
+    // 2026-09-10（用户裁决⑤优化2）：跳转终点（Displayed）统一 5s 高亮——内容检索
+    // 命中行进入会话定位后目标消息高亮 5 秒；快速定位/onLocateTask 同链（原
+    // onLocateTask 手工设键撤除，相位单点派生）。
+    androidx.compose.runtime.LaunchedEffect(jumpController) {
+        sharedJumpPhase.collect { phase ->
+            if (phase is JumpPhase.Displayed) {
+                val entry = displayItemsForJump.value
+                    .firstOrNull { it.second.message.id == phase.msgId }
+                if (entry != null) {
+                    val (rawIndex, msg) = entry
+                    highlightedTurnKey = if (msg.isUser) {
+                        "u_" + msg.message.id
+                    } else {
+                        "t_" + (rawMessages.getOrNull(rawIndex + 1)?.message?.id ?: "head")
+                    }
+                }
+            }
+        }
     }
     // 2026-08-21 卫生（D-11-2）：jumpPhase 大作用域订阅下沉——原主体直读使
     // 每次跳转 ≥4 次相位变化都重组整个 ~1500 行 ChatMessageList 主体。现在
@@ -904,17 +924,13 @@ fun ChatMessageList(
         if (targetIndex >= 0) {
             // 2026-08-20 分片适配：turn 首 chunk
             val lazyIndex = bannerCount + chatEntries.displayEntryStart[targetIndex]
-            val (rawIndex, targetMsg) = displayItems[targetIndex]
+            val (_, targetMsg) = displayItems[targetIndex]
             val targetMsgId = targetMsg.message.id
             // 2026-08-13 架构根治：onLocateTask 复用状态机（同一定位流程——一次
             // 定位 + 蒙版/门控 + 收敛；assistant 目标无预解析，直接测量）。
             // #159：autoLoad 锁由控制器从 Preparing 派生（入口同步置相位）
             jumpController.jumpToTask(lazyIndex, targetMsgId)
-            highlightedTurnKey = if (targetMsg.isUser) {
-                "u_${targetMsg.message.id}"
-            } else {
-                "t_${rawMessages.getOrNull(rawIndex + 1)?.message?.id ?: "head"}"
-            }
+            // 高亮设键已收编 Displayed 相位派生（2026-09-10）——此手工块撤除
         } else {
             coroutineScope.launch {
                 snackbarHostState.showSnackbar(context.getString(R.string.chat_locate_task_not_found))
@@ -1309,7 +1325,6 @@ fun ChatMessageList(
                                     ChunkedUserMessage(
                                         currentMessage = chatMessage,
                                         chunk = entry,
-                                        isQueued = chatMessage.message.id in messageState.queuedMessageIds,
                                         onRevert = if (isMainSession && revertSupported) {
                                             {
                                                 val revertText = chatMessage.parts
@@ -1812,7 +1827,6 @@ fun ChatMessageList(
                                         MessageCardRole.USER
                                     },
                                     currentMessage = chatMessage,
-                                    isQueued = chatMessage.message.id in messageState.queuedMessageIds,
                                     onViewSubSession = navigateToChildSession,
                                     onRevert = if (isMainSession && revertSupported) {
                                         {

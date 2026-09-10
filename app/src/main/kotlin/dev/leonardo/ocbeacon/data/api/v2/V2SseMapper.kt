@@ -92,6 +92,27 @@ object V2SseMapper {
             val inputType = props["item"]?.jsonObject?.get("type")?.jsonPrimitive?.contentOrNull
                 ?: props["input"]?.jsonObject?.get("type")?.jsonPrimitive?.contentOrNull
                 ?: "user"
+            // 2026-09-10（用户裁决⑦）：delivery=queue 的排队项不上转录——
+            // 忙时排队消息仅在 QueueSheet 呈现，轮末派发后经轮末刷新入转录；
+            // steer/直发（缺席或非 queue）受理即上屏。三服务器类型交互统一
+            // （DSH 队列本就 inbox 帧不走转录；V1 无队列域）。
+            // delivery 契约三态：字符串（"queue"/"steer"，实测）/ 空对象（过渡契约
+            // next-171xx 实证 delivery:{} —— 视为无档位即播种）/ 缺席。对象形态
+            // 防御性探 mode 字段（未观测到，保守兼容）。
+            val deliveryPrim = props["item"]?.jsonObject?.get("delivery") as? kotlinx.serialization.json.JsonPrimitive
+                ?: props["delivery"] as? kotlinx.serialization.json.JsonPrimitive
+            val deliveryObj = props["item"]?.jsonObject?.get("delivery") as? kotlinx.serialization.json.JsonObject
+                ?: props["delivery"] as? kotlinx.serialization.json.JsonObject
+            val delivery = deliveryPrim?.contentOrNull
+                ?: deliveryObj?.get("mode")?.jsonPrimitive?.contentOrNull
+            if (delivery == "queue") {
+                dev.leonardo.ocbeacon.logging.AppLogger.d(
+                    "V2SseMapper",
+                    "inbox.enqueued delivery=queue skipped transcript seed: session=" +
+                        sessionId.take(12) + " inbox=" + inputId.take(12),
+                )
+                return null
+            }
             SseEvent.MessageUpdated(
                 Message.User(
                     id = inputId,

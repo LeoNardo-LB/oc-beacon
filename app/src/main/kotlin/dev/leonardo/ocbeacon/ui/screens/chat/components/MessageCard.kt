@@ -12,7 +12,6 @@ enum class MessageCardRole { USER, ASSISTANT, SYNTHETIC }
 internal fun MessageCard(
     role: MessageCardRole,
     currentMessage: ChatMessage,
-    isQueued: Boolean = false,
     renderableTurn: RenderableTurn? = null,
     onViewSubSession: ((String) -> Unit)? = null,
     onOpenFile: ((String) -> Unit)? = null,
@@ -49,7 +48,6 @@ internal fun MessageCard(
     when (role) {
         MessageCardRole.USER -> MessageCardUser(
             currentMessage = currentMessage,
-            isQueued = isQueued,
             onRevert = onRevert,
             onCopyText = onCopyText,
             isAmoled = isAmoled,

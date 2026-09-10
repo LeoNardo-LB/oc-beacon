@@ -241,25 +241,10 @@ internal class MessageDataDelegate(
                 }
             }
 
-            // P5-1：queuedMessageIds 从 FSM 状态派生 —— Idle 强制清空。
-            // 在完整可见列表（P5-3 过滤之前）上计算，因此 pending
-            // assistant 检测不受空 parts 过滤影响。
-            val fsmStatus = statuses[sid] ?: SessionStatus.Idle
-            val queuedMessageIds: Set<String> = if (fsmStatus is SessionStatus.Idle) {
-                emptySet()
-            } else {
-                val pendingAssistantIndex = visible.indexOfLast {
-                    it is Message.Assistant && it.time.completed == null
-                }
-                if (pendingAssistantIndex >= 0) {
-                    visible.drop(pendingAssistantIndex + 1)
-                        .filterIsInstance<Message.User>()
-                        .map { it.id }
-                        .toSet()
-                } else {
-                    emptySet()
-                }
-            }
+            // 2026-09-10（用户裁决⑦）：排队消息不上转录——原 P5-1 FSM 启发式
+            //（pending assistant 之后的 user 消息标「排队中」徽章上屏）整链移除：
+            // V2 排队 echo 在 V2SseMapper delivery=queue 处单点拦截（steer/直发
+            // 不受扰）；DSH 队列本就 inbox 帧；V1 无队列域。三面交互统一。
 
             // Assistant 消息始终可见 —— 不要过滤掉
             // 没有 parts 的消息。旧的 P5-3 过滤器（allParts[msg.id]?.isNotEmpty()）
@@ -295,7 +280,6 @@ internal class MessageDataDelegate(
                 isLoadingOlder = isLoadingOlder,
                 autoLoadPaused = autoLoadPaused,
                 toolExpandedStates = toolExpandedStates,
-                queuedMessageIds = queuedMessageIds,
                 // #44：原始消息与 parts 映射由唯一 combine 管道统一提供，
                 // sseJob 投影（messagesList/rawMessagesList）不再独立观察数据源。
                 rawMessages = sessionMessages,

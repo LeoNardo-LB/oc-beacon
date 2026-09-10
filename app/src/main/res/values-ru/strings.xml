@@ -525,7 +525,6 @@
     <string name="chat_webfetch_prompt">Запрос: %s</string>
     <string name="tool_web_search">WebSearch</string>
     <string name="chat_context_usage">Контекст: %1$d%%</string>
-    <string name="chat_queued">В очереди</string>
     <string name="chat_retry_send">Повторить</string>
     <string name="chat_title_placeholder">Чат</string>
     <string name="chat_context_detail_title">Детали использования контекста</string>

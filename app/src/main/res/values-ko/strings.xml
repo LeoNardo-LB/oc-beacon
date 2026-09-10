@@ -516,7 +516,6 @@
     <string name="chat_webfetch_prompt">프롬프트: %s</string>
     <string name="tool_web_search">WebSearch</string>
     <string name="chat_context_usage">컨텍스트: %1$d%%</string>
-    <string name="chat_queued">대기중</string>
     <string name="chat_retry_send">재시도</string>
     <string name="chat_title_placeholder">Chat</string>
     <string name="chat_context_detail_title">컨텍스트 사용 세부</string>

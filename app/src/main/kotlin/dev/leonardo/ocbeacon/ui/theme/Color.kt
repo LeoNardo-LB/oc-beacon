@@ -25,5 +25,4 @@ val AgentError = Color(0xFFE06C75)     // 红色
 val AgentInfo = Color(0xFF56B6C2)      // 青色
 
 // ── 徽章色 ─────────────────────────────────────────────
-val QueuedBadgeColor = Color(0xFFFFD700)      // 金色背景
-val QueuedBadgeTextColor = Color(0xFF1A1A1A)  // 金色上的深色文本
+// 2026-09-10（用户裁决⑦）：QueuedBadge 色（金）随 QUEUED 徽章链移除

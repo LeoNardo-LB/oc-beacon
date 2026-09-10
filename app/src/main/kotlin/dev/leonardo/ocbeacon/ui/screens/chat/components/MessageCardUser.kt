@@ -53,8 +53,6 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.resolveUserCommandLabel
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ChatDensity
 import dev.leonardo.ocbeacon.ui.theme.LocalChatDensity
-import dev.leonardo.ocbeacon.ui.theme.QueuedBadgeColor
-import dev.leonardo.ocbeacon.ui.theme.QueuedBadgeTextColor
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
@@ -66,7 +64,6 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 @Composable
 internal fun MessageCardUser(
     currentMessage: ChatMessage,
-    isQueued: Boolean,
     onRevert: (() -> Unit)?,
     onCopyText: (() -> Unit)?,
     isAmoled: Boolean,
@@ -163,19 +160,8 @@ internal fun MessageCardUser(
             // 弹性空白
             Spacer(modifier = Modifier.weight(1f))
 
-            // 右侧：状态指示器（QUEUED 徽章）
-            // 悲观模式：无 Sending/Failed/Sent 状态（消息以服务器权威直接出现）。
-            // 仅保留 QUEUED 徽章（FSM 队列状态派生）。
-            // 2026-08-12：CompactTag（与输入组件同款，高度自适应）
-            if (isQueued) {
-                CompactTag(
-                    text = stringResource(R.string.chat_queued),
-                    containerColor = QueuedBadgeColor,
-                    contentColor = QueuedBadgeTextColor,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 8
-                )
-            }
+            // 2026-09-10（用户裁决⑦）：QUEUED 徽章整块移除——排队消息不再上转录
+            //（V2SseMapper delivery=queue 单点拦截），徽章链（FSM 启发式派生）同撤。
 
             // Undo 按钮（仅主会话，onRevert != null 时显示）
             if (onRevert != null) {
@@ -284,7 +270,6 @@ internal fun MessageCardUser(
 internal fun ChunkedUserMessage(
     currentMessage: ChatMessage,
     chunk: ChatEntry.UserChunk,
-    isQueued: Boolean,
     onRevert: (() -> Unit)?,
     onCopyText: (() -> Unit)?,
     isAmoled: Boolean,
@@ -376,15 +361,7 @@ internal fun ChunkedUserMessage(
                     modifier = Modifier.padding(top = if (compact) SpacingTokens.XS.dp else 10.dp),
                 ) {
                     Spacer(modifier = Modifier.weight(1f))
-                    if (isQueued) {
-                        CompactTag(
-                            text = stringResource(R.string.chat_queued),
-                            containerColor = QueuedBadgeColor,
-                            contentColor = QueuedBadgeTextColor,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 8,
-                        )
-                    }
+                    // 2026-09-10（用户裁决⑦）：QUEUED 徽章移除——排队消息不上转录
                     if (onRevert != null) {
                         Icon(
                             Icons.AutoMirrored.Filled.Undo,

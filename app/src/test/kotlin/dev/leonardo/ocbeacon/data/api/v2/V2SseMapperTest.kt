@@ -70,6 +70,17 @@ class V2SseMapperTest {
     }
 
     @Test
+    fun `inbox enqueued with queue delivery skips transcript seed`() {
+        // 2026-09-10（用户裁决⑦）：排队项不上转录——delivery=queue 单点拦截；
+        // steer/缺席/空对象（过渡契约）照常播种。
+        val event = V2SseMapper.map(
+            "session.inbox.enqueued",
+            props("""{"sessionID":"ses_1","inboxID":"msg_q1","item":{"type":"user","payload":{"text":"排队消息"},"delivery":"queue"}}""")
+        )
+        assertNull(event)
+    }
+
+    @Test
     fun `inbox enqueued with missing inboxID returns null`() {
         // 必须有 inboxID——字段缺失时不播种（避免空 id 幽灵消息）
         val event = V2SseMapper.map(

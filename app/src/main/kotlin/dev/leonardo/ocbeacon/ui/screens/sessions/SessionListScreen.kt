@@ -3,6 +3,15 @@ package dev.leonardo.ocbeacon.ui.screens.sessions
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+// 2026-09-10（用户裁决⑤优化）：内容命中逐行呈现——角色标签 + [..] 命中段高亮
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
+import androidx.compose.foundation.layout.widthIn
+import dev.leonardo.ocbeacon.data.local.ContentSearchFilterValues
+import dev.leonardo.ocbeacon.data.local.ContentSearchHit
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -429,14 +438,21 @@ viewModel.consumePendingReadSessionId()
                             // 否则过滤后无结果会把过滤 chips 一并藏掉，用户无法切回「全部」。
                             val searchFiltersActive = searchRole != null || searchTimeRange != null
                             if (!content.searchQuery.isNullOrBlank() && (visibleContentHits.isNotEmpty() || searchFiltersActive)) {
-                                // B1 链：命中组携带跳转目标 messageId（rank 最优）——点击即定位该消息
-                                val groups: List<Triple<String, Int, Pair<String?, String>>> =
+                                // 2026-09-10（用户裁决⑤）：逐命中行——每条命中独立呈现
+                                //（角色标签 + 高亮摘要 + 各自跳转 messageId）；会话分组保归属。
+                                // 原「每会话仅取 first().snippet」在 BM25 短文档偏置下
+                                //（user 提示短、rank 恒靠前）把同会话 AI 命中折叠不可见
+                                //——「全部」过滤只剩人类消息的根因。
+                                val groups: List<Pair<String, List<ContentSearchHit>>> =
                                     visibleContentHits.groupBy { it.sessionId }
                                         .map { (sid, hits) ->
-                                            val best = dev.leonardo.ocbeacon.ui.screens.sessions.ContentHitNavigation.jumpTarget(hits)
-                                            Triple(sid, hits.size, (best?.second to hits.first().snippet))
+                                            // 按消息去重：FTS 行级命中（同消息多 part/
+                                            // 同步路径重复 partId）折叠为每消息一行
+                                            sid to hits
+                                                .sortedBy { it.rank ?: Double.MAX_VALUE }
+                                                .distinctBy { it.messageId }
                                         }
-                                        .sortedByDescending { it.second }
+                                        .sortedByDescending { it.second.size }
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -466,35 +482,54 @@ viewModel.consumePendingReadSessionId()
                                             modifier = Modifier.padding(vertical = 4.dp),
                                         )
                                     }
-                                    groups.forEach { group ->
-                                        val sid = group.first
-                                        val count = group.second
-                                        val (messageId, snippet) = group.third
+                                    groups.forEach { (sid, hits) ->
+                                        // 会话头行：标题 + 命中计数（归属可扫读）
                                         Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clickable { onNavigateToChat(sid, false, messageId) }
-                                                .padding(vertical = 6.dp),
+                                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(
-                                                    text = titles[sid] ?: ("…" + sid.takeLast(10)),
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    maxLines = 1,
-                                                )
-                                                Text(
-                                                    text = snippet,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    maxLines = 2,
-                                                )
-                                            }
                                             Text(
-                                                text = stringResource(R.string.search_content_hit_count, count),
+                                                text = titles[sid] ?: ("…" + sid.takeLast(10)),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Medium,
+                                                maxLines = 1,
+                                                modifier = Modifier.weight(1f),
+                                            )
+                                            Text(
+                                                text = stringResource(R.string.search_content_hit_count, hits.size),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
+                                        }
+                                        // 逐命中行：角色标签 + 高亮摘要；点击跳该条消息
+                                        hits.forEach { hit ->
+                                            val isUser = hit.role == ContentSearchFilterValues.ROLE_USER
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable { onNavigateToChat(sid, false, hit.messageId) }
+                                                    .padding(vertical = 3.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                            ) {
+                                                Text(
+                                                    text = stringResource(
+                                                        if (isUser) R.string.chat_label_user else R.string.chat_label_agent,
+                                                    ),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = if (isUser) {
+                                                        MaterialTheme.colorScheme.primary
+                                                    } else {
+                                                        MaterialTheme.colorScheme.tertiary
+                                                    },
+                                                    modifier = Modifier.widthIn(min = 32.dp).padding(end = 8.dp),
+                                                )
+                                                // FTS snippet() 以 [..] 标记命中段——高亮渲染
+                                                HighlightedHitSnippet(
+                                                    snippet = hit.snippet,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -749,3 +784,46 @@ viewModel.consumePendingReadSessionId()
         )
     }
 }
+
+/**
+ * 2026-09-10（用户裁决⑤优化1）：内容命中摘要——FTS snippet() 的 [..] 命中段
+ * 以背景色高亮（原中括号裸文本标记改为视觉高亮）；LIKE 降级路径无标记纯文本。
+ */
+@Composable
+private fun HighlightedHitSnippet(
+    snippet: String,
+    style: androidx.compose.ui.text.TextStyle,
+    color: androidx.compose.ui.graphics.Color,
+) {
+    val highlight = MaterialTheme.colorScheme.primaryContainer
+    val annotated = remember(snippet) { buildHighlightedSnippet(snippet, highlight) }
+    Text(
+        text = annotated,
+        style = style,
+        color = color,
+        maxLines = 2,
+    )
+}
+
+/** 解析 FTS snippet 的 [命中] 标记对 → 背景色 SpanStyle（未配对标记按原文保留）。 */
+private fun buildHighlightedSnippet(snippet: String, highlight: androidx.compose.ui.graphics.Color): AnnotatedString =
+    buildAnnotatedString {
+        var i = 0
+        while (i < snippet.length) {
+            val open = snippet.indexOf('[', i)
+            if (open < 0) {
+                append(snippet.substring(i))
+                break
+            }
+            val close = snippet.indexOf(']', open + 1)
+            if (close < 0) {
+                append(snippet.substring(i))
+                break
+            }
+            if (open > i) append(snippet.substring(i, open))
+            withStyle(SpanStyle(background = highlight)) {
+                append(snippet.substring(open + 1, close))
+            }
+            i = close + 1
+        }
+    }
