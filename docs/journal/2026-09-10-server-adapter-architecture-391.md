@@ -320,3 +320,12 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 - 间距：令牌值（4/8/12/16/24/32）.dp 共 372 处，其中 padding/spacedBy/PaddingValues 193 处；ui-conventions.md 明文允许「dp 常量或 Material token」，全量入 baseline 约 2000 行且多为约定允许项。
 - 结论：令牌门禁需先定窄化范围（建议仅 color 字面量 + 动画时长），间距走独立迁移批次；记 #399 并附本分析。
 
+
+## 切片 8（下-3）：第三条静态规则 TokenBypass（窄化）
+
+- 规则：ui 目录（排除 ui/theme 与 SessionCategoryStyle 分类调色板）拦两类高信号绕过——`Color(0x…)` 字面量、动画时长 `tween(n)` / `durationMillis = n`。明确不纳入：命名色（可能是绘制语义）、dp 间距（ui-conventions 允许 dp 常量，另立迁移批次）、`delay(n)`（协程等待非动画）。
+- 首跑 1 error：CopyButton.kt 的 `tween(150)`/`tween(100)`。**真实修复**而非入 baseline：AppMotion 新增 `FAST = 100`，150 → `AppMotion.SHORT`、100 → `AppMotion.FAST`——逐值等价，零行为变化。
+- 验证：lintDevDebug = no new issues；lintDevRelease BUILD SUCCESSFUL；全量单测 + androidTest 编译 BUILD SUCCESSFUL。
+
+**静态强制现状**：spec 四条中，「服务器类型分支」「服务器类型引用超出白名单」（同一规则 ServerTypeWhitelist）、「通用界面 import 具体类型组件」（ServerTypeUiBoundary）、「硬编码色/时长绕过令牌」（TokenBypass）均已落地；仅「硬编码间距 dp」因 ui-conventions 允许多为约定内写法，另立迁移批次（#399）。
+
