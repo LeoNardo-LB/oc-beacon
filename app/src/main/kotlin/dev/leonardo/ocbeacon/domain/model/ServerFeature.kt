@@ -78,6 +78,9 @@ object ServerFeatures {
     /** 排队项编辑动词（部分实现只有移除/插话，无编辑）。 */
     val QUEUE_EDIT = ServerFeature("core.queue.edit")
 
+    /** 队列由服务器**推送**（帧快照）而非客户端拉取——数据源差异对上层只暴露为能力位。 */
+    val QUEUE_PUSH = ServerFeature("core.queue.push")
+
     /** 目标（goal）动作面板。 */
     val GOALS = ServerFeature("core.goals")
 

@@ -170,3 +170,14 @@
 **残留（切片8 下 / 后续）**
 - 自定义 Android Lint 规则（类型分支白名单 / UI 不 import data / 绕过令牌的硬编码）未落：需新增 lint-checks Gradle 模块，与 Out of Scope「不拆 Gradle 模块」存在取舍，需裁决；当前以架构文档承重规则 + code review 兜底。
 - ServerDialog 内 isDsh 分支（用户选择面白名单内）保留。
+
+## 切片 9（步骤 1）：队列数据源差异升格为能力位
+
+- 新增 ServerFeatures.QUEUE_PUSH（core.queue.push）：队列由服务器帧推送 vs 客户端拉取，
+  数据源差异只对上层暴露为能力位；DshServerAdapter 声明该位。
+- ChatViewModel.queueItems 的服务器类型分支改按 QUEUE_PUSH 能力位选择数据源；
+  refreshQueueItems 的 DSH 早退守卫同改（原本已同时判 QUEUE 能力位）。
+
+**验证**：compile + 全量单测 + androidTest 编译 BUILD SUCCESSFUL；主代码 serverType 引用减少 2 处。
+
+（两轴 code review 子代理仍在运行：standards=47d94616 / spec=778d5be9，报告落 /tmp/review/。）

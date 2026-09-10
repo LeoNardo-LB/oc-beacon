@@ -103,6 +103,8 @@ class DshServerAdapter @Inject constructor(
         add(ServerFeatures.SESSION_ARCHIVE)
         // 排队可编辑是端口内子能力（端口在场之外的部分支持）
         add(ServerFeatures.QUEUE_EDIT)
+        // 队列由 session/queue 控制帧推送（对比 V2 inbox 的客户端拉取）
+        add(ServerFeatures.QUEUE_PUSH)
     }
 
     companion object {

@@ -811,9 +811,10 @@ class ChatViewModel @Inject constructor(
      * （queueSupported=false，FAB 入口隐藏）。
      */
     val queueItems: StateFlow<List<dev.leonardo.ocbeacon.domain.model.QueuedInboxItem>> =
-        combine(serverType, sessionLifecycle.sessionIdFlow) { st, sid -> st to sid }
-            .flatMapLatest { (st, sid) ->
-                if (st == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
+        combine(serverCapabilities, sessionLifecycle.sessionIdFlow) { caps, sid -> caps to sid }
+            .flatMapLatest { (caps, sid) ->
+                // #391 切片9：数据源差异（服务器帧推送 vs 客户端拉取）只对上层暴露为能力位
+                if (ServerFeatures.QUEUE_PUSH in caps) {
                     dshQueueStore.queueBySession.map { all ->
                         all[sid].orEmpty().filter { it.isQueuedPlacement }
                     }
@@ -831,7 +832,7 @@ class ChatViewModel @Inject constructor(
 
     /** #356：V2 inbox 排队拉取（QueueSheet 打开/变更后/进入会话；失败保旧值）。 */
     fun refreshQueueItems() {
-        if (serverType.value == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) return
+        if (ServerFeatures.QUEUE_PUSH in _serverCapabilities.value) return
         if (ServerFeatures.QUEUE !in _serverCapabilities.value) return
         v2QueuePulled = true
         viewModelScope.launch {
