@@ -5,6 +5,7 @@ import androidx.compose.animation.core.EaseIn
 import androidx.compose.animation.core.EaseOut
 
 object AppMotion {
+    const val FAST = 100     // 微交互（图标切换等）
     const val SHORT = 150
     const val MEDIUM = 300
     const val LONG = 500

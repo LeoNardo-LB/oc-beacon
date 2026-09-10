@@ -13,6 +13,7 @@ class BeaconIssueRegistry : IssueRegistry() {
     override val issues: List<Issue> = listOf(
         ServerTypeWhitelistDetector.ISSUE,
         ServerTypeUiBoundaryDetector.ISSUE,
+        TokenBypassDetector.ISSUE,
     )
 
     override val vendor: Vendor = Vendor(
