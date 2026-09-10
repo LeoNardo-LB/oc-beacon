@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#398**（2026-09-10 #397 自定义 Android Lint 规则（服务器类）。
+**编号**：全局递增，不回收。下一编号：**#401**（2026-09-11 #400 Testing seam 4：真机/模拟器 +）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。
 
@@ -64,6 +64,20 @@
 
 ## P1 — 核心功能需求
 
+- [ ] **#400 Testing seam 4：真机/模拟器 + 真实服务器端到端** `test` `dsh`
+  - 现状：#391 批次全部验证为 JVM 单测/编译/lint；spec Testing seam 4（真实服务器 + 真机端到端）未执行。
+  - 目标：模拟器或可达网络下跑 V1/V2/DSH 三面 E2E，重点覆盖历史拒绝重建（surfaceOp 越界）、assistant-stream 实时流、界面插槽渲染（横幅/设置区块）。
+  - 阻塞：机场公共 WiFi 客户端隔离致无线调试不可达（10.3.2.3 ARP FAILED）；改用模拟器。
+
+- [ ] **#399 切片9 剩余：条目动作贡献注册表 + 令牌门禁 + 审计矩阵 BAD 归零** `ui` `arch`
+  - 现状：区域插槽（ServerUiSlot）已落并有三处贡献；但条目级动作仍是组件内联能力判断，非声明式贡献；令牌门禁（硬编码色值/间距/时长）未做。
+  - 目标：#391 spec 切片9 统一落地——条目动作贡献注册表 + 令牌 Lint 规则接 :lint-checks + docs/research/2026-09-07-server-face-unification-audit.md 的 BAD 项（FAB 门控/队列空态泄漏）处置。
+
+- [ ] **#398 V3 新事件族渲染（切片7 P1）+ 按代事件词汇表** `dsh` `arch`
+  - 现状：#391 两轴评审确认 V3 五类新事件（system/message、assistant/attempt、feedback/message-put|delete、subagent/catalog、deliverables/presented）仅 Ignored(SESSION_FORMAT_V3) 降级不渲染；事件映射仍是单体 when + protocolOf==V012 硬判。
+  - 目标：按 spec 切片7 补渲染（系统节点/失败尝试/反馈/子智能体目录/产物卡）+ 落地按代 EventVocabulary 表。
+  - 前提：需 DSH 0.1.5 真实 wire 样本（当前仅 0.1.1/0.1.2 实录），无样本不臆造字段。
+
 - [ ] **#396 Android Lint devDebug 门禁 4 项存量错误** `lint` `ci`
   - 现象：./gradlew :app:lintDevDebug 红（abortOnError），4 error——HiltEntryActivity MissingClass ×1（src/debug/AndroidManifest.xml:18，类仅存在于 androidTest 源集）+ LocalContextGetResourceValueCall ×3（ChatScreen.kt:786/1067、SettingsScreen.kt:97 的 context.getString 应走 stringResource）。
   - 归因：blame 分别为 6c41d0a2(2026-08-16)/f2df106c/2e4a4d58/54cbc555(2026-08-31~09-01)，#106 批次曾清至 0 后回归；与 #391 切片1/2 无关（ChatScreen numstat 9/9 行数不变，命中行未改）。
@@ -83,6 +97,8 @@
   - 替代方案：脚本门禁（grep）复用现有 release 门禁，零新模块但表达力弱。当前兜底：架构文档承重规则 + code review。
   - 进度（2026-09-11）：:lint-checks 模块已落并接入 app 的 lintChecks；首条规则 ServerTypeWhitelist（剥离注释后判 ServerType 词元 + 路径白名单）经探针实证可拦截、当前树 lintDevDebug 绿。
   - 剩余「通用界面 import 具体类型组件」「令牌绕过（硬编码色值/间距/时长）」两条未落。
+  - 白名单已收窄到文件级精确清单（ServerTypeWhitelist 含 MainActivity/DebugProfile/domain-model 三件/server-adapter/存储/重复后端比较/用户选择四件）；architecture.md 同步点名。
+  - 剩余两条规则未落：通用界面 import 具体服务器类型组件 / 令牌绕过（硬编码色值·间距·时长）。
 
 - [ ] **#395 立即发送（steer）上屏消息缺标识徽标——chat_queued 徽章链整撤连带丢失** `queue`
   - 用户裁决（2026-09-10）：排队不上屏 ✓ + 立刻发送（steer）上屏 ✓，但 steer 消息上屏后无任何徽标标识是有问题的——需恢复徽标（建议 steer 专属文案如「插话/注入中」而非「排队中」，文案待用户裁决；i18n ×15 + MessageCardUser 两变体渲染点）。注意 steer 无 wire 侧标记——识别依赖发送路径（steer=true 时 seedTranscript 播种），徽章状态需随消息携带或按 rpcId 关联。

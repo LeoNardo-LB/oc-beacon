@@ -256,3 +256,40 @@
 **验证**：compile + 全量单测（3273 例）+ androidTest 编译 + lintDevDebug BUILD SUCCESSFUL。
 **待人工/模拟器确认**：会话列表页断连横幅与设置页 DSH 两区块的视觉与交互（Compose UI 无 JVM 断言面）。
 
+
+## 两轴 code review（193ff675..HEAD）与修正
+
+评审范围：193ff675..HEAD（19+ 提交，160 文件 / +4251 −1855）；Standards / Spec 两轴各由独立子代理（深度推理档）产出，本代理不合并排名。
+
+### Standards 轴（6 项 + 合规抽查）
+
+硬违规（已修，commit 4a8c154e）：
+1. Lint 白名单宽于文档白名单 → 收窄为**文件级精确白名单**（类型定义/持久化身份/解析器契约/存储/重复后端同一性比较/用户选择面/调试入口 MD + DebugProfile），适配器目录保留整目录豁免；architecture.md 同步改为点名文件并指明 lint 规则是机械真相源。
+2. 插槽两级门禁只落地一处 → SessionListViewModel 增 uiSlots 投影；SessionListScreen（SESSION_LIST_HEADER）与 ServerSettingsContent（SERVER_SETTINGS）均补「适配器声明先决 + 能力过滤」；ServerSettingsContent 两个参数改为必填，消除「默认空能力位静默隐藏」失败不可见面（原判断题 6 一并解决）。
+
+判断题处置：
+3. Duplicated Code：ServerPorts 六个 requireX 收敛为单个私有 requirePort 泛型助手；WIRE_V011/V012 常量改为 DshConnectionStrategy 引用 DshServerAdapter（单一真相），测试引用同步。
+5. 双实例隐患（DshServerAdapter 自建 ServerSettingsRepositoryImpl）：**接受**——无状态薄委托、与 DI 绑定同源同构；改为注入需改 10 处测试装配且收益仅为消除一个无状态实例，记此备查。
+4. Feature Envy（DSH 状态留在共享 SessionListViewModel；SessionListHeaderSlotHost 焊入 tokenNeeded）：**接受为批次边界**——彻底下沉需为 DSH 引入独立 ViewModel 作用域，属切片 9「统一贡献注册表」之后的二次设计，单独立项。
+
+合规抽查：AppLogger 全覆盖、无新增硬编码文案、无裸 URLDecoder/路径串切、提交带 type 前缀，均通过。
+
+### Spec 轴（6 缺失 + 3 疑点）
+
+已判定不成立/已处理：
+- (c)2「ServerFeatures.QUEUE 派生位零消费」**不成立**：ChatScreen.kt:1045 / ChatScreenBottomBar.kt:633 / ChatViewModel.kt:830 三处消费。
+- (c)3 Lint 白名单宽于 spec 四类 → Standards #1 已修（文件级）。
+- (c)1 references/attachments 端口不派生能力位 → **判定为设计选择**：derivedFeatures 只映射「有用户可见开关」的能力，纯数据层操作端口的权威就是端口在场性本身；已在 ServerPorts.derivedFeatures KDoc 明文固化，避免为无消费者制造悬空能力位。
+
+确认剩余（未完成，另立卡片）：
+- 切片7 P1：V3 五类新事件（system/message、assistant/attempt、feedback/message-put|delete、subagent/catalog、deliverables/presented）目前仅 Ignored(SESSION_FORMAT_V3) 降级不渲染；「按代事件词汇表」仍为单体 when + protocolOf==V012 硬判 → 卡 #398。
+- 切片9：条目级动作贡献注册表、令牌门禁（硬编码色值/间距/时长）、审计矩阵 BAD 项归零 → 卡 #399。
+- 切片8 静态强制余两条规则（通用界面 import 具体类型组件 / 令牌绕过）→ 已挂 #397。
+- 结构性违约余两判据（乱序 / 种子缺失）保留判据位无发射点（mapper/folder KDoc 已诚实标注）。
+- Testing seam 4（真机 + 真实服务器端到端）未执行：机场公共 WiFi 客户端隔离致无线调试不可达（ARP FAILED），待模拟器/可达网络。
+
+### 额外修正（评审外，自审发现）
+- SseConnectionManager 的 strategy.probe 原先只在 MUX 分支调用（OpenCodeConnectionStrategy.probe 生产无调用点）→ 提到 wireKind 分支之前统一一次握手，SSE 线面消费 degraded 产物；行为不变。
+
+**验证**：compile + 全量单测（3273 例）+ androidTest 编译 + :app:lintDevDebug（收窄白名单后仍绿）BUILD SUCCESSFUL。
+
