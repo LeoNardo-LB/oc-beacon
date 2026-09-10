@@ -143,7 +143,7 @@ class DshSubagentCard349PipelineTest {
             """{"event":{"type":"tool/result","seq":12556,"time":1788783549831,"data":{"turn":8,"step":1,"message":{"source":{"kind":"tool","callId":"call_c641a3dcb11349a4bbc04b79"},"content":[{"type":"tool-result","toolCallId":"call_c641a3dcb11349a4bbc04b79","content":[{"type":"text","text":"$envelopeEmbedded"}]}]}}}}""",
         ).map { json.parseToJsonElement(it).jsonObject }
         val fold = DshHistoryFolder.fold(rows, "session-fb650391")
-        assertEquals(emptyList<String>(), fold.unknownUnignorable)
+        assertEquals(emptyList<String>(), fold.structuralViolations)
         val assembled = DshMessageAssembler.assemble(fold.sseEvents)
         val subMsg = assembled.first { it.info.id == "dsh-call-call_c641a3dcb11349a4bbc04b79:subagent" }
         // 装配面同一 part id 只应留一份终态（与 dispatcher merge 等价——

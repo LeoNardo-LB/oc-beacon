@@ -1096,7 +1096,7 @@ class DshApiClient @Inject constructor(
         val fold = DshHistoryFolder.fold(entries, sessionId)
         if (fold.refusedRebuild) {
             // §5 fold 安全规则：未知事件类型 → 放弃本次重建（展示残缺历史比空更糟）
-            AppLogger.w(TAG, "history fold refused rebuild for $sessionId: " + fold.unknownUnignorable)
+            AppLogger.w(TAG, "history fold refused rebuild for $sessionId: " + fold.structuralViolations)
             return MessagePage(messages = emptyList(), nextCursor = null)
         }
         val messages = DshMessageAssembler.assemble(fold.sseEvents)

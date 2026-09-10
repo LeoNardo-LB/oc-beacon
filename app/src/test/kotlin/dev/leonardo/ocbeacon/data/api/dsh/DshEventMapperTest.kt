@@ -212,7 +212,7 @@ class DshEventMapperTest {
     @Test
     fun `unknown session event type inside frame is unignorable`() {
         val m = mappedFrames("dsh/mux-frames-extra.jsonl")[11] // team/task
-        assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.UNKNOWN_UNIGNORABLE)), m.mapped)
+        assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.UNKNOWN_DEGRADED)), m.mapped)
     }
 
     @Test
@@ -1184,7 +1184,7 @@ class DshEventMapperTest {
             val mapped = DshEventMapper.mapSessionEvent("s9", sessionEvent(type))
             assertEquals("type=$type", 1, mapped.size)
             val ignored = mapped.single() as DshMappedEvent.Ignored
-            assertTrue("type=$type 不得落入 unignorable", ignored.reason != DshIgnoreReason.UNKNOWN_UNIGNORABLE)
+            assertTrue("type=$type 不得落结构性违约", ignored.reason != DshIgnoreReason.STRUCTURAL_VIOLATION)
         }
     }
 

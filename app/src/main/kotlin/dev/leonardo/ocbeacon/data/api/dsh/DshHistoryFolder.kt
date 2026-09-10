@@ -30,7 +30,7 @@ private const val TAG = "DshHistoryFolder"
  * lastSeq = 全部行（含打包行 seq0——服务端视角已应用水位）的最大 seq；漏计打包行
  * 会让 DshReconciler 对以打包行收尾的会话误判缺口 → 回填死循环。
  *
- * 拒绝重建判据（§5）：[DshFoldResult.unknownUnignorable] 非空 = 折叠中遇到未建模的
+ * 拒绝重建判据（§5）：[DshFoldResult.structuralViolations] 非空 = 折叠中遇到未建模的
  * 事件类型（可能携带转录语义）——调用方应放弃本次重建而非展示残缺历史。
  */
 object DshHistoryFolder {
@@ -46,7 +46,7 @@ object DshHistoryFolder {
         var resolvedSessionId = sessionId ?: ""
         var lastSeq = 0L
         val sseEvents = mutableListOf<SseEvent>()
-        val unknownUnignorable = mutableListOf<String>()
+        val structuralViolations = mutableListOf<String>()
         for (row in events) {
             val entry = row.obj("event") ?: row
             val type = entry.str("type") ?: continue
@@ -66,8 +66,8 @@ object DshHistoryFolder {
                         // 历史行不产生订阅信号（那是 WS 帧面专属）
                         is DshMappedEvent.Subscribed -> Unit
                         is DshMappedEvent.Ignored ->
-                            if (mapped.reason == DshIgnoreReason.UNKNOWN_UNIGNORABLE) {
-                                unknownUnignorable += type
+                            if (mapped.reason == DshIgnoreReason.STRUCTURAL_VIOLATION) {
+                                structuralViolations += type
                             }
                     }
                 }
@@ -76,7 +76,7 @@ object DshHistoryFolder {
         return DshFoldResult(
             sessionId = resolvedSessionId,
             sseEvents = sseEvents,
-            unknownUnignorable = unknownUnignorable,
+            structuralViolations = structuralViolations,
             lastSeq = lastSeq,
         )
     }
@@ -107,14 +107,16 @@ object DshHistoryFolder {
 /**
  * 折叠产物：SseEvent 序列（保序）+ 拒绝重建判据 + 已应用水位 + 会话 id。
  *
- * [refusedRebuild] 为 true 时调用方不得用 [sseEvents] 重建（历史含未建模事件类型，
- * 展示将残缺——§5 fold 安全规则）；[lastSeq] 仍可安全上报（水位与事件语义无关）。
+ * [refusedRebuild] 为 true 时调用方不得用 [sseEvents] 重建——**仅结构性违约**
+ * （乱序 / 种子缺失 / surfaceOp 越界，映射层判据 [DshIgnoreReason.STRUCTURAL_VIOLATION]）
+ * 才拒绝；未知词汇已由映射层具名降级（#391 切片7 容错优先），不再导致整页空白。
+ * [lastSeq] 仍可安全上报（水位与事件语义无关）。
  */
 data class DshFoldResult(
     val sessionId: String,
     val sseEvents: List<SseEvent>,
-    val unknownUnignorable: List<String>,
+    val structuralViolations: List<String>,
     val lastSeq: Long,
 ) {
-    val refusedRebuild: Boolean get() = unknownUnignorable.isNotEmpty()
+    val refusedRebuild: Boolean get() = structuralViolations.isNotEmpty()
 }

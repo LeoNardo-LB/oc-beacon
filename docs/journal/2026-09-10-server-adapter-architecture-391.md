@@ -120,3 +120,23 @@
 
 **残留（如实登记）**
 - “监督层变薄”完成的是传输分支与握手收编；前台服务/通知/生命周期仍由 OpenCodeConnectionService 直接驱动，未抽成"从回调驱动"的薄层——留待后续收敛。
+
+## 切片 7（上）：DSH 0.1.5 / 会话格式 V3 —— P0 历史空白修复
+
+**根因**（调研 §7 P0-1/2/4）：未知 SessionEvent 词汇 → UNKNOWN_UNIGNORABLE → DshHistoryFolder.refusedRebuild → 整页空 MessagePage。V3 的 system/message、assistant/attempt、tool/ptc-dispatch*、deliverables/presented 等真实大量存在 → 几乎每个会话命中拒绝。
+
+**落地（容错优先）**
+- 映射器未知词汇改为**具名降级** DshIgnoreReason.UNKNOWN_DEGRADED（日志遥测，不拒绝重建）；新增 STRUCTURAL_VIOLATION 作为拒绝重建的**唯一判据**（当前无发射点，留乱序/种子缺失/surfaceOp 越界）。
+- DshHistoryFolder 判据改 STRUCTURAL_VIOLATION，字段 unknownUnignorable → structuralViolations；KDoc 同步。
+- V3 词汇补全：tool/ptc-dispatch(-start) 复用子代理卡映射（#349 真源）；system/message、assistant/attempt、feedback/message-put|delete、subagent/catalog、deliverables/presented 具名收编 SESSION_FORMAT_V3（渲染增强留后续）。
+- surfaceOp 双读：信封级 replace 读 startSeq/endSeq 优先、回落旧 start/end（compaction shadowedRange 的 start/end 不动）。
+
+**验证**
+- 新增 DshV3AdaptationTest（PTC 派发等价 legacy、V3 六词汇具名收编、未知词汇不拒绝重建、surfaceOp V3/legacy 双读）。
+- 既有 DSH 测试同步（DshHistoryFolderTest 两条拒绝断言改为降级语义；DshEventMapperTest 未知类型 → UNKNOWN_DEGRADED）。
+- 全量 :app:testDevDebugUnitTest + androidTest 编译 BUILD SUCCESSFUL。
+
+**切片7 残留（下）**
+- P0-3 实时流式：session/follow opt-in assistantStream:true（V012+）+ mux transient/assistant-stream 值型分派 + mapper start/chunk/end 帧 → Part delta；无此改动 0.1.5 宿主仍无实时 token 流。
+- P1 渲染增强：system/message 系统节点、assistant/attempt 失败尝试、deliverables 产物卡。
+- 按代 EventVocabulary 表 + V015 世代（研究 §9 建议容错优先而非硬版本门禁）。

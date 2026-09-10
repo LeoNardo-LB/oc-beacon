@@ -428,7 +428,7 @@ class DshConnectionOrchestrator @Inject constructor() {
                         onEvent(event)
                     }
                 } else {
-                    AppLogger.w(TAG, "DSH 回填拒绝重建（$sessionId 第 $pages 页）：" + fold.unknownUnignorable)
+                    AppLogger.w(TAG, "DSH 回填拒绝重建（$sessionId 第 $pages 页）：" + fold.structuralViolations)
                 }
                 // 水位无论如何推进（lastSeq 与事件语义无关，#275 契约）
                 if (fold.lastSeq > 0) tracker.applied(sessionId, fold.lastSeq)

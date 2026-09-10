@@ -27,9 +27,13 @@ private const val TAG = "DshEventMapper"
  *
  * 纯函数 / 无状态 / 不抛异常：DSH SessionEvent 是 49 型开放联合（§1.6-7），未知
  * type 按 data 宽透传——本映射器对一切畸形/未知输入降级为 [DshMappedEvent.Ignored]
- * （AppLogger.w 记日志不崩），未知 **SessionEvent 类型** 落
- * [DshIgnoreReason.UNKNOWN_UNIGNORABLE]——DshHistoryFolder 据此拒绝重建（§5 信封
- * 细节规则：仅 llm/failover 带 ignorable:true，未知类型无 ignorable 必须拒绝重建）。
+ * （AppLogger.w 记日志不崩）。
+ *
+ * #391 切片7（DSH 0.1.5 / 会话格式 V3 容错优先）：未知 **SessionEvent 类型** 落
+ * [DshIgnoreReason.UNKNOWN_DEGRADED] **具名降级**，不再拒绝重建——词汇演进
+ * （V3 的 system/message、assistant/attempt、tool/ptc-dispatch* 等）零成本吸收；
+ * 仅结构性违约（乱序 / 种子缺失 / surfaceOp 越界）落
+ * [DshIgnoreReason.STRUCTURAL_VIOLATION] 时才由 DshHistoryFolder 拒绝重建。
  *
  * ## ID 契约（写死，跨重放/实况稳定）
  * - 整装消息 id："seq-{event.seq}"（历史重放与实况同键——已定决策）；
@@ -796,7 +800,7 @@ object DshEventMapper {
             // {commandId,name,args?,source} 先于 handler、done {commandId,kind,text?,
             // sourceEventSeq?} 结算后；commandId 配对、直追加无轮包裹）。真实转录
             // 事件（非历史行忽略词汇）——历史重放同路径渲染（DshHistoryFolder 共用
-            // 本入口）；畸形（缺 commandId）具名 MALFORMED，绝不落 UNKNOWN_UNIGNORABLE
+            // 本入口）；畸形（缺 commandId）具名 MALFORMED，绝不落 STRUCTURAL_VIOLATION
             //（#327 历史行防御纪律：不得触发整会话拒绝重建）。
             "command/run" -> mapCommandRun(sessionId, seq, time, data)
             "command/done" -> mapCommandDone(sessionId, seq, time, data)
@@ -820,6 +824,16 @@ object DshEventMapper {
             // 根卡已承载，平铺会双份。
             "tool/code-dispatch-start" -> mapCodeDispatchStart(sessionId, time, data)
             "tool/code-dispatch" -> mapCodeDispatch(sessionId, time, data)
+            // #391 切片7：DSH 0.1.5 / 会话格式 V3 —— 子代理派发改名 code-dispatch → ptc-dispatch
+            //（#349 子代理卡真源不变，复用同一映射）
+            "tool/ptc-dispatch-start" -> mapCodeDispatchStart(sessionId, time, data)
+            "tool/ptc-dispatch" -> mapCodeDispatch(sessionId, time, data)
+            // V3 新增词汇：先具名降级（不拒绝重建），渲染增强（系统消息卡 / 失败尝试 /
+            // 产物交付卡）留后续切片；feedback/message-* 与既有 feedback/record 同域。
+            "system/message", "assistant/attempt",
+            "feedback/message-put", "feedback/message-delete",
+            "subagent/catalog", "deliverables/presented" ->
+                listOf(DshMappedEvent.Ignored(DshIgnoreReason.SESSION_FORMAT_V3))
             // durable 审批面：实况弹窗由 mux approval/requested|resolved 承载（本组件），
             // 历史重放 asked 会造成重复弹窗——#276 裁决是否补充重放语义
             "approval/asked", "approval/decided" ->
@@ -842,7 +856,7 @@ object DshEventMapper {
 
             // ---- Mux 帧类型混入历史行（B.4 防御）：session/projection|jobs|queue、
             //      stream/error 是 WS 帧面而非 SessionEvent——历史重放/翻页若出现
-            //      这些 type 行，按已知可忽略折叠（不落 UNKNOWN_UNIGNORABLE 拒绝重建）。 ----
+            //      这些 type 行，按已知可忽略折叠（不拒绝重建）。 ----
             "session/projection" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.PROJECTION))
             "session/jobs" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.JOBS))
             "session/queue" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.QUEUE))
@@ -854,8 +868,9 @@ object DshEventMapper {
                 if (envelope.bool("ignorable") == true) {
                     listOf(DshMappedEvent.Ignored(DshIgnoreReason.IGNORABLE_FLAG))
                 } else {
-                    AppLogger.w(TAG, "未知 SessionEvent 类型（潜在转录语义，拒绝重建判据）: " + type)
-                    listOf(DshMappedEvent.Ignored(DshIgnoreReason.UNKNOWN_UNIGNORABLE))
+                    // #391 切片7 容错优先：未知词汇**具名降级 + 日志遥测**，不拒绝重建
+                    AppLogger.w(TAG, "未知 SessionEvent 类型（已具名降级，不拒绝重建）: " + type)
+                    listOf(DshMappedEvent.Ignored(DshIgnoreReason.UNKNOWN_DEGRADED))
                 }
             }
         }
@@ -907,8 +922,10 @@ object DshEventMapper {
             )
         }
         data.obj("surfaceOp")?.takeIf { it.str("op") == "replace" }?.let { op ->
-            val start = op.long("start")
-            val end = op.long("end")
+            // #391 切片7：V3 信封级替换改名 {startSeq,endSeq}——双读兼容（旧 start/end
+            // 优先回落）。注意 compaction shadowedRange 的 start/end 保持不变（另一处）。
+            val start = op.long("startSeq") ?: op.long("start")
+            val end = op.long("endSeq") ?: op.long("end")
             if (start != null && end != null && end >= start) {
                 events += DshMappedEvent.Sse(
                     SseEvent.SurfaceRangeReplaced(
@@ -1751,8 +1768,8 @@ data class DshSubscribed(val sessionId: String, val lastSeq: Long)
 
 /**
  * 帧映射三态输出：SseEvent（喂 EventDispatcher）/ 订阅基线（喂对账）/ 忽略（带原因）。
- * [Ignored.reason] == [DshIgnoreReason.UNKNOWN_UNIGNORABLE] 是 DshHistoryFolder
- * 拒绝重建的唯一判据——其余忽略均为已核实无转录语义的具名类型。
+ * [Ignored.reason] == [DshIgnoreReason.STRUCTURAL_VIOLATION] 是 DshHistoryFolder
+ * 拒绝重建的唯一判据；未知词汇走 UNKNOWN_DEGRADED 具名降级，不拒绝重建。
  */
 sealed class DshMappedEvent {
     data class Sse(val event: SseEvent) : DshMappedEvent()
@@ -1760,10 +1777,16 @@ sealed class DshMappedEvent {
     data class Ignored(val reason: String) : DshMappedEvent()
 }
 
-/** 忽略原因常量闭集（日志/测试断言用；folder 只认 UNKNOWN_UNIGNORABLE）。 */
+/** 忽略原因常量闭集（日志/测试断言用；folder 只认 STRUCTURAL_VIOLATION）。 */
 object DshIgnoreReason {
-    /** 未知 SessionEvent 类型——可能携带未建模的转录语义，folder 据此拒绝重建（§5）。 */
-    const val UNKNOWN_UNIGNORABLE = "unknown-unignorable"
+    /** 结构性违约（事件乱序 / 种子缺失 / surfaceOp 越界）——拒绝重建的唯一判据。 */
+    const val STRUCTURAL_VIOLATION = "structural-violation"
+
+    /** 未知 SessionEvent 类型——#391 切片7 具名降级（不拒绝重建，仅日志/遥测计数）。 */
+    const val UNKNOWN_DEGRADED = "unknown-degraded"
+
+    /** DSH 0.1.5 会话格式 V3 新增词汇（已具名收编，渲染增强留后续切片）。 */
+    const val SESSION_FORMAT_V3 = "session-format-v3"
 
     /** 未知帧 method（连接层开放联合容错，非 SessionEvent 面）。 */
     const val FRAME_METHOD = "frame-method"
