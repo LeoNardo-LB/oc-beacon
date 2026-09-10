@@ -83,6 +83,10 @@ class MainActivity : ComponentActivity() {
     // #317：DSH 0.1.2 token 交换（debug_token 注入通道 + E2E 用）
     @Inject
     lateinit var dshConnectionRegistry: dev.leonardo.ocbeacon.data.api.dsh.DshConnectionRegistry
+
+    // #391 切片5：界面插槽注册表（组合局部提供，通用屏幕只读注册表）
+    @Inject
+    lateinit var serverUiSlotRegistry: dev.leonardo.ocbeacon.ui.extension.ServerUiSlotRegistry
     
     /**
      * 用于通知点击产生的 deep-link 事件的 SharedFlow。
@@ -234,7 +238,10 @@ class MainActivity : ComponentActivity() {
                 // 全局禁用 Stretch overscroll 拉伸效果（Android 12+ 默认）。
                 // 拉伸动画会拦截输入导致"拉伸中无法反向滑动"的卡手体感（2026-08-10 真机实证）。
                 // 提供 null = 无 overscroll 效果（官方支持：LocalOverscrollFactory 为 null 时返回 null）。
-                CompositionLocalProvider(LocalOverscrollFactory provides null) {
+                CompositionLocalProvider(
+                    LocalOverscrollFactory provides null,
+                    dev.leonardo.ocbeacon.ui.extension.LocalServerUiSlots provides serverUiSlotRegistry,
+                ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

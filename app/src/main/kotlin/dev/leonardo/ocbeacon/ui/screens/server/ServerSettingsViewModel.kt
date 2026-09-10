@@ -21,9 +21,10 @@ import dev.leonardo.ocbeacon.domain.model.ProviderAuthMethod
 import dev.leonardo.ocbeacon.domain.model.ProviderCatalog
 import dev.leonardo.ocbeacon.domain.model.ProviderOauthAuthorization
 import dev.leonardo.ocbeacon.domain.model.ServerConfig
+import dev.leonardo.ocbeacon.domain.model.ServerCapabilities
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
+import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import dev.leonardo.ocbeacon.domain.adapter.ServerAdapterResolver
-import dev.leonardo.ocbeacon.domain.model.ServerType
 import dev.leonardo.ocbeacon.domain.repository.AgentRepository
 import dev.leonardo.ocbeacon.domain.repository.DshSettingsForbiddenException
 import dev.leonardo.ocbeacon.domain.repository.ServerSettingsRepository
@@ -57,7 +58,6 @@ data class ServerSettingsUiState(
     val error: String? = null,
     // ============ #324① DSH provider 目录/自定义增删 ============
     /** DSH 专属区块显隐（V1/V2 走既有 auth 管理）。 */
-    val isDsh: Boolean = false,
     val dshDirectory: List<DshProviderDirectoryEntry> = emptyList(),
     val dshDirectoryLoading: Boolean = false,
     /** DSH 目录/CRUD 失败提示（含 loopback 403 标注）；null = 无错。 */
@@ -123,11 +123,15 @@ class ServerSettingsViewModel @Inject constructor(
         savedStateHandle.get<String>("serverId") ?: ""
     )
     private var serverDisplayName: String = ""
-    /** #324①：DSH 连接配置缓存（conn 构建 + isDsh 门控）。 */
+    /** #324①：DSH 连接配置缓存（conn 构建 + 能力位门控）。 */
     private var serverConfig: ServerConfig? = null
     /** 服务器 API 版本（V2 配置只读——PATCH /api/config 404，见 backlog #85）。init 时从 ServerConfig 读取。 */
     // #172：配置可写能力位（V2 只读 #85）——版本比较收编进 ServerCapabilities
     private var configEditable = true
+
+    /** #391 切片5：能力位流——插槽贡献按能力过滤，界面不读服务器类型。 */
+    private val _serverCapabilities = MutableStateFlow(serverAdapters.defaultCapabilities())
+    val serverCapabilities: StateFlow<ServerCapabilities> = _serverCapabilities.asStateFlow()
 
     private val _allProviders = MutableStateFlow<List<ProviderCatalog>>(emptyList())
     private val _providerCatalog = MutableStateFlow<List<ProviderCatalog>>(emptyList())
@@ -151,13 +155,13 @@ class ServerSettingsViewModel @Inject constructor(
             val config = serverConfigRepository.getServer(serverId)
             if (config != null) {
                 serverDisplayName = config.displayName
-                // #276：能力位带 serverType 维度（DSH settings 特权面不开放 UI）
-                configEditable = serverAdapters.capabilities(ServerConnection.from(config)).coreFlags.configEditable
+                // #276/#391：能力位带 serverType 维度（DSH settings 特权面不开放 UI）
+                _serverCapabilities.value = serverAdapters.capabilities(ServerConnection.from(config))
+                configEditable = _serverCapabilities.value.coreFlags.configEditable
                 _uiState.update { it.copy(serverName = serverDisplayName) }
-                // #324①：DSH 专属 provider 目录区块（V1/V2 不渲染）
-                if (config.serverType == ServerType.Dsh) {
+                // #391 切片5：私有提供商目录按能力位加载（端口缺席即不加载，不读服务器类型）
+                if (ServerFeatures.SERVER_SETTINGS in _serverCapabilities.value) {
                     serverConfig = config
-                    _uiState.update { it.copy(isDsh = true) }
                     loadDshProviderDirectory()
                 }
             }

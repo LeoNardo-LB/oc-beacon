@@ -18,6 +18,7 @@ import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.ServerFeature
 import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import dev.leonardo.ocbeacon.domain.model.ServerType
+import dev.leonardo.ocbeacon.domain.model.ServerUiSlot
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -86,6 +87,12 @@ class DshServerAdapter @Inject constructor(
      * 非端口派生的能力声明（DSH 域动词）：命令、目标、反馈、权限档、Agent 预设、
      * 归档、排队与排队编辑。终端 / shell 不在此声明——那两者由端口缺席表达。
      */
+    /**
+     * 界面插槽声明（#391 切片5）：DSH 在提供商设置槽位有内容（自定义 provider 目录）。
+     * 纯声明，不含界面代码；通用屏幕按该声明 + 能力位渲染。
+     */
+    override val uiSlots: Set<ServerUiSlot> = setOf(ServerUiSlot.PROVIDER_SETTINGS)
+
     override fun privateFeatures(conn: ServerConnection): Set<ServerFeature> = buildSet {
         add(ServerFeatures.COMMANDS)
         add(ServerFeatures.PERMISSION_SWITCH)

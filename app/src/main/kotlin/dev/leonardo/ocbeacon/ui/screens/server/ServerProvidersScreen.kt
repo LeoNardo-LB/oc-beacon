@@ -66,7 +66,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.util.copyToClipboard
 import dev.leonardo.ocbeacon.ui.components.DialogButtonRole
+import dev.leonardo.ocbeacon.domain.model.ServerUiSlot
 import dev.leonardo.ocbeacon.ui.components.DialogButtons
+import dev.leonardo.ocbeacon.ui.extension.LocalServerUiSlots
+import dev.leonardo.ocbeacon.ui.extension.ProviderSettingsSlotHost
 import dev.leonardo.ocbeacon.ui.components.amoledDialogParams
 import dev.leonardo.ocbeacon.ui.components.amoledOutlinedTextFieldColors
 import dev.leonardo.ocbeacon.ui.screens.settings.components.SectionHeader
@@ -83,6 +86,7 @@ fun ServerProvidersScreen(
     viewModel: ServerSettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val capabilities by viewModel.serverCapabilities.collectAsStateWithLifecycle()
     val isAmoled = LocalAmoledMode.current
     val uriHandler = LocalUriHandler.current
     val clipboard = LocalClipboard.current
@@ -494,20 +498,14 @@ fun ServerProvidersScreen(
                 }
             }
 
-            // #324①：DSH provider 目录 + 自定义增删区块（isDsh 门控；V1/V2 不渲染）
-            if (uiState.isDsh) {
-                item {
-                    DshCustomProvidersSection(
-                        directory = uiState.dshDirectory,
-                        loading = uiState.dshDirectoryLoading,
-                        settingsBlocked = uiState.dshSettingsBlocked,
-                        error = uiState.dshProviderError,
-                        onRefresh = viewModel::loadDshProviderDirectory,
-                        onDiscover = viewModel::discoverDshModels,
-                        onCreate = viewModel::createDshCustomProvider,
-                        onDelete = viewModel::deleteDshCustomProvider,
-                    )
-                }
+            // #391 切片5：类型私有提供商区块经插槽注册表渲染——通用屏幕零服务器类型知识，
+            // 是否出现由贡献方的能力位过滤决定（SERVER_SETTINGS 端口缺席即不渲染）。
+            item {
+                LocalServerUiSlots.current.Render(
+                    slot = ServerUiSlot.PROVIDER_SETTINGS,
+                    caps = capabilities,
+                    host = ProviderSettingsSlotHost(capabilities),
+                )
             }
 
             if (available.isNotEmpty()) {

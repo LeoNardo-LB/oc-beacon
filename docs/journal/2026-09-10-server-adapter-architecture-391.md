@@ -85,3 +85,21 @@
 **残留（归切片5/8）**
 - ChatRepositoryImpl archiveSession / listSessionsIncludingBlank / mentionCandidates 三处类型守卫（无端口）。
 - TaskDelegate Shell 面板分流、PaginationCursorPolicy.forServer、ChatViewModel queue 双数据源分流。
+
+## 切片 5：界面插槽注册表 + 宿主契约 + 首个私有界面扩展迁移
+
+**落地**
+- 界面层新增 ui/extension/：ServerUiExtension（槽位 + 顺序 + 能力位 isEnabled + Content）、ServerUiSlotHost 标记与 ProviderSettingsSlotHost、ServerUiSlotRegistry（按槽位分组；contributions = 能力过滤 + 排序；Render 组合渲染）、LocalServerUiSlots（staticCompositionLocalOf，默认空注册表——预览/组件级测试不崩）。
+- MainActivity 注入 ServerUiSlotRegistry 并经 CompositionLocalProvider 提供：通用屏幕只读组合局部，不 import 具体服务器类型组件。
+- 首个私有界面扩展迁移：DshProviderDirectoryExtension（ui/screens/server/providers/dsh/，自己包内 @IntoSet 注册 + 同包 Module）取代 ServerProvidersScreen.kt 的 if (uiState.isDsh) 硬嵌块。
+- 通用提供商页改 LocalServerUiSlots.current.Render(PROVIDER_SETTINGS, caps, host)；ServerSettingsViewModel 增 serverCapabilities 流，DSH 目录加载门控由 serverType 特判改 SERVER_SETTINGS 能力位。
+- DshServerAdapter 声明 uiSlots = { PROVIDER_SETTINGS }（适配器只声明，不含界面代码）。
+- ServerSettingsUiState.isDsh 字段删除（迁移后零消费）。
+
+**验证**
+- 新增 ServerUiSlotRegistryTest（能力过滤 / 顺序排序 / 槽位隔离 / 空注册表）绿。
+- :app:testDevDebugUnitTest 全量 BUILD SUCCESSFUL；:app:compileDevDebugAndroidTestKotlin BUILD SUCCESSFUL。
+
+**残留（归切片9 或后续）**
+- 其余 DSH 私有 UI 未迁移：SessionListScreen 的 DshTokenNeededBanner 手工 if 链（SESSION_LIST_HEADER 槽位）、ServerSettingsContent 的 DshServerConfigSection / DshPluginInventorySection（SERVER_SETTINGS 槽位）。
+- 条目级动作贡献（FAB 工具栏等）属切片9 的统一贡献注册表（区域插槽 + 条目动作）。
