@@ -14,7 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.outlined.Compress
+import androidx.compose.material.icons.outlined.Summarize
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -44,7 +44,7 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
  * trailing 组），全服务器类型（V1 摘要线/V2 触发线/DSH 转录实体）压缩呈现的
  * 唯一视觉本体。
  *
- * 布局：[时间] [压缩图标 13dp] [状态文案·flush] — 右缘 [状态图标 14dp（压缩中
+ * 布局：[时间] [摘要图标 13dp（用户裁决 2026-09-10 六选一）] [状态文案·flush] — 右缘 [状态图标 14dp（压缩中
  * 圈进度/完成对钩/失败 error）] [展开箭头]。展开体＝Markdown 摘要，240dp 限高
  * 内滚（对齐思考卡）；#384 结算/失败原因以 labelSmall 支持行常驻。
  * 演化存档：#217 分割线 → #389 一轮思考壳（「突兀」）→ 二轮通知卡（徽章偏重）
@@ -83,6 +83,7 @@ internal fun CompactionNoticeCard(
     } else {
         MaterialTheme.colorScheme.tertiary
     }
+    val hasSupportRows = !errorText.isNullOrBlank() || !resultText.isNullOrBlank()
     // 尾部兜底等无消息时间戳的认领点：取首组合时刻（活体压缩≈当下）
     val displayTime = remember(timeMs) {
         if (timeMs > 0) timeMs else System.currentTimeMillis()
@@ -100,7 +101,7 @@ internal fun CompactionNoticeCard(
         onCardClick = if (canExpand) ({ onToggle() }) else null,
         labelLeading = {
             Icon(
-                imageVector = Icons.Outlined.Compress,
+                imageVector = Icons.Outlined.Summarize,
                 contentDescription = null,
                 modifier = Modifier.size(13.dp),
                 tint = labelIconTint,
@@ -141,6 +142,9 @@ internal fun CompactionNoticeCard(
             }
         },
         modifier = modifier,
+        // #389 三轮b：无可见内容（收起且无支持行）时内容栏整栏不渲染——
+        // 消除空内容占 spacedBy 间距造成的上下边距不对称。
+        contentVisible = hasSupportRows || expanded,
     ) {
         // 支持行：失败原因（排障优先）＋ #384 吸收的源命令结算
         if (!errorText.isNullOrBlank()) {

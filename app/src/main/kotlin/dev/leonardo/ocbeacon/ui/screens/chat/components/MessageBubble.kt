@@ -68,6 +68,10 @@ internal fun MessageBubble(
      *  （label fill=false 与 Spacer 均分弹性——trailing 随标签长度浮动）。
      *  仅事件卡启用；suffix 槽位在 flush 模式下紧邻 trailing 排布。 */
     labelFillRemaining: Boolean = false,
+    /** #389 三轮b：内容区可见性——false 时内容 Column 整体不渲染（空内容仍占
+     *  spacedBy 间距 → 收起态上下边距不对称的头号根因）。缺省 true：既有调用方
+     *  （用户/智能体气泡、事件卡）行为零变化。可选内容/折叠体卡片按可见态传入。 */
+    contentVisible: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val compact = LocalChatDensity.current == ChatDensity.Compact
@@ -141,11 +145,15 @@ internal fun MessageBubble(
                 }
 
                 // ② 正文栏（水平缩进在节级；内层 spacedBy 复刻原 Column 级间距）
-                Column(
-                    modifier = Modifier.padding(horizontal = contentHPad),
-                    verticalArrangement = Arrangement.spacedBy(if (compact) SpacingTokens.XS.dp else 10.dp)
-                ) {
-                    content()
+                // #389 三轮b：contentVisible=false 整栏不渲染——空内容不再贡献
+                // spacedBy 间距（收起态上下边距对称）。
+                if (contentVisible) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = contentHPad),
+                        verticalArrangement = Arrangement.spacedBy(if (compact) SpacingTokens.XS.dp else 10.dp)
+                    ) {
+                        content()
+                    }
                 }
 
                 // ③ 统计栏（可选）
