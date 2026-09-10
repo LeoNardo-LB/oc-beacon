@@ -156,3 +156,17 @@
 **残留**
 - assistant-stream end(abandoned) 无对应 legacy 终态事件：骨架清理依赖整装消息，abandoned 场景可能留空骨架（待后续具名事件）。
 - 按代 EventVocabulary 表 / V015 世代描述符未落地（当前为容错优先 + V012 分支）。
+
+## 切片 8（上）：收尾——门禁恢复绿 / 选择器注册表驱动 / 契约测试 / 探测器去类型化 / 架构文档
+
+- **#396 存量 lint 红清零（4→0）**：HiltEntryActivity 从 androidTest 迁到 src/debug（与 HiltComponentActivity 同源集——debug manifest 声明的类须真实存在于 debug APK）；3 处 LocalContextGetResourceValueCall 收敛到 ui/util/EventTimeString.kt 的 eventTimeString（事件时点本地化是有意例外，集中一处附理由）。:app:lintDevDebug BUILD SUCCESSFUL。
+- **服务器选择器改注册表驱动**：HomeViewModel 注入 ServerAdapterResolver 暴露 supportedServerTypes；ServerDialog 增 serverTypes 参数并按枚举渲染 SegmentedButton（注册适配器即自动出现）；类型标签映射只存于用户选择面。
+- **适配器契约测试** ServerAdapterContractTest：同一套断言跑遍真实适配器 + 假适配器（类型覆盖 / 能力 = coreFlags + 端口派生 + 私有 / 世代非空 / 缺席端口不产生能力 / 插槽声明）。
+- **版本探测器去类型化**：ApiVersionDetector.detect 删除 serverType 参数与 DSH 短路；ServerDataStore.checkHealth 改按新增的领域投影 ServerAdapterResolver.transportKind（领域 TransportKind）决定双探是否适用——探测管线不再认识服务器类型。
+- **架构文档登记适配层**：docs/architecture.md 增「服务器适配层（ServerAdapter）」章节 + 目录树补 data/adapter、ui/extension + 承重规则（类型判断白名单）。
+
+**验证**：:app:lintDevDebug 绿；全量单测 + androidTest 编译 BUILD SUCCESSFUL。
+
+**残留（切片8 下 / 后续）**
+- 自定义 Android Lint 规则（类型分支白名单 / UI 不 import data / 绕过令牌的硬编码）未落：需新增 lint-checks Gradle 模块，与 Out of Scope「不拆 Gradle 模块」存在取舍，需裁决；当前以架构文档承重规则 + code review 兜底。
+- ServerDialog 内 isDsh 分支（用户选择面白名单内）保留。

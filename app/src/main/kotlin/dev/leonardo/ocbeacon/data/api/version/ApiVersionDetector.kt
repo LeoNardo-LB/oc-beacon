@@ -5,7 +5,6 @@ import dev.leonardo.ocbeacon.data.api.auth
 import dev.leonardo.ocbeacon.data.api.ApiClient
 import dev.leonardo.ocbeacon.domain.model.ApiVersion
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
-import dev.leonardo.ocbeacon.domain.model.ServerType
 import dev.leonardo.ocbeacon.logging.AppLogger
 import io.ktor.client.call.body
 import io.ktor.client.request.get
@@ -47,10 +46,8 @@ class ApiVersionDetector @Inject constructor(
     /**
      * 探测指定连接的 API 版本。
      *
-     * #276 步骤⑥：[serverType]==[ServerType.Dsh] 时跳过 health 双探——DSH 无
-     * /health（§2.5：存活 = 首个 RPC 成功），直接返回 V1 缺省（apiVersion 不参与
-     * DSH 路由，三分已由 serverType 优先）。DSH 的存活/版本感知走 host.describe
-     * （DshApiClient.getHealth），与 OpenCode 探测管道分离。
+     * #391 切片8：本探测器只服务 SSE（OpenCode）线面——非 SSE 线面（DSH）的
+     * 存活/世代由连接策略握手在连接期判定，调用方按 wireKind 决定是否走本双探。
      *
      * #150 方案 B（2026-08-21）：按 [knownVersion]（持久化的上次探测结果）排序探测——
      * 最可能的版本先探、成功即短路，省掉一次白跑 RTT。**双探语义不变**：先探的失败
@@ -67,12 +64,7 @@ class ApiVersionDetector @Inject constructor(
         username: String = "opencode",
         password: String? = null,
         knownVersion: ApiVersion = ApiVersion.UNKNOWN,
-        serverType: ServerType = ServerType.OpenCode,
     ): DetectionResult {
-        if (serverType == ServerType.Dsh) {
-            AppLogger.i(TAG, "Skipping OpenCode health probes for DSH server at $url (apiVersion stays V1 default)")
-            return DetectionResult(ApiVersion.V1)
-        }
         val probeOrder = when (knownVersion) {
             ApiVersion.V1 -> listOf(ApiVersion.V1, ApiVersion.V2)
             ApiVersion.V2 -> listOf(ApiVersion.V2, ApiVersion.V1)

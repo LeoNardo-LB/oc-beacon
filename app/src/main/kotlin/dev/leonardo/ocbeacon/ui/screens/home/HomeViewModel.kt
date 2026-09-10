@@ -61,7 +61,13 @@ class HomeViewModel @Inject constructor(
     private val manageServerProvidersUseCase: ManageServerProvidersUseCase,
     // #154a：崩溃启动提示（诊断库最近未确认 FATAL → Home 横幅）
     private val diagnosticLogRepository: dev.leonardo.ocbeacon.data.repository.DiagnosticLogRepository,
+    // #391 切片8：服务器选择器由注册表枚举驱动（注册了适配器即自动出现）
+    serverAdapters: dev.leonardo.ocbeacon.domain.adapter.ServerAdapterResolver,
 ) : AndroidViewModel(application) {
+
+    /** 已注册（= 产品支持）的服务器类型，按声明序稳定排列。 */
+    val supportedServerTypes: List<dev.leonardo.ocbeacon.domain.model.ServerType> =
+        serverAdapters.supportedTypes().sortedBy { it.ordinal }
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()

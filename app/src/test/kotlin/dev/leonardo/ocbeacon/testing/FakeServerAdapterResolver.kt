@@ -30,6 +30,9 @@ class FakeServerAdapterResolver(
 
     override fun wireGeneration(conn: ServerConnection): String = "v1"
 
+    override fun transportKind(conn: ServerConnection): dev.leonardo.ocbeacon.domain.adapter.TransportKind =
+        dev.leonardo.ocbeacon.domain.adapter.TransportKind.SSE
+
     override fun capabilities(conn: ServerConnection): ServerCapabilities =
         ServerCapabilities(coreFlags, features)
 

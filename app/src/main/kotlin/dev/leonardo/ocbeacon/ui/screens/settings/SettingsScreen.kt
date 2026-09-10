@@ -56,6 +56,7 @@ import dev.leonardo.ocbeacon.ui.screens.settings.sections.GeneralSection
 import dev.leonardo.ocbeacon.ui.screens.settings.sections.NotificationsSection
 import dev.leonardo.ocbeacon.ui.screens.settings.sections.StorageSection
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.util.eventTimeString
 
 /**
  * 设置屏幕 — 全局应用偏好。
@@ -94,7 +95,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     LaunchedEffect(Unit) {
         viewModel.archiveCleared.collect {
-            snackbarHostState.showSnackbar(context.getString(R.string.settings_storage_cleared))
+            snackbarHostState.showSnackbar(context.eventTimeString(R.string.settings_storage_cleared))
         }
     }
 

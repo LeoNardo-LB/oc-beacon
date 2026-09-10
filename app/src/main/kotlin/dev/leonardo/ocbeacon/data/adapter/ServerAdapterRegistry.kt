@@ -72,6 +72,12 @@ class ServerAdapterRegistry @Inject constructor(
     override fun wireGeneration(conn: ServerConnection): String =
         adapterFor(conn).wireGeneration(conn)
 
+    override fun transportKind(conn: ServerConnection): dev.leonardo.ocbeacon.domain.adapter.TransportKind =
+        when (adapterFor(conn).connectionStrategy.wireKind) {
+            WireKind.SSE -> dev.leonardo.ocbeacon.domain.adapter.TransportKind.SSE
+            WireKind.MUX -> dev.leonardo.ocbeacon.domain.adapter.TransportKind.MUX
+        }
+
     override fun capabilities(conn: ServerConnection): ServerCapabilities {
         val adapter = adapterFor(conn)
         return ServerCapabilities(

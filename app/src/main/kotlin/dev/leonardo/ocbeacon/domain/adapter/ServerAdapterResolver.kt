@@ -26,6 +26,9 @@ interface ServerAdapterResolver {
     /** 该连接的线面世代纯 id（如 `v1` / `v2` / `v011` / `v012`），不含协议细节。 */
     fun wireGeneration(conn: ServerConnection): String
 
+    /** 该连接的传输线面种类（连接策略的领域安全投影）。 */
+    fun transportKind(conn: ServerConnection): TransportKind
+
     /**
      * 该连接的能力位（唯一查询入口）。
      *
@@ -42,4 +45,13 @@ interface ServerAdapterResolver {
      * 领域层不硬编码任何服务器类型语义。
      */
     fun defaultCapabilities(): ServerCapabilities
+}
+
+/** 传输线面种类（#391 切片8；与适配层 WireKind 同构的领域安全投影）。 */
+enum class TransportKind {
+    /** 单向 SSE 事件流（OpenCode V1/V2）。 */
+    SSE,
+
+    /** 多路复用 WS（DSH）。 */
+    MUX,
 }

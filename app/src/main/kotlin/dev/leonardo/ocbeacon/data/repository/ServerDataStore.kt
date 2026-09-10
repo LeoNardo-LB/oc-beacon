@@ -32,7 +32,9 @@ class ServerDataStore @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     private val json: Json,
     private val secretCipher: SecretCipher,
-    private val versionDetector: dev.leonardo.ocbeacon.data.api.version.ApiVersionDetector
+    private val versionDetector: dev.leonardo.ocbeacon.data.api.version.ApiVersionDetector,
+    /** #391 切片8：按连接策略判断双探是否适用（不再在探测器里判服务器类型）。 */
+    private val adapters: dev.leonardo.ocbeacon.domain.adapter.ServerAdapterResolver,
 ) {
     
     private val serversKey = stringPreferencesKey(SERVERS_KEY)
@@ -142,11 +144,21 @@ class ServerDataStore @Inject constructor(
             // #150 方案 B（2026-08-21）：传入持久化的 apiVersion 作探测排序提示——
             // 已知 V1 的服务器先探 /global/health（省一次白跑 /api/health 的 RTT）。
             // 探测失败仍返回 UNKNOWN（下方保留原版本的 #132 语义不变）。
-            val detection = versionDetector.detect(
-                server.url, server.username, server.password,
-                knownVersion = server.apiVersion,
-                serverType = server.serverType, // #276：DSH 跳过 health 双探
-            )
+            val detection = if (
+                adapters.transportKind(dev.leonardo.ocbeacon.domain.model.ServerConnection.from(server)) ==
+                dev.leonardo.ocbeacon.domain.adapter.TransportKind.SSE
+            ) {
+                versionDetector.detect(
+                    server.url, server.username, server.password,
+                    knownVersion = server.apiVersion,
+                )
+            } else {
+                // 非 SSE 线面（如 DSH）：OpenCode health 双探不适用——维持既有语义
+                //（标记健康、apiVersion 保持探测前值），存活由连接策略握手在连接期判定。
+                dev.leonardo.ocbeacon.data.api.version.ApiVersionDetector.DetectionResult(
+                    dev.leonardo.ocbeacon.domain.model.ApiVersion.V1,
+                )
+            }
 
             val health = ServerHealth(
                 healthy = detection.version != dev.leonardo.ocbeacon.domain.model.ApiVersion.UNKNOWN,

@@ -244,6 +244,7 @@ import dev.leonardo.ocbeacon.ui.screens.viewer.FileViewerOverlay
 import dev.leonardo.ocbeacon.ui.screens.viewer.FileViewerParams
 import dev.leonardo.ocbeacon.ui.screens.viewer.FileViewerSource
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.util.eventTimeString
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 
@@ -783,7 +784,7 @@ fun ChatScreen(
                 // 照搬的废除）；状态采集与分发见 toolbarSheet when() 的 QUEUE 分支。
                 LaunchedEffect(Unit) {
                     viewModel.queueActionResult.collect { resId ->
-                        snackbarHostState.showSnackbar(context.getString(resId))
+                        snackbarHostState.showSnackbar(context.eventTimeString(resId))
                     }
                 }
                 ChatScreenBottomBar(
@@ -1064,7 +1065,7 @@ fun ChatScreen(
     val goalErrorContext = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(goalError) {
         goalError?.let { resId ->
-            snackbarHostState.showSnackbar(goalErrorContext.getString(resId))
+            snackbarHostState.showSnackbar(goalErrorContext.eventTimeString(resId))
         }
     }
 

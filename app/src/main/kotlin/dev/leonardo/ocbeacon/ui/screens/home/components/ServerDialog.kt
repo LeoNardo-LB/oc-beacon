@@ -25,6 +25,12 @@ import dev.leonardo.ocbeacon.ui.components.amoledDialogParams
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 
+/** #391 切片8：服务器类型标签（用户选择面；新增类型时补一条本地化映射）。 */
+private fun serverTypeLabel(type: ServerType): Int = when (type) {
+    ServerType.OpenCode -> R.string.server_type_opencode
+    ServerType.Dsh -> R.string.server_type_dsh
+}
+
 /**
  * 解析并校验服务器 URL 字符串。
  * 接受如下格式：
@@ -85,7 +91,12 @@ internal fun ServerDialog(
     // #325②：配对深链预填（DSH 地址；非 null 时新建对话框默认选中 DSH 类型）
     prefillUrl: String? = null,
     onDismiss: () -> Unit,
-    onSave: (name: String, url: String, username: String, password: String, autoConnect: Boolean, serverType: ServerType) -> Unit
+    onSave: (name: String, url: String, username: String, password: String, autoConnect: Boolean, serverType: ServerType) -> Unit,
+    /**
+     * #391 切片8：可选服务器类型由适配器注册表枚举驱动（默认仅显示已注册类型；
+     * 调用方传 viewModel.supportedServerTypes）。为空时回落到默认类型，保证可编辑。
+     */
+    serverTypes: List<ServerType> = listOf(ServerType.OpenCode),
 ) {
     // #115（D2-L25）：服务器名输入 saveable
     var name by rememberSaveable { mutableStateOf(server?.name ?: "") }
@@ -145,19 +156,14 @@ internal fun ServerDialog(
                     // 选中后隐藏用户名/密码并切换 URL 提示）
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                            SegmentedButton(
-                                selected = !isDsh,
-                                onClick = { serverType = ServerType.OpenCode },
-                                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
-                            ) {
-                                Text(stringResource(R.string.server_type_opencode))
-                            }
-                            SegmentedButton(
-                                selected = isDsh,
-                                onClick = { serverType = ServerType.Dsh },
-                                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
-                            ) {
-                                Text(stringResource(R.string.server_type_dsh))
+                            serverTypes.forEachIndexed { index, type ->
+                                SegmentedButton(
+                                    selected = serverType == type,
+                                    onClick = { serverType = type },
+                                    shape = SegmentedButtonDefaults.itemShape(index = index, count = serverTypes.size)
+                                ) {
+                                    Text(stringResource(serverTypeLabel(type)))
+                                }
                             }
                         }
                         if (isDsh) {

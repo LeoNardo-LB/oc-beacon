@@ -62,6 +62,7 @@ class HomeViewModelAwaitReachableTest {
             updateSettingsUseCase,
             manageServerProvidersUseCase,
             diagnosticLogRepository,
+            dev.leonardo.ocbeacon.testing.FakeServerAdapterResolver(),
         )    }
 
     @Before

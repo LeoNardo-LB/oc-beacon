@@ -64,6 +64,7 @@ class HomeViewModelCancelConnectionTest {
             updateSettingsUseCase,
             manageServerProvidersUseCase,
             diagnosticLogRepository,
+            dev.leonardo.ocbeacon.testing.FakeServerAdapterResolver(),
         )
     }
 

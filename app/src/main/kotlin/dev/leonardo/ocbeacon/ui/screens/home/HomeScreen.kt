@@ -296,6 +296,7 @@ fun HomeScreen(
         // 添加/编辑服务器对话框
         if (uiState.showAddServerDialog) {
             ServerDialog(
+                serverTypes = viewModel.supportedServerTypes,
                 server = uiState.editingServer,
                 // #325②：配对深链预填（仅新建对话框生效；编辑沿用条目现值）
                 prefillUrl = uiState.editingServer?.let { null } ?: uiState.pairPrefillUrl,
