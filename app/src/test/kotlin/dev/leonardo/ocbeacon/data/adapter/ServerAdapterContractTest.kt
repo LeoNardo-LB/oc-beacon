@@ -8,6 +8,7 @@ import dev.leonardo.ocbeacon.data.api.v1.V1ApiClient
 import dev.leonardo.ocbeacon.data.api.v2.V2ApiClient
 import dev.leonardo.ocbeacon.domain.model.ApiVersion
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
+import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import dev.leonardo.ocbeacon.domain.model.ServerType
 import dev.leonardo.ocbeacon.domain.model.ServerUiSlot
 import dev.leonardo.ocbeacon.testing.FakeServerAdapter
@@ -85,7 +86,12 @@ class ServerAdapterContractTest {
             if (ports.terminal == null) assertFalse(caps.features.contains(dev.leonardo.ocbeacon.domain.model.ServerFeatures.TERMINAL))
             if (ports.shell == null) assertFalse(caps.features.contains(dev.leonardo.ocbeacon.domain.model.ServerFeatures.SHELL))
             if (ports.queue == null) assertFalse(caps.features.contains(dev.leonardo.ocbeacon.domain.model.ServerFeatures.QUEUE))
-            if (ports.goals == null) assertFalse(caps.features.contains(dev.leonardo.ocbeacon.domain.model.ServerFeatures.GOALS))
+            if (ports.goals == null) assertFalse(caps.features.contains(ServerFeatures.GOALS))
+            // 工作区域端口缺席 ⇒ 无 WORKSPACE / SESSION_ARCHIVE 能力
+            if (ports.workspace == null) {
+                assertFalse(caps.features.contains(ServerFeatures.WORKSPACE))
+                assertFalse(caps.features.contains(ServerFeatures.SESSION_ARCHIVE))
+            }
         }
     }
 
@@ -114,6 +120,23 @@ class ServerAdapterContractTest {
     fun `dsh adapter declares the provider settings slot`() {
         assertTrue(real.uiSlots(conn(ServerType.Dsh)).contains(ServerUiSlot.PROVIDER_SETTINGS))
         assertTrue(real.uiSlots(conn(ServerType.OpenCode)).isEmpty())
+    }
+
+    @Test
+    fun `workspace references and attachments ports follow the declared capability truth`() {
+        val dsh = real.ports(conn(ServerType.Dsh))
+        assertNotNull(dsh.workspace)
+        assertNotNull(dsh.references)
+        assertNotNull(dsh.attachments)
+        val oc = real.ports(conn(ServerType.OpenCode))
+        assertNull(oc.workspace)
+        assertNotNull(oc.references)
+        assertNull(oc.attachments)
+        // 能力位由端口在场派生（不手写矩阵）
+        assertTrue(real.capabilities(conn(ServerType.Dsh)).features.contains(ServerFeatures.WORKSPACE))
+        assertFalse(real.capabilities(conn(ServerType.OpenCode)).features.contains(ServerFeatures.WORKSPACE))
+        assertTrue(real.capabilities(conn(ServerType.Dsh)).features.contains(ServerFeatures.SESSION_ARCHIVE))
+        assertFalse(real.capabilities(conn(ServerType.OpenCode)).features.contains(ServerFeatures.SESSION_ARCHIVE))
     }
 
     /**

@@ -34,13 +34,10 @@ import dev.leonardo.ocbeacon.domain.model.WorkspaceSnapshot
 import dev.leonardo.ocbeacon.domain.model.SubagentCatalog
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.model.ToolProgressInfo
-import dev.leonardo.ocbeacon.domain.model.mergeMentionCandidates
 import dev.leonardo.ocbeacon.domain.repository.ChatRepository
 import dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -66,9 +63,6 @@ class ChatRepositoryImpl @Inject constructor(
     private val serverRepo: ServerDataStore,
     private val permissionAutoApprover: PermissionAutoApprover,
     private val messageStore: MessageCacheRepository,
-    // #287：DSH 附件字节拉取（session.attachment → data URL）。
-    // DshApiClient @Singleton 可注入；非 DSH 服务器由 readAttachment 失败自然降级 null。
-    private val dshApiClient: dev.leonardo.ocbeacon.data.api.dsh.DshApiClient,
     // #311 Task1：workspace 快照读取（workspace/follow baseline 维护的单一真相源）。
     private val dshWorkspaceStore: DshWorkspaceStore,
     // #391：唯一路由 seam——私有能力经端口挂载，不按服务器类型分派。
@@ -354,11 +348,11 @@ class ChatRepositoryImpl @Inject constructor(
         adapters.ports(conn).session.selectAgentPreset(conn, sessionId, presetId)
     }
 
-    /** #287：附件字节 → data URL（仅 DSH 有 session.attachment；其他类型直接 null）。 */
+    /** #287：附件字节 → data URL（经 attachments 端口；端口缺席即 null，不按类型判断）。 */
     override suspend fun fetchAttachmentDataUrl(serverId: String, sessionId: String, attachmentId: String): String? {
         val conn = runCatching { resolveConnection(serverId) }.getOrNull() ?: return null
-        val dsh = dshApiClient
-        val (mediaType, base64) = dsh.readAttachment(conn, sessionId, attachmentId) ?: return null
+        val attachment = adapters.ports(conn).attachments ?: return null
+        val (mediaType, base64) = attachment.readAttachment(conn, sessionId, attachmentId) ?: return null
         return "data:$mediaType;base64,$base64"
     }
 
@@ -479,20 +473,15 @@ class ChatRepositoryImpl @Inject constructor(
     // ============ DSH workspace 归档（backlog #311 Task1） ============
 
     /**
-     * workspace/archiveSession：仅 DSH 线面——非 DSH 显式 unsupported（归档是写
-     * 操作，假成功会误导；DSH V011 由 DshApiClient 同判）。回执即新 archived 集合。
+     * workspace/archiveSession：经 workspace 端口——端口缺席显式 unsupported（归档是
+     * 写操作，假成功会误导；DSH V011 由端口实现同判）。回执即新 archived 集合。
      */
     override suspend fun archiveSession(
         serverId: String,
         sessionId: String,
     ): Result<List<String>> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        if (conn.serverType != dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
-            throw dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability(
-                "workspace.archiveSession", conn.serverType.name,
-            )
-        }
-        dshApiClient.archiveSession(conn, sessionId)
+        adapters.ports(conn).requireWorkspace(conn).archiveSession(conn, sessionId)
     }
 
     /**
@@ -507,27 +496,22 @@ class ChatRepositoryImpl @Inject constructor(
     /**
      * #311 Task3：session.list 全量（含 blank 空壳）——连接复用判定候选源
      * （web connectWorkspace mod29:46-58 在含 blank 的会话集上找复用；列表流
-     * 的 blank 滤除面见 DshSessionMapper.filterByDirectory）。非 DSH → 空表
-     * （无 workspace 连接语义，快照恒空不产生 workspace 条目）。
+     * 的 blank 滤除面见 DshSessionMapper.filterByDirectory）。workspace 端口缺席
+     * → 空表（无工作区连接语义，快照恒空不产生 workspace 条目）。
      */
     override suspend fun listSessionsIncludingBlank(serverId: String): Result<List<Session>> =
         runCatchingCancellable {
             val conn = resolveConnection(serverId)
-            if (conn.serverType != dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
-                return@runCatchingCancellable emptyList()
-            }
-            dshApiClient.listSessionsIncludingBlank(conn)
+            // workspace 端口缺席 = 无工作区连接语义 → 空表（快照恒空不产生 workspace 条目）
+            adapters.ports(conn).workspace?.listSessionsIncludingBlank(conn) ?: emptyList()
         }
 
     // ============ DSH @ 引用候选（backlog #310⑤/#321） ============
 
     /**
-     * DSH：并行两域（fileReferences/list + sessionReferenceResolver/candidates——
-     * web mod34:113-114 先例；quoted=true 跳过会话域省一次 RPC）后纯合并
-     * [mergeMentionCandidates]；任一域失败整体 failure（Result 收编，同
-     * messageFeedbackList 语义）。非 DSH：findFiles 现参数形（type=null/dirs=true/
-     * limit=15，DraftInputDelegate.searchFilesForMention 同形）包装 FileMention
-     * ——既有 @ 文件补全零回归（DSH 侧此前为 findFiles stub 空列表，无回归面）。
+     * @ 引用候选：取数策略由 references 端口实现承载——DSH 并行两域后纯合并，
+     * OpenCode findFiles 单域包装；任一域失败整体 failure（Result 收编，同
+     * messageFeedbackList 语义）。
      */
     override suspend fun mentionCandidates(
         serverId: String,
@@ -537,27 +521,9 @@ class ChatRepositoryImpl @Inject constructor(
         quoted: Boolean,
     ): Result<List<MentionCandidate>> = runCatchingCancellable {
         val conn = resolveConnection(serverId)
-        if (conn.serverType != dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
-            val paths = adapters.ports(conn).requireFile(conn).findFiles(
-                conn, query,
-                directory = directory,
-                limit = 15,
-                dirs = "true",
-            )
-            return@runCatchingCancellable paths.map { MentionCandidate.FileMention(it) }
-        }
-        coroutineScope {
-            val files = async { dshApiClient.fileReferencesList(conn, sessionId, query) }
-            val sessions = async {
-                if (quoted) emptyList<MentionCandidate.SessionMention>()
-                else dshApiClient.sessionReferenceCandidates(conn, sessionId, query)
-            }
-            mergeMentionCandidates(
-                files.await().map { MentionCandidate.FileMention(it) },
-                sessions.await(),
-                quoted,
-            )
-        }
+        // 取数策略由 references 端口实现承载（DSH 两域合并 / OpenCode findFiles 单域）
+        adapters.ports(conn).requireReferences(conn)
+            .candidates(conn, sessionId, query, directory, quoted)
     }
 
     // ============ DSH goal mutation（backlog #286） ============

@@ -257,7 +257,7 @@ class SessionListViewModel @Inject constructor(
             _serverCapabilities.value = serverAdapters.capabilities(conn)
             // #311 Task3：DSH 判定（对话框回退分支）
             // #391 切片9：能力位代替类型判定（服务器设置特权面 = workspace 投影域）
-            _usesWorkspaceProjections.value = ServerFeatures.SERVER_SETTINGS in _serverCapabilities.value
+            _usesWorkspaceProjections.value = ServerFeatures.WORKSPACE in _serverCapabilities.value
             // 权限预设切换器门控：DSH-only 读默认档（能力位内才发 settings.describe）
             loadPermissionDefault()
             // UI-B/UI-C：DSH-only 读 Agent 预设 roster + 默认档（能力位内才发请求）

@@ -69,6 +69,9 @@ object ServerFeatures {
     /** 会话归档。 */
     val SESSION_ARCHIVE = ServerFeature("core.session.archive")
 
+    /** 工作区连接语义（workspace 投影 / 归档 / 连接复用候选）。 */
+    val WORKSPACE = ServerFeature("core.session.workspace")
+
     /** 斜杠命令面板与命令执行。 */
     val COMMANDS = ServerFeature("core.commands")
 

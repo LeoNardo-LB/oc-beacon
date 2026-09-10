@@ -197,3 +197,24 @@
 **验证**：compile + 全量单测 + androidTest 编译 BUILD SUCCESSFUL。
 
 **仍余（切片9 后续）**：ChatRepositoryImpl archive/listBlank/mention 三处守卫、ServerCard 类型徽标（持久化身份展示）、uiSlots 声明消费与 seam-1 断言、STRUCTURAL_VIOLATION 无发射点、architecture.md 措辞。
+
+## 切片 9（步骤 4-5）：uiSlots 声明消费 + 私有能力端口化收口
+
+**步骤 4（4303bdf0）uiSlots 声明成为渲染门禁**
+- ServerSettingsViewModel 暴露 uiSlots（init 时按连接解析）；ServerProvidersScreen 的 PROVIDER_SETTINGS 渲染改为两级门禁：适配器声明（uiSlots）先决 + 贡献方 isEnabled(caps) 细粒度过滤——未声明的槽位不再进入渲染路径。
+- ServerAdapterContractTest 增 seam-1 断言：任一类上被 isEnabled 命中的贡献，其槽位必须在 real.uiSlots 内（声明与贡献不一致即静默丢失内容的暗坑被钉死）。
+
+**步骤 5 仓库层三处类型守卫端口化（本步）**
+- 新增端口契约：WorkspaceApi（归档 + 含 blank 全量列表）、ReferenceApi（@ 引用候选）、AttachmentApi（附件字节）；ServerPorts 以「新增可空字段 + 默认 null」增量挂载，不改既有字段语义。
+- 实现：DshWorkspacePort / DshReferencePort / DshAttachmentPort（薄委托 DshApiClient）、OpenCodeReferencePort（findFiles 现参数形，v1/v2 各持一个实例）。
+- 能力派生：derivedFeatures 从 workspace 端口在场派发 WORKSPACE + SESSION_ARCHIVE；DshServerAdapter.privateFeatures 不再手写 SESSION_ARCHIVE。SessionListViewModel 的 workspace 投影门禁由 SERVER_SETTINGS 改为语义更准的 WORKSPACE。
+- ChatRepositoryImpl：archiveSession → requireWorkspace；listSessionsIncludingBlank → workspace?; mentionCandidates → requireReferences（DSH 两域合并策略整体移入端口）。顺带把 fetchAttachmentDataUrl 的 DshApiClient 直连改经 attachments 端口——仓库构造函数不再注入 DshApiClient，仓库层零服务器客户端直连。
+
+**行为等价说明**：OpenCode 附件路径由「向 DSH 端点发一次注定失败的 RPC 再降级 null」改为「端口缺席直接 null」，用户可见结果仍为 null；其余路径逐位等价。
+
+**测试**：ChatRepositoryImplTest 改端口化装配（workspace/attachments 仅 DSH 在场，断言非 DSH 走空表/unsupported/null）；新增 DshReferencePortTest / OpenCodeReferencePortTest；ServerAdapterContractTest 增端口在场与派生能力断言；ServerCapabilitiesDerivationTest 增 WORKSPACE 位；FakeServerAdapterResolver 的 DSH 预设补 WORKSPACE。
+
+**验证**：:app:testDevDebugUnitTest（3271 例）+ :app:compileDevDebugAndroidTestKotlin + :app:lintDevDebug 均 BUILD SUCCESSFUL。
+
+**仍余（切片9 后续）**：STRUCTURAL_VIOLATION 无发射点（拒绝路径死代码）、architecture.md 措辞与代码对齐、SessionListScreen 令牌横幅等两处类型私有界面未迁插槽。
+

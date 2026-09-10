@@ -42,8 +42,11 @@ class ChatRepositoryImplTest {
     private lateinit var permissionHandler: PermissionEventHandler
     private lateinit var questionHandler: QuestionEventHandler
     // #311 Task1：workspace 归档代理 + 快照流（真 store 断言流式投影）
-    private lateinit var dshApiClient: dev.leonardo.ocbeacon.data.api.dsh.DshApiClient
     private lateinit var dshWorkspaceStore: DshWorkspaceStore
+    // #391 切片9：私有能力端口——仓库层只经端口取数，不接触具体服务器客户端
+    private lateinit var workspaceApi: dev.leonardo.ocbeacon.data.api.workspace.WorkspaceApi
+    private lateinit var referencesApi: dev.leonardo.ocbeacon.data.api.reference.ReferenceApi
+    private lateinit var attachmentApi: dev.leonardo.ocbeacon.data.api.attachment.AttachmentApi
     // #391：唯一路由 seam（私有能力端口）
     private lateinit var adapters: dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry
 
@@ -91,16 +94,32 @@ class ChatRepositoryImplTest {
         // #362：spy 包裹真实 dispatcher——播种门控用 processEvent 交互断言（对既有用例透明）
         eventDispatcher = spyk(eventDispatcher)
         every { sessionStateRepository.statusFlow } returns MutableStateFlow(emptyMap())
-        dshApiClient = mockk(relaxed = true)
         dshWorkspaceStore = DshWorkspaceStore()
-        // #391：被测类只经注册表取端口——把测试自己的 mock 端口塞进注册表
-        adapters = dev.leonardo.ocbeacon.testing.testAdapterRegistry(
+        workspaceApi = mockk(relaxed = true)
+        referencesApi = mockk(relaxed = true)
+        attachmentApi = mockk(relaxed = true)
+        // #391：被测类只经注册表取端口——把测试自己的 mock 端口塞进注册表。
+        // workspace / attachments 仅 DSH 在场（用能力位差异断言端口缺席语义）。
+        val basePorts = dev.leonardo.ocbeacon.data.adapter.ServerPorts(
             session = sessionApi,
             message = messageApi,
+            system = mockk(relaxed = true),
+            file = mockk(relaxed = true),
             provider = providerApi,
             terminal = terminalApi,
+            shell = mockk(relaxed = true),
+            references = referencesApi,
         )
-        repo = ChatRepositoryImpl(eventDispatcher, serverRepo, permissionAutoApprover, messageStore, dshApiClient, dshWorkspaceStore, adapters)
+        adapters = dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry(
+            setOf(
+                dev.leonardo.ocbeacon.testing.FakeServerAdapter(ServerType.OpenCode, basePorts),
+                dev.leonardo.ocbeacon.testing.FakeServerAdapter(
+                    ServerType.Dsh,
+                    basePorts.copy(workspace = workspaceApi, attachments = attachmentApi),
+                ),
+            )
+        )
+        repo = ChatRepositoryImpl(eventDispatcher, serverRepo, permissionAutoApprover, messageStore, dshWorkspaceStore, adapters)
     }
 
     // ============ getMessagesFlow ============
@@ -278,13 +297,53 @@ class ChatRepositoryImplTest {
     // ============ #311 Task1：DSH workspace 归档代理 ============
 
     @Test
-    fun `archiveSession proxies to dsh api and returns new archived set for dsh server`() = runTest {
+    fun `archiveSession proxies to workspace port and returns new archived set for dsh server`() = runTest {
         coEvery { serverRepo.getServer("srv-dsh") } returns ServerConfig(
             id = "srv-dsh", url = "http://dsh.local", serverType = ServerType.Dsh,
         )
-        coEvery { dshApiClient.archiveSession(any(), "s-9") } returns listOf("s-2", "s-9")
+        coEvery { workspaceApi.archiveSession(any(), "s-9") } returns listOf("s-2", "s-9")
         val result = repo.archiveSession("srv-dsh", "s-9")
         assertEquals(listOf("s-2", "s-9"), result.getOrThrow())
+    }
+
+    @Test
+    fun `mentionCandidates delegates to references port`() = runTest {
+        coEvery { serverRepo.getServer("srv-dsh") } returns ServerConfig(
+            id = "srv-dsh", url = "http://dsh.local", serverType = ServerType.Dsh,
+        )
+        coEvery { referencesApi.candidates(any(), "s1", "foo", null, false) } returns
+            listOf(MentionCandidate.FileMention("a.kt"))
+        val result = repo.mentionCandidates("srv-dsh", "s1", "foo", null, quoted = false)
+        assertEquals(listOf<MentionCandidate>(MentionCandidate.FileMention("a.kt")), result.getOrThrow())
+    }
+
+    @Test
+    fun `listSessionsIncludingBlank reads workspace port and stays empty without it`() = runTest {
+        val sessions = listOf(Session(id = "s-1", title = "t", time = Session.Time(created = 1L, updated = 1L)))
+        coEvery { serverRepo.getServer("srv-dsh") } returns ServerConfig(
+            id = "srv-dsh", url = "http://dsh.local", serverType = ServerType.Dsh,
+        )
+        coEvery { serverRepo.getServer("srv-v1") } returns ServerConfig(
+            id = "srv-v1", url = "http://v1.local",
+        )
+        coEvery { workspaceApi.listSessionsIncludingBlank(any()) } returns sessions
+        assertEquals(sessions, repo.listSessionsIncludingBlank("srv-dsh").getOrThrow())
+        assertTrue(repo.listSessionsIncludingBlank("srv-v1").getOrThrow().isEmpty())
+        coVerify(exactly = 1) { workspaceApi.listSessionsIncludingBlank(any()) }
+    }
+
+    @Test
+    fun `fetchAttachmentDataUrl stays null without the attachments port`() = runTest {
+        coEvery { serverRepo.getServer("srv-dsh") } returns ServerConfig(
+            id = "srv-dsh", url = "http://dsh.local", serverType = ServerType.Dsh,
+        )
+        coEvery { attachmentApi.readAttachment(any(), "s1", "a1") } returns ("image/png" to "AAAA")
+        assertEquals("data:image/png;base64,AAAA", repo.fetchAttachmentDataUrl("srv-dsh", "s1", "a1"))
+
+        coEvery { serverRepo.getServer("srv-v1") } returns ServerConfig(
+            id = "srv-v1", url = "http://v1.local",
+        )
+        assertNull(repo.fetchAttachmentDataUrl("srv-v1", "s1", "a1"))
     }
 
     @Test

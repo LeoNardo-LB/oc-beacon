@@ -87,6 +87,7 @@ class FakeServerAdapterResolver(
             ServerFeatures.PERMISSION_SWITCH,
             ServerFeatures.AGENT_PRESET,
             ServerFeatures.SESSION_ARCHIVE,
+            ServerFeatures.WORKSPACE,
             ServerFeatures.QUEUE,
             ServerFeatures.QUEUE_EDIT,
             ServerFeatures.QUEUE_PUSH,

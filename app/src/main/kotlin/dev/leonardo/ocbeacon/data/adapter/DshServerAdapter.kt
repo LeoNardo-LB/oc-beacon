@@ -1,17 +1,23 @@
 package dev.leonardo.ocbeacon.data.adapter
 
+import dev.leonardo.ocbeacon.data.api.attachment.AttachmentApi
 import dev.leonardo.ocbeacon.data.api.dsh.DshApiClient
 import dev.leonardo.ocbeacon.data.api.dsh.DshProtocolSource
 import dev.leonardo.ocbeacon.data.api.dsh.DshWireProtocol
 import dev.leonardo.ocbeacon.data.api.feedback.FeedbackApi
 import dev.leonardo.ocbeacon.data.api.goal.GoalApi
 import dev.leonardo.ocbeacon.data.api.queue.MessageQueueApi
+import dev.leonardo.ocbeacon.data.api.reference.ReferenceApi
 import dev.leonardo.ocbeacon.data.api.subagent.SubagentApi
+import dev.leonardo.ocbeacon.data.api.workspace.WorkspaceApi
+import dev.leonardo.ocbeacon.data.adapter.dsh.DshAttachmentPort
 import dev.leonardo.ocbeacon.data.adapter.dsh.DshFeedbackPort
 import dev.leonardo.ocbeacon.data.adapter.dsh.DshGoalPort
 import dev.leonardo.ocbeacon.data.adapter.dsh.DshQueuePort
 import dev.leonardo.ocbeacon.data.adapter.dsh.DshConnectionStrategy
+import dev.leonardo.ocbeacon.data.adapter.dsh.DshReferencePort
 import dev.leonardo.ocbeacon.data.adapter.dsh.DshSubagentPort
+import dev.leonardo.ocbeacon.data.adapter.dsh.DshWorkspacePort
 import dev.leonardo.ocbeacon.data.repository.ServerSettingsRepositoryImpl
 import dev.leonardo.ocbeacon.domain.repository.ServerSettingsRepository
 import dev.leonardo.ocbeacon.domain.model.CoreFlags
@@ -43,6 +49,11 @@ class DshServerAdapter @Inject constructor(
     private val goals: GoalApi = DshGoalPort(dsh)
     private val feedback: FeedbackApi = DshFeedbackPort(dsh)
     private val queue: MessageQueueApi = DshQueuePort(dsh)
+    // 工作区域与引用候选：仓库层原先按类型分派的两处语义，改经端口挂载
+    private val workspace: WorkspaceApi = DshWorkspacePort(dsh)
+    private val references: ReferenceApi = DshReferencePort(dsh)
+    // 附件字节：原仓库层直连 DshApiClient 的最后一处，改经端口挂载
+    private val attachments: AttachmentApi = DshAttachmentPort(dsh)
     // 服务器设置端口：实现与 Hilt 单例同源同构（无状态薄委托），由适配器持有其端口身份
     private val serverSettings: ServerSettingsRepository = ServerSettingsRepositoryImpl(dsh)
 
@@ -72,6 +83,9 @@ class DshServerAdapter @Inject constructor(
         feedback = feedback,
         queue = queue,
         serverSettings = serverSettings,
+        workspace = workspace,
+        references = references,
+        attachments = attachments,
     )
 
     override fun coreFlags(conn: ServerConnection): CoreFlags = CoreFlags(
@@ -87,20 +101,20 @@ class DshServerAdapter @Inject constructor(
     )
 
     /**
-     * 非端口派生的能力声明（DSH 域动词）：命令、目标、反馈、权限档、Agent 预设、
-     * 归档、排队与排队编辑。终端 / shell 不在此声明——那两者由端口缺席表达。
-     */
-    /**
      * 界面插槽声明（#391 切片5）：DSH 在提供商设置槽位有内容（自定义 provider 目录）。
      * 纯声明，不含界面代码；通用屏幕按该声明 + 能力位渲染。
      */
     override val uiSlots: Set<ServerUiSlot> = setOf(ServerUiSlot.PROVIDER_SETTINGS)
 
+    /**
+     * 非端口派生的能力声明（DSH 域动词）：命令、目标、反馈、权限档、Agent 预设、
+     * 排队与排队编辑。终端 / shell / 工作区 / 归档不在此声明——由端口缺席表达。
+     */
     override fun privateFeatures(conn: ServerConnection): Set<ServerFeature> = buildSet {
         add(ServerFeatures.COMMANDS)
         add(ServerFeatures.PERMISSION_SWITCH)
         add(ServerFeatures.AGENT_PRESET)
-        add(ServerFeatures.SESSION_ARCHIVE)
+        // SESSION_ARCHIVE / WORKSPACE 不在此声明——由 workspace 端口在场派生
         // 排队可编辑是端口内子能力（端口在场之外的部分支持）
         add(ServerFeatures.QUEUE_EDIT)
         // 队列由 session/queue 控制帧推送（对比 V2 inbox 的客户端拉取）

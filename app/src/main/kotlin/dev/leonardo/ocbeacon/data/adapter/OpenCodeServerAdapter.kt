@@ -1,7 +1,9 @@
 package dev.leonardo.ocbeacon.data.adapter
 
+import dev.leonardo.ocbeacon.data.api.reference.ReferenceApi
 import dev.leonardo.ocbeacon.data.api.v1.V1ApiClient
 import dev.leonardo.ocbeacon.data.api.v2.V2ApiClient
+import dev.leonardo.ocbeacon.data.adapter.opencode.OpenCodeReferencePort
 import dev.leonardo.ocbeacon.domain.model.ApiVersion
 import dev.leonardo.ocbeacon.domain.model.CoreFlags
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
@@ -27,6 +29,10 @@ class OpenCodeServerAdapter @Inject constructor(
 
     override val connectionStrategy: ConnectionStrategy = OpenCodeConnectionStrategy()
 
+    // 引用候选端口按代持有（v1/v2 文件域），避免每次 ports() 重新分配
+    private val v1References: ReferenceApi = OpenCodeReferencePort(v1)
+    private val v2References: ReferenceApi = OpenCodeReferencePort(v2)
+
     override fun wireGeneration(conn: ServerConnection): String =
         if (conn.apiVersion.isV2) WIRE_V2 else WIRE_V1
 
@@ -37,12 +43,14 @@ class OpenCodeServerAdapter @Inject constructor(
                 file = v2, provider = v2, terminal = v2, shell = v2,
                 // V2 有 inbox 域（移除 / 插话；无编辑动词）
                 queue = v2,
+                references = v2References,
             )
         } else {
             // V1 / UNKNOWN / null：UNKNOWN 与 null 维持 V1 行为（#132 语义）
             ServerPorts(
                 session = v1, message = v1, system = v1,
                 file = v1, provider = v1, terminal = v1, shell = v1,
+                references = v1References,
             )
         }
 

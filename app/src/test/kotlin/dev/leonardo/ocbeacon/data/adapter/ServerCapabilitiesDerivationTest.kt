@@ -57,6 +57,7 @@ class ServerCapabilitiesDerivationTest {
         assertFalse(has(caps, ServerFeatures.GOALS))
         assertFalse(has(caps, ServerFeatures.FEEDBACK))
         assertFalse(has(caps, ServerFeatures.SESSION_ARCHIVE))
+        assertFalse(has(caps, ServerFeatures.WORKSPACE))
         // 端口在场性决定私有能力（四类新端口 + 设置特权面仅 DSH 挂载）
         assertFalse(has(caps, ServerFeatures.SUBAGENTS))
         assertFalse(has(caps, ServerFeatures.SERVER_SETTINGS))
@@ -103,6 +104,7 @@ class ServerCapabilitiesDerivationTest {
         assertTrue(has(c, ServerFeatures.PERMISSION_SWITCH))
         assertTrue(has(c, ServerFeatures.AGENT_PRESET))
         assertTrue(has(c, ServerFeatures.SESSION_ARCHIVE))
+        assertTrue(has(c, ServerFeatures.WORKSPACE))
         assertTrue(has(c, ServerFeatures.QUEUE))
         assertTrue(has(c, ServerFeatures.QUEUE_EDIT))
         assertTrue(has(c, ServerFeatures.SUBAGENTS))

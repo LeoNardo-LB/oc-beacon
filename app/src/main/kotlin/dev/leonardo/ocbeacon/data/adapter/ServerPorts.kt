@@ -1,17 +1,20 @@
 package dev.leonardo.ocbeacon.data.adapter
 
+import dev.leonardo.ocbeacon.data.api.attachment.AttachmentApi
 import dev.leonardo.ocbeacon.data.api.feedback.FeedbackApi
 import dev.leonardo.ocbeacon.data.api.file.FileApi
 import dev.leonardo.ocbeacon.data.api.goal.GoalApi
 import dev.leonardo.ocbeacon.data.api.message.MessageApi
 import dev.leonardo.ocbeacon.data.api.provider.ProviderApi
 import dev.leonardo.ocbeacon.data.api.queue.MessageQueueApi
+import dev.leonardo.ocbeacon.data.api.reference.ReferenceApi
 import dev.leonardo.ocbeacon.data.api.subagent.SubagentApi
 import dev.leonardo.ocbeacon.data.api.session.SessionApi
 import dev.leonardo.ocbeacon.data.api.shell.ShellApi
 import dev.leonardo.ocbeacon.data.api.system.SystemApi
 import dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability
 import dev.leonardo.ocbeacon.data.api.terminal.TerminalApi
+import dev.leonardo.ocbeacon.data.api.workspace.WorkspaceApi
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.repository.ServerSettingsRepository
 import dev.leonardo.ocbeacon.domain.model.ServerFeature
@@ -42,6 +45,12 @@ data class ServerPorts(
     val feedback: FeedbackApi? = null,
     val queue: MessageQueueApi? = null,
     val serverSettings: ServerSettingsRepository? = null,
+    /** 工作区语义（归档 + 含 blank 全量列表）；缺席 = 无工作区连接语义。 */
+    val workspace: WorkspaceApi? = null,
+    /** @ 引用候选解析；缺席 = 无引用候选能力。 */
+    val references: ReferenceApi? = null,
+    /** 附件字节拉取；缺席 = 无附件能力（调用方按 null 降级）。 */
+    val attachments: AttachmentApi? = null,
 ) {
 
     /** 端口在场 => 对应通用能力。 */
@@ -58,6 +67,11 @@ data class ServerPorts(
         feedback?.let { add(ServerFeatures.FEEDBACK) }
         queue?.let { add(ServerFeatures.QUEUE) }
         serverSettings?.let { add(ServerFeatures.SERVER_SETTINGS) }
+        // 工作区域端口在场即派生出两条语义能力：工作区投影与归档写操作
+        workspace?.let {
+            add(ServerFeatures.WORKSPACE)
+            add(ServerFeatures.SESSION_ARCHIVE)
+        }
     }
 
     // ---- 可选端口取值：缺席即显式失败（读空 / 写抛的统一入口） ----------------
@@ -73,4 +87,10 @@ data class ServerPorts(
 
     fun requireShell(conn: ServerConnection): ShellApi =
         shell ?: throw UnsupportedServerCapability("shell", conn.serverType.name)
+
+    fun requireWorkspace(conn: ServerConnection): WorkspaceApi =
+        workspace ?: throw UnsupportedServerCapability("workspace", conn.serverType.name)
+
+    fun requireReferences(conn: ServerConnection): ReferenceApi =
+        references ?: throw UnsupportedServerCapability("references", conn.serverType.name)
 }
