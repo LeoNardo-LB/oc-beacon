@@ -78,6 +78,8 @@
   - 剩余：ChatMessageList 的私有 DshJobTimelineCard、SessionListScreen 的 DshTokenDialog、SessionListViewModel 的 DshTokenExchangeState（需 token 对话框+交换状态下沉到 DSH 扩展）；86 文件标准间距存量迁移；声明式条目动作注册表。
   - 进度：DSH token 录入状态已下沉 DshTokenEntryViewModel（ServerTypeUiBoundary 豁免 6→1，仅余 ChatMessageList 私有 DshJobTimelineCard——需新增消息列表插槽，见本卡）。
   - 剩余：86 文件标准间距存量迁移（SpacingTokenBypass baseline）；声明式条目动作注册表。
+  - 进度：86 文件标准间距迁移完成，SpacingTokenBypass baseline 清零。
+  - 剩余：ServerTypeUiBoundary 最后 1 条（ChatMessageList 的 DshJobTimelineCard，需新增消息列表插槽）；声明式条目动作注册表。
 
 - [ ] **#398 V3 新事件族渲染（切片7 P1）+ 按代事件词汇表** `dsh` `arch`
   - 现状：#391 两轴评审确认 V3 五类新事件（system/message、assistant/attempt、feedback/message-put|delete、subagent/catalog、deliverables/presented）仅 Ignored(SESSION_FORMAT_V3) 降级不渲染；事件映射仍是单体 when + protocolOf==V012 硬判。
@@ -110,6 +112,7 @@
   - 第三条规则 TokenBypass 已落（色值字面量 + 动画时长 tween/durationMillis，排除 theme 与分类调色板）；唯一存量 CopyButton 已真实改用 AppMotion 令牌（新增 FAST=100），未入 baseline。spec 四条静态强制仅剩「dp 间距」因 ui-conventions 允许多为约定内写法，另立迁移批次。
   - 第四条规则 SpacingTokenBypass 已落（padding/spacedBy/PaddingValues 的标准间距值 4/8/12/16/24/32.dp），86 处存量入 baseline。至此 spec 四条静态强制全部落地。
   - 剩余：86 文件间距存量迁移 + 6 处类型私有 UI 迁移（见 #399）。
+  - SpacingTokenBypass 存量已清零：86 文件标准间距机械迁移到 SpacingTokens（逐值等价），baseline 减 602 行。四条静态规则全部零存量（boundary 仅余 1 条消息列表私有卡）。
 
 - [ ] **#395 立即发送（steer）上屏消息缺标识徽标——chat_queued 徽章链整撤连带丢失** `queue`
   - 用户裁决（2026-09-10）：排队不上屏 ✓ + 立刻发送（steer）上屏 ✓，但 steer 消息上屏后无任何徽标标识是有问题的——需恢复徽标（建议 steer 专属文案如「插话/注入中」而非「排队中」，文案待用户裁决；i18n ×15 + MessageCardUser 两变体渲染点）。注意 steer 无 wire 侧标记——识别依赖发送路径（steer=true 时 seedTranscript 播种），徽章状态需随消息携带或按 rpcId 关联。

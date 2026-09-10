@@ -368,3 +368,12 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 
 **验证**：主/单测/androidTest 编译 + 全量单测 + lintDevDebug（no new issues）+ lintDevRelease（BUILD SUCCESSFUL）。
 
+
+## 切片 9（步骤 11）：标准间距迁移 SpacingTokens（86 文件）
+
+- 机械迁移：对 padding / spacedBy / PaddingValues 实参中的 SpacingTokens 标准值（4/8/12/16/24/32）逐值替换为 SpacingTokens.XS/SM/MD/LG/XL/XXL.dp；74 个文件补 import；86 文件 210 行改动，逐值等价（零行为变化）。
+- 结果：SpacingTokenBypass 首跑 86 条 baseline 全部清零（lint "no new issues"，filtered errors 89→1）；baseline 减 602 行。
+- 复核：抽样 diff（ConfirmDialog 24.dp→XL、StorageSection 4.dp→XS）逐值正确；主/单测/androidTest 编译 + 全量单测 + lintDevDebug/lintDevRelease 全绿。
+
+**ServerTypeUiBoundary 仅余 1 条**：ChatMessageList 的私有 DshJobTimelineCard——移出需给消息列表新增插槽（通用内容经插槽贡献 DSH 卡），属界面插槽扩展批次。
+
