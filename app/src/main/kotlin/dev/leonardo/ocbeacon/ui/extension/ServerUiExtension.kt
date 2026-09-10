@@ -48,8 +48,7 @@ class ProviderSettingsSlotHost(
 /** 服务器设置槽位宿主（#391 切片9）：无额外上下文，贡献方经 hiltViewModel 读取同作用域 VM。 */
 class ServerSettingsSlotHost : ServerUiSlotHost
 
-/** 会话列表头部槽位宿主（#391 切片9）：断连上下文 + 凭据输入出路回调。 */
+/** 会话列表头部槽位宿主（#391 切片9）：通用横幅回退所需的凭据待输入态。 */
 class SessionListHeaderSlotHost(
     val tokenNeeded: Boolean,
-    val onEnterToken: () -> Unit,
 ) : ServerUiSlotHost

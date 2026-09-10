@@ -70,7 +70,6 @@ import dev.leonardo.ocbeacon.domain.model.AgentPreset
 import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import dev.leonardo.ocbeacon.domain.model.ServerUiSlot
 import dev.leonardo.ocbeacon.service.ServerLinkState
-import dev.leonardo.ocbeacon.ui.components.dsh.DshTokenDialog
 import dev.leonardo.ocbeacon.ui.components.ServerLinkBanner
 import dev.leonardo.ocbeacon.ui.extension.LocalServerUiSlots
 import dev.leonardo.ocbeacon.ui.extension.SessionListHeaderSlotHost
@@ -124,9 +123,6 @@ var showMoreMenu by remember { mutableStateOf(false) }
     var deleteSessionTitle by remember { mutableStateOf("") }
     var showOpenProject by remember { mutableStateOf(false) }
     var showQuickNewSession by remember { mutableStateOf(false) }
-    // #317：DSH 0.1.2 token 输入（TokenNeeded 横幅入口）
-    var showDshTokenDialog by remember { mutableStateOf(false) }
-    var dshTokenExchangePending by remember { mutableStateOf(false) }
 
     // 会话分类选择器状态
     var showCategoryPicker by remember { mutableStateOf(false) }
@@ -197,7 +193,7 @@ viewModel.consumePendingReadSessionId()
                 // #267：断连常驻细条幅（恢复自动消失）
                 val serverLinkState by viewModel.serverLinkState.collectAsStateWithLifecycle()
                 // #317：token 待输入优先于一般断连横幅（给出路而非干等重连）
-                val dshTokenNeeded by viewModel.dshTokenNeeded.collectAsStateWithLifecycle()
+                val authTokenNeeded by viewModel.authTokenNeeded.collectAsStateWithLifecycle()
                 if (serverLinkState != ServerLinkState.Connected) {
                     // #391 切片9：类型私有横幅经 SESSION_LIST_HEADER 插槽渲染——通用屏幕只
                     // 提供断连上下文与出路回调；两级门禁：适配器声明先决 + 贡献方能力过滤。
@@ -205,13 +201,10 @@ viewModel.consumePendingReadSessionId()
                         LocalServerUiSlots.current.Render(
                             slot = ServerUiSlot.SESSION_LIST_HEADER,
                             caps = viewModel.serverCapabilities.collectAsStateWithLifecycle().value,
-                            host = SessionListHeaderSlotHost(
-                                tokenNeeded = dshTokenNeeded,
-                                onEnterToken = { showDshTokenDialog = true },
-                            ),
+                            host = SessionListHeaderSlotHost(tokenNeeded = authTokenNeeded),
                         )
                     }
-                    if (!dshTokenNeeded) ServerLinkBanner()
+                    if (!authTokenNeeded) ServerLinkBanner()
                 }
                 TopAppBar(
                 title = {
@@ -648,30 +641,6 @@ viewModel.consumePendingReadSessionId()
         }
     }
 
-    // #317：DSH 0.1.2 token 输入对话框（交换成功自动关闭；被拒留窗示错）
-    val dshTokenExchange by viewModel.dshTokenExchange.collectAsStateWithLifecycle()
-    LaunchedEffect(dshTokenExchange) {
-        when (dshTokenExchange) {
-            SessionListViewModel.DshTokenExchangeState.Exchanging -> dshTokenExchangePending = true
-            SessionListViewModel.DshTokenExchangeState.Idle ->
-                if (dshTokenExchangePending) {
-                    dshTokenExchangePending = false
-                    showDshTokenDialog = false
-                }
-            SessionListViewModel.DshTokenExchangeState.Rejected -> Unit
-        }
-    }
-    if (showDshTokenDialog) {
-        DshTokenDialog(
-            exchanging = dshTokenExchange == SessionListViewModel.DshTokenExchangeState.Exchanging,
-            rejected = dshTokenExchange == SessionListViewModel.DshTokenExchangeState.Rejected,
-            onSubmit = viewModel::submitDshToken,
-            onDismiss = {
-                viewModel.dismissDshTokenDialog()
-                showDshTokenDialog = false
-            },
-        )
-    }
     // #324②：preset 管理三对话框（组成查看/复制/删除确认）
     val agentPresetDoc by viewModel.agentPresetDocument.collectAsStateWithLifecycle()
     if (pendingViewPreset != null) {

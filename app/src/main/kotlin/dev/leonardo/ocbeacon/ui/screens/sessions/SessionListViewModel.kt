@@ -113,8 +113,6 @@ class SessionListViewModel @Inject constructor(
     private val historySyncManager: dev.leonardo.ocbeacon.data.repository.HistorySyncManager,
     // #267：连接三态真源（断连条幅 + 删除/重命名快速失败守卫）
     private val sseConnectionManager: dev.leonardo.ocbeacon.service.SseConnectionManager,
-    // #317：DSH 0.1.2 token 交换（TokenNeeded UX；直依赖先例同 unreadBadgeService）
-    private val dshConnectionRegistry: dev.leonardo.ocbeacon.data.api.dsh.DshConnectionRegistry,
     /** #391：能力位唯一来源（适配器解析器）；UI 不接触服务器类型。 */
     private val serverAdapters: ServerAdapterResolver,
 ) : ViewModel() {
@@ -150,47 +148,13 @@ class SessionListViewModel @Inject constructor(
         return true
     }
 
-    // ============ #317 DSH 0.1.2 TokenNeeded UX ============
+    // ============ #317 DSH 0.1.2 TokenNeeded UX（交换状态/对话框已下沉 DshTokenEntryViewModel） ============
 
-    /** 本服务器是否等待 token 输入（横幅消费；探测双形态 401 时置位）。 */
-    val dshTokenNeeded: kotlinx.coroutines.flow.StateFlow<Boolean> =
+    /** 本服务器是否等待凭据输入（通用断连条幅回退依据；探测双形态 401 时置位）。 */
+    val authTokenNeeded: kotlinx.coroutines.flow.StateFlow<Boolean> =
         sseConnectionManager.dshTokenNeededServers
             .map { needed -> serverId in needed }
             .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000), false)
-
-    /** token 交换结果态（对话框消费；Idle=初始或成功——成功即连接循环自动续行）。 */
-    sealed interface DshTokenExchangeState {
-        data object Idle : DshTokenExchangeState
-        data object Exchanging : DshTokenExchangeState
-        data object Rejected : DshTokenExchangeState
-    }
-
-    private val _dshTokenExchange = MutableStateFlow<DshTokenExchangeState>(DshTokenExchangeState.Idle)
-    val dshTokenExchange: StateFlow<DshTokenExchangeState> = _dshTokenExchange.asStateFlow()
-
-    /** 用户提交粘贴内容（URL/启动行/裸 token 三形态）→ 解析 → 交换。 */
-    fun submitDshToken(raw: String) {
-        val token = dev.leonardo.ocbeacon.data.api.dsh.extractDshToken(raw)
-        if (token == null) {
-            _dshTokenExchange.value = DshTokenExchangeState.Rejected
-            return
-        }
-        val base = _mcpConn?.baseUrl?.takeIf { it.isNotBlank() } ?: run {
-            _dshTokenExchange.value = DshTokenExchangeState.Rejected
-            return
-        }
-        _dshTokenExchange.value = DshTokenExchangeState.Exchanging
-        viewModelScope.launch {
-            val ok = dshConnectionRegistry.exchangeToken(base, token)
-            _dshTokenExchange.value = if (ok) DshTokenExchangeState.Idle else DshTokenExchangeState.Rejected
-            // ok=true：cookie 入注册表 → 连接循环 awaitCookie 恢复（自动续行，无需手动重连）
-        }
-    }
-
-    /** 关闭对话框重置错误态（再次打开不携带上轮拒绝）。 */
-    fun dismissDshTokenDialog() {
-        _dshTokenExchange.value = DshTokenExchangeState.Idle
-    }
 
     // ============ 服务器配置异步加载（backlog #38：消除构造期主线程 runBlocking） ============
     private val _serverName = MutableStateFlow("")

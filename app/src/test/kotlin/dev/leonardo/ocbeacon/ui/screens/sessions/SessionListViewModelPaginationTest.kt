@@ -177,7 +177,6 @@ class SessionListViewModelPaginationTest {
             pendingInteractionStore = io.mockk.mockk<dev.leonardo.ocbeacon.data.repository.PendingInteractionStore> {
                 io.mockk.every { pendingBySession } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap<String, dev.leonardo.ocbeacon.data.repository.PendingInteractionEntry>())
             },
-            dshConnectionRegistry = io.mockk.mockk(relaxed = true),
         )
     }
 }

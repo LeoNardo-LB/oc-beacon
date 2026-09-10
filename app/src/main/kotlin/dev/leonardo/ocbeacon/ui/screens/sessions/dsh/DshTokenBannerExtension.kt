@@ -1,9 +1,17 @@
 package dev.leonardo.ocbeacon.ui.screens.sessions.dsh
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.leonardo.ocbeacon.domain.model.ServerCapabilities
 import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import dev.leonardo.ocbeacon.domain.model.ServerUiSlot
+import dev.leonardo.ocbeacon.ui.components.dsh.DshTokenDialog
 import dev.leonardo.ocbeacon.ui.components.dsh.DshTokenNeededBanner
 import dev.leonardo.ocbeacon.ui.extension.SessionListHeaderSlotHost
 import dev.leonardo.ocbeacon.ui.extension.ServerUiExtension
@@ -12,10 +20,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * DSH token 待输入横幅（#391 切片9 迁移自 SessionListScreen 的 dshTokenNeeded 硬嵌分支）。
+ * DSH token 待输入横幅 + 凭据录入对话框（#391 切片9）。
  *
- * 挂载：SESSION_LIST_HEADER 槽位；是否出现只读宿主的 tokenNeeded（DSH 传输层状态），
- * 通用屏幕不再认识具体横幅实现。凭据输入出路由宿主回调。
+ * 挂载：SESSION_LIST_HEADER 槽位；DSH 私有状态（待输入 / 交换结果）由同作用域的
+ * [DshTokenEntryViewModel] 承载，通用屏幕不再持有 token 交换状态或对话框。
  */
 @Singleton
 class DshTokenBannerExtension @Inject constructor() : ServerUiExtension {
@@ -33,8 +41,38 @@ class DshTokenBannerExtension @Inject constructor() : ServerUiExtension {
         require(host is SessionListHeaderSlotHost) {
             "SESSION_LIST_HEADER 槽位收到不匹配的宿主: " + host::class.simpleName
         }
-        if (host.tokenNeeded) {
-            DshTokenNeededBanner(onEnterToken = host.onEnterToken)
+        val viewModel: DshTokenEntryViewModel = hiltViewModel()
+        val tokenNeeded by viewModel.tokenNeeded.collectAsStateWithLifecycle()
+        val exchange by viewModel.exchange.collectAsStateWithLifecycle()
+
+        var showDialog by remember { mutableStateOf(false) }
+        var exchangePending by remember { mutableStateOf(false) }
+        // 交换成功（Exchanging → Idle）自动关窗；Rejected 留窗示错（原 SessionListScreen 语义）
+        LaunchedEffect(exchange) {
+            when (exchange) {
+                DshTokenEntryViewModel.ExchangeState.Exchanging -> exchangePending = true
+                DshTokenEntryViewModel.ExchangeState.Idle ->
+                    if (exchangePending) {
+                        exchangePending = false
+                        showDialog = false
+                    }
+                DshTokenEntryViewModel.ExchangeState.Rejected -> Unit
+            }
+        }
+
+        if (tokenNeeded) {
+            DshTokenNeededBanner(onEnterToken = { showDialog = true })
+        }
+        if (showDialog) {
+            DshTokenDialog(
+                exchanging = exchange == DshTokenEntryViewModel.ExchangeState.Exchanging,
+                rejected = exchange == DshTokenEntryViewModel.ExchangeState.Rejected,
+                onSubmit = viewModel::submit,
+                onDismiss = {
+                    viewModel.dismiss()
+                    showDialog = false
+                },
+            )
         }
     }
 }
