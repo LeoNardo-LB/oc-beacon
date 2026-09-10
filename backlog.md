@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#386**（2026-09-10 #385 上下文注入精简卡片化）。
+**编号**：全局递增，不回收。下一编号：**#390**（2026-09-10 #389 压缩卡容器改用思考卡样式（弃分割线形态））。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。
 
@@ -101,18 +101,15 @@
 
 
 （#349 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
+（#384 已完结迁 journal：2026-09-10-384-385.md（2026-09-10））
+（#385 已完结迁 journal：2026-09-10-384-385.md（2026-09-10））
+（#386 已完结迁 journal：2026-09-10-384-385.md（2026-09-10））
 
-- [ ] **#385 上下文注入以大段原文渲染——压缩摘要/系统提醒应参考 DSH Web 精简卡片化（演示①用户裁决）** `ui` `dsh` `command` `design`
-  - 演示①观察：压缩完成后转录中摘要+保留上下文（available_skills 技能目录全文、system-reminder 标签原文）以大块文本墙呈现（约一屏半），其下才接模型回复——信息噪音大、难扫读
-  - 用户指令：「参考 dsh web，做成精简卡片的形式，而不是用一大段话来注入」——DSH Web 对 compacted-summary/system-reminder=紧凑引用块（默认折叠、可展开）
-  - 设计面：注入类内容（压缩摘要/system-reminder/技能目录）精简卡片——标题+摘要行+按需展开；正文不默认铺开
-  - 实现注意：先钉实体来源（该文本墙是 CompactionTranscriptCard 展开态还是消息面原始 text part 渲染）再定挂点；与 #384 同域同批修
+- [ ] **#389 压缩卡容器改用思考卡样式（弃分割线形态）** `chat` `ui` `compaction`
+  - 2026-09-10 节点①验收裁决：单卡功能过，但进行中/展开样式丑。用户定案：弃用左右分割线形态，以思考卡片为容器改文案复用——进行中态（圈进度条+『正在压缩上下文…』）与完成态（『上下文已压缩』+可展开摘要体+Compacted 结果行）同容器。实现方向：抽取思考卡视觉为共享组件（现thinking为消息内嵌），压缩转录卡换容器，勿复制样式代码。涉及 CompactionTranscriptCard + ThinkingCard 提取；#384 吸收语义不动
 
-- [ ] **#384 DSH /compact 双卡并存——命令卡与压缩 box 同屏两张，违背 #374/#378 单卡承载裁决（演示①用户裁决）** `dsh` `ui` `command` `bug`
-  - 演示①实况（2026-09-10 05:2X）：进行中相位=/compact 执行中...命令卡+会话压缩 压缩中...box 两张；完成相位=/compact 已完成命令卡+摘要实体仍两个
-  - 根因方向：#378 Phase C 回收 tailSpec suppressByLiveCompactCommand 让位参数后，CommandFeedback（command/run|done 折叠）与 CompactionEntry（compaction/* 折叠）两族无互斥/吸收规则
-  - 裁决链：#374「压缩应在同一张卡片里完成所有动作」→#375/#378「流内 box 全程承载」；终态应为 /compact 期间仅 box 一张（状态标签承载执行中/已完成），命令卡让位或并入
-  - 证据：/tmp/acc1_inprogress.png、/tmp/acc1_done.png（vision 双帧确认）；头部徽标「2」待解（一次 /compact 后显示 2——修复分析时用服务器真值钉死）
+- [ ] **#387 V2注入刷新消息渲染为用户气泡文字墙** `chat` `ui` `v2`
+  - skill-catalog/上下文刷新类注入（<system-reminder>包裹、无source.kind标记）按普通用户气泡整文渲染，[Ack] 3 会话顶部现存活例（VLM 09-41 复核：calculator 全文蓝色气泡墙，而同位插件配置已是收起小卡）。初判服务端对此类刷新不带 kind，mapper 按普通 user 落库。根因方向：对齐 dsh web 对 system-reminder 注入的识别与收起呈现（内容嗅探或等价机制），修在映射/渲染层单点。证据：/tmp/n2_acklink_top.png n2_ackthree_top.png；演示批 journal 待补
 
 ## P3 — 观察与低价值改进
 
@@ -129,6 +126,9 @@
 （#336 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
 （#339 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
 （#340 已完结迁 journal：2026-09-09-delegated-acceptance.md（2026-09-10））
+
+- [ ] **#388 V2服务端注入推送条件不明：今日新会话零注入** `chat` `v2` `server`
+  - 同一服务进程（4199，9-7 22:17 起未重启）下：05-40 前后的 ack 会话有插件配置/工作区指令注入，09-14 后新建会话（leo-tkp 与 oc-beacon 工作区各一，含首轮 hi/1+1 提问）零注入事件（InjCard 全程 kind=null，转录顶无卡）。注入到底何时推送（每工作区一次性？目录变更才推？）未定；需以服务端历史 API 与 dsh web 同会话对照定责（服务端没推 vs 客户端漏收）。定责前不动客户端。证据：/tmp/n1_*.png n2_top_injections.png InjCard logcat
 
 - [ ] **#345 adb 注入 tap 间歇丢弃观察——MIUI 平台行为定性(非 app 缺陷),真手指未复现即不处理** `env` `device`
   - 定性修正(2026-09-07 二查):原「两案全灭」重析后——**第二案翻案**:Doubang 输入法为浅色主题,screencap 下半屏与 app surface 同色族 (247,250,253),误判「无 IME」后 tap 实际全打在键盘上;7 节点 dump=输入法安全窗致盲(平台正常)。第一案(t4401 克隆任务后 composer 聚焦 tap 无响应)仍疑似 MIUI 注入丢弃家族(同 E4② shade 组卡先例);两案中键事件/焦点全程有效(`dumpsys input_method` mServedView 在场实证),app 侧无缺陷证据
