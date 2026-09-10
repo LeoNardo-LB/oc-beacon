@@ -342,3 +342,16 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 3. 硬编码色值 / 动画时长 → `TokenBypass`（CopyButton 真实改用 AppMotion，0 存量）；
 4. 硬编码标准间距 → `SpacingTokenBypass`（86 处存量 baseline，迁移批次 #399）。
 
+
+## 切片 9（步骤 9）：DSH 私有界面迁入类型私有包（ServerTypeUiBoundary 豁免 6→3）
+
+- 文件移动（git mv，内容零改动 + 包声明/import 更新）：
+  - ui/components/DshTokenNeededBanner.kt → ui/components/dsh/（banner + token dialog 同文件）
+  - ui/screens/server/DshCustomProvidersSection.kt → ui/screens/server/providers/dsh/
+  - ui/screens/sessions/components/DshServerAdminSections.kt → ui/screens/sessions/dsh/（补 SettingsSectionHeader/SettingsListRow import）
+- 引用更新：DshTokenBannerExtension、DshProviderDirectoryExtension、DshServerAdminExtension（同包去 import）、SessionListScreen（DshTokenDialog 新路径）、androidTest DshCustomProvidersSectionLayoutTest（补 import）。
+- baseline：ServerTypeUiBoundary 由 6 条降为 3 条（三条迁包后自然合法），lintDevDebug/release 均绿。
+- 余 3 处（#399）：ChatMessageList 私有 DshJobTimelineCard、SessionListScreen 的 DshTokenDialog 使用、SessionListViewModel 的 DshTokenExchangeState——需把 token 输入对话框与交换状态整体下沉到 DSH 扩展，属界面迁移批次。
+
+**验证**：主/单测/androidTest 编译 + lintDevDebug（no new issues）+ lintDevRelease（BUILD SUCCESSFUL）+ 全量单测 BUILD SUCCESSFUL。
+
