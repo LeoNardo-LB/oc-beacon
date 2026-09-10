@@ -103,3 +103,20 @@
 **残留（归切片9 或后续）**
 - 其余 DSH 私有 UI 未迁移：SessionListScreen 的 DshTokenNeededBanner 手工 if 链（SESSION_LIST_HEADER 槽位）、ServerSettingsContent 的 DshServerConfigSection / DshPluginInventorySection（SERVER_SETTINGS 槽位）。
 - 条目级动作贡献（FAB 工具栏等）属切片9 的统一贡献注册表（区域插槽 + 条目动作）。
+
+## 切片 6：连接策略抽取（SSE / 多路复用）+ 服务层去类型化
+
+**落地**
+- 契约 data/adapter/ConnectionStrategy.kt：WireKind（SSE/MUX）、ConnectionStatus（ONLINE/AUTH_REQUIRED/UNREACHABLE）、Handshake（世代 + 鉴权态 + degraded + detail）、ConnectionStrategy（wireKind + 一次握手 probe）。边界铁律：不触碰平台服务生命周期（前台服务/通知/Activity）。
+- 实现：OpenCodeConnectionStrategy（SSE；握手为已持久化探测结果的纯投影——ApiVersionDetector 双探在健康检查阶段完成；UNKNOWN 回落 V1 基线并标记 degraded）、DshConnectionStrategy（MUX；双形态探测判别三态，未探测保守 V011 + degraded）。
+- DshProtocolSource 增 ensureProbed（带默认实现：只读/测试替身无需探测能力即可满足契约）；DshProtocolSourceAdapter 转发注册表。
+- ServerAdapter 增 connectionStrategy；OpenCode 适配器内部构造（无依赖），DSH 适配器用既有 protocolSource 构造 → 测试构造点零改动；注册表增 connectionStrategy(conn)。
+- SseConnectionManager：删除最后一处 conn.serverType == Dsh 分支，改 strategy.wireKind == MUX；DSH 握手改经 strategy.probe(conn)（三态 → Handshake）。服务层不再 import ServerType。
+
+**验证**
+- 新增 ConnectionStrategyTest（OpenCode V1/V2/UNKNOWN 映射与降级；DSH 三态映射与 degraded；注册表按连接返回策略）。
+- 定向测试绿；:app:testDevDebugUnitTest 全量 BUILD SUCCESSFUL；:app:compileDevDebugAndroidTestKotlin BUILD SUCCESSFUL。
+- 服务层 serverType 引用归零（仅剩历史注释）。
+
+**残留（如实登记）**
+- “监督层变薄”完成的是传输分支与握手收编；前台服务/通知/生命周期仍由 OpenCodeConnectionService 直接驱动，未抽成"从回调驱动"的薄层——留待后续收敛。

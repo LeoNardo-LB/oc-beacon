@@ -12,7 +12,6 @@ import dev.leonardo.ocbeacon.data.api.dsh.DshRpcHistorySource
 import dev.leonardo.ocbeacon.data.api.dsh.DshSessionSeqTracker
 import dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
-import dev.leonardo.ocbeacon.domain.model.ServerType
 import dev.leonardo.ocbeacon.data.repository.EventDispatcher
 import dev.leonardo.ocbeacon.data.repository.SessionStateService
 import dev.leonardo.ocbeacon.domain.model.Project
@@ -221,7 +220,7 @@ class SseConnectionManager @Inject constructor(
         server: ServerConfig,
         onEvent: (ServerConfig, SseEvent) -> Unit
     ): Job {
-        // #276：from(config) 单点（serverType 沿传——DSH 三分路由 + 传输分支依据）
+        // #276/#391：from(config) 单点（类型与世代沿传；传输分支由连接策略的 wireKind 决定）
         val conn = ServerConnection.from(server)
         val previous = connections[server.id]
         val job: Job = if (previous != null && previous.sseJob.isActive) {
@@ -462,12 +461,14 @@ class SseConnectionManager @Inject constructor(
                 // 预加载（session.list 基线）与 SSE 路径共用；断连补漏不走
                 // recoverMessages（REST 全量重拉）而走 DSH reconciler（subscribed
                 // 基线 → seq 缺口 → session.history 精确回填，§1.6-5）。
-                if (conn.serverType == ServerType.Dsh) {
+                val strategy = adapters.connectionStrategy(conn)
+                if (strategy.wireKind == dev.leonardo.ocbeacon.data.adapter.WireKind.MUX) {
                     // #317（2026-09-04）：0.1.2 双形态探测（版本×鉴权）先于一切
                     // DSH 流量——TokenNeeded 挂起等 token（避免 RPC/WS 401 空转风暴），
                     // Unreachable 走既有退避；Online 才进预加载+事件循环。
-                    when (val probe = dshConnectionRegistry.ensureProbed(conn.baseUrl)) {
-                        is dev.leonardo.ocbeacon.data.api.dsh.DshProbeOutcome.TokenNeeded -> {
+                    val handshake = strategy.probe(conn)
+                    when (handshake.status) {
+                        dev.leonardo.ocbeacon.data.adapter.ConnectionStatus.AUTH_REQUIRED -> {
                             updateServerConnected(server.id, false)
                             markTokenNeeded(server.id, needed = true)
                             AppLogger.w(TAG, "DSH 0.1.2 token required — waiting for token input: " + server.displayName)
@@ -477,16 +478,16 @@ class SseConnectionManager @Inject constructor(
                             if (!connections.containsKey(server.id)) break
                             continue
                         }
-                        is dev.leonardo.ocbeacon.data.api.dsh.DshProbeOutcome.Unreachable -> {
+                        dev.leonardo.ocbeacon.data.adapter.ConnectionStatus.UNREACHABLE -> {
                             updateServerConnected(server.id, false)
-                            if (BuildConfig.DEBUG) AppLogger.d(TAG, "DSH probe unreachable: " + probe.detail)
+                            if (BuildConfig.DEBUG) AppLogger.d(TAG, "DSH probe unreachable: " + handshake.detail)
                             if (!connections.containsKey(server.id)) break
                             delay(calculateBackoff(attempt))
                             continue
                         }
-                        is dev.leonardo.ocbeacon.data.api.dsh.DshProbeOutcome.Online -> {
+                        dev.leonardo.ocbeacon.data.adapter.ConnectionStatus.ONLINE -> {
                             markTokenNeeded(server.id, needed = false)
-                            if (BuildConfig.DEBUG) AppLogger.d(TAG, "DSH wire protocol=" + probe.protocol + " authed=" + probe.authenticated)
+                            if (BuildConfig.DEBUG) AppLogger.d(TAG, "DSH wire generation=" + handshake.wireGeneration + " authed=" + handshake.authenticated)
                         }
                     }
                     val preloadJob = scope.launch { preLoadSessions(server, conn) }

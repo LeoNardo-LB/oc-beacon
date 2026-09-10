@@ -18,8 +18,8 @@ import dev.leonardo.ocbeacon.domain.model.ServerUiSlot
  * [dev.leonardo.ocbeacon.domain.adapter.ServerAdapterResolver] 这一领域安全的投影
  * （能力位 / 世代 id / 界面插槽声明）。依赖方向仍是 UI → Domain ← Data。
  *
- * 契约冻结：切片 1-2 冻结本形状，之后只实现不改契约。connectionStrategy 在切片 6
- * 抽取连接策略时加入（探针需要完整凭据上下文，切片 1 无法给出真实实现）。
+ * 契约冻结：切片 1-2 冻结本形状，之后只实现不改契约；切片 6 按计划增补
+ * connectionStrategy（传输种类 + 一次握手）。
  */
 interface ServerAdapter {
 
@@ -37,6 +37,9 @@ interface ServerAdapter {
 
     /** 类型私有能力（自带命名空间，如 dsh.agentPreset）；默认空。 */
     fun privateFeatures(conn: ServerConnection): Set<ServerFeature> = emptySet()
+
+    /** 连接策略（#391 切片6）：传输种类 + 一次握手；不触碰平台服务生命周期。 */
+    val connectionStrategy: ConnectionStrategy
 
     /** 声明在哪些界面插槽有内容（纯声明，不含界面代码）。 */
     val uiSlots: Set<ServerUiSlot> get() = emptySet()

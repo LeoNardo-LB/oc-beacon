@@ -10,6 +10,7 @@ import dev.leonardo.ocbeacon.data.api.subagent.SubagentApi
 import dev.leonardo.ocbeacon.data.adapter.dsh.DshFeedbackPort
 import dev.leonardo.ocbeacon.data.adapter.dsh.DshGoalPort
 import dev.leonardo.ocbeacon.data.adapter.dsh.DshQueuePort
+import dev.leonardo.ocbeacon.data.adapter.dsh.DshConnectionStrategy
 import dev.leonardo.ocbeacon.data.adapter.dsh.DshSubagentPort
 import dev.leonardo.ocbeacon.data.repository.ServerSettingsRepositoryImpl
 import dev.leonardo.ocbeacon.domain.repository.ServerSettingsRepository
@@ -46,6 +47,8 @@ class DshServerAdapter @Inject constructor(
     private val serverSettings: ServerSettingsRepository = ServerSettingsRepositoryImpl(dsh)
 
     override val type: ServerType = ServerType.Dsh
+
+    override val connectionStrategy: ConnectionStrategy = DshConnectionStrategy(protocolSource)
 
     override fun wireGeneration(conn: ServerConnection): String =
         when (protocolSource.protocolOf(conn.baseUrl)) {

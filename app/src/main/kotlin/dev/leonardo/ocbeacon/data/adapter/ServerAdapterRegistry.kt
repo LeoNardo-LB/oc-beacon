@@ -59,6 +59,10 @@ class ServerAdapterRegistry @Inject constructor(
     /** 该连接的核心行为标志（不可由端口推导项）。 */
     fun coreFlags(conn: ServerConnection): CoreFlags = adapterFor(conn).coreFlags(conn)
 
+    /** 该连接的连接策略（传输种类 + 一次握手）。 */
+    fun connectionStrategy(conn: ServerConnection): ConnectionStrategy =
+        adapterFor(conn).connectionStrategy
+
     /** 该连接的类型私有能力。 */
     fun privateFeatures(conn: ServerConnection): Set<ServerFeature> =
         adapterFor(conn).privateFeatures(conn)

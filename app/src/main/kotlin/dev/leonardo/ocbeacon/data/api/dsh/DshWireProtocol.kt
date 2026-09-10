@@ -71,6 +71,13 @@ sealed interface DshProbeOutcome {
 interface DshProtocolSource {
     /** 当前已知线面版本；未探测返回 null（调用方保守按 V011 处理）。 */
     fun protocolOf(baseUrl: String): DshWireProtocol?
+
+    /**
+     * #391 切片6：一次握手（双形态探测，含鉴权态判别）。默认实现返回 Unreachable——
+     * 只读替身 / 测试替身无需探测能力即可满足契约（调用方按退避处理）。
+     */
+    suspend fun ensureProbed(authority: String): DshProbeOutcome =
+        DshProbeOutcome.Unreachable("probe not supported by this source")
 }
 
 /** 生产适配器：转发 [DshConnectionRegistry]（注册表是 @Singleton 已注入管线）。 */
@@ -79,6 +86,9 @@ class DshProtocolSourceAdapter @Inject constructor(
     private val registry: DshConnectionRegistry,
 ) : DshProtocolSource {
     override fun protocolOf(baseUrl: String): DshWireProtocol? = registry.protocolOf(baseUrl)
+
+    override suspend fun ensureProbed(authority: String): DshProbeOutcome =
+        registry.ensureProbed(authority)
 }
 
 /** 接口注入面绑定（实现类 @Inject 构造；模块随接口同文件——#318 收口）。 */

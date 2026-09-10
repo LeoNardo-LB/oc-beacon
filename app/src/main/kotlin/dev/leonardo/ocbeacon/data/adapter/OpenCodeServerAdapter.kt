@@ -25,6 +25,8 @@ class OpenCodeServerAdapter @Inject constructor(
 
     override val type: ServerType = ServerType.OpenCode
 
+    override val connectionStrategy: ConnectionStrategy = OpenCodeConnectionStrategy()
+
     override fun wireGeneration(conn: ServerConnection): String =
         if (conn.apiVersion.isV2) WIRE_V2 else WIRE_V1
 

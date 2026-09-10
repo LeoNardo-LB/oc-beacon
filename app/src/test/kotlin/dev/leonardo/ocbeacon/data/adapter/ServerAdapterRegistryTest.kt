@@ -55,6 +55,7 @@ class ServerAdapterRegistryTest {
         wire: String = "fake",
     ): ServerAdapter = object : ServerAdapter {
         override val type = type
+        override val connectionStrategy: ConnectionStrategy = OpenCodeConnectionStrategy()
         override fun wireGeneration(conn: ServerConnection) = wire
         override fun ports(conn: ServerConnection) = ports
         override fun coreFlags(conn: ServerConnection) = CoreFlags(false, false, false, false)

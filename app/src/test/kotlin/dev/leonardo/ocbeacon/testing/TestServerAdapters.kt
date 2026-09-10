@@ -2,6 +2,8 @@ package dev.leonardo.ocbeacon.testing
 
 import dev.leonardo.ocbeacon.data.adapter.ServerAdapter
 import dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry
+import dev.leonardo.ocbeacon.data.adapter.ConnectionStrategy
+import dev.leonardo.ocbeacon.data.adapter.OpenCodeConnectionStrategy
 import dev.leonardo.ocbeacon.data.adapter.ServerPorts
 import dev.leonardo.ocbeacon.data.api.file.FileApi
 import dev.leonardo.ocbeacon.data.api.message.MessageApi
@@ -28,7 +30,10 @@ class FakeServerAdapter(
     private val flags: CoreFlags = CoreFlags(false, false, false, false),
     private val features: Set<ServerFeature> = emptySet(),
     private val wire: String = "fake",
+    strategy: ConnectionStrategy = OpenCodeConnectionStrategy(),
 ) : ServerAdapter {
+
+    override val connectionStrategy: ConnectionStrategy = strategy
 
     override fun wireGeneration(conn: ServerConnection): String = wire
 
