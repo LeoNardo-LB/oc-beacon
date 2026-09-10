@@ -59,6 +59,7 @@
   - 架构一次到位、开发按 8 切片分批（契约前两片冻结）；首个真实落地=DSH 0.1.5/V3 适配。
   - → docs/specs/2026-09-10-server-adapter-architecture-design.md
   - 通用 UIUX 统一纳入承重与交付：差异分级 L0/L1/L2 + 统一贡献注册表 + 隐藏/禁用判据；静态强制走 Android Lint 自定义规则（既有 lint 门禁，不新增工具链），审计矩阵 BAD 归零（切片 9）。
+  - 开发切片数更新：9（原 8 + 通用 UIUX 统一落地，见 spec Further Notes）。
 
 ## P1 — 核心功能需求
 
