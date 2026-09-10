@@ -87,6 +87,7 @@ fun ServerProvidersScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val capabilities by viewModel.serverCapabilities.collectAsStateWithLifecycle()
+    val uiSlots by viewModel.uiSlots.collectAsStateWithLifecycle()
     val isAmoled = LocalAmoledMode.current
     val uriHandler = LocalUriHandler.current
     val clipboard = LocalClipboard.current
@@ -498,14 +499,17 @@ fun ServerProvidersScreen(
                 }
             }
 
-            // #391 切片5：类型私有提供商区块经插槽注册表渲染——通用屏幕零服务器类型知识，
-            // 是否出现由贡献方的能力位过滤决定（SERVER_SETTINGS 端口缺席即不渲染）。
-            item {
-                LocalServerUiSlots.current.Render(
-                    slot = ServerUiSlot.PROVIDER_SETTINGS,
-                    caps = capabilities,
-                    host = ProviderSettingsSlotHost(capabilities),
-                )
+            // #391 切片5：类型私有提供商区块经插槽注册表渲染——通用屏幕零服务器类型知识。
+            // 两级门禁：先由适配器声明（uiSlots）决定该类型是否拥有此槽位，
+            // 再由贡献方 isEnabled(caps) 做细粒度能力过滤（SERVER_SETTINGS 端口缺席即不渲染）。
+            if (ServerUiSlot.PROVIDER_SETTINGS in uiSlots) {
+                item {
+                    LocalServerUiSlots.current.Render(
+                        slot = ServerUiSlot.PROVIDER_SETTINGS,
+                        caps = capabilities,
+                        host = ProviderSettingsSlotHost(capabilities),
+                    )
+                }
             }
 
             if (available.isNotEmpty()) {

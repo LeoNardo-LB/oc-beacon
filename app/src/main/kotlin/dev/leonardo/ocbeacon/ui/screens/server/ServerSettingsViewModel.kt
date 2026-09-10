@@ -24,6 +24,7 @@ import dev.leonardo.ocbeacon.domain.model.ServerConfig
 import dev.leonardo.ocbeacon.domain.model.ServerCapabilities
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.ServerFeatures
+import dev.leonardo.ocbeacon.domain.model.ServerUiSlot
 import dev.leonardo.ocbeacon.domain.adapter.ServerAdapterResolver
 import dev.leonardo.ocbeacon.domain.repository.AgentRepository
 import dev.leonardo.ocbeacon.domain.repository.DshSettingsForbiddenException
@@ -133,6 +134,10 @@ class ServerSettingsViewModel @Inject constructor(
     private val _serverCapabilities = MutableStateFlow(serverAdapters.defaultCapabilities())
     val serverCapabilities: StateFlow<ServerCapabilities> = _serverCapabilities.asStateFlow()
 
+    /** #391 切片5：该服务器类型声明的界面插槽集合——通用屏幕按声明渲染，未声明即不渲染。 */
+    private val _uiSlots = MutableStateFlow<Set<ServerUiSlot>>(emptySet())
+    val uiSlots: StateFlow<Set<ServerUiSlot>> = _uiSlots.asStateFlow()
+
     private val _allProviders = MutableStateFlow<List<ProviderCatalog>>(emptyList())
     private val _providerCatalog = MutableStateFlow<List<ProviderCatalog>>(emptyList())
     private val _providerConnected = MutableStateFlow<Set<String>>(emptySet())
@@ -157,6 +162,7 @@ class ServerSettingsViewModel @Inject constructor(
                 serverDisplayName = config.displayName
                 // #276/#391：能力位带 serverType 维度（DSH settings 特权面不开放 UI）
                 _serverCapabilities.value = serverAdapters.capabilities(ServerConnection.from(config))
+                _uiSlots.value = serverAdapters.uiSlots(ServerConnection.from(config))
                 configEditable = _serverCapabilities.value.coreFlags.configEditable
                 _uiState.update { it.copy(serverName = serverDisplayName) }
                 // #391 切片5：私有提供商目录按能力位加载（端口缺席即不加载，不读服务器类型）

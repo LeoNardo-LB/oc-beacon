@@ -9,7 +9,11 @@ import dev.leonardo.ocbeacon.data.api.v2.V2ApiClient
 import dev.leonardo.ocbeacon.domain.model.ApiVersion
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
 import dev.leonardo.ocbeacon.domain.model.ServerType
+import dev.leonardo.ocbeacon.domain.model.ServerUiSlot
 import dev.leonardo.ocbeacon.testing.FakeServerAdapter
+import dev.leonardo.ocbeacon.ui.extension.ServerUiExtension
+import dev.leonardo.ocbeacon.ui.extension.ServerUiSlotRegistry
+import dev.leonardo.ocbeacon.ui.screens.server.providers.dsh.DshProviderDirectoryExtension
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -108,7 +112,37 @@ class ServerAdapterContractTest {
 
     @Test
     fun `dsh adapter declares the provider settings slot`() {
-        assertTrue(real.uiSlots(conn(ServerType.Dsh)).contains(dev.leonardo.ocbeacon.domain.model.ServerUiSlot.PROVIDER_SETTINGS))
+        assertTrue(real.uiSlots(conn(ServerType.Dsh)).contains(ServerUiSlot.PROVIDER_SETTINGS))
+        assertTrue(real.uiSlots(conn(ServerType.OpenCode)).isEmpty())
+    }
+
+    /**
+     * seam-1：适配器声明（uiSlots）是通用屏幕的渲染门禁，贡献方的 isEnabled 是细粒度能力过滤。
+     * 若某贡献方在未被适配器声明的槽位上启用，内容会被通用屏幕静默丢弃——本断言把该暗坑钉在契约层。
+     */
+    @Test
+    fun `declared slots cover every enabled ui extension`() {
+        val extensions = setOf<ServerUiExtension>(DshProviderDirectoryExtension())
+        val slotRegistry = ServerUiSlotRegistry(extensions)
+
+        // 正向：任一类上被启用的贡献，其槽位必须在该类的声明集合内
+        for (type in ServerType.entries) {
+            val c = conn(type)
+            val caps = real.capabilities(c)
+            val declared = real.uiSlots(c)
+            for (extension in extensions) {
+                if (extension.isEnabled(caps)) {
+                    assertTrue(
+                        extension::class.simpleName + " 在 " + type + " 启用，但槽位 " + extension.slot + " 未被适配器声明",
+                        declared.contains(extension.slot),
+                    )
+                }
+            }
+        }
+
+        // 反向：声明与注册表不空集一致（DSH 声明且确有 PROVIDER_SETTINGS 贡献）
+        assertTrue(slotRegistry.registeredSlots().contains(ServerUiSlot.PROVIDER_SETTINGS))
+        assertEquals(setOf(ServerUiSlot.PROVIDER_SETTINGS), real.uiSlots(conn(ServerType.Dsh)))
         assertTrue(real.uiSlots(conn(ServerType.OpenCode)).isEmpty())
     }
 }
