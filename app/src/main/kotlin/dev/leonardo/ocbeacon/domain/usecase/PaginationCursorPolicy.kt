@@ -1,6 +1,5 @@
 package dev.leonardo.ocbeacon.domain.usecase
 
-import dev.leonardo.ocbeacon.domain.model.ServerType
 import dev.leonardo.ocbeacon.domain.repository.ServerConfigRepository
 import dev.leonardo.ocbeacon.domain.repository.SessionRepository
 import dev.leonardo.ocbeacon.domain.util.CursorCodec
@@ -126,24 +125,32 @@ object V2CursorPolicy : PaginationCursorPolicy {
 }
 
 /**
- * 策略工厂：按 serverId 读一次服务器类型/版本选定策略。Provider 断环
+ * 策略工厂：按 serverId 读一次传输种类 / 版本选定策略。Provider 断环
  * （SessionStateService ← SessionRepository 同款）。UNKNOWN 回退 V1 行为
  * （探测未完成时的保守路径）。
  *
- * 2026-09-01（定位跳转失效根因）：DSH 条目（ServerType.Dsh）三分优先路由——
+ * 2026-09-01（定位跳转失效根因）：多路复用线面（DSH）三分优先路由——
  * DSH 分页面（session.history）只认数字 beforeSeq，V1 base64 游标被静默丢弃
  * 是快速定位/定位卡蒙版后无反应的数据面根因（详见 [DshCursorPolicy]）。
  * OpenCode V1/V2 行为不变。
+ *
+ * #391 切片9（code review 修正）：领域层不再读 ServerType——改用领域安全的
+ * [ServerAdapterResolver.transportKind] 投影（MUX → DSH 分页语义）。
  */
 @Singleton
 class PaginationCursorPolicyFactory @Inject constructor(
     private val sessionRepoProvider: Provider<SessionRepository>,
-    /** 服务器类型源（DSH 分派用）。nullable 兜底：无源时按版本行为（测试构造兼容）。 */
+    /** 配置源（构建领域连接对象用）。nullable 兜底：无源时按版本行为（测试构造兼容）。 */
     private val serverRepoProvider: Provider<ServerConfigRepository>? = null,
+    /** 传输种类源（多路复用分派用）。生产由 Hilt 注入；测试可省略（默认按版本）。 */
+    private val adapters: dev.leonardo.ocbeacon.domain.adapter.ServerAdapterResolver? = null,
 ) {
     suspend fun forServer(serverId: String): PaginationCursorPolicy {
-        val serverType = serverRepoProvider?.get()?.getServer(serverId)?.serverType
-        if (serverType == dev.leonardo.ocbeacon.domain.model.ServerType.Dsh) {
+        val config = serverRepoProvider?.get()?.getServer(serverId)
+        val transport = config?.let { c ->
+            adapters?.transportKind(dev.leonardo.ocbeacon.domain.model.ServerConnection.from(c))
+        }
+        if (transport == dev.leonardo.ocbeacon.domain.adapter.TransportKind.MUX) {
             return DshCursorPolicy
         }
         return if (sessionRepoProvider.get().getApiVersion(serverId).isV2) V2CursorPolicy
