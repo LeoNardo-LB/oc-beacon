@@ -1665,6 +1665,14 @@ fun ChatMessageList(
                                 // 折叠行（标签+展开箭头）+ 展开可读全文（#232/#234 system
                                 // 墙→EventCard 同款处置）。空文本注入（无 text part）整条跳过。
                                 val injectionKind = (chatMessage.message as? Message.User)?.injectionKind
+                                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                    dev.leonardo.ocbeacon.logging.AppLogger.d(
+                                        "InjCard",
+                                        "render id=" + chatMessage.message.id.takeLast(30) +
+                                            " kind=" + injectionKind + " role=" + (chatMessage.message as? Message.User)?.role +
+                                            " nParts=" + chatMessage.parts.size,
+                                    )
+                                }
                                 if (injectionKind != null) {
                                     val injectionText = chatMessage.parts
                                         .filterIsInstance<Part.Text>()
