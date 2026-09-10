@@ -1,8 +1,7 @@
 package dev.leonardo.ocbeacon.data.api.terminal
 
-import dev.leonardo.ocbeacon.data.api.dsh.DshApiClient
-import dev.leonardo.ocbeacon.data.api.v1.V1ApiClient
-import dev.leonardo.ocbeacon.data.api.v2.V2ApiClient
+import dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry
+import dev.leonardo.ocbeacon.data.api.UnsupportedServerCapability
 import dev.leonardo.ocbeacon.data.dto.common.*
 import dev.leonardo.ocbeacon.data.dto.request.*
 import dev.leonardo.ocbeacon.data.dto.response.*
@@ -57,16 +56,16 @@ interface TerminalApi {
  */
 @Singleton
 class TerminalApiImpl @Inject constructor(
-    private val v1: V1ApiClient,
-    private val v2: V2ApiClient,
-    private val dsh: DshApiClient,
+    private val adapters: ServerAdapterRegistry,
 ) : TerminalApi {
 
-    /** #276 三分：serverType==Dsh 优先（apiVersion 不参与 DSH 路由，设计 §2.1）。 */
-    private fun pick(conn: ServerConnection): TerminalApi = when (conn.serverType) {
-        dev.leonardo.ocbeacon.domain.model.ServerType.Dsh -> dsh
-        else -> if (conn.apiVersion.isV2) v2 else v1
-    }
+    /**
+     * #391 切片 1：路由改走适配器注册表（唯一 seam）。可选端口缺席 = 该类型不提供
+     * 该能力；抛错语义与迁移前具体客户端的降级实现一致。
+     */
+    private fun pick(conn: ServerConnection): TerminalApi =
+        adapters.ports(conn).terminal
+            ?: throw UnsupportedServerCapability("terminal", conn.serverType.name)
 
     override suspend fun createPty(
         conn: ServerConnection,

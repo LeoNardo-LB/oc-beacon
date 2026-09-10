@@ -126,6 +126,8 @@ interface ServerAdapter {
     val uiSlots: Set<ServerUiSlot> get() = emptySet()
 }
 ~~~
+- 契约归属：ServerAdapter / ServerPorts 与域端口接口同层（数据层）——ServerPorts 成员是数据层端口接口（载荷含 DTO），领域层不得依赖。领域层只持有「唯一路由 seam」中的 ServerAdapterResolver（能力位 / 世代 id / 界面插槽声明的领域安全投影）。依赖方向仍为 UI → Domain ← Data。
+- 增量冻结：connectionStrategy 成员在切片 6 抽取连接策略时加入（探针需要完整凭据上下文与连接监督契约，切片 1 无法给出真实实现，不预置假实现）；ServerPorts 后续切片以「新增可空字段 + 默认 null」扩展，不改既有字段语义。
 
 能力模型（唯一真相）
 - 唯一真相 = 端口可选性：ServerPorts 中可选端口缺席即该能力不存在。

@@ -15,6 +15,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.HiltAndroidApp
 import dagger.hilt.components.SingletonComponent
+import dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry
 import dev.leonardo.ocbeacon.data.repository.DiagnosticLogRepository
 import dev.leonardo.ocbeacon.data.repository.SettingsDataStore
 import dev.leonardo.ocbeacon.data.repository.UnreadBadgeService
@@ -97,6 +98,17 @@ class OpenCodeApp : Application() {
         )
 
         DebugLogger.init(this)
+
+        // ---- #391 切片 1：服务器适配器注册表启动期校验 ----
+        // 注册表构造期校验重复键与全类型覆盖（缺失/重复即抛错）；解析放 IO 线程执行
+        // （会触达 Keystore / DataStore 构造，不得占用主线程）；失败经未捕获异常处理器
+        // 落盘并暴露，而不是运行到一半才发现（用户故事 19）。
+        appScope.launch {
+            EntryPointAccessors.fromApplication(
+                this@OpenCodeApp,
+                ServerAdapterEntryPoint::class.java,
+            ).serverAdapterRegistry().verifyComplete()
+        }
 
         // [perf/compose-tracing] #258：DEBUG 构建的组合追踪由 runtime-tracing 的
         // ComposeTracingInitializer（androidx.startup）自动初始化——systrace/perfetto
@@ -326,6 +338,13 @@ class OpenCodeApp : Application() {
             }.onFailure { AppLogger.e("App", "onTrimMemory cleanup failed", it) }
         }
     }
+}
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface ServerAdapterEntryPoint {
+    /** #391：服务器适配器注册表启动期校验入口。 */
+    fun serverAdapterRegistry(): ServerAdapterRegistry
 }
 
 @EntryPoint

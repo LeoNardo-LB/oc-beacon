@@ -3,9 +3,7 @@ package dev.leonardo.ocbeacon.data.api.session
 import dev.leonardo.ocbeacon.data.api.RestSessionStatusInfo
 import dev.leonardo.ocbeacon.data.api.asApiError
 import dev.leonardo.ocbeacon.data.api.logApiError
-import dev.leonardo.ocbeacon.data.api.dsh.DshApiClient
-import dev.leonardo.ocbeacon.data.api.v1.V1ApiClient
-import dev.leonardo.ocbeacon.data.api.v2.V2ApiClient
+import dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry
 import dev.leonardo.ocbeacon.data.dto.response.*
 import dev.leonardo.ocbeacon.domain.model.ActiveSessionInfo
 import dev.leonardo.ocbeacon.domain.model.AgentPreset
@@ -222,16 +220,14 @@ interface SessionApi {
  */
 @Singleton
 class SessionApiImpl @Inject constructor(
-    private val v1: V1ApiClient,
-    private val v2: V2ApiClient,
-    private val dsh: DshApiClient,
+    private val adapters: ServerAdapterRegistry,
 ) : SessionApi {
 
-    /** #276 三分：serverType==Dsh 优先（apiVersion 不参与 DSH 路由，设计 §2.1）。 */
-    private fun pick(conn: ServerConnection): SessionApi = when (conn.serverType) {
-        dev.leonardo.ocbeacon.domain.model.ServerType.Dsh -> dsh
-        else -> if (conn.apiVersion.isV2) v2 else v1
-    }
+    /**
+     * #391 切片 1：路由改走适配器注册表（唯一 seam）；行为与迁移前逐位一致
+     * （DSH 优先于 apiVersion 二分）。
+     */
+    private fun pick(conn: ServerConnection): SessionApi = adapters.ports(conn).session
 
     override suspend fun listSessions(
         conn: ServerConnection,

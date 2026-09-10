@@ -34,8 +34,24 @@ class FileApiVcsTest {
         val dsh = dev.leonardo.ocbeacon.data.api.dsh.DshApiClient(
             dev.leonardo.ocbeacon.data.api.dsh.DshRpcClient(apiClient, io.mockk.mockk(relaxed = true)),
         )
-        return FileApiImpl(v1, v2, dsh)
+        return FileApiImpl(registryOf(v1, v2, dsh))
     }
+
+    private fun registryOf(
+        v1: dev.leonardo.ocbeacon.data.api.v1.V1ApiClient,
+        v2: dev.leonardo.ocbeacon.data.api.v2.V2ApiClient,
+        dsh: dev.leonardo.ocbeacon.data.api.dsh.DshApiClient,
+    ) = dev.leonardo.ocbeacon.data.adapter.ServerAdapterRegistry(
+        setOf(
+            dev.leonardo.ocbeacon.data.adapter.OpenCodeServerAdapter(v1, v2),
+            dev.leonardo.ocbeacon.data.adapter.DshServerAdapter(
+                dsh,
+                object : dev.leonardo.ocbeacon.data.api.dsh.DshProtocolSource {
+                    override fun protocolOf(baseUrl: String): dev.leonardo.ocbeacon.data.api.dsh.DshWireProtocol? = null
+                },
+            ),
+        )
+    )
 
     private val conn = ServerConnection.from(
         "http://localhost:4096", "opencode", "secret"
