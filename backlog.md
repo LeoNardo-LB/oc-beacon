@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#397**（2026-09-10 #396 Android Lint devDebug 门禁）。
+**编号**：全局递增，不回收。下一编号：**#398**（2026-09-10 #397 自定义 Android Lint 规则（服务器类）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。
 
@@ -60,6 +60,7 @@
   - → docs/specs/2026-09-10-server-adapter-architecture-design.md
   - 通用 UIUX 统一纳入承重与交付：差异分级 L0/L1/L2 + 统一贡献注册表 + 隐藏/禁用判据；静态强制走 Android Lint 自定义规则（既有 lint 门禁，不新增工具链），审计矩阵 BAD 归零（切片 9）。
   - 开发切片数更新：9（原 8 + 通用 UIUX 统一落地，见 spec Further Notes）。
+  - 进度（2026-09-10）：切片1-7 已实现并提交（3f59c5d9..8ce0107a）；切片8 上已提交 44095a9c（lint 门禁恢复绿 #396 清零 / 选择器注册表驱动 / 适配器契约测试 / 探测器去类型化 / 架构文档登记）；切片8 下的自定义 lint 规则见 #397；切片9（通用 UIUX 统一）未开工。
 
 ## P1 — 核心功能需求
 
@@ -75,6 +76,11 @@
   - 用户复验（2026-09-10）：逐命中行+角色标签改造后，「全部」过滤下仍只见人类行。装机冒烟实证：story 查询首屏全用户行（BM25 短文档偏置 user 恒靠前），AI 行在折叠下方——待确认用户是否滚动；若 UX 需要 AI 无滚动可见，需按角色交错排序或每会话最优双角色先行。取证：拉库已证 FTS 层 AI 命中健全（whale: assistant 153 + user 14）。
 
 ## P2 — 优化与锦上添花
+
+- [ ] **#397 自定义 Android Lint 规则（服务器类型分支白名单 / 界面分层 / 令牌绕过）** `lint` `arch`
+  - 背景：#391 切片8 的静态强制部分未落——spec 要求走自定义 Android Lint 规则，但 Lint 检查必须是独立 Gradle 模块，与 spec Out of Scope「不把单模块拆成多 Gradle 模块」存在取舍，需用户裁决。
+  - 现状：本机 Gradle 缓存已具备 lint-api/lint-checks 32.3.2（与 AGP 9.3.2 匹配），可离线新增 :lint-checks 模块（com.android.lint 插件 + Detector + IssueRegistry + META-INF services）+ app 端 lintChecks(project(:lint-checks))。建议先只落「ServerType 分支白名单」一条（文本级 Detector，白名单：类型定义/ServerConfig/ServerConnection/data-adapter/ServerDialog/调试入口），跑通后再扩 UI 分层与令牌两条（存量需入 baseline）。
+  - 替代方案：脚本门禁（grep）复用现有 release 门禁，零新模块但表达力弱。当前兜底：架构文档承重规则 + code review。
 
 - [ ] **#395 立即发送（steer）上屏消息缺标识徽标——chat_queued 徽章链整撤连带丢失** `queue`
   - 用户裁决（2026-09-10）：排队不上屏 ✓ + 立刻发送（steer）上屏 ✓，但 steer 消息上屏后无任何徽标标识是有问题的——需恢复徽标（建议 steer 专属文案如「插话/注入中」而非「排队中」，文案待用户裁决；i18n ×15 + MessageCardUser 两变体渲染点）。注意 steer 无 wire 侧标记——识别依赖发送路径（steer=true 时 seedTranscript 播种），徽章状态需随消息携带或按 rpcId 关联。
