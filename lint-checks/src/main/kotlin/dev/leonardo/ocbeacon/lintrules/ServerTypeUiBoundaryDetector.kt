@@ -16,8 +16,9 @@ import java.util.EnumSet
  *
  * 规则边界：只扫 ui 目录，跳过类型私有包（`/dsh/`、`/opencode/`）与主题目录
  * （`ui/theme/` 的 `OpenCodeTheme` 是全应用主题，不是类型私有组件）。
- * 命中两类：`import dev.leonardo.ocbeacon.ui….` 后接 Dsh / OpenCode 前缀符号，
- * 或通用 UI 文件顶层声明 Dsh / OpenCode 前缀符号。类型私有界面必须落在自己的包内并经界面插槽贡献。
+ * 命中两类：`import dev.leonardo.ocbeacon.ui….` 后接 Dsh / OpenCode 前缀符号，或通用 UI 文件
+ * 顶层**非 private** 声明 Dsh / OpenCode 前缀符号（private 顶层函数是本文件实现细节，豁免）。
+ * 类型私有界面必须落在自己的包内并经界面插槽贡献。
  */
 class ServerTypeUiBoundaryDetector : Detector(), SourceCodeScanner {
 
@@ -45,7 +46,8 @@ class ServerTypeUiBoundaryDetector : Detector(), SourceCodeScanner {
         for (raw in code.lineSequence()) {
             val line = raw.trim()
             if (line.startsWith("import ") && IMPORT_RE.containsMatchIn(line)) return line
-            if (DECL_RE.containsMatchIn(line)) return line
+            // private 顶层声明是本文件实现细节，不构成跨文件的类型私有组件依赖
+            if (!line.startsWith("private ") && DECL_RE.containsMatchIn(line)) return line
         }
         return null
     }
@@ -66,7 +68,7 @@ class ServerTypeUiBoundaryDetector : Detector(), SourceCodeScanner {
             id = "ServerTypeUiBoundary",
             briefDescription = "通用界面引用了服务器类型私有 UI 组件",
             explanation = "类型私有界面必须落在类型私有包（/dsh/、/opencode/）内并经界面插槽" +
-                "贡献；通用界面不得 import 或声明 Dsh*/OpenCode* UI 符号。",
+                "贡献；通用界面不得 import 或声明非 private 的 Dsh / OpenCode 前缀 UI 符号。",
             category = Category.CORRECTNESS,
             priority = 8,
             severity = Severity.ERROR,

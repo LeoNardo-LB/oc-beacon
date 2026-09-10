@@ -377,3 +377,12 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 
 **ServerTypeUiBoundary 仅余 1 条**：ChatMessageList 的私有 DshJobTimelineCard——移出需给消息列表新增插槽（通用内容经插槽贡献 DSH 卡），属界面插槽扩展批次。
 
+
+## 切片 8（下-5）：ServerTypeUiBoundary 收窄到非 private 声明（存量 error 归零）
+
+- 规则修订：private 顶层声明是本文件实现细节，不构成跨文件的类型私有组件依赖——Detector 跳过 private 声明，仍拦 import 与非 private 声明。
+- 结果：ChatMessageList 的私有 DshJobTimelineCard 不再触发；ServerTypeUiBoundary baseline 1→0，:app:lintDevDebug 首现 **0 error**（仅 257 条历史 warnings）。
+- 至此四条静态规则（ServerTypeWhitelist / ServerTypeUiBoundary / TokenBypass / SpacingTokenBypass）**零存量 error**。
+
+**验证**：lintDevDebug（no new issues）+ lintDevRelease（BUILD SUCCESSFUL）+ 全量单测 + androidTest 编译 BUILD SUCCESSFUL。
+

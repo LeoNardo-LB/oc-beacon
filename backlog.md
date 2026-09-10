@@ -113,6 +113,7 @@
   - 第四条规则 SpacingTokenBypass 已落（padding/spacedBy/PaddingValues 的标准间距值 4/8/12/16/24/32.dp），86 处存量入 baseline。至此 spec 四条静态强制全部落地。
   - 剩余：86 文件间距存量迁移 + 6 处类型私有 UI 迁移（见 #399）。
   - SpacingTokenBypass 存量已清零：86 文件标准间距机械迁移到 SpacingTokens（逐值等价），baseline 减 602 行。四条静态规则全部零存量（boundary 仅余 1 条消息列表私有卡）。
+  - 四条静态规则零存量 error：ServerTypeUiBoundary 收窄到非 private 声明后最后 1 条豁免清除（lintDevDebug 0 error）。
 
 - [ ] **#395 立即发送（steer）上屏消息缺标识徽标——chat_queued 徽章链整撤连带丢失** `queue`
   - 用户裁决（2026-09-10）：排队不上屏 ✓ + 立刻发送（steer）上屏 ✓，但 steer 消息上屏后无任何徽标标识是有问题的——需恢复徽标（建议 steer 专属文案如「插话/注入中」而非「排队中」，文案待用户裁决；i18n ×15 + MessageCardUser 两变体渲染点）。注意 steer 无 wire 侧标记——识别依赖发送路径（steer=true 时 seedTranscript 播种），徽章状态需随消息携带或按 rpcId 关联。

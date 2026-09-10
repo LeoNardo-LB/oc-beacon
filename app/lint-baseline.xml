@@ -35,13 +35,6 @@
     </issue>
 
     <issue
-        id="ServerTypeUiBoundary"
-        message="通用界面不得 import / 声明服务器类型私有 UI 组件（private fun DshJobTimelineCard(）；请把该组件移入类型私有包并以界面插槽贡献（见 docs/architecture.md）。">
-        <location
-            file="src/main/kotlin/dev/leonardo/ocbeacon/ui/screens/chat/components/ChatMessageList.kt"/>
-    </issue>
-
-    <issue
         id="DefaultLocale"
         message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
         errorLine1="        count >= 1_000_000 -> String.format(&quot;%.1fM&quot;, count / 1_000_000.0)"
