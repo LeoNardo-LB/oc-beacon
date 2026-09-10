@@ -9,6 +9,7 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.DshCredentialStatus
 import dev.leonardo.ocbeacon.domain.model.DshProviderDirectoryEntry
 import dev.leonardo.ocbeacon.domain.model.DshProviderDirectoryRow
+import dev.leonardo.ocbeacon.ui.screens.server.providers.dsh.DshCustomProvidersSection
 import org.junit.Rule
 import org.junit.Test
 

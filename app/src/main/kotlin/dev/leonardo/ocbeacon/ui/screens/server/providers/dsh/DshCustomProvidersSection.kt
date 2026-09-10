@@ -1,4 +1,4 @@
-package dev.leonardo.ocbeacon.ui.screens.server
+package dev.leonardo.ocbeacon.ui.screens.server.providers.dsh
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement

@@ -10,7 +10,6 @@ import dev.leonardo.ocbeacon.domain.model.ServerUiSlot
 import dev.leonardo.ocbeacon.ui.extension.ProviderSettingsSlotHost
 import dev.leonardo.ocbeacon.ui.extension.ServerUiExtension
 import dev.leonardo.ocbeacon.ui.extension.ServerUiSlotHost
-import dev.leonardo.ocbeacon.ui.screens.server.DshCustomProvidersSection
 import dev.leonardo.ocbeacon.ui.screens.server.ServerSettingsViewModel
 import javax.inject.Inject
 import javax.inject.Singleton

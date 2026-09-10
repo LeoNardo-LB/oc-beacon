@@ -70,7 +70,7 @@ import dev.leonardo.ocbeacon.domain.model.AgentPreset
 import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import dev.leonardo.ocbeacon.domain.model.ServerUiSlot
 import dev.leonardo.ocbeacon.service.ServerLinkState
-import dev.leonardo.ocbeacon.ui.components.DshTokenDialog
+import dev.leonardo.ocbeacon.ui.components.dsh.DshTokenDialog
 import dev.leonardo.ocbeacon.ui.components.ServerLinkBanner
 import dev.leonardo.ocbeacon.ui.extension.LocalServerUiSlots
 import dev.leonardo.ocbeacon.ui.extension.SessionListHeaderSlotHost

@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import dev.leonardo.ocbeacon.domain.model.ServerCapabilities
 import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import dev.leonardo.ocbeacon.domain.model.ServerUiSlot
-import dev.leonardo.ocbeacon.ui.components.DshTokenNeededBanner
+import dev.leonardo.ocbeacon.ui.components.dsh.DshTokenNeededBanner
 import dev.leonardo.ocbeacon.ui.extension.SessionListHeaderSlotHost
 import dev.leonardo.ocbeacon.ui.extension.ServerUiExtension
 import dev.leonardo.ocbeacon.ui.extension.ServerUiSlotHost

@@ -1,4 +1,4 @@
-package dev.leonardo.ocbeacon.ui.components
+package dev.leonardo.ocbeacon.ui.components.dsh
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets

@@ -1,4 +1,4 @@
-package dev.leonardo.ocbeacon.ui.screens.sessions.components
+package dev.leonardo.ocbeacon.ui.screens.sessions.dsh
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -39,6 +39,8 @@ import dev.leonardo.ocbeacon.domain.model.DshSettingsFieldKind
 import dev.leonardo.ocbeacon.domain.model.DshSettingsNamespaceForm
 import dev.leonardo.ocbeacon.domain.model.DshSettingsOp
 import dev.leonardo.ocbeacon.ui.components.amoledOutlinedTextFieldColors
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.SettingsListRow
+import dev.leonardo.ocbeacon.ui.screens.sessions.components.SettingsSectionHeader
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ButtonTokens
 import kotlinx.serialization.json.JsonPrimitive

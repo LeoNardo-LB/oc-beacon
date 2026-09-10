@@ -14,8 +14,6 @@ import dev.leonardo.ocbeacon.ui.extension.ServerSettingsSlotHost
 import dev.leonardo.ocbeacon.ui.extension.ServerUiExtension
 import dev.leonardo.ocbeacon.ui.extension.ServerUiSlotHost
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionListViewModel
-import dev.leonardo.ocbeacon.ui.screens.sessions.components.DshPluginInventorySection
-import dev.leonardo.ocbeacon.ui.screens.sessions.components.DshServerConfigSection
 import javax.inject.Inject
 import javax.inject.Singleton
 
