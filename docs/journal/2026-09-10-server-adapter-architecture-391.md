@@ -293,3 +293,13 @@
 
 **验证**：compile + 全量单测（3273 例）+ androidTest 编译 + :app:lintDevDebug（收窄白名单后仍绿）BUILD SUCCESSFUL。
 
+
+## 切片9 审计矩阵 BAD 项核对（证据）
+
+Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/research/2026-09-07-server-face-unification-audit.md 的两条 BAD：
+
+- **BAD「FAB QUEUE 入口无能力位门控（空态泄漏）」**：已消除。#351/#356 裁决后 FAB 五入口由 ChatScreen 按能力位构建 entries（ChatScreen.kt:1040-1046）：TODO/AGENT 两面通用；GOAL 需 GOALS；SHELL 需 TERMINAL；QUEUE 需 QUEUE（V1 无 queue 端口不泄漏；V2 inbox / DSH queue 在场才出现）。
+- **BAD「FAB 五入口硬编码无能力位参数」**：由统一审计批1（commit 36734c23，2026-09-07，早于本批）引入 entries 能力位门控；本批切片2（7e5a16f24）把它换成新的 ServerFeatures 常量。审计文档是 2026-09-07 基线快照，未回标已修，故评审读作「未处理」。
+
+结论：审计矩阵两条 BAD 项在功能面已归零；slice9 剩余为**声明式条目动作贡献注册表**（把 ChatScreen 内联 `X in caps` 换成条目动作贡献）与令牌门禁（硬编码色值/间距/时长），已挂 #399。
+

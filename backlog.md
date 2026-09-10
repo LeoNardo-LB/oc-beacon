@@ -72,6 +72,8 @@
 - [ ] **#399 切片9 剩余：条目动作贡献注册表 + 令牌门禁 + 审计矩阵 BAD 归零** `ui` `arch`
   - 现状：区域插槽（ServerUiSlot）已落并有三处贡献；但条目级动作仍是组件内联能力判断，非声明式贡献；令牌门禁（硬编码色值/间距/时长）未做。
   - 目标：#391 spec 切片9 统一落地——条目动作贡献注册表 + 令牌 Lint 规则接 :lint-checks + docs/research/2026-09-07-server-face-unification-audit.md 的 BAD 项（FAB 门控/队列空态泄漏）处置。
+  - BAD 项核对（2026-09-11）：审计两条 BAD（FAB 五入口无能力位门控 / QUEUE 空态泄漏）已在统一审计批1（36734c23，2026-09-07）+ 本批切片2 能力位化后归零（ChatScreen.kt:1040-1046 entries 按 GOALS/TERMINAL/QUEUE 构建），审计文档未回标。
+  - 因此本条剩余 = 声明式条目动作贡献注册表 + 令牌门禁（硬编码色值/间距/时长，接 :lint-checks，存量入 baseline）。
 
 - [ ] **#398 V3 新事件族渲染（切片7 P1）+ 按代事件词汇表** `dsh` `arch`
   - 现状：#391 两轴评审确认 V3 五类新事件（system/message、assistant/attempt、feedback/message-put|delete、subagent/catalog、deliverables/presented）仅 Ignored(SESSION_FORMAT_V3) 降级不渲染；事件映射仍是单体 when + protocolOf==V012 硬判。
