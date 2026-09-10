@@ -34,6 +34,7 @@ class ServerCapabilitiesDerivationTest {
                 object : DshProtocolSource {
                     override fun protocolOf(baseUrl: String): DshWireProtocol? = DshWireProtocol.V012
                 },
+                mockk(relaxed = true),
             ),
         )
     )

@@ -42,7 +42,7 @@ class ServerAdapterContractTest {
     private val real = ServerAdapterRegistry(
         setOf(
             OpenCodeServerAdapter(mockk<V1ApiClient>(relaxed = true), mockk<V2ApiClient>(relaxed = true)),
-            DshServerAdapter(mockk<DshApiClient>(relaxed = true), protocolSource),
+            DshServerAdapter(mockk<DshApiClient>(relaxed = true), protocolSource, mockk(relaxed = true)),
         )
     )
 

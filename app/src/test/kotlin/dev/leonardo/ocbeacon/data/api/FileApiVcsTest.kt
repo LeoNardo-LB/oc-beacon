@@ -48,6 +48,7 @@ class FileApiVcsTest {
                 object : dev.leonardo.ocbeacon.data.api.dsh.DshProtocolSource {
                     override fun protocolOf(baseUrl: String): dev.leonardo.ocbeacon.data.api.dsh.DshWireProtocol? = null
                 },
+                io.mockk.mockk(relaxed = true),
             ),
         )
     )

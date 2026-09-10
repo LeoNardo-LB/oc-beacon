@@ -18,7 +18,6 @@ import dev.leonardo.ocbeacon.data.adapter.dsh.DshConnectionStrategy
 import dev.leonardo.ocbeacon.data.adapter.dsh.DshReferencePort
 import dev.leonardo.ocbeacon.data.adapter.dsh.DshSubagentPort
 import dev.leonardo.ocbeacon.data.adapter.dsh.DshWorkspacePort
-import dev.leonardo.ocbeacon.data.repository.ServerSettingsRepositoryImpl
 import dev.leonardo.ocbeacon.domain.repository.ServerSettingsRepository
 import dev.leonardo.ocbeacon.domain.model.CoreFlags
 import dev.leonardo.ocbeacon.domain.model.ServerConnection
@@ -42,6 +41,8 @@ import javax.inject.Singleton
 class DshServerAdapter @Inject constructor(
     private val dsh: DshApiClient,
     private val protocolSource: DshProtocolSource,
+    // 服务器设置端口复用 Hilt 绑定的单例（无状态薄委托），不再自建实例
+    private val serverSettings: ServerSettingsRepository,
 ) : ServerAdapter {
 
     // 私有能力端口（薄委托实现，与协议客户端解耦；端口即本适配器的能力声明）
@@ -54,8 +55,6 @@ class DshServerAdapter @Inject constructor(
     private val references: ReferenceApi = DshReferencePort(dsh)
     // 附件字节：原仓库层直连 DshApiClient 的最后一处，改经端口挂载
     private val attachments: AttachmentApi = DshAttachmentPort(dsh)
-    // 服务器设置端口：实现与 Hilt 单例同源同构（无状态薄委托），由适配器持有其端口身份
-    private val serverSettings: ServerSettingsRepository = ServerSettingsRepositoryImpl(dsh)
 
     override val type: ServerType = ServerType.Dsh
 

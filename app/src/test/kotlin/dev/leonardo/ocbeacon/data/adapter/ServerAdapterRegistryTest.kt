@@ -126,7 +126,7 @@ class ServerAdapterRegistryTest {
 
     @Test
     fun `dsh adapter exposes no terminal or shell ports`() {
-        val adapter = DshServerAdapter(mockk<DshApiClient>(relaxed = true), FakeProtocolSource(null))
+        val adapter = DshServerAdapter(mockk<DshApiClient>(relaxed = true), FakeProtocolSource(null), io.mockk.mockk(relaxed = true))
         val p = adapter.ports(conn(ServerType.Dsh))
         assertNull(p.terminal)
         assertNull(p.shell)
@@ -180,7 +180,7 @@ class ServerAdapterRegistryTest {
 
     @Test
     fun `dsh core flags are server native semantics`() {
-        val adapter = DshServerAdapter(mockk(relaxed = true), FakeProtocolSource(null))
+        val adapter = DshServerAdapter(mockk(relaxed = true), FakeProtocolSource(null), io.mockk.mockk(relaxed = true))
         val flags = adapter.coreFlags(conn(ServerType.Dsh))
         assertTrue(flags.compactionAsync)
         assertTrue(flags.compactionModelIndependent)
@@ -195,15 +195,15 @@ class ServerAdapterRegistryTest {
 
         assertEquals(
             DshServerAdapter.WIRE_V011,
-            DshServerAdapter(dsh, FakeProtocolSource(null)).wireGeneration(c),
+            DshServerAdapter(dsh, FakeProtocolSource(null), io.mockk.mockk(relaxed = true)).wireGeneration(c),
         )
         assertEquals(
             DshServerAdapter.WIRE_V011,
-            DshServerAdapter(dsh, FakeProtocolSource(DshWireProtocol.V011)).wireGeneration(c),
+            DshServerAdapter(dsh, FakeProtocolSource(DshWireProtocol.V011), io.mockk.mockk(relaxed = true)).wireGeneration(c),
         )
         assertEquals(
             DshServerAdapter.WIRE_V012,
-            DshServerAdapter(dsh, FakeProtocolSource(DshWireProtocol.V012)).wireGeneration(c),
+            DshServerAdapter(dsh, FakeProtocolSource(DshWireProtocol.V012), io.mockk.mockk(relaxed = true)).wireGeneration(c),
         )
     }
 
