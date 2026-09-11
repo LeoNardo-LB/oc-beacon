@@ -70,6 +70,8 @@
   - 阻塞：机场公共 WiFi 客户端隔离致无线调试不可达（10.3.2.3 ARP FAILED）；改用模拟器。
   - 进度（2026-09-11）：模拟器 OpenCode V2 面 E2E 通过——连接/会话列表/聊天转录/条目动作注册表（GOAL 按能力隐藏、QUEUE 在场）/SERVER_SETTINGS 槽位不泄漏 DSH 区块；无崩溃。
   - 未覆盖：DSH 线面（无靶机）——token 横幅、DSH 设置区块、surfaceOp 越界拒绝重建、assistant-stream 实时流。
+  - DSH V012 面 E2E 通过（本机 DSH 3080 + debug_token）：token 交换 ok、wire=v012 authed、转录渲染、assistant-stream 实时流（t_dsh-t55s10 增量 RESIZE）、DSH FAB 能力过滤（Goal 有/Shells 无）、404 优雅降级、无崩溃。
+  - OpenCode V2 面此前已过；V3 五类新事件渲染未覆盖（见 #398）。
 
 - [ ] **#399 切片9 剩余：条目动作贡献注册表 + 令牌门禁 + 审计矩阵 BAD 归零** `ui` `arch`
   - 现状：区域插槽（ServerUiSlot）已落并有三处贡献；但条目级动作仍是组件内联能力判断，非声明式贡献；令牌门禁（硬编码色值/间距/时长）未做。

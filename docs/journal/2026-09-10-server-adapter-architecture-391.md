@@ -412,3 +412,19 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 
 **未覆盖**：DSH 线面（本机无可连 DSH 服务器）——token 横幅、DSH 设置/插件区块、surfaceOp 越界拒绝重建、assistant-stream 实时流仍需 DSH 靶机；记 #400 剩余。
 
+
+## 切片 7 / #400：DSH V012 面模拟器端到端验证（真实 DSH 服务器）
+
+环境：本机 DSH 服务 http://127.0.0.1:3080（Web GUI 同源，token 在 ~/.dsh/token）；`adb reverse tcp:3080`；经 `--es debug_server_type dsh --es debug_token <token>` 冷启（MainActivity 既有 debug_token 通道）。
+
+证据（logcat + uiautomator dump）：
+1. **token 交换 + 握手**：`debug_token exchange for http://127.0.0.1:3080: ok`；`DSH wire generation=v012 authed=true`；mux 帧进入 DshEventMapper/DshJobsHandler/DshQueueHandler 分发。
+2. **会话列表**：真实 DSH 会话渲染（含本次适配会话，状态 Working）。
+3. **DSH 转录**：进入会话后渲染推理/工具/运行卡（"Thought complete" / "Run code"）。
+4. **实时流式（切片7 P0 通道）**：`ScrollDiag: RESIZE key=t_dsh-t55s10 h 4856->4914->4972 (d=58)` 连续增量——assistant-stream opt-in + 合成 chunk 事件驱动的逐 token 前缀差分渲染在 V012 真实服务器上生效。
+5. **条目动作注册表（DSH 侧能力过滤）**：FAB 出 **TODO / Agents / Goal / Queue，无 Shells**——与 DSH 能力位（GOALS 有、TERMINAL 无、QUEUE 有）一致；与 OpenCode V2（TODO/Agents/Shells/Queue，无 GOAL）成对验证注册表跨类型能力过滤。
+6. **优雅降级**：本机 DSH 无 `settings.describe` / `pluginInventory.list`（404）→ 设置页 DSH 私有区块自门控不渲染（非泄漏非崩溃）；`settings.describe ns=agent-presets` 被调用证明 SERVER_SETTINGS 能力位路径激活。
+7. **稳定性**：无结构性违约/拒绝重建日志；crash buffer 空；`Failed to load sessions` 404 为连接爬坡期一次受控失败（AppLogger.e 捕获，随后会话正常渲染），非崩溃。
+
+**未覆盖**：V3 五类新事件（system/message、assistant/attempt、feedback/*、subagent/catalog、deliverables/presented）的**渲染**（本次窗口未出现，或按 SESSION_FORMAT_V3 静默降级）——即 #398。
+
