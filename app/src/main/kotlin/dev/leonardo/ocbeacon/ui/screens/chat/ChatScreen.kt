@@ -168,6 +168,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.stringResource
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.components.ProviderIcon
+import dev.leonardo.ocbeacon.ui.extension.LocalServerActions
+import dev.leonardo.ocbeacon.ui.extension.ServerActionSurface
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.screens.chat.util.toolOutputContainerColor
 import dev.leonardo.ocbeacon.ui.screens.chat.util.agentColor
@@ -1037,13 +1039,13 @@ fun ChatScreen(
                       // 统一审计批1：FAB 入口按能力位门控（GOAL=DSH、SHELL=V1/V2；
                       // TODO/AGENT 两面通用；QUEUE 门控 #351 裁决→#356 扩面：DSH queue 埧域 +
             // V2 inbox 域在场（V1 无可见域不泄漏））
-                      entries = buildList {
-                          add(ChatToolbarEntry.TODO)
-                          add(ChatToolbarEntry.AGENT)
-                          if (ServerFeatures.GOALS in serverCapabilities) add(ChatToolbarEntry.GOAL)
-                          if (ServerFeatures.TERMINAL in serverCapabilities) add(ChatToolbarEntry.SHELL)
-                          if (ServerFeatures.QUEUE in serverCapabilities) add(ChatToolbarEntry.QUEUE)
-                      },
+                      // #391 切片9：入口改由统一贡献注册表的条目级动作声明
+                      // （表面 + 所需能力 + 顺序）；通用壳只做「按能力过滤 → 排序」。
+                      entries = LocalServerActions.current
+                          .actions(ServerActionSurface.CHAT_FAB, serverCapabilities)
+                          .mapNotNull { action ->
+                              runCatching { ChatToolbarEntry.valueOf(action.actionId) }.getOrNull()
+                          },
                       // 2026-08-29 基线对齐：菜单 08-27 稳定 API 复刻把按钮钉底（内部
                       // 底距移除）后，与 ⬇ FAB 的 padding(bottom=16dp) 失配 16dp——
                       // 实测图标中心差 48px。此处补对称底距恢复「双 FAB 同基线」。

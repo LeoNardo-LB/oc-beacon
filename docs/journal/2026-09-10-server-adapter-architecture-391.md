@@ -386,3 +386,14 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 
 **验证**：lintDevDebug（no new issues）+ lintDevRelease（BUILD SUCCESSFUL）+ 全量单测 + androidTest 编译 BUILD SUCCESSFUL。
 
+
+## 切片 9（步骤 12）：统一贡献注册表的条目级动作（区域插槽 + 条目动作 = 两块齐）
+
+- 新增 `ui/extension/`：`ServerActionSurface`（表面枚举）+ `ServerActionContribution`（表面 + 稳定 id + 所需能力 + 顺序 + isEnabled(caps)）+ `SimpleServerAction`（声明式）+ `ServerActionRegistry`（@Singleton，按表面分组，「按能力过滤 → 排序」）+ `LocalServerActions`（组合局部，与 LocalServerUiSlots 同构）。
+- `ChatFabActionsModule` 以 @IntoSet 声明 5 条 FAB 入口贡献：TODO/AGENT（无能力位）、GOAL=GOALS、SHELL=TERMINAL、QUEUE=QUEUE；顺序 10/20/30/40/50。
+- ChatScreen 的 `entries = buildList { if (cap in caps) add(entry) }` 内联门控改为 `LocalServerActions.current.actions(CHAT_FAB, serverCapabilities)` + id 映射；MainActivity 注入并提供注册表。
+- 测试：ServerActionRegistryTest（能力过滤 / 顺序 / 表面分组）。
+- 至此 spec 切片9 机制「统一贡献注册表同时承载区域级插槽与条目级动作 / 入口」两块均落地；「条目动作」的条目→内容映射仍由通用壳持有（壳拥有 sheet 内容，注册表只决定有无与顺序）。
+
+**验证**：主/单测/androidTest 编译 + 全量单测 + lintDevDebug（no new issues）BUILD SUCCESSFUL。
+

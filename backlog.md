@@ -80,6 +80,8 @@
   - 剩余：86 文件标准间距存量迁移（SpacingTokenBypass baseline）；声明式条目动作注册表。
   - 进度：86 文件标准间距迁移完成，SpacingTokenBypass baseline 清零。
   - 剩余：ServerTypeUiBoundary 最后 1 条（ChatMessageList 的 DshJobTimelineCard，需新增消息列表插槽）；声明式条目动作注册表。
+  - 统一贡献注册表条目级部分已落：ServerActionContribution/ServerActionRegistry/LocalServerActions + ChatFabActionsModule 声明 5 条 FAB 入口贡献；ChatScreen 内联能力门控改注册表消费。区域插槽 + 条目动作两块齐。
+  - 剩余：条目→内容映射仍由通用壳持有（设计如此）；V3 P1 渲染见 #398；E2E 见 #400。
 
 - [ ] **#398 V3 新事件族渲染（切片7 P1）+ 按代事件词汇表** `dsh` `arch`
   - 现状：#391 两轴评审确认 V3 五类新事件（system/message、assistant/attempt、feedback/message-put|delete、subagent/catalog、deliverables/presented）仅 Ignored(SESSION_FORMAT_V3) 降级不渲染；事件映射仍是单体 when + protocolOf==V012 硬判。

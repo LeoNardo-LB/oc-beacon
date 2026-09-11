@@ -87,6 +87,10 @@ class MainActivity : ComponentActivity() {
     // #391 切片5：界面插槽注册表（组合局部提供，通用屏幕只读注册表）
     @Inject
     lateinit var serverUiSlotRegistry: dev.leonardo.ocbeacon.ui.extension.ServerUiSlotRegistry
+
+    // #391 切片9：条目动作注册表（统一贡献注册表的条目级部分）
+    @Inject
+    lateinit var serverActionRegistry: dev.leonardo.ocbeacon.ui.extension.ServerActionRegistry
     
     /**
      * 用于通知点击产生的 deep-link 事件的 SharedFlow。
@@ -241,6 +245,7 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(
                     LocalOverscrollFactory provides null,
                     dev.leonardo.ocbeacon.ui.extension.LocalServerUiSlots provides serverUiSlotRegistry,
+                    dev.leonardo.ocbeacon.ui.extension.LocalServerActions provides serverActionRegistry,
                 ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
