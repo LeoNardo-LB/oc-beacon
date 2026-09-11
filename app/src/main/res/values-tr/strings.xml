@@ -240,6 +240,7 @@
     <string name="agent_tree_diagnostic_unavailable">Kullanılamayan alt ajan kaydı</string>
     <string name="chat_label_user">Kullanıcı</string>
     <string name="chat_label_agent">Ajan</string>
+    <string name="chat_steer">Araya girme</string>
     <string name="chat_subagent_completed_notification">Alt ajan tamamlandı</string>
     <string name="chat_subagent_failed_notification">Alt ajan başarısız</string>
     <string name="chat_status_updating_tasks">Görevler güncelleniyor</string>

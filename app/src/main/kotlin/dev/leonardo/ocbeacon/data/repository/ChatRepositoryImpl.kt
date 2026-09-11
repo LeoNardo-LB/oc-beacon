@@ -239,6 +239,8 @@ class ChatRepositoryImpl @Inject constructor(
                         id = admission.id,
                         sessionId = admission.sessionId,
                         time = TimeInfo(System.currentTimeMillis()),
+                        // #395：插话（steer）路径标记——徽标随消息携带（transient，不落缓存）
+                        viaSteer = steer,
                         summary = Message.User.UserSummary(body = admission.text ?: text)
                     )
                 ),

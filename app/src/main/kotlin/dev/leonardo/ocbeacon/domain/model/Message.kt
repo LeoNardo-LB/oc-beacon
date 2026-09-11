@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.domain.model
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.json.JsonContentPolymorphicSerializer
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.jsonObject
@@ -53,6 +54,13 @@ sealed class Message {
         val variant: String? = null,
         /** #385：DSH 注入类消息 source.kind 透传（agent-instructions/skill-catalog/plugin…宿主上下文注入；null=普通用户消息）——注入内容按精简折叠卡渲染（对齐 DSH Web）。 */
         val injectionKind: String? = null,
+
+        /**
+         * #395：本消息由「立即发送/插话」（steer）路径上屏——发送路径标记，非 wire 字段。
+         * [Transient] 不落 Room 缓存/不序列化：徽标仅在插话进行期间显示；durable 回显到达后
+         * 由服务器载荷重建（V2 delivery=steer 保留标记；DSH 无 wire 标记则随本地播种消息消失）。
+         */
+        @Transient val viaSteer: Boolean = false,
     ) : Message() {
         @Serializable
         data class Model(

@@ -240,6 +240,7 @@
     <string name="agent_tree_diagnostic_unavailable">Entrada de subagente no disponible</string>
     <string name="chat_label_user">Usuario</string>
     <string name="chat_label_agent">Agente</string>
+    <string name="chat_steer">Intervención</string>
     <string name="chat_subagent_completed_notification">Subagente completado</string>
     <string name="chat_subagent_failed_notification">Subagente falló</string>
     <string name="chat_status_updating_tasks">Actualizando tareas</string>

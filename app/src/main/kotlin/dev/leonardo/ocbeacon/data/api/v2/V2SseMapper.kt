@@ -99,9 +99,14 @@ object V2SseMapper {
             // delivery 契约三态：字符串（"queue"/"steer"，实测）/ 空对象（过渡契约
             // next-171xx 实证 delivery:{} —— 视为无档位即播种）/ 缺席。对象形态
             // 防御性探 mode 字段（未观测到，保守兼容）。
+            // #395：delivery 三处形态——inbox.enqueued 在 item.delivery、input.admitted
+            // 在 input.delivery（此前漏读 → 该路径的 queue/steer 档位全部失灵）、
+            // 过渡契约在顶层 delivery。
             val deliveryPrim = props["item"]?.jsonObject?.get("delivery") as? kotlinx.serialization.json.JsonPrimitive
+                ?: props["input"]?.jsonObject?.get("delivery") as? kotlinx.serialization.json.JsonPrimitive
                 ?: props["delivery"] as? kotlinx.serialization.json.JsonPrimitive
             val deliveryObj = props["item"]?.jsonObject?.get("delivery") as? kotlinx.serialization.json.JsonObject
+                ?: props["input"]?.jsonObject?.get("delivery") as? kotlinx.serialization.json.JsonObject
                 ?: props["delivery"] as? kotlinx.serialization.json.JsonObject
             val delivery = deliveryPrim?.contentOrNull
                 ?: deliveryObj?.get("mode")?.jsonPrimitive?.contentOrNull
@@ -118,6 +123,9 @@ object V2SseMapper {
                     id = inputId,
                     sessionId = sessionId,
                     role = inputType,
+                    // #395：V2 wire 的 steer 档位（delivery 三态之一）→ 插话徽标标记；
+                    // queue 已在上方拦截，其余（缺席/空对象）为普通发送。
+                    viaSteer = delivery == "steer",
                     time = TimeInfo(envelopeTimeMs ?: System.currentTimeMillis()),
                     // 2026-08-16 根治（P0 附件 SSE 通道丢失）：inbox 携带的 files
                     // 文件名并入播种文本——发送带附件消息后 SSE 回显立即显示

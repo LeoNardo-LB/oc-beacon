@@ -157,6 +157,11 @@ internal fun MessageCardUser(
             Modifier
         },
         statsBar = {
+            // #395：插话（steer）徽标——发送路径标记，仅插话消息显示
+            if (userMessage?.viaSteer == true) {
+                SteerBadge(modifier = Modifier.padding(end = SpacingTokens.SM.dp))
+            }
+
             // 弹性空白
             Spacer(modifier = Modifier.weight(1f))
 
@@ -255,6 +260,27 @@ internal fun MessageCardUser(
                 showRevertConfirmation = false
                 onRevert()
             },
+        )
+    }
+}
+
+/**
+ * #395：插话（steer）徽标——发送路径标记（见 [Message.User.viaSteer]）。
+ * 文案 `chat_steer`（zh 默认「插话」，待用户裁决可调）；形态=小号 tertiary 底标签。
+ */
+@Composable
+private fun SteerBadge(modifier: Modifier = Modifier) {
+    Surface(
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        shape = RoundedCornerShape(SpacingTokens.XS.dp),
+        modifier = modifier,
+    ) {
+        Text(
+            text = stringResource(R.string.chat_steer),
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = SpacingTokens.XS.dp, vertical = 1.dp),
         )
     }
 }
@@ -361,6 +387,10 @@ internal fun ChunkedUserMessage(
                     modifier = Modifier.padding(top = if (compact) SpacingTokens.XS.dp else 10.dp),
                 ) {
                     Spacer(modifier = Modifier.weight(1f))
+                    // #395：插话（steer）徽标
+                    if ((currentMessage.message as? Message.User)?.viaSteer == true) {
+                        SteerBadge()
+                    }
                     // 2026-09-10（用户裁决⑦）：QUEUED 徽章移除——排队消息不上转录
                     if (onRevert != null) {
                         Icon(
