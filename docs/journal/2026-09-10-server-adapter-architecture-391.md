@@ -458,3 +458,13 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 - 真机实测：重装后 logcat `MsgEventHandler [msg] MessageUpdated sid=… id=dsh-sys-… role=system` 多会话命中——wire→映射→事件链路贯通。
 
 **验证**：全量单测 + lintDevDebug（no new issues）+ assembleDevDebug + 模拟器实测 BUILD SUCCESSFUL。
+
+## #398 步骤4：deliverables/presented 渲染接入（2026-09-12）
+
+- 提交 `dc4b33a0`：present 工具的服务器权威交付事件接入 turn 尾产出文件行。
+- 载荷取证（本机归档 c0ffb1a8，seq203-207）：`tool/call` 根 callId=call_4b6a41bb…，`tool/ptc-dispatch-start` 载 rootCallId/subCallId=…:ptc:1；`deliverables/presented` 只带 **subCallId** —— 直接 toolHostMessageId(subCallId) 会落空宿主（孤儿子消息）。新增 `DshEventMapper.rootCallId` 剥 `:ptc:<n>` 后缀落位根 run_code 工具卡宿主。
+- 新领域 part `Part.Deliverables`（非气泡渲染型元数据，presented[{path,description}]）；PartSerializer 分发 + presented 字段推断；MessageStore.typeName / CachedPartEntity 注释对称。
+- `TurnDeliverables.turnProducedFiles` = 服务器 presented（前）+ client-only 写类工具 produced（后）并集，首见序精确拼写去重；既有 ProducedFilesRow 复用，无新壳。
+- 偏差如实记录：web selectDeliverables 分 produced 行 + presented 卡行两段；app 单行合一，故取服务器权威来源在前。
+- 验证（全绿）：`:app:compileDevDebugKotlin`；`:app:testDevDebugUnitTest --rerun`（全量，新增 rootCallId/deliverables 映射/缓存回环/ui 并集共 4 类）；`:app:lintDevDebug` → `Lint found no new issues (257 warnings, 8 hints baseline)`。
+- 待办：模拟器 DSH E2E 验证该行实际渲染（同归档含 1 条 deliverables/presented）。
