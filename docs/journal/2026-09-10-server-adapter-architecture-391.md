@@ -505,3 +505,12 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 - 结果：`cached_parts` 含 **11 条 `type='deliverables'`**；样本 `messageId=dsh-call-call_4b6a41bb836149099bc5d9f0`（根 run_code 宿主——`:ptc:1` 已正确剥离）、`sessionID=c0ffb1a8-…`、`presented:[{path:"/tmp/recon/sl…"}]`——与 `DshV3GoldenSampleTest` 逐字吻合。
 - 结论：**服务器事件 → DshEventMapper（Part.Deliverables，rootCallId 落位）→ Room 持久化（typeName/序列化回环）** 全链在真实设备 + 真实 DSH 上通过。UI chip 是已验证数据上的纯投影（TurnDeliverables fold + ProducedFilesRow，单测覆盖），可见性受 `allStepsCompleted` 门控（turn 完结后显示）。
 - 说明：310+ 事件大会话的逐条视觉确认成本过高（模型流式慢、turn 长），改用库直查作为等效仪器证据（docs/probing.md 允许的观测手段）。
+
+## 真机（PLK110 / Android 16）E2E 补验（#398/#400）（2026-09-12）
+
+- 无线调试接入：`adb pair 192.168.1.3:38031 395913` 成功 → mDNS 连接端口 `192.168.1.3:42217` 自动挂载；设备 PLK110 / Android 16（SDK 36）/ 1272x2772（真机，非模拟器）。
+- 装包：设备既有 dev 包为历史签名身份，本机 APK 为仓库钉死 `app/keystore/debug.jks`（SHA-256 8f7a…）→ 按 device-testing §跨签名源切换**一次性卸载重装 dev flavor**（stable/beta 未动），安装成功。
+- 连接：`adb reverse tcp:3080` + `am start --es debug_url http://127.0.0.1:3080 --es debug_server_type dsh --es debug_token …`；Real-DSH 会话列表/聊天转录正常渲染、实时事件派发（SessionTokenUsageChanged→SessionEventHandler）、无崩溃（crash buffer 空）。
+- **deliverables 数据路径（真机确证）**：设备 Room `cached_parts` 含 5 条 `type='deliverables'`；`messageID=dsh-call-call_x`（根工具卡宿主）、`id=dsh-deliverables-call_x:ptc:N`——与模拟器成果及 `DshV3GoldenSampleTest` 一致。
+- **能力过滤（#400 真机面）**：任务菜单 = TODO / 智能体 / 目标 / 排队队列（**无终端/Shell**），与 DSH V012 预期及模拟器 E2E 一致。
+- 说明：交付文件名 chip 的**画面**未捕获——目标大会话已被上下文压缩（Compacted 795 history items），相关轮次不再渲染；数据路径已由 Room 直查确证，chip 为其上的纯投影。
