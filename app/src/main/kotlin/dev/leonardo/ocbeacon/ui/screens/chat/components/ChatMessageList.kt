@@ -696,13 +696,20 @@ fun ChatMessageList(
         derivedStateOf { findCurrentAnchorTimestamp(listState, displayItems, bannerCount, chatEntries.entryDisplayIndex) }
     }
 
-    // 高亮 key（5 秒后自动清除）—— 2026-09-10 用户裁决：跳转终点统一 5s 高亮
-    //（内容检索进会话定位/快速定位/onLocateTask 共用；原 3s 手动设键链收编相位派生）。
-    var highlightedTurnKey by remember { mutableStateOf<String?>(null) }
+    // 跳转高亮目标（5 秒后自动清除）—— 2026-09-10 用户裁决：跳转终点统一 5s 高亮。
+    // #394（2026-09-12）：相位只记目标 msgId；key 推导下沉渲染期（与 Lazy item key
+    // 同源 entryKeyFor），修「assistant 目标 t_ 键公式漂移」与「异步路径 displayItems
+    // 尚未含目标 → 查空静默不设键」两处失效。
+    var highlightedMsgId by remember { mutableStateOf<String?>(null) }
+    val highlightedTurnKey = remember(highlightedMsgId, displayItems, turnGroups) {
+        highlightedMsgId?.let { tid ->
+            displayItems.firstOrNull { it.second.message.id == tid }?.let { (ri, m) -> chatEntryKey(turnGroups, ri, m) }
+        }
+    }
     LaunchedEffect(highlightedTurnKey) {
         if (highlightedTurnKey != null) {
             delay(5000)
-            highlightedTurnKey = null
+            highlightedMsgId = null
         }
     }
 
@@ -778,16 +785,9 @@ fun ChatMessageList(
     androidx.compose.runtime.LaunchedEffect(jumpController) {
         sharedJumpPhase.collect { phase ->
             if (phase is JumpPhase.Displayed) {
-                val entry = displayItemsForJump.value
-                    .firstOrNull { it.second.message.id == phase.msgId }
-                if (entry != null) {
-                    val (rawIndex, msg) = entry
-                    highlightedTurnKey = if (msg.isUser) {
-                        "u_" + msg.message.id
-                    } else {
-                        "t_" + (rawMessages.getOrNull(rawIndex + 1)?.message?.id ?: "head")
-                    }
-                }
+                // #394：只记目标 msgId（不在此处查 displayItems——异步加载窗口内可能
+                // 查空）；高亮键由渲染期从最新 displayItems 同源推导。
+                highlightedMsgId = phase.msgId
             }
         }
     }
@@ -1363,8 +1363,7 @@ fun ChatMessageList(
                         val displayItemIndex = entry.displayIndex
                         val (rawIndex, msg) = displayItems[entry.displayIndex]
                         // #103（M-8）：与 LazyColumn key 同锚点（turn 组首条消息 id）
-                        val itemKey = if (msg.isUser) "u_${msg.message.id}"
-                            else "t_${turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id}"
+                        val itemKey = chatEntryKey(turnGroups, rawIndex, msg)
                         val isStreamingMsg = (turnGroups[rawIndex] ?: listOf(msg)).any { it.message.id == streamingMsgId }
                         // #231（2026-08-26 用户再报「还是叠在一起」）：非流式 item 此前
                         // 无 clip——异步内容增长（reasoning 展开/Markdown 迟到解析/
@@ -1681,7 +1680,27 @@ fun ChatMessageList(
                                 // 文本墙（演示①实测约一屏半）。对齐 DSH Web 精简卡片：
                                 // 折叠行（标签+展开箭头）+ 展开可读全文（#232/#234 system
                                 // 墙→EventCard 同款处置）。空文本注入（无 text part）整条跳过。
+                                // #387（2026-09-12）：V2 skill-catalog / 上下文刷新注入
+                                // 不带 source.kind 标记——按 <system-reminder> 闭合块嗅探，
+                                // 与 #385 的 DSH source.kind 路径合流为同一 EventCard 面。
+                                // 仅整条闭合块折叠；「闭合块+真问句」混合消息保持普通气泡，
+                                // 避免把用户正文一并吞掉。嗅探只对首段以标记开头的消息做，
+                                // 不引入普通消息的全文扫描开销。
                                 val injectionKind = (chatMessage.message as? Message.User)?.injectionKind
+                                    ?: run {
+                                        val firstText = chatMessage.parts
+                                            .firstOrNull { it is Part.Text } as? Part.Text
+                                        if (firstText != null &&
+                                            firstText.text.trimStart().startsWith("<system-reminder>")
+                                        ) {
+                                            val allText = chatMessage.parts
+                                                .filterIsInstance<Part.Text>()
+                                                .joinToString("\n") { it.text }
+                                            if (dev.leonardo.ocbeacon.domain.model.SystemInjection
+                                                    .isPureReminder(allText)
+                                            ) "context" else null
+                                        } else null
+                                    }
                                 if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                                     dev.leonardo.ocbeacon.logging.AppLogger.d(
                                         "InjCard",
@@ -2250,6 +2269,21 @@ internal fun extractToolSubagentSessionId(tool: Part.Tool): String? {
 // 注入通道设计存档 journal §验收反馈·一 供未来复用。
 
 // 预解析/分片调参常量已随渲染供给协调器外移 RenderSupplyCoordinator.companion（候选 1）。
+
+/**
+ * #394：聊天条目 key 统一公式——Lazy item key 与跳转高亮 key 必须同源。
+ *
+ * 此前跳转高亮用 rawMessages[displayIndex+1] 推导 assistant 的 t_ 键，与渲染用的
+ * turnGroups[rawIndex].first() 漂移 → assistant 目标的 t_ 键永不命中（高亮失效）。
+ * user 目标 → u_<消息 id>；assistant 目标 → t_<该轮首条消息 id>（turn 组锚点）。
+ */
+internal fun chatEntryKey(
+    turnGroups: Map<Int, List<ChatMessage>>,
+    rawIndex: Int,
+    message: ChatMessage,
+): String =
+    if (message.isUser) "u_" + message.message.id
+    else "t_" + (turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: message.message.id)
 
 /** 任务状态 → 既有 dsh_job_status_* 文案（Task 3d 降级 Shell 卡；零新增 i18n；
  *  #284：statusKind 枚举分支，UNKNOWN 沿用 completed 兜底保持原渲染）。 */

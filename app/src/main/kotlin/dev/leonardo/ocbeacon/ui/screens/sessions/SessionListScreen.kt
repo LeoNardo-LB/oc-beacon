@@ -454,9 +454,26 @@ viewModel.consumePendingReadSessionId()
                                         .map { (sid, hits) ->
                                             // 按消息去重：FTS 行级命中（同消息多 part/
                                             // 同步路径重复 partId）折叠为每消息一行
-                                            sid to hits
+                                            val byRank = hits
                                                 .sortedBy { it.rank ?: Double.MAX_VALUE }
                                                 .distinctBy { it.messageId }
+                                            // #393（2026-09-12）：组内按角色交错——BM25 短
+                                            // 文档偏置使 user 提示恒居前，AI 命中沉到
+                                            // 240dp 折叠区下方不可见；交错（各角色保持
+                                            // rank 序）保证两种角色都在首屏出现。
+                                            val users = byRank.filter {
+                                                it.role == ContentSearchFilterValues.ROLE_USER
+                                            }
+                                            val agents = byRank.filter {
+                                                it.role != ContentSearchFilterValues.ROLE_USER
+                                            }
+                                            val interleaved = ArrayList<ContentSearchHit>(byRank.size)
+                                            val maxN = maxOf(users.size, agents.size)
+                                            for (i in 0 until maxN) {
+                                                users.getOrNull(i)?.let(interleaved::add)
+                                                agents.getOrNull(i)?.let(interleaved::add)
+                                            }
+                                            sid to interleaved
                                         }
                                         .sortedByDescending { it.second.size }
                                 Column(
