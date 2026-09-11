@@ -12,7 +12,7 @@
 | system/message | 41 | 中（系统/插件上下文节点）——**已实现（2026-09-11）** |
 | subagent/catalog | 16 | 中（子智能体目录） |
 | deliverables/presented | 15 | 中（产物交付卡） |
-| feedback/message-put | 0 | 低（归档无样本，需新会话取证） |
+| feedback/message-put | 0 | 低——**2026-09-12 定音**：包 schema 权威（见 §二-5），log-only，映射为忽略 |
 | feedback/message-delete | 0 | 低（同上） |
 
 ## 二、载荷样本与字段
@@ -68,7 +68,19 @@
 2. deliverables/presented——接既有 client-only deliverables 折叠面（ui/screens/chat/tools/TurnDeliverables.kt，当前从工具调用 args 折，改由服务器权威事件供给）。
 3. system/message——**已实现**（复用注入类精简卡，见 DshEventMapper.mapSystemMessage）。
 4. subagent/catalog——需先厘清与既有子智能体目录投影的关系。
-5. feedback/message-*——需新会话取证；App 已有 feedback 端口，事件侧补映射即可。
+5. ~~feedback/message-*——需新会话取证~~ **2026-09-12 定音（无需实况样本）**：权威 schema = `dsh-message-feedback/lib/types/types.d.ts`——`put {sessionId, item{messageId,rating,note?,category?,version,createdAt,updatedAt}}`、`delete {sessionId,messageId}`，两者均 **log-only（永不进模型历史/表面）**。App 已有权威 RPC 路径（`MessageFeedbackDelegate.seed ← messageFeedbackList`；put/delete 走 `ChatRepository`），故事件面映射为 `LOG_ONLY` 忽略，不落转录、不建第二存储。
+
+## 五、反馈事件权威载荷（2026-09-12 补，源：dsh-message-feedback types.d.ts）
+
+    {"type":"feedback/message-put","seq":9,"time":1,
+     "data":{"sessionId":"s1","item":{"messageId":"m1","rating":"positive",
+       "note":"…","category":"…","version":"v1","createdAt":1,"updatedAt":2}}}
+
+    {"type":"feedback/message-delete","seq":10,"time":2,
+     "data":{"sessionId":"s1","messageId":"m1"}}
+
+- `rating` ∈ `positive|negative`；`category` 属固定反馈分类表；`version` 是 CAS token（每次实质 put 换新）。
+- 重复同值 put 是无变化操作（不追加事件）；delete 不存在项幂等成功。
 
 ## 四、约束
 

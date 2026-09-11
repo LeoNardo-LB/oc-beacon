@@ -489,3 +489,11 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 - 新增 `DshEventVocabularyTest`：V3=V2 超集、有映射类型不入忽略表（防遮蔽共享处理器）、版本择表容错、按代降级（V2 视角 UNKNOWN_DEGRADED vs V3 具名 SESSION_FORMAT_V3）、fold 按头择表。
 - 验证：`:app:testDevDebugUnitTest --rerun` 全绿（dsh 包全量 + 全量套件）；`:app:lintDevDebug` → `Lint found no new issues (257 warnings, 8 hints baseline)`。
 - 说明：本次为**行为等价**重构（所有既有 reason 断言原样通过），零新增依赖；spec 用户故事 20「新增一代只加一个世代描述」的 seam 就位。
+
+## #398 步骤8：feedback/message-* 定音（包 schema，无需实况样本）（2026-09-12）
+
+- 结论：**无需新会话取证**。权威 schema 在 DSH 包内：`dsh-message-feedback/lib/types/types.d.ts`——`feedback/message-put {sessionId, item{messageId,rating,note?,category?,version,createdAt,updatedAt}}`、`feedback/message-delete {sessionId,messageId}`；两者均 **log-only（永不进模型历史与 surface）**。
+- 映射：维持忽略，但原因由占位 `SESSION_FORMAT_V3` 改为语义准确的 `LOG_ONLY`。依据：app 已有权威 RPC 路径（`MessageFeedbackDelegate.seed ← messageFeedbackList`；put/delete 走 `ChatRepository`）——事件面再落一份即双源。
+- 测试：`DshV3AdaptationTest` 新增 log-only 断言（put/delete 真实 schema）；原 v3 具名降级列表移除 feedback 两项。
+- 研究文档 `docs/research/2026-09-11-dsh-v3-event-payloads.md` 补 §五权威载荷 + §三-5 定音。
+- 验证：dsh 包全绿；`:app:testDevDebugUnitTest --rerun` 全绿；`:app:lintDevDebug` → Lint found no new issues。

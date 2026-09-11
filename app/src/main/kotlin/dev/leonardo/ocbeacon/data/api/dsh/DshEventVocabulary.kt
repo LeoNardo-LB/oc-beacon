@@ -89,9 +89,14 @@ private val V2_IGNORABLE: Map<String, String> = mapOf(
 private val V3_IGNORABLE: Map<String, String> = mapOf(
     // 瞬态 LLM 尝试记录（实测 692 例中 681 例随后 llm/retry，逐条渲染会刷屏）
     "assistant/attempt" to DshIgnoreReason.SESSION_FORMAT_V3,
-    // 消息级反馈：本机 29 归档 0 样本，待新会话取证后补映射
-    "feedback/message-put" to DshIgnoreReason.SESSION_FORMAT_V3,
-    "feedback/message-delete" to DshIgnoreReason.SESSION_FORMAT_V3,
+    // 消息级反馈：权威 schema = dsh-message-feedback/lib/types/types.d.ts
+    //（payload {sessionId, item{messageId,rating,note?,category?,version,createdAt,
+    // updatedAt}} / delete {sessionId,messageId}；**log-only，永不进模型历史与
+    // surface**）。app 已有权威 RPC 路径（MessageFeedbackDelegate.seed ←
+    // messageFeedbackList；put/delete 走 ChatRepository）——事件面维持 log-only
+    // 忽略，不落转录、不新建第二反馈存储（避免双源）。
+    "feedback/message-put" to DshIgnoreReason.LOG_ONLY,
+    "feedback/message-delete" to DshIgnoreReason.LOG_ONLY,
     // 子智能体目录单条推送：目录权威面是 subagents/list RPC 整帧（app 侧
     // SubagentModeTracker 已懒加载）；再落一处即双源，故维持具名降级
     "subagent/catalog" to DshIgnoreReason.SESSION_FORMAT_V3,

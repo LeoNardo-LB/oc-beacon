@@ -35,8 +35,6 @@ class DshV3AdaptationTest {
     fun `v3 vocabulary is named-degraded and never a structural violation`() {
         val v3Types = listOf(
             "assistant/attempt",
-            "feedback/message-put",
-            "feedback/message-delete",
             "subagent/catalog",
         )
         for (type in v3Types) {
@@ -76,6 +74,21 @@ class DshV3AdaptationTest {
             env("""{"type":"system/message","seq":9,"time":100,"data":$data}"""),
         )
         assertTrue(mapped.isEmpty())
+    }
+
+    @Test
+    fun `v3 message feedback is log-only (never transcript)`() {
+        // 权威 schema：dsh-message-feedback/types.d.ts——两个事件均 "Log-only
+        // ... never enters model history"；app 走 RPC（MessageFeedbackDelegate），
+        // 事件面为 log-only 忽略而非待渲染。
+        val put = """{"type":"feedback/message-put","seq":9,"time":1,"data":{"sessionId":"s1","item":{"messageId":"m1","rating":"positive","version":"v1","createdAt":1,"updatedAt":2}}}"""
+        val del = """{"type":"feedback/message-delete","seq":10,"time":2,"data":{"sessionId":"s1","messageId":"m1"}}"""
+        for (raw in listOf(put, del)) {
+            assertEquals(
+                listOf(DshMappedEvent.Ignored(DshIgnoreReason.LOG_ONLY)),
+                DshEventMapper.mapSessionEvent("s1", env(raw)),
+            )
+        }
     }
 
     @Test
