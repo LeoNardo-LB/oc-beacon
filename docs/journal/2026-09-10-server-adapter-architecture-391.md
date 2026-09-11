@@ -514,3 +514,16 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 - **deliverables 数据路径（真机确证）**：设备 Room `cached_parts` 含 5 条 `type='deliverables'`；`messageID=dsh-call-call_x`（根工具卡宿主）、`id=dsh-deliverables-call_x:ptc:N`——与模拟器成果及 `DshV3GoldenSampleTest` 一致。
 - **能力过滤（#400 真机面）**：任务菜单 = TODO / 智能体 / 目标 / 排队队列（**无终端/Shell**），与 DSH V012 预期及模拟器 E2E 一致。
 - 说明：交付文件名 chip 的**画面**未捕获——目标大会话已被上下文压缩（Compacted 795 history items），相关轮次不再渲染；数据路径已由 Room 直查确证，chip 为其上的纯投影。
+
+## 模拟器端到端验收 #400（2026-09-11，代替真机）
+
+- 用户裁决：模拟器代替真机（`emulator-5554`，Android 16 无头）；devDebug APK c90ba98a…；三步法：checklist 已有 → 纯净执行员（未改产品代码/未跑 Gradle）。
+- 全量证据：docs/acceptance/2026-09-12-391-400-emulator-evidence.md（164 行）；结论汇总同步回 checklist「执行状态（模拟器复跑）」节。
+- **结果：A1-A3 / B1-B3 / C3 / D1 / D2 / E1 / E2 全 PASS，无 BLOCKED。**
+  - A 令牌门禁（3081 新 authority 冷启动横幅、无效拒绝、有效恢复）；B 能力门控 + 两级插槽（DSH FAB 有目标无 Shell；OpenCode 反向）；C3 词汇表容错（cached_messages=1000、STRUCTURAL_VIOLATION=0）。
+  - D1 实时流：新会话切 opencode-go/DeepSeek V4.1 Flash 后本会话 TextDelta 443/3471 条，转录 164→5200→5672 递增。
+  - D2 轮尾台账「轮次 2 · 13.9s · 7 步 · 3 个工具」；另有 3m 2s/5m 20s/1m 18s 正则命中。
+  - E1 OpenCode 面列表+转录（25 文本节点）正常；E2 crash buffer 全程空。
+- **C1 保留判定**：产物 chip 功能 PASS（替代 DSH 会话 a84edbf7 命中 `产物` + `打开 <path>`）；指定会话 session-94365bc9 因 V3 4 次压缩边界（2 条 deliverables 全在边界前）未呈现。
+- **C2 保留判定**：注入类精简卡机制 PASS（`上下文注入`/`插件配置` 可展开）；字面片段「You are an AI agent powered by DeepSeek Harness」未作为卡正文出现（归档 339 条 system/message 均在压缩边界外）。
+- 环境坑留档：模拟器初始 en-US，用 `cmd locale set-app-locales <pkg> --locales zh-CN` 仅对本 App 设中文；新会话默认 deepseek-official 路由余额不足（Insufficient Balance），切 opencode-go 正常。

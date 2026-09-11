@@ -53,7 +53,7 @@
 
 ## P0 — 主流程阻塞
 
-- [ ] **#391 ServerAdapter 服务器类型插件化架构（含 DSH 0.1.5/V3 适配）** `refactor` `dsh` `sse` `data`
+- [~] **#391 ServerAdapter 服务器类型插件化架构（含 DSH 0.1.5/V3 适配）** `refactor` `dsh` `sse` `data`
   - 目标形态：ServerAdapter 聚合根 + @IntoSet 注册表 + 端口可选性派生能力 + 5 UI 插槽扩展 + ConnectionStrategy；新增服务器类型=新目录一个 bundle，零既有改动。
   - 现状根因：7 份手写路由、60 处 ServerType 特判、闭集能力矩阵+中心 switch、事件词汇无版本维度（DSH 0.1.5/V3 击穿历史与流式）。
   - 架构一次到位、开发按 8 切片分批（契约前两片冻结）；首个真实落地=DSH 0.1.5/V3 适配。
@@ -61,10 +61,11 @@
   - 通用 UIUX 统一纳入承重与交付：差异分级 L0/L1/L2 + 统一贡献注册表 + 隐藏/禁用判据；静态强制走 Android Lint 自定义规则（既有 lint 门禁，不新增工具链），审计矩阵 BAD 归零（切片 9）。
   - 开发切片数更新：9（原 8 + 通用 UIUX 统一落地，见 spec Further Notes）。
   - 进度（2026-09-10）：切片1-7 已实现并提交（3f59c5d9..8ce0107a）；切片8 上已提交 44095a9c（lint 门禁恢复绿 #396 清零 / 选择器注册表驱动 / 适配器契约测试 / 探测器去类型化 / 架构文档登记）；切片8 下的自定义 lint 规则见 #397；切片9（通用 UIUX 统一）未开工。
+  - 2026-09-11 模拟器 E2E（代替真机）全量通过：A1-A3/B1-B3/C3/D1/D2/E1/E2 全 PASS、无 BLOCKED（证据 docs/acceptance/2026-09-12-391-400-emulator-evidence.md）。九切片代码 + E2E 就位，转待用户验收。
 
 ## P1 — 核心功能需求
 
-- [ ] **#400 Testing seam 4：真机/模拟器 + 真实服务器端到端** `test` `dsh`
+- [~] **#400 Testing seam 4：真机/模拟器 + 真实服务器端到端** `test` `dsh`
   - 现状：#391 批次全部验证为 JVM 单测/编译/lint；spec Testing seam 4（真实服务器 + 真机端到端）未执行。
   - 目标：模拟器或可达网络下跑 V1/V2/DSH 三面 E2E，重点覆盖历史拒绝重建（surfaceOp 越界）、assistant-stream 实时流、界面插槽渲染（横幅/设置区块）。
   - 阻塞：机场公共 WiFi 客户端隔离致无线调试不可达（10.3.2.3 ARP FAILED）；改用模拟器。
@@ -72,6 +73,7 @@
   - 未覆盖：DSH 线面（无靶机）——token 横幅、DSH 设置区块、surfaceOp 越界拒绝重建、assistant-stream 实时流。
   - DSH V012 面 E2E 通过（本机 DSH 3080 + debug_token）：token 交换 ok、wire=v012 authed、转录渲染、assistant-stream 实时流（t_dsh-t55s10 增量 RESIZE）、DSH FAB 能力过滤（Goal 有/Shells 无）、404 优雅降级、无崩溃。
   - OpenCode V2 面此前已过；V3 五类新事件渲染未覆盖（见 #398）。
+  - 2026-09-11 模拟器代替真机全量复跑：A/B/C3/D1/D2/E1/E2 全 PASS、无 BLOCKED；C1 功能 PASS（指定会话因 V3 压缩边界未呈现）、C2 机制 PASS（字面片段在压缩边界外）。证据 docs/acceptance/2026-09-12-391-400-emulator-evidence.md。转待用户裁决 C1/C2 + 验收。
 
 - [ ] **#399 切片9 剩余：条目动作贡献注册表 + 令牌门禁 + 审计矩阵 BAD 归零** `ui` `arch`
   - 现状：区域插槽（ServerUiSlot）已落并有三处贡献；但条目级动作仍是组件内联能力判断，非声明式贡献；令牌门禁（硬编码色值/间距/时长）未做。
@@ -87,7 +89,7 @@
   - 统一贡献注册表条目级部分已落：ServerActionContribution/ServerActionRegistry/LocalServerActions + ChatFabActionsModule 声明 5 条 FAB 入口贡献；ChatScreen 内联能力门控改注册表消费。区域插槽 + 条目动作两块齐。
   - 剩余：条目→内容映射仍由通用壳持有（设计如此）；V3 P1 渲染见 #398；E2E 见 #400。
 
-- [ ] **#398 V3 新事件族渲染（切片7 P1）+ 按代事件词汇表** `dsh` `arch`
+- [~] **#398 V3 新事件族渲染（切片7 P1）+ 按代事件词汇表** `dsh` `arch`
   - 现状：#391 两轴评审确认 V3 五类新事件（system/message、assistant/attempt、feedback/message-put|delete、subagent/catalog、deliverables/presented）仅 Ignored(SESSION_FORMAT_V3) 降级不渲染；事件映射仍是单体 when + protocolOf==V012 硬判。
   - 目标：按 spec 切片7 补渲染（系统节点/失败尝试/反馈/子智能体目录/产物卡）+ 落地按代 EventVocabulary 表。
   - 前提：需 DSH 0.1.5 真实 wire 样本（当前仅 0.1.1/0.1.2 实录），无样本不臆造字段。
@@ -95,11 +97,13 @@
   - 本机 DSH 0.1.5 服务器（3080）已成为权威 wire 取证源；其余 V3 类型渲染 + 按代词汇表待续。
   - 步骤2（2026-09-11）：29 个 V3 归档取证固化到 docs/research/2026-09-11-dsh-v3-event-payloads.md——assistant/attempt(692)/system/message(41)/subagent/catalog(16)/deliverables/presented(15) 原始载荷+字段+映射计划；feedback/* 归档无样本。
   - 步骤3（2026-09-11）：system/message 已渲染为注入类精简卡（复用 injectionKind→EventCard）；assistant/attempt 判断修正为维持静默（681/692 后随 llm/retry，瞬态）；deliverables/presented 待接既有 TurnDeliverables 折叠面。
+  - 2026-09-11 复核 + 模拟器 E2E：按代词汇表与 V3 五族处置全落，C3 容错 PASS。C1 产物 chip 功能 PASS（替代会话命中）、指定会话因 V3 压缩边界未呈现；C2 注入卡机制 PASS、字面片段在压缩边界外。转待用户裁决 C1/C2 判定。
 
-- [ ] **#396 Android Lint devDebug 门禁 4 项存量错误** `lint` `ci`
+- [~] **#396 Android Lint devDebug 门禁 4 项存量错误** `lint` `ci`
   - 现象：./gradlew :app:lintDevDebug 红（abortOnError），4 error——HiltEntryActivity MissingClass ×1（src/debug/AndroidManifest.xml:18，类仅存在于 androidTest 源集）+ LocalContextGetResourceValueCall ×3（ChatScreen.kt:786/1067、SettingsScreen.kt:97 的 context.getString 应走 stringResource）。
   - 归因：blame 分别为 6c41d0a2(2026-08-16)/f2df106c/2e4a4d58/54cbc555(2026-08-31~09-01)，#106 批次曾清至 0 后回归；与 #391 切片1/2 无关（ChatScreen numstat 9/9 行数不变，命中行未改）。
   - 影响：#391 切片8 的自定义 Lint 规则要接入同一门禁，需先清此 4 项或确认 lintRelease 路径。
+  - 2026-09-11 复核：4 项 devDebug lint 已在 44095a9c 清零（HiltEntryActivity 迁 src/debug + EventTimeString 收敛），:app:lintDevDebug 0 new issues。转待用户验收。
 
 - [ ] **#394 跳转终点 5s 高亮未生效 + 疑似破坏会话渲染（优化2 复验未过）** `chat`
   - 用户复验（2026-09-10）：搜索命中行点击进会话后无 5s 高亮，且报告「似乎破坏会话渲染」。疑点：①Displayed 相位 hook 的 itemKey 键式推导（assistant 目标 t_ 键）与渲染 itemKey 实际格式不匹配→不设键不高亮；②async 跳转路径 entry 查空→静默不设键；③渲染破坏待复现取证（当前帧 /tmp/n5_regression.png VLM 复核健康——你好 会话轮次 19-21 气泡/台账正常，疑为 search-jump 进入路径暂时性）。实现：commit a0b24103。
@@ -111,7 +115,7 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#397 自定义 Android Lint 规则（服务器类型分支白名单 / 界面分层 / 令牌绕过）** `lint` `arch`
+- [~] **#397 自定义 Android Lint 规则（服务器类型分支白名单 / 界面分层 / 令牌绕过）** `lint` `arch`
   - 背景：#391 切片8 的静态强制部分未落——spec 要求走自定义 Android Lint 规则，但 Lint 检查必须是独立 Gradle 模块，与 spec Out of Scope「不把单模块拆成多 Gradle 模块」存在取舍，需用户裁决。
   - 现状：本机 Gradle 缓存已具备 lint-api/lint-checks 32.3.2（与 AGP 9.3.2 匹配），可离线新增 :lint-checks 模块（com.android.lint 插件 + Detector + IssueRegistry + META-INF services）+ app 端 lintChecks(project(:lint-checks))。建议先只落「ServerType 分支白名单」一条（文本级 Detector，白名单：类型定义/ServerConfig/ServerConnection/data-adapter/ServerDialog/调试入口），跑通后再扩 UI 分层与令牌两条（存量需入 baseline）。
   - 替代方案：脚本门禁（grep）复用现有 release 门禁，零新模块但表达力弱。当前兜底：架构文档承重规则 + code review。
@@ -126,6 +130,7 @@
   - 剩余：86 文件间距存量迁移 + 6 处类型私有 UI 迁移（见 #399）。
   - SpacingTokenBypass 存量已清零：86 文件标准间距机械迁移到 SpacingTokens（逐值等价），baseline 减 602 行。四条静态规则全部零存量（boundary 仅余 1 条消息列表私有卡）。
   - 四条静态规则零存量 error：ServerTypeUiBoundary 收窄到非 private 声明后最后 1 条豁免清除（lintDevDebug 0 error）。
+  - 2026-09-11 复核：:lint-checks 四规则接入 lintChecks、四规则 baseline 0 条，:app:lintDevDebug 0 new issues。转待用户验收。
 
 - [ ] **#395 立即发送（steer）上屏消息缺标识徽标——chat_queued 徽章链整撤连带丢失** `queue`
   - 用户裁决（2026-09-10）：排队不上屏 ✓ + 立刻发送（steer）上屏 ✓，但 steer 消息上屏后无任何徽标标识是有问题的——需恢复徽标（建议 steer 专属文案如「插话/注入中」而非「排队中」，文案待用户裁决；i18n ×15 + MessageCardUser 两变体渲染点）。注意 steer 无 wire 侧标记——识别依赖发送路径（steer=true 时 seedTranscript 播种），徽章状态需随消息携带或按 rpcId 关联。
