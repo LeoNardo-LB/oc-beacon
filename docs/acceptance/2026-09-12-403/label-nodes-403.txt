@@ -1,0 +1,21 @@
+==== COLLAPSED TOP (before expand) ====
+android.widget.TextView [98,2083][207,2104] len=4 '插件配置'
+android.widget.TextView [98,354][207,391] len=4 '插件配置'
+==== EXPANDED TOP (after expand) ====
+android.widget.TextView [98,2083][207,2104] len=4 '插件配置'
+android.widget.TextView [74,296][1006,391] len=35651 'You are an AI agent powered by DeepSeek Harness.\n\nThe DeepSeek Harness implement'
+=== DB facts ===
+2026-09-07 08:19:44|plugin|dsh-sys-v2-to-v3-system-fadc7719593636d2297cb5f5ee07dc054d75ac05e85152bcf9a0ec5b0f4ff178
+2026-09-08 10:13:14|plugin|dsh-sys-v2-to-v3-system-18e8507d406b893940df33ef7facf08b7e3550d564ac9bbbd27b29edd937c5e1
+2026-09-08 13:13:22|plugin|dsh-sys-v2-to-v3-system-3ee60f8321436046a2cfb2669c427ee0da5ac5062e32ea3dbeaa93a5e09767c0
+2026-09-08 13:15:05|plugin|dsh-sys-v2-to-v3-system-0f039989dea2daf66c212a7399fe74aec1ce3df573660490e9863aa7de9ced07
+2026-09-09 07:59:59|plugin|dsh-sys-v2-to-v3-system-11fce982039ba9ff95a409fb564f35b5e6f7f35be56ea820b0a0f3a18a33d822
+2026-09-09 20:05:44|plugin|dsh-sys-v2-to-v3-system-e2a8434c1f3868f1571884371667a793b208c619c0a15259a507c2f6f23e1c58
+2026-09-10 18:56:30|plugin|dsh-sys-2ee10337-116a-48e4-a455-5db9017385b0
+=== render branch logs (SysMsgDiag) ===
+09-12 00:32:00.658 31909 31909 W SysMsgDiag: #234 event-card branch RENDER id=0f4ff178 textLen=35651
+09-12 00:32:00.659 31909 31909 W SysMsgDiag: #234 event-card branch RENDER id=d937c5e1 textLen=35661
+09-12 00:32:00.778 31909 31909 W SysMsgDiag: #234 event-card branch RENDER id=0f4ff178 textLen=35651
+09-12 00:32:00.779 31909 31909 W SysMsgDiag: #234 event-card branch RENDER id=d937c5e1 textLen=35661
+09-12 00:32:02.882 31909 31909 W SysMsgDiag: #234 event-card branch RENDER id=0f4ff178 textLen=35651
+09-12 00:32:02.883 31909 31909 W SysMsgDiag: #234 event-card branch RENDER id=d937c5e1 textLen=35661

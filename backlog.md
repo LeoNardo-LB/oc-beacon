@@ -154,9 +154,10 @@
 
 ## P3 — 观察与低价值改进
 
-- [ ] **#403 DSH system/message 走 role==system 分支遮蔽 injectionKind——标签恒「工具目录已变更」，与 #398「复用 injectionKind→EventCard」不符** `ui` `dsh`
+- [~] **#403 DSH system/message 走 role==system 分支遮蔽 injectionKind——标签恒「工具目录已变更」，与 #398「复用 injectionKind→EventCard」不符** `ui` `dsh`
   - ChatMessageList role=="system" 分支（L1664）先于 injectionKind 分支（L1712）；DB 中 system 消息 payload 带 injectionKind=plugin，但 UI 标签恒 chat_event_tool_catalog_changed。 -s 实测（会话 a84edbf7）：展开 system 注入卡字面可见，但标签非 kind 派生；「插件配置/上下文注入」标签只出现在 user/message+source.kind 路径。
   - → docs/acceptance/2026-09-12-400-c2-literal-verification.md
+  - 2026-09-12 修复+模拟器复验 PASS（e6a4a3e3）：首张系统注入卡标签由固定「工具目录已变更」变「插件配置」（injectionKind=plugin 生效），展开正文仍含 harness 字面、crash 0。证据 docs/acceptance/2026-09-12-403-label-verification.md。转待用户验收。
 
 - [ ] **#401 服务器管理（Home）界面缺断连条幅——#267 双界面范围外的第三面** `ui` `resilience`
   - 断连态下 Home 的服务器卡片仅「正在连接…」+「取消」，无 ServerLinkBanner；#267 只覆盖 Chat/会话列表两界面（Home 不在其声明范围，非回归）。
