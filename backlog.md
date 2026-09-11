@@ -105,13 +105,16 @@
   - 影响：#391 切片8 的自定义 Lint 规则要接入同一门禁，需先清此 4 项或确认 lintRelease 路径。
   - 2026-09-11 复核：4 项 devDebug lint 已在 44095a9c 清零（HiltEntryActivity 迁 src/debug + EventTimeString 收敛），:app:lintDevDebug 0 new issues。转待用户验收。
 
-- [ ] **#394 跳转终点 5s 高亮未生效 + 疑似破坏会话渲染（优化2 复验未过）** `chat`
+- [~] **#394 跳转终点 5s 高亮未生效 + 疑似破坏会话渲染（优化2 复验未过）** `chat`
   - 用户复验（2026-09-10）：搜索命中行点击进会话后无 5s 高亮，且报告「似乎破坏会话渲染」。疑点：①Displayed 相位 hook 的 itemKey 键式推导（assistant 目标 t_ 键）与渲染 itemKey 实际格式不匹配→不设键不高亮；②async 跳转路径 entry 查空→静默不设键；③渲染破坏待复现取证（当前帧 /tmp/n5_regression.png VLM 复核健康——你好 会话轮次 19-21 气泡/台账正常，疑为 search-jump 进入路径暂时性）。实现：commit a0b24103。
   - 2026-09-12 修复（commit 99f6430f）：高亮 key 与 Lazy item key 统一 chatEntryKey（相位只记目标 msgId、键下沉渲染期推导，兼修异步查空）；新增 ChatEntryKeyTest 回归；待模拟器复验。
+  - 2026-09-12 模拟器复验暴露真根因：initial-jump 对全部命中统一调 jumpTo（固定 u_ 前缀），assistant 的 Lazy key 是 t_<turn 首条 assistant>→永不匹配→超时 Failed、永不 Displayed。已修（86adacde）：新增 jumpToResolved 按角色分流 + turn 锚点；复验见 docs/acceptance/2026-09-12-fixes-394-393-387-verification.md。
+  - 2026-09-12 修复后定向复验 PASS（APK 0cb9147e）：assistant 命中 jumpToResolved→Displayed→Highlight set key=t_…→clear（5.000s）；旧「布局稳定 超时/重定位 14 次」全消失；user 对照无回归；crash 0。证据 docs/acceptance/2026-09-12-fixes-394-393-387-verification.md 复验二节。转待用户验收。
 
-- [ ] **#393 搜索内容命中：全部过滤下 AI 行仍不可见（⑤复验未过——逐命中行改造后依旧）** `ui`
+- [~] **#393 搜索内容命中：全部过滤下 AI 行仍不可见（⑤复验未过——逐命中行改造后依旧）** `ui`
   - 用户复验（2026-09-10）：逐命中行+角色标签改造后，「全部」过滤下仍只见人类行。装机冒烟实证：story 查询首屏全用户行（BM25 短文档偏置 user 恒靠前），AI 行在折叠下方——待确认用户是否滚动；若 UX 需要 AI 无滚动可见，需按角色交错排序或每会话最优双角色先行。取证：拉库已证 FTS 层 AI 命中健全（whale: assistant 153 + user 14）。
   - 2026-09-12 修复（commit 99f6430f）：搜索内容命中组内按角色交错排序（users/agents 各自保持 rank 序，u,a,u,a…），AI 行不再沉到折叠区下方；待模拟器复验。
+  - 2026-09-12 模拟器 clean-context 复验 PASS：词 test 首组「验收测试会话AB」首屏同时出现 用户 3 行 + 智能体 2 行（u,a,u,a 交替 = interleaveSearchHits）。证据 docs/acceptance/2026-09-12-fixes-394-393-387-verification.md；转待用户验收。
 
 ## P2 — 优化与锦上添花
 
@@ -141,6 +144,7 @@
 - [ ] **#387 V2注入刷新消息渲染为用户气泡文字墙** `chat` `ui` `v2`
   - skill-catalog/上下文刷新类注入（<system-reminder>包裹、无source.kind标记）按普通用户气泡整文渲染，[Ack] 3 会话顶部现存活例（VLM 09-41 复核：calculator 全文蓝色气泡墙，而同位插件配置已是收起小卡）。初判服务端对此类刷新不带 kind，mapper 按普通 user 落库。根因方向：对齐 dsh web 对 system-reminder 注入的识别与收起呈现（内容嗅探或等价机制），修在映射/渲染层单点。证据：/tmp/n2_acklink_top.png n2_ackthree_top.png；演示批 journal 待补
   - 2026-09-12 修复（commit 99f6430f）：新增 domain 纯判定 SystemInjection.isPureReminder + 渲染单点嗅探，无 source.kind 的 <system-reminder> 闭合块走既有折叠卡（混合消息不折叠）；新增 SystemInjectionTest；待模拟器复验。
+  - 2026-09-12 模拟器复验 NOT-REPRODUCIBLE：DB 中纯 <system-reminder> 的 user 消息 10 条但 10/10 带 source.kind（DSH 路径已折叠），无 kind 样本 0 条。已落 defensive 渲染层嗅探 + SystemInjection 单测；无 live 样本，请裁决是否关闭/保留观察。
 
 ## P3 — 观察与低价值改进
 
