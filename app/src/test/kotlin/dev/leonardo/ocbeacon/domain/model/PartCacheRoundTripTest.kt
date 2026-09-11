@@ -77,6 +77,27 @@ class PartCacheRoundTripTest {
     }
 
     @Test
+    fun deliverables_cacheRoundTrip_preservesType_withoutTypeDiscriminator() {
+        // #398：Deliverables 落库 payload 无 type（序列化按具体类）——
+        // 回读须经 containsKey("presented") 兜底判型，不得退化为 Unknown。
+        val original = Part.Deliverables(
+            id = "dsh-deliverables-c1",
+            sessionId = "ses_1",
+            messageId = "dsh-call-c1",
+            presented = listOf(
+                Part.Deliverables.PresentedFile(path = "/tmp/report.md", description = "报告"),
+                Part.Deliverables.PresentedFile(path = "/tmp/keep.md", description = null),
+            ),
+            time = Part.Deliverables.Time(start = 100, end = 200),
+        )
+        val payload = json.encodeToString<Part>(original)
+        assertTrue("落库 payload 不得含 type（F01 契约）", !payload.contains("\"type\""))
+        val decoded = json.decodeFromString<Part>(payload)
+        assertTrue("deliverables must survive cache round-trip, got ${decoded::class.simpleName}", decoded is Part.Deliverables)
+        assertEquals(original, decoded)
+    }
+
+    @Test
     fun wirePayload_withType_dispatchUnchanged() {
         // 服务器 wire 形态（带 type）分发不受兜底调整影响
         val decoded = json.decodeFromString<Part>(

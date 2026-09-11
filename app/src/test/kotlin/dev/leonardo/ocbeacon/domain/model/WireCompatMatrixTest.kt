@@ -105,6 +105,12 @@ class WireCompatMatrixTest {
         assertEquals(listOf("id", "sessionID", "messageID", "question"), names(Part.Question.serializer()))
         assertEquals(listOf("id", "sessionID", "messageID", "reason"), names(Part.Abort.serializer()))
         assertEquals(listOf("id", "sessionID", "messageID"), names(Part.SessionTurn.serializer()))
+        // #398：DSH V3 deliverables/presented 的服务器权威交付载荷
+        assertEquals(
+            listOf("id", "sessionID", "messageID", "presented", "time"),
+            names(Part.Deliverables.serializer()),
+        )
+        assertEquals(listOf("path", "description"), names(Part.Deliverables.PresentedFile.serializer()))
         assertEquals(listOf("id", "sessionID", "messageID"), names(Part.Unknown.serializer()))
     }
 

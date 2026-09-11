@@ -34,6 +34,8 @@ object PartSerializer : JsonContentPolymorphicSerializer<Part>(Part::class) {
             "permission" -> Part.Permission.serializer()
             "question" -> Part.Question.serializer()
             "session-turn" -> Part.SessionTurn.serializer()
+            // #398：DSH V3 deliverables/presented 的服务器权威交付载荷
+            "deliverables" -> Part.Deliverables.serializer()
             // 2026-08-12 修复：旧数据/SSE 播种的 parts 无 "type" 字段
             //（Part.Text(text="") 序列化省略默认值 → payload 无 type 无 text）
             // ——按顶层字段推断，避免降级为 Unknown（Unknown 导致消息流
@@ -56,6 +58,8 @@ object PartSerializer : JsonContentPolymorphicSerializer<Part>(Part::class) {
                 // "message"/"question" 为两类独有顶层字段，无他类冲突）
                 obj.containsKey("message") -> Part.Permission.serializer()
                 obj.containsKey("question") -> Part.Question.serializer()
+                // #398：presented 为 Deliverables 独有顶层字段（Patch 的 files 键不冲突）
+                obj.containsKey("presented") -> Part.Deliverables.serializer()
                 else -> Part.Unknown.serializer()
             }
         }
@@ -286,6 +290,32 @@ sealed class Part {
         @SerialName("sessionID") override val sessionId: String,
         @SerialName("messageID") override val messageId: String
     ) : Part()
+
+    /**
+     * #398（DSH V3）：turn 内由服务器声明的交付文件（`deliverables/presented` 事件）。
+     *
+     * 非渲染型元数据 part（`isBubbleRenderablePart` 落 else → 不进气泡）；宿主为发出
+     * 该交付的 present 工具卡消息（`dsh-call-{callId}`），由 [dev.leonardo.ocbeacon.ui.screens.chat.tools.TurnDeliverables]
+     * 在 turn 尾合并进产出文件行。字段语义见 DSH `dsh-tool-present`/`dsh-client-ui-deliverables`。
+     */
+    @Serializable
+    data class Deliverables(
+        override val id: String,
+        @SerialName("sessionID") override val sessionId: String = "",
+        @SerialName("messageID") override val messageId: String = "",
+        /** 服务器声明的交付文件（保持 wire 顺序与精确拼写；description 可空）。 */
+        val presented: List<PresentedFile> = emptyList(),
+        val time: Time? = null
+    ) : Part() {
+        @Serializable
+        data class PresentedFile(
+            val path: String = "",
+            val description: String? = null
+        )
+
+        @Serializable
+        data class Time(val start: Long, val end: Long? = null)
+    }
 
     @Serializable
     data class Unknown(

@@ -38,7 +38,6 @@ class DshV3AdaptationTest {
             "feedback/message-put",
             "feedback/message-delete",
             "subagent/catalog",
-            "deliverables/presented",
         )
         for (type in v3Types) {
             val mapped = DshEventMapper.mapSessionEvent("s1", env("""{"type":"$type","seq":1,"time":1,"data":{}}"""))
@@ -77,6 +76,56 @@ class DshV3AdaptationTest {
             env("""{"type":"system/message","seq":9,"time":100,"data":$data}"""),
         )
         assertTrue(mapped.isEmpty())
+    }
+
+    @Test
+    fun `v3 deliverables presented attaches authoritative files to the present tool host`() {
+        // 实况载荷：data{turn,callId,files[{path,description}]}（dsh-tool-present）
+        val data = """{"turn":1,"callId":"call_abc:ptc:1","files":[
+            {"path":"/tmp/recon/slice3.md","description":"切片3 盘点"},
+            {"path":"   ","description":"空路径丢弃"},
+            {"path":"/tmp/keep.md","description":"ok"}]}"""
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s1",
+            env("""{"type":"deliverables/presented","seq":205,"time":42,"data":$data}"""),
+        )
+        val events = mapped.filterIsInstance<DshMappedEvent.Sse>().map { it.event }
+        val part = events.filterIsInstance<SseEvent.MessagePartUpdated>().single().part
+            as dev.leonardo.ocbeacon.domain.model.Part.Deliverables
+        // PTC 子调用 id → 根 run_code 工具卡宿主（rootCallId 剥 :ptc:N）
+        assertEquals("dsh-call-call_abc", part.messageId)
+        assertEquals("dsh-deliverables-call_abc:ptc:1", part.id)
+        assertEquals(listOf("/tmp/recon/slice3.md", "/tmp/keep.md"), part.presented.map { it.path })
+        assertEquals("切片3 盘点", part.presented[0].description)
+        assertTrue("合法载荷不得落任何 Ignored", mapped.none { it is DshMappedEvent.Ignored })
+    }
+
+    @Test
+    fun `ptc subcall id resolves to its root tool host`() {
+        assertEquals("call_root", DshEventMapper.rootCallId("call_root:ptc:3"))
+        assertEquals("call_root", DshEventMapper.rootCallId("call_root"))
+        // 非 PTC 冒号形态与非 callId 前缀原样保留（不得误剥）
+        assertEquals("a:b", DshEventMapper.rootCallId("a:b"))
+        assertEquals(":ptc:1", DshEventMapper.rootCallId(":ptc:1"))
+    }
+
+    @Test
+    fun `v3 deliverables presented without usable files produces no events`() {
+        val empty = DshEventMapper.mapSessionEvent(
+            "s1",
+            env("""{"type":"deliverables/presented","seq":1,"time":1,"data":{"turn":1,"callId":"c1","files":[]}}"""),
+        )
+        assertTrue(empty.isEmpty())
+        val blank = DshEventMapper.mapSessionEvent(
+            "s1",
+            env("""{"type":"deliverables/presented","seq":1,"time":1,"data":{"turn":1,"callId":"c1","files":[{"path":" "}]}}"""),
+        )
+        assertTrue(blank.isEmpty())
+        val noCallId = DshEventMapper.mapSessionEvent(
+            "s1",
+            env("""{"type":"deliverables/presented","seq":1,"time":1,"data":{"turn":1,"files":[{"path":"a"}]}}"""),
+        )
+        assertEquals(listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED)), noCallId)
     }
 
     @Test

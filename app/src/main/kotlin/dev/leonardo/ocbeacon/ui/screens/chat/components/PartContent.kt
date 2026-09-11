@@ -421,9 +421,10 @@ private fun PartContentInner(
                 color = MaterialTheme.colorScheme.error
             )
         }
-        // 忽略不太相关的 parts
+        // 忽略不太相关的 parts（Deliverables = turn 尾产出文件行的元数据源，
+        // 由 TurnDeliverables fold 消费，不在气泡内渲染——#398）
         is Part.Snapshot, is Part.Subtask, is Part.Compaction,
-        is Part.SessionTurn, is Part.Unknown -> { /* skip */ }
+        is Part.SessionTurn, is Part.Deliverables, is Part.Unknown -> { /* skip */ }
         is Part.Agent -> {
             val displayName = part.name.ifBlank { "Agent" }
             val displaySource = part.source?.jsonPrimitive?.contentOrNull ?: ""

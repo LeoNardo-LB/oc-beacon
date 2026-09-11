@@ -30,6 +30,9 @@ import kotlinx.serialization.json.booleanOrNull
  *   session-lib :540-553）——「非 append」（replacement copy）在 app 转录中
  *   不可表达。故「成功」= state is [ToolState.Completed]，与 web 判据在
  *   可表达子集上等价（偏差如实记录于 #311 任务报告）。
+ *
+ * #398 增补：除上述 client-only 折法外，并入服务器权威的 present 交付声明
+ * （[Part.Deliverables]，deliverables/presented 事件）——见 [turnProducedFiles]。
  */
 object TurnDeliverables {
     /** web 同款上限：最多渲染 6 个文件 chip，其余折入「+N」计数（SHOWN_LIMIT=6）。 */
@@ -103,15 +106,38 @@ internal fun producedFilesFromTools(tools: List<Part.Tool>): List<String> {
 }
 
 /**
- * turn 内产出文件（消息视觉序遍历全部 [Part.Tool] parts；含 DSH 工具卡宿主
- * 消息 dsh-call-*）。供 [computeRenderableTurn] 预计算进 [RenderableTurn]——
+ * 服务器声明的交付文件路径（[Part.Deliverables]；present 工具
+ * deliverables/presented 事件，wire 顺序）。description 不参与——
+ * 复用既有文件名 chip 行（无描述位）。
+ */
+internal fun presentedFilesFromParts(parts: List<Part>): List<String> =
+    parts.filterIsInstance<Part.Deliverables>()
+        .flatMap { d ->
+            d.presented.mapNotNull { f -> f.path.takeIf { p -> p.trim().isNotEmpty() } }
+        }
+
+/**
+ * turn 内交付文件（消息视觉序遍历原始 parts；含 DSH 工具卡宿主消息
+ * dsh-call-*）= 服务器声明交付（[Part.Deliverables]，present 工具权威载荷）
+ * 与成功的写类工具调用 args 路径的并集，首见序按精确拼写去重。
+ *
+ * 顺序偏差（如实记录）：web selectDeliverables 分两段渲染（produced 行 +
+ * presented 卡行，produced 在前）；app 只有一条文件名 chip 行，故取服务器
+ * 权威来源在前——present 显式声明的「主要产出」不被客户端的启发式折法淹没。
+ *
+ * 供 [computeRenderableTurn] 预计算进 [RenderableTurn]——
  * 折叠输入是原始 parts 而非 renderItems（#247 同键折叠会吞后续同键卡的
  * args，从 renderItems 折会漏产出）。
  */
-fun turnProducedFiles(turnMessages: List<ChatMessage>?): List<String> =
-    producedFilesFromTools(
-        turnMessages.orEmpty().flatMap { it.parts.filterIsInstance<Part.Tool>() },
-    )
+fun turnProducedFiles(turnMessages: List<ChatMessage>?): List<String> {
+    val parts = turnMessages.orEmpty().flatMap { it.parts }
+    val seen = HashSet<String>()
+    val out = mutableListOf<String>()
+    // 服务器声明先行，其后 client-only produced；两源一并首见序精确拼写去重。
+    for (path in presentedFilesFromParts(parts)) if (seen.add(path)) out.add(path)
+    for (path in producedFilesFromTools(parts.filterIsInstance<Part.Tool>())) if (seen.add(path)) out.add(path)
+    return out
+}
 
 // ---- 私有 JSON 取值助手（string 判定对齐 JS typeof === "string"） ----
 

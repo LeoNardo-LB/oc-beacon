@@ -689,6 +689,7 @@ class MessageStore @Inject constructor(
         is Part.Permission -> "permission"
         is Part.Question -> "question"
         is Part.SessionTurn -> "session-turn"
+        is Part.Deliverables -> "deliverables"
         is Part.Unknown -> "unknown"
     }
 

@@ -78,6 +78,17 @@ object DshEventMapper {
     /** 工具卡宿主消息 id（tool/call 创建、tool/result 汇合）。 */
     fun toolHostMessageId(callId: String): String = "dsh-call-" + callId
 
+    /**
+     * PTC 子调用 id → 根工具卡 callId。`tool/ptc-dispatch-start` 的 subCallId 形如
+     * `call_x:ptc:1`（实况 seq204），而其 rootCallId/parentCallId = `call_x`——根
+     * `tool/call` 宿主按根 id 建（`dsh-call-call_x`）。deliverables/presented 只带
+     * subCallId，故须剥 `:ptc:<n>` 才能命中既有宿主；非 PTC 调用原样返回。
+     */
+    fun rootCallId(callId: String): String {
+        val marker = callId.indexOf(":ptc:")
+        return if (marker > 0) callId.substring(0, marker) else callId
+    }
+
     private val json = Json
 
     // ============ 帧面（WS server-request → DshMappedEvent） ============
@@ -832,12 +843,16 @@ object DshEventMapper {
             // V3 系统/插件上下文消息：渲染为注入类精简卡（#398 步骤3；载荷见
             // docs/research/2026-09-11-dsh-v3-event-payloads.md）。
             "system/message" -> mapSystemMessage(sessionId, seq, time, data)
+            // #398：present 工具的服务器权威交付载荷 → 工具卡宿主上的 Part.Deliverables
+            //（TurnDeliverables fold 汇入 turn 尾产出文件行；web 同源事件语义见
+            // dsh-client-ui-deliverables/lib/client.js selectDeliverables）。
+            "deliverables/presented" -> mapDeliverablesPresented(sessionId, time, data)
             // 其余 V3 新增词汇：仍具名降级（不拒绝重建）——assistant/attempt 属瞬态
             // 尝试记录（实测 692 例中 681 例随后 llm/retry，逐条渲染会刷屏）；
-            // deliverables/presented 待接既有 client-only deliverables 折叠面。
+            // subagent/catalog 待厘清与既有子智能体目录投影的双源关系。
             "assistant/attempt",
             "feedback/message-put", "feedback/message-delete",
-            "subagent/catalog", "deliverables/presented" ->
+            "subagent/catalog" ->
                 listOf(DshMappedEvent.Ignored(DshIgnoreReason.SESSION_FORMAT_V3))
             // durable 审批面：实况弹窗由 mux approval/requested|resolved 承载（本组件），
             // 历史重放 asked 会造成重复弹窗——#276 裁决是否补充重放语义
@@ -1035,6 +1050,39 @@ object DshEventMapper {
             }
         }
         return events
+    }
+
+    /**
+     * deliverables/presented（V3）→ present 工具卡宿主消息上挂 [Part.Deliverables]。
+     *
+     * 实况载荷（docs/research/2026-09-11-dsh-v3-event-payloads.md）：
+     * data{turn, callId, files[{path, description}]}。callId 是 present 的 **PTC 子调用**
+     * id（`root:ptc:N`，实况 seq205）——[rootCallId] 剥后缀后经 [toolHostMessageId] 落位
+     * 既有的根 run_code 工具卡宿主（tool/ptc-dispatch-start 的 rootCallId 同源；
+     * 服务器权威，不经 args 反推）。空 files / path 空白的行丢弃；整条无有效文件时
+     * 不产事件（零信息，不生成空 part，也不落 [DshIgnoreReason.STRUCTURAL_VIOLATION]）。
+     */
+    private fun mapDeliverablesPresented(sessionId: String, time: Long, data: JsonObject): List<DshMappedEvent> {
+        val callId = data.str("callId") ?: return listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
+        val files = (data.arr("files") ?: emptyList()).mapNotNull { el ->
+            val file = el as? JsonObject ?: return@mapNotNull null
+            val path = file.str("path")?.takeIf { it.trim().isNotEmpty() } ?: return@mapNotNull null
+            Part.Deliverables.PresentedFile(path = path, description = file.str("description"))
+        }
+        if (files.isEmpty()) return emptyList()
+        return listOf(
+            DshMappedEvent.Sse(
+                SseEvent.MessagePartUpdated(
+                    Part.Deliverables(
+                        id = "dsh-deliverables-" + callId,
+                        sessionId = sessionId,
+                        messageId = toolHostMessageId(rootCallId(callId)),
+                        presented = files,
+                        time = Part.Deliverables.Time(start = time, end = time),
+                    )
+                )
+            )
+        )
     }
 
     /**

@@ -285,4 +285,47 @@ class TurnDeliverablesTest {
     fun `turnProducedFiles tolerates null turn messages`() {
         assertEquals(emptyList<String>(), turnProducedFiles(null))
     }
+
+    // ---------- #398：服务器声明交付（deliverables/presented）并入折法 ----------
+
+    private fun presentedPart(vararg files: Pair<String, String?>) = Part.Deliverables(
+        id = "dsh-deliverables-c1",
+        sessionId = "s1",
+        messageId = "dsh-call-c1",
+        presented = files.map { Part.Deliverables.PresentedFile(path = it.first, description = it.second) },
+    )
+
+    @Test
+    fun `server presented files lead the row and merge with produced paths`() {
+        val args = writeArgs(path = "src/A.kt").toMap()
+        val out = turnProducedFiles(
+            listOf(
+                assistantMsg(
+                    "dsh-call-c1",
+                    toolPart("write", args, callId = "c1"),
+                    // 同宿主（mapper 把 Deliverables 挂在 present 工具卡消息上）
+                    presentedPart("/tmp/report.md" to "报告", "src/A.kt" to null),
+                ),
+            ),
+        )
+        // 服务器权威声明在前；与 produced 精确拼写去重（src/A.kt 不重复）
+        assertEquals(listOf("/tmp/report.md", "src/A.kt"), out)
+    }
+
+    @Test
+    fun `presented files dedupe exact spelling and drop blank paths`() {
+        val out = turnProducedFiles(
+            listOf(assistantMsg("dsh-call-c1", presentedPart("/a.md" to null, " /a.md " to null, "/a.md" to "again"))),
+        )
+        // 精确拼写去重（" /a.md " 与 "/a.md" 是两条）；空描述无碍
+        assertEquals(listOf("/a.md", " /a.md "), out)
+    }
+
+    @Test
+    fun `presentedOnlyTurn yields files without any tool call`() {
+        assertEquals(
+            listOf("/tmp/x.md"),
+            turnProducedFiles(listOf(assistantMsg("dsh-call-c1", presentedPart("/tmp/x.md" to null)))),
+        )
+    }
 }
