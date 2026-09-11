@@ -87,3 +87,23 @@
 - **修复**（commit `e6a4a3e3`）：提取 `injectionKindLabel(kind)` 单一映射源；system 分支在**显式** kind（plugin/skill-catalog/agent-instructions）时用 kind 标签，`injectionKind=="system"`（无 source.kind）保持历史「工具目录已变更」语义。
 - **复验 PASS**（APK `78e800a0`）：会话 a84edbf7 首张系统注入卡（rank 0，id …0f4ff178）标签「插件配置」（修复前「工具目录已变更」）；展开正文仍含 harness 字面（35651 字符）；`SysMsgDiag` 证实走 role==system 分支；crash 0。证据 docs/acceptance/2026-09-12-403-label-verification.md。
 - 备注：全库 role=system 的 injectionKind 仅 NULL(58)/plugin(38)，无 "system" 值 → 「工具目录已变更」回退暂无可测样本（N/A），语义保留。
+
+## 发现项盘点与排期（用户增补纪律，2026-09-12）
+
+用户增补执行纪律（2026-09-12）：① 问题/bug 直接根因修复；② 可优化点综合评估后按最优方案优化；③ UIUX 改进先全网调研，再依调研结论优化。据此盘点本会话发现：
+
+**A. Bug → 根因修复**
+- #394 跳转高亮（渲染键与跳转键漂移 + jumpTo 固定 u_ 前缀错配）— 已修 + 模拟器复验 PASS。
+- #393 搜索命中 BM25 角色偏置 — 已修 + 复验 PASS。
+- #387 无 source.kind 的 system-reminder 注入文字墙 — defensive 渲染层嗅探 + 单测（无 live 样本）。
+- #395 steer 徽标缺失 + ~16s 持久化丢失 — 已修 + 两轮复验 PASS（去 @Transient + 合并保留）。
+- #403 system/message 显式 kind 被固定标签遮蔽 — 已修 + 复验 PASS。
+- **#402 SSE 冷却误计连接级失败**（隧道/服务端瞬断恢复实测 ~4m38s）— **本轮根因修复**：冷却语义专指读超时（经 withTimeoutOrNull→null→break→流正常结束路径计数），连接级快速失败改由指数退避；待设备复验。
+- 附带（并修）：#395 过程中发现 V2 `session.input.admitted` 的 delivery 嵌在 input 下未被读取（该路径 queue/steer 档位全失灵）。
+
+**B. 优化点（综合评估）**
+- #399 通用壳私有 DSH 卡 → 新 CHAT_MESSAGE_LIST 插槽（行为等价重构，通用壳零类型知识）— 已实现，待复验。
+- 待评估：搜索 `archivedIds` 过滤对「双角色首屏」呈现的影响（复验员提示，非缺陷）。
+
+**C. UIUX 改进（先全网调研）**
+- #401 Home/服务器管理界面断连条幅 — **调研前置受阻**：web_search 端点返回 402 Insufficient Balance；M3 文档为 JS 渲染、web_fetch 取不到正文。按纪律**不擅动 UIUX 优化**，待检索恢复（用户可在 Settings > Plugins > Web search 更换端点）。

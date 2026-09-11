@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#404**（2026-09-12 #403 DSH system/message 走 rol）。
+**编号**：全局递增，不回收。下一编号：**#405**（2026-09-12 #404 冷进入 DSH 会话后钉底任务卡/队列镜像暂缺—）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。
 
@@ -118,10 +118,16 @@
 
 ## P2 — 优化与锦上添花
 
+- [ ] **#404 冷进入 DSH 会话后钉底任务卡/队列镜像暂缺——subscribed 空快照抹掉 control 基线** `dsh` `data`
+  - session/subscribed 原发空 JobsSnapshot/QueueSnapshot 清空镜像，假设服务器随后重推整快照；本版 0.1.5-rc.1 控制流只在任务/队列变更时增量推送 → 冷进入会话 ≤30s 钉底任务卡缺失（等一次状态变化才出现）。
+  - 根因修复：去掉 subscribed 清空，权威快照 = session/control baseline（每次 WS onOpen 重发、last-wins）；DshJobsStore/DshQueueStore 由基线+变更增量驱动。
+  - → docs/acceptance/2026-09-12-399-slot-verification.md
+
 - [ ] **#402 SSE 5min 冷却致非网络切换型瞬断恢复迟滞——隧道/服务端瞬断实测 ~4m38s 才重连** `sse` `resilience`
   - SseConnectionManager 冷却期内 runSseConnectionLoop 只 delay(30s) 不发起连接，仅 Android 网络恢复回调 reconnectServer 会 reset；adb reverse 恢复不触发网络事件 → 等满冷却。
   - 实测：reverse 回加后 HTTP 已 200，但 Connected 迟至 ~4m38s；断连条幅期间用户无手动重连入口（#267 零交互裁决）。
   - → docs/acceptance/2026-09-12-390-disconnect-repro.md
+  - 2026-09-12 根因修复：冷却语义专指读超时（withTimeoutOrNull→null→break→流正常结束路径计数），异常分支的连接级快速失败（refused/DNS/HTTP 非 2xx）不再计冷却、改由 calculateBackoff 指数退避；待设备复验恢复时延。
 
 - [~] **#397 自定义 Android Lint 规则（服务器类型分支白名单 / 界面分层 / 令牌绕过）** `lint` `arch`
   - 背景：#391 切片8 的静态强制部分未落——spec 要求走自定义 Android Lint 规则，但 Lint 检查必须是独立 Gradle 模块，与 spec Out of Scope「不把单模块拆成多 Gradle 模块」存在取舍，需用户裁决。
@@ -163,6 +169,7 @@
   - 断连态下 Home 的服务器卡片仅「正在连接…」+「取消」，无 ServerLinkBanner；#267 只覆盖 Chat/会话列表两界面（Home 不在其声明范围，非回归）。
   - 实测：reverse 拆隧后 Chat/会话列表/设置 tab 均有条幅（≈5.5s 首现）；Home 无（step2-home.xml）。
   - → docs/acceptance/2026-09-12-390-disconnect-repro.md
+  - 2026-09-12 调研前置受阻：web_search 端点 402 Insufficient Balance、M3 文档 JS 渲染 fetch 无正文；按用户纪律（UIUX 先全网调研）不擅动，待检索恢复后调研再优化。
 
 - [ ] **#390 服务器断连时会话页空白/弹回服务器管理无重连提示** `resilience`
   - 今日链路闪断窗口多帧实证（VLM 确认仅剩状态栏）：reverse 隧道拆→app 断连→会话数据释放（EventDispatcher releaseSessionData）→转录空白或弹回服务器管理界面，期间无重连横幅/按钮，用户无路可走。需断连 UX 兜底（提示+重连入口），证据链 journal 2026-09-09-378-380-wire.md §十五

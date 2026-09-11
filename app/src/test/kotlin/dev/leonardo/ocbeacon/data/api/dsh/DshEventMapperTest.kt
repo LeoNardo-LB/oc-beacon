@@ -144,17 +144,14 @@ class DshEventMapperTest {
     // ============ mux 帧面：连接信号 ============
 
     @Test
-    fun `session subscribed frame maps to baseline signal and clears jobs`() {
+    fun `session subscribed frame maps to baseline signal only`() {
         val m = mappedFrames("dsh/mux-frames.jsonl")[0] // 黄金样本行 1：session/subscribed
         assertEquals("session/subscribed", m.method)
-        // 对齐官方 client.js:8314：subscribed 基线先行清空 jobs，服务器随后重推快照；
-        // 2026-09-01（QueueDock）：同帧清空队列（queueMirror.reset）——服务器随后重推
+        // #404（2026-09-12 根因修复）：不再同帧清空 jobs/queue——本版本服务器只在变更时
+        // 增量推送，清空会抹掉 WS onOpen 的 session/control 基线且永不重推（冷进入暂缺）。
+        // 权威快照由 control baseline 承担，subscribed 只产对账基线信号。
         assertEquals(
-            listOf(
-                DshMappedEvent.Subscribed(DshSubscribed(sessionId = "fixture-0001", lastSeq = 15L)),
-                DshMappedEvent.Sse(SseEvent.JobsSnapshot(sessionId = "fixture-0001", jobs = emptyList())),
-                DshMappedEvent.Sse(SseEvent.QueueSnapshot(sessionId = "fixture-0001", items = emptyList())),
-            ),
+            listOf(DshMappedEvent.Subscribed(DshSubscribed(sessionId = "fixture-0001", lastSeq = 15L))),
             m.mapped,
         )
     }
@@ -1475,11 +1472,13 @@ class DshEventMapperTest {
     }
 
     @Test
-    fun `subscribed frame clears queue alongside jobs`() {
+    fun `subscribed frame no longer clears queue or jobs (control baseline owns snapshots)`() {
+        // #404：权威快照来自 session/control baseline；subscribed 不再发空快照清空镜像，
+        // 否则冷进入会话时基线被抹掉且无变更不重推（钉底任务卡/队列角标暂缺）。
         val m = mappedFrames("dsh/mux-frames.jsonl")[0]
         val snapshots = m.mapped.filterIsInstance<DshMappedEvent.Sse>().map { it.event }
-        assertTrue(snapshots.any { it is SseEvent.QueueSnapshot && it.items.isEmpty() })
-        assertTrue(snapshots.any { it is SseEvent.JobsSnapshot && it.jobs.isEmpty() })
+        assertTrue(snapshots.none { it is SseEvent.QueueSnapshot })
+        assertTrue(snapshots.none { it is SseEvent.JobsSnapshot })
     }
 
     @Test

@@ -594,13 +594,15 @@ class SseConnectionManager @Inject constructor(
                     // #152：连接失败带 throwable（原缺——审计 7 处之一）；e→d 避免与 :337 双记（同一异常两连发）
                     if (BuildConfig.DEBUG) AppLogger.d(TAG, "[${server.displayName}] SSE connection failed: ${e.message}", e)
                     updateServerConnected(server.id, false)
-                    if (tracker.shouldEnterCooldown()) {
-                        val timeouts = tracker.consecutiveTimeouts
-                        tracker.enterCooldown()
-                        AppLogger.w(TAG, "[${server.displayName}] Entering SSE cooldown after $timeouts consecutive timeouts")
-                    } else {
-                        tracker.recordTimeout()
-                    }
+                    // #402（2026-09-12 根因修复）：冷却语义专指「SSE 读取超时」退避（半开 TCP
+                    // 静默挂死，见 SseReadTimeoutTracker KDoc）——读超时经
+                    // readRawLineBytesWithTimeout 返回 null → break → 上方「流正常结束」
+                    // 路径计数，是唯一应累计冷却的失败形态。
+                    // 连接级快速失败（connection refused / DNS / HTTP 非 2xx 抛
+                    // SseConnectionException）本由 calculateBackoff 指数退避处理；原实现在此
+                    // 也累计 → 连续 5 次后进入 5min 冷却，而隧道/服务端瞬断恢复不触发 Android
+                    // 网络事件、只能等满（模拟器实测 reverse 恢复后 ~4m38s 才重连，期间 HTTP 已 200）。
+                    // 此处不再计入冷却。
                 } finally {
                     // 串行化护栏（见上方 #150 方向②注释）：流结束/异常/取消路径统一
                     // 收束本轮 preload job，再进入退避/重连/退出循环。

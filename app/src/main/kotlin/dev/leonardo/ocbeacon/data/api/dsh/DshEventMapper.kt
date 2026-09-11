@@ -105,19 +105,20 @@ object DshEventMapper {
 
     private fun mapFrameInner(method: String, payload: JsonObject, rpcId: String?): List<DshMappedEvent> = when (method) {
         "session/subscribed" -> {
-            // 连接层信号：开流基线（对账起点，组件 C 输入）+ jobs/队列清空重推。
-            // 官方 client.js:8314：subscribed 帧对 jobsBySession 删键——重连基线
-            // 先行清空，服务器随后重推 session/jobs 整快照（对齐 A 状态机）；
-            // queueMirror.reset()（官方 client.js:7472）同帧判脏——QueueDock 同理
-            // 清空待服务器重推 session/queue 整快照。
+            // 连接层信号：开流基线（对账起点，组件 C 输入）。
+            //
+            // #404（2026-09-12 根因修复）：原实现在本帧附带空 JobsSnapshot/QueueSnapshot
+            // 清空本地镜像，依据官方 client.js:8314 的「subscribed 删键 + 服务器随后重推整
+            // 快照」。但本版本 DSH（0.1.5-rc.1）会话控制流**只在任务/队列变更时增量推送**：
+            // WS onOpen 先请求 session/control（jobs/queue 整快照基线），随后 follow 触发的
+            // subscribed 把刚落的基线清空，无变更则永不重推——模拟器实测冷进入会话 ≤30s
+            // 钉底任务卡缺失（等一次任务状态变化才出现，DshJobsStore 空）。
+            // 权威快照 = session/control baseline（每次 WS onOpen 重发、整快照 last-wins
+            // 替换；空 jobs 由基线缺省/变更增量收敛），故 subscribed 不再清空镜像。
             val sid = payload.str("sessionId")
             val lastSeq = payload.long("lastSeq")
             if (sid == null || lastSeq == null) listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
-            else listOf(
-                DshMappedEvent.Subscribed(DshSubscribed(sid, lastSeq)),
-                DshMappedEvent.Sse(SseEvent.JobsSnapshot(sessionId = sid, jobs = emptyList())),
-                DshMappedEvent.Sse(SseEvent.QueueSnapshot(sessionId = sid, items = emptyList())),
-            )
+            else listOf(DshMappedEvent.Subscribed(DshSubscribed(sid, lastSeq)))
         }
 
         "session/event" -> {
