@@ -491,8 +491,12 @@ internal object MessageMergeEngine {
      * 丢失时防止消息永不完成）；SSE 已完成则完全信任 SSE。
      */
     fun mergeMessageMeta(sse: Message, rest: Message): Message {
-        // 对于用户消息：REST 是权威的（无流式传输）
-        if (sse is Message.User) return rest
+        // 对于用户消息：REST 是权威的（无流式传输）。但 #395 的 viaSteer 是客户端
+        // 发送路径标记（V2 REST 持久化载荷无 delivery 字段）——保留既有标记，
+        // 避免 L3 兜底刷新/分页回补/重进会话后插话徽标丢失。
+        if (sse is Message.User) {
+            return if (sse.viaSteer && rest is Message.User) rest.copy(viaSteer = true) else rest
+        }
         if (sse !is Message.Assistant) return rest
 
         // 2026-08-15：REST 元数据兜底——SSE 侧 modelId/providerId/agent 为空时

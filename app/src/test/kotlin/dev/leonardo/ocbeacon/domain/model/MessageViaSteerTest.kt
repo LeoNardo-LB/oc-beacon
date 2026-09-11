@@ -5,17 +5,23 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** #395：steer 插话标记是纯发送路径字段（@Transient），不落序列化/缓存。 */
+/** #395：steer 插话标记随消息序列化/持久化（REST 重建时由合并保留）。 */
 class MessageViaSteerTest {
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     @Test
-    fun `viaSteer 不进入序列化产物`() {
+    fun `viaSteer 随消息序列化往返`() {
         val user = Message.User(id = "u1", sessionId = "s", time = TimeInfo(0L), viaSteer = true)
         val encoded = json.encodeToString(Message.User.serializer(), user)
-        assertFalse(encoded.contains("viaSteer"))
-        assertFalse(json.decodeFromString(Message.User.serializer(), encoded).viaSteer)
+        assertTrue(encoded.contains("viaSteer"))
+        assertTrue(json.decodeFromString(Message.User.serializer(), encoded).viaSteer)
+    }
+
+    @Test
+    fun `服务端载荷缺席 viaSteer 时默认 false`() {
+        val raw = """{"id":"u2","sessionID":"s","role":"user","time":{"created":0}}"""
+        assertFalse(json.decodeFromString(Message.User.serializer(), raw).viaSteer)
     }
 
     @Test

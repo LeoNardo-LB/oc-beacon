@@ -1,6 +1,8 @@
 package dev.leonardo.ocbeacon.data.mapper
 
+import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
+import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.data.mapper.MessageMergeEngine.PartRegistration
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -356,5 +358,20 @@ class MessageMergeEngineTest {
         val incoming = listOf(filePart("f1"))
         val out = MessageMergeEngine.mergePartsList(existing, incoming)
         assertEquals("data:image/png;base64,AAA", (out.single() as Part.File).url)
+    }
+
+    /** #395：user 消息 REST 重建时保留客户端 steer 标记（viaSteer），不无中生有。 */
+    @Test
+    fun `mergeMessageMeta preserves viaSteer for user message`() {
+        val sse = Message.User(id = "u1", sessionId = "s1", time = TimeInfo(created = 0L), viaSteer = true)
+        val rest = Message.User(id = "u1", sessionId = "s1", time = TimeInfo(created = 0L))
+        val merged = MessageMergeEngine.mergeMessageMeta(sse, rest) as Message.User
+        assertTrue(merged.viaSteer)
+
+        val plain = MessageMergeEngine.mergeMessageMeta(
+            Message.User(id = "u2", sessionId = "s1", time = TimeInfo(created = 0L)),
+            Message.User(id = "u2", sessionId = "s1", time = TimeInfo(created = 0L)),
+        ) as Message.User
+        assertFalse(plain.viaSteer)
     }
 }

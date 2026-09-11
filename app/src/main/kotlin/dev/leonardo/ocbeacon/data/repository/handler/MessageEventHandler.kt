@@ -985,6 +985,10 @@ class MessageEventHandler @Inject constructor(
             val merged = mergeSortedMessages(existing, incomingSorted) { e, inc ->
                 if (e is Message.Assistant && inc is Message.Assistant) {
                     MessageMergeEngine.mergeAssistantMeta(e, inc)
+                } else if (e is Message.User && inc is Message.User) {
+                    // #395：REST 权威覆盖用户消息，但保留客户端发送路径标记 viaSteer
+                    //（V2 REST 持久化载荷不含 delivery，纯覆盖会丢插话徽标）。
+                    if (e.viaSteer) inc.copy(viaSteer = true) else inc
                 } else {
                     inc
                 }

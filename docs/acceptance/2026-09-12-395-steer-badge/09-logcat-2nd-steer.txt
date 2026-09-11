@@ -1,0 +1,45 @@
+09-11 23:11:46.922 D/InjCard (25468): render id=msg_0910642cf001COg36kuB4D1wSN kind=null role=user nParts=1
+09-11 23:11:46.923 D/InjCard (25468): render id=msg_09103e0ac001ztGl3K7s4M5AO8 kind=null role=user nParts=1
+09-11 23:11:46.925 D/InjCard (25468): render id=msg_09103fc5c001cOn69f6OuJp4T7 kind=null role=user nParts=1
+09-11 23:11:47.050 D/EventDispatcher(25468): [dispatch] MessageUpdated -> MessageEventHandler sid=ses_f7b59d9f
+09-11 23:11:47.050 D/MsgEventHandler(25468): [msg] MessageUpdated sid=ses_f7b59d9f id=msg_0910659f4001 role=user completed=null
+09-11 23:11:47.056 D/ChatSendDelegate(25468): Sent prompt to session ses_f7b59d9f3ffeqyWmJpSjIxsXRm (1 parts, queueRow=false)
+09-11 23:11:47.070 D/InjCard (25468): render id=msg_0910642cf001COg36kuB4D1wSN kind=null role=user nParts=1
+09-11 23:11:47.074 D/InjCard (25468): render id=msg_09103e0ac001ztGl3K7s4M5AO8 kind=null role=user nParts=1
+09-11 23:11:47.076 D/InjCard (25468): render id=msg_09103fc5c001cOn69f6OuJp4T7 kind=null role=user nParts=1
+09-11 23:11:47.084 D/InjCard (25468): render id=msg_0910659f4001dHdPzE6NF5DQNw kind=null role=user nParts=1
+09-11 23:11:47.118 D/SseClientV2(25468): [recv] MessageUpdated eventCount=33
+09-11 23:11:47.118 D/EventDispatcher(25468): Skipping duplicate MessageUpdated for session ses_f7b59d9f from server=e3b2d58c-786f-427c-b396-bd9749980e5e (owner=10afe73c-67e8-4631-88c1-b2fc9200fecc)
+09-11 23:11:47.119 D/SseClientV2(25468): [recv] MessageUpdated eventCount=33
+09-11 23:11:47.119 D/EventDispatcher(25468): [dispatch] MessageUpdated -> MessageEventHandler sid=ses_f7b59d9f
+09-11 23:11:47.119 D/MsgEventHandler(25468): [msg] MessageUpdated sid=ses_f7b59d9f id=msg_0910659f4001 role=user completed=null
+09-11 23:11:47.137 D/InjCard (25468): render id=msg_0910642cf001COg36kuB4D1wSN kind=null role=user nParts=1
+09-11 23:11:47.139 D/InjCard (25468): render id=msg_09103e0ac001ztGl3K7s4M5AO8 kind=null role=user nParts=1
+09-11 23:11:47.139 D/InjCard (25468): render id=msg_09103fc5c001cOn69f6OuJp4T7 kind=null role=user nParts=1
+09-11 23:11:47.140 D/InjCard (25468): render id=msg_0910659f4001dHdPzE6NF5DQNw kind=null role=user nParts=1
+09-11 23:11:47.198 D/InjCard (25468): render id=msg_0910642cf001COg36kuB4D1wSN kind=null role=user nParts=1
+09-11 23:11:47.199 D/InjCard (25468): render id=msg_09103fc5c001cOn69f6OuJp4T7 kind=null role=user nParts=1
+09-11 23:11:47.200 D/InjCard (25468): render id=msg_0910659f4001dHdPzE6NF5DQNw kind=null role=user nParts=1
+09-11 23:11:47.342 D/MessageStore(25468): [299-probe] upsert n=1 tx=2ms fts=1ms archive=6ms total=9ms overflow=0
+09-11 23:11:47.794 D/SseClientV2(25468): [recv] MessageUpdated eventCount=36
+09-11 23:11:47.794 D/SseClientV2(25468): [recv] MessageUpdated eventCount=36
+09-11 23:11:47.794 D/EventDispatcher(25468): Skipping duplicate MessageUpdated for session ses_f7b59d9f from server=e3b2d58c-786f-427c-b396-bd9749980e5e (owner=10afe73c-67e8-4631-88c1-b2fc9200fecc)
+09-11 23:11:47.794 D/EventDispatcher(25468): [dispatch] MessageUpdated -> MessageEventHandler sid=ses_f7b59d9f
+09-11 23:11:47.794 D/MsgEventHandler(25468): [msg] MessageUpdated sid=ses_f7b59d9f id=msg_091065a41001 role=assistant completed=null
+09-11 23:11:47.810 D/InjCard (25468): render id=msg_0910642cf001COg36kuB4D1wSN kind=null role=user nParts=1
+09-11 23:11:47.810 D/InjCard (25468): render id=msg_0910659f4001dHdPzE6NF5DQNw kind=null role=user nParts=1
+09-11 23:11:47.811 D/InjCard (25468): render id=msg_09103fc5c001cOn69f6OuJp4T7 kind=null role=user nParts=1
+09-11 23:11:48.050 D/MessageStore(25468): [299-probe] upsert n=1 tx=1ms fts=0ms archive=0ms total=1ms overflow=0
+09-11 23:12:02.897 W/SessionStateService(25468): [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L2 stale for 15841ms
+09-11 23:12:02.910 D/NetTrace(25468): listMessages RESPONSE server=10afe73c-67e8-4631-88c1-b2fc9200fecc sid=ses_f7b59d9f msgs=0/0 cards=0 (limit=50)
+09-11 23:12:02.910 W/SessionStateService(25468): [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 backfill empty page with local cursor (anchor out of server window?) -> fallback fetch latest window
+09-11 23:12:02.945 D/NetTrace(25468): listMessages RESPONSE server=10afe73c-67e8-4631-88c1-b2fc9200fecc sid=ses_f7b59d9f msgs=50/50 cards=0 (limit=50)
+09-11 23:12:02.946 D/SessionStateService(25468): [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 fallback refresh: 50 msgs
+09-11 23:12:02.946 D/SessionStateService(25468): [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 REST message refresh: 0 msgs (cursor=eyJpZCI6Im)
+09-11 23:12:02.981 D/InjCard (25468): render id=msg_0910642cf001COg36kuB4D1wSN kind=null role=user nParts=1
+09-11 23:12:02.982 D/InjCard (25468): render id=msg_0910659f4001dHdPzE6NF5DQNw kind=null role=user nParts=1
+09-11 23:12:02.983 D/InjCard (25468): render id=msg_09103fc5c001cOn69f6OuJp4T7 kind=null role=user nParts=1
+09-11 23:12:03.000 D/InjCard (25468): render id=msg_0910642cf001COg36kuB4D1wSN kind=null role=user nParts=1
+09-11 23:12:03.000 D/InjCard (25468): render id=msg_0910659f4001dHdPzE6NF5DQNw kind=null role=user nParts=1
+09-11 23:12:03.001 D/InjCard (25468): render id=msg_09103fc5c001cOn69f6OuJp4T7 kind=null role=user nParts=1
+09-11 23:12:03.232 D/MessageStore(25468): [299-probe] upsert n=50 tx=28ms fts=3ms archive=0ms total=31ms overflow=0

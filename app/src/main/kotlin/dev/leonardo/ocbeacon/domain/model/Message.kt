@@ -3,7 +3,6 @@ package dev.leonardo.ocbeacon.domain.model
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.Transient
 import kotlinx.serialization.json.JsonContentPolymorphicSerializer
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.jsonObject
@@ -56,11 +55,12 @@ sealed class Message {
         val injectionKind: String? = null,
 
         /**
-         * #395：本消息由「立即发送/插话」（steer）路径上屏——发送路径标记，非 wire 字段。
-         * [Transient] 不落 Room 缓存/不序列化：徽标仅在插话进行期间显示；durable 回显到达后
-         * 由服务器载荷重建（V2 delivery=steer 保留标记；DSH 无 wire 标记则随本地播种消息消失）。
-         */
-        @Transient val viaSteer: Boolean = false,
+         * #395：本消息由「立即发送/插话」（steer）路径上屏——客户端发送路径标记，非 wire 字段。
+         * 随消息持久化：V2 REST 持久化载荷不含 delivery（steer 档位只在 SSE 事件），
+         * 合并路径（[dev.leonardo.ocbeacon.data.mapper.MessageMergeEngine.mergeMessageMeta]
+         * 与 MessageEventHandler REST_AUTHORITY）会保留既有 true 值，避免 L3 兜底刷新 /
+         * 分页回补 / 重进会话后徽标丢失。*/
+        val viaSteer: Boolean = false,
     ) : Message() {
         @Serializable
         data class Model(
