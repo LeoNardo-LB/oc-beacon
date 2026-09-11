@@ -497,3 +497,11 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 - 测试：`DshV3AdaptationTest` 新增 log-only 断言（put/delete 真实 schema）；原 v3 具名降级列表移除 feedback 两项。
 - 研究文档 `docs/research/2026-09-11-dsh-v3-event-payloads.md` 补 §五权威载荷 + §三-5 定音。
 - 验证：dsh 包全绿；`:app:testDevDebugUnitTest --rerun` 全绿；`:app:lintDevDebug` → Lint found no new issues。
+
+## #398 步骤9：模拟器 E2E 数据路径验证（Room 直查）（2026-09-12）
+
+- 环境：emulator-5554（devDebug，含本轮代码）；DSH 0.1.5-rc.1 @ 127.0.0.1:3080（adb reverse）；工作区 oc-beacon。
+- 方法：debug intent 连 DSH → 加载含 deliverables/presented 的真实会话 → 拉设备库回宿主机直查（仪器证据，非依赖可达的视觉断言）：`adb exec-out run-as dev.leonardo.ocbeacon.dev cat databases/ocbeacon.db{,-wal,-shm}` → `sqlite3`。
+- 结果：`cached_parts` 含 **11 条 `type='deliverables'`**；样本 `messageId=dsh-call-call_4b6a41bb836149099bc5d9f0`（根 run_code 宿主——`:ptc:1` 已正确剥离）、`sessionID=c0ffb1a8-…`、`presented:[{path:"/tmp/recon/sl…"}]`——与 `DshV3GoldenSampleTest` 逐字吻合。
+- 结论：**服务器事件 → DshEventMapper（Part.Deliverables，rootCallId 落位）→ Room 持久化（typeName/序列化回环）** 全链在真实设备 + 真实 DSH 上通过。UI chip 是已验证数据上的纯投影（TurnDeliverables fold + ProducedFilesRow，单测覆盖），可见性受 `allStepsCompleted` 门控（turn 完结后显示）。
+- 说明：310+ 事件大会话的逐条视觉确认成本过高（模型流式慢、turn 长），改用库直查作为等效仪器证据（docs/probing.md 允许的观测手段）。
