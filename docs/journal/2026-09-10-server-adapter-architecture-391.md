@@ -474,3 +474,9 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 - 裁定：**不消费** `subagent/catalog`，维持具名降级。依据：载荷仅 `{version,childId,childCreatedAt,mode,label}`（单条，缺 activity/hasChildren/parentAvailable）；目录权威面是 `subagents/list` RPC 整帧（`SubagentApi.subagentCatalog`/`SubagentCatalogEntry`），app 侧 `SubagentModeTracker` 已按 sid+parentId 懒加载该整帧。
 - DSH 0.1.5 全量 web 客户端插件无本事件消费点（`dsh-client-connection/lib/client.js` 仅把它列入 known 词汇集合）。再落一处本地目录即双源，故不做。
 - feedback/message-put|delete：本机 29 归档 0 样本，待新会话取证；App 已有 feedback 端口，事件侧补映射须先有真实载荷（不臆造）。
+
+## #398 步骤6：V3 真实日志黄金样本契约测试（2026-09-12）
+
+- 新增 `DshV3GoldenSampleTest`：逐字归档载荷（c0ffb1a8 seq203-207 + research §2.2）——ptc-dispatch(present) 非卡内层工具、deliverables 落根宿主、system/message 空 content 零事件、subagent/catalog & assistant/attempt 具名降级、整段 fold 不拒绝重建。
+- 对应 spec 用户故事 22「用真实会话日志黄金样本按代断言映射结果」；为后续「按代事件词汇表」结构重构预置回归护栏（handoff §4 第 4 项先补契约测试再动）。
+- 踩坑：Kotlin 新行首 `+` 会被解析为独立一元表达式语句（`val x = """a"""` 换行 `+ """b"""` 报 Expecting member declaration）——多段原始字符串拼接须把操作符留在行尾或写单行。
