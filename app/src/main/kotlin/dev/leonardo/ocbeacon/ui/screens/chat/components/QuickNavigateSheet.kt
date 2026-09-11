@@ -146,6 +146,8 @@ fun QuickNavigateSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    // #405：标题带不发起收起（nestedScroll 只覆盖可滚动子节点；本带 ptr 层拦截）
+                    .sheetHeaderGestureBlock()
                     .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

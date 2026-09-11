@@ -13,8 +13,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -60,6 +63,33 @@ fun SmallSheetDragHandle(modifier: Modifier = Modifier) {
 
 /** #379：内容区手势隔离（挂 sheet 内容根；见文件头机制说明）。 */
 fun Modifier.sheetContentGestureIsolation(): Modifier = nestedScroll(SheetGestureIsolation)
+
+/**
+ * #405（2026-09-12）：非列表头部带（sheet 顶部标题行等）不发起 sheet 拖拽。
+ *
+ * 为什么 nestedScroll 隔离不够：nestedScroll 只接收**可滚动子节点**派发的位移
+ * （LazyColumn）——标题带没有滚动子节点，向下拖拽直接落到 M3 sheet 自身的
+ * anchoredDraggable（androidx 源码：dragHandle 仅 visual marker，整表可拖），
+ * 于是从标题带下滑会收起抽屉，违背 #379「仅手柄 / 点外 / 返回收起」的既定意图。
+ *
+ * 机制：挂在头部带的 pointerInput 于 **Main 趟**（child→parent）先于 sheet 的
+ * 拖拽检测器拿到事件，向下（收起方向）分量就地消费 → 父层触摸斜率等待因已消费
+ * 而取消。仅拦向下；上行分量不消费（该带无滚动语义，避免误伤点击/关闭按钮）。
+ */
+fun Modifier.sheetHeaderGestureBlock(): Modifier = pointerInput(Unit) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false)
+        var lastY = down.position.y
+        while (true) {
+            val event = awaitPointerEvent()
+            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+            if (!change.pressed) break
+            val dy = change.position.y - lastY
+            lastY = change.position.y
+            if (dy > 0f) change.consume()
+        }
+    }
+}
 
 private val SheetGestureIsolation = object : NestedScrollConnection {
     override fun onPostScroll(
