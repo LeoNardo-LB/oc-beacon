@@ -708,7 +708,11 @@ fun ChatMessageList(
     }
     LaunchedEffect(highlightedTurnKey) {
         if (highlightedTurnKey != null) {
+            // #394 观测点（DEBUG-only，行为零变化）：高亮设键/清键经 logcat 断言，
+            // 免视觉判读（无多模态模型环境下的验收仪器）。
+            if (BuildConfig.DEBUG) AppLogger.d("Highlight", "set key=" + highlightedTurnKey)
             delay(5000)
+            if (BuildConfig.DEBUG) AppLogger.d("Highlight", "clear key=" + highlightedTurnKey)
             highlightedMsgId = null
         }
     }
@@ -787,6 +791,7 @@ fun ChatMessageList(
             if (phase is JumpPhase.Displayed) {
                 // #394：只记目标 msgId（不在此处查 displayItems——异步加载窗口内可能
                 // 查空）；高亮键由渲染期从最新 displayItems 同源推导。
+                if (BuildConfig.DEBUG) AppLogger.d("Highlight", "target msgId=" + phase.msgId)
                 highlightedMsgId = phase.msgId
             }
         }
