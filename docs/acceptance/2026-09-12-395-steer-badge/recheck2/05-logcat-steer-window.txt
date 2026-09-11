@@ -1,0 +1,247 @@
+09-11 23:38:57.927 11623 11638 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:38:57.927 11623 11638 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:38:57.928 11623 11638 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:38:57.942 26933 26933 D ChatSendDelegate: Sent prompt to session ses_f7b59d9f3ffeqyWmJpSjIxsXRm (1 parts, queueRow=false)
+09-11 23:38:58.223 26933 28487 D MessageStore: [299-probe] upsert n=1 tx=2ms fts=1ms archive=5ms total=8ms overflow=0
+09-11 23:38:58.930 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:38:58.930 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:38:58.930 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:38:58.938 26933 28359 D MessageStore: [299-probe] upsert n=1 tx=1ms fts=0ms archive=0ms total=1ms overflow=0
+09-11 23:38:59.478 28557 28557 E FeatureFlagsImplExport: android.os.flagging.AconfigStorageReadException: ERROR_PACKAGE_NOT_FOUND: package android.xr cannot be found on the device
+09-11 23:38:59.931 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:38:59.932 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:38:59.932 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:00.934 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:00.934 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:00.934 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:01.936 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:01.936 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:01.936 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:02.937 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:02.937 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:02.937 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:03.939 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:03.939 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:03.939 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:04.940 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:04.941 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:04.941 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:05.941 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:05.941 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:06.943 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:06.943 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:06.943 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:07.607 28572 28572 E FeatureFlagsImplExport: android.os.flagging.AconfigStorageReadException: ERROR_PACKAGE_NOT_FOUND: package android.xr cannot be found on the device
+09-11 23:39:07.945 11623 11638 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:07.945 11623 11638 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:07.945 11623 11638 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:08.947 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:08.947 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:08.947 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:09.949 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:09.949 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:09.949 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:10.951 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:10.951 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:10.951 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:11.952 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:11.952 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:11.952 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:12.953 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:12.953 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:12.953 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:13.555 28587 28587 E FeatureFlagsImplExport: android.os.flagging.AconfigStorageReadException: ERROR_PACKAGE_NOT_FOUND: package android.xr cannot be found on the device
+09-11 23:39:13.954 11623 11638 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:13.954 11623 11638 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:13.954 11623 11638 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:14.956 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:14.956 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:14.956 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:15.958 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:15.958 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:15.958 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:16.960 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:16.960 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:16.960 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:17.275 26933 28359 W SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L2 stale for 19334ms
+09-11 23:39:17.360 26933 28487 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 fallback refresh: 50 msgs
+09-11 23:39:17.360 26933 28487 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 REST message refresh: 0 msgs (cursor=eyJpZCI6Im)
+09-11 23:39:17.627 26933 28359 D MessageStore: [299-probe] upsert n=50 tx=11ms fts=1ms archive=0ms total=12ms overflow=0
+09-11 23:39:17.961 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:17.961 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:17.962 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:18.962 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:18.962 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:18.962 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:19.964 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:19.964 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:19.964 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:20.966 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:20.966 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:20.966 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:21.968 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:21.968 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:21.968 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:22.275 26933 28359 W SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L2 stale for 24334ms
+09-11 23:39:22.318 26933 27009 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 fallback refresh: 50 msgs
+09-11 23:39:22.318 26933 27009 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 REST message refresh: 0 msgs (cursor=eyJpZCI6Im)
+09-11 23:39:22.475 28602 28602 E FeatureFlagsImplExport: android.os.flagging.AconfigStorageReadException: ERROR_PACKAGE_NOT_FOUND: package android.xr cannot be found on the device
+09-11 23:39:22.602 26933 27009 D MessageStore: [299-probe] upsert n=50 tx=22ms fts=2ms archive=0ms total=24ms overflow=0
+09-11 23:39:22.970 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:22.970 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:22.970 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:23.971 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:23.971 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:23.972 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:24.972 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:24.972 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:24.972 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:25.973 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:25.973 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:25.974 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:26.975 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:26.975 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:26.976 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:27.276 26933 28359 W SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L2 stale for 29335ms
+09-11 23:39:27.317 26933 28487 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 fallback refresh: 50 msgs
+09-11 23:39:27.317 26933 28487 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 REST message refresh: 0 msgs (cursor=eyJpZCI6Im)
+09-11 23:39:27.583 26933 28487 D MessageStore: [299-probe] upsert n=50 tx=9ms fts=2ms archive=1ms total=12ms overflow=0
+09-11 23:39:27.977 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:27.977 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:27.977 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:28.979 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:28.979 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:28.979 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:29.981 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:29.981 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:29.981 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:30.983 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:30.983 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:30.983 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:31.985 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:31.985 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:31.985 11623 13220 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:32.276 26933 28487 W SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L2 stale for 34335ms
+09-11 23:39:32.317 26933 28487 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 fallback refresh: 50 msgs
+09-11 23:39:32.317 26933 28487 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 REST message refresh: 0 msgs (cursor=eyJpZCI6Im)
+09-11 23:39:32.585 26933 28007 D MessageStore: [299-probe] upsert n=50 tx=11ms fts=2ms archive=0ms total=13ms overflow=0
+09-11 23:39:32.620 28618 28618 E FeatureFlagsImplExport: android.os.flagging.AconfigStorageReadException: ERROR_PACKAGE_NOT_FOUND: package android.xr cannot be found on the device
+09-11 23:39:32.987 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:32.987 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:32.987 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:33.693 12382 27145 W Checkin : java.net.SocketTimeoutException: failed to connect to android.googleapis.com/2001:4860:4847:400:: (port 443) from /fec0::5054:ff:fe12:3456 (port 37718) after 30000ms
+09-11 23:39:33.989 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:33.989 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:33.989 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:34.991 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:34.991 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:34.991 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:35.993 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:35.993 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:35.993 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:36.995 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:36.995 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:36.995 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:37.277 26933 28007 W SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L2 stale for 39336ms
+09-11 23:39:37.320 26933 28482 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 fallback refresh: 50 msgs
+09-11 23:39:37.320 26933 28482 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 REST message refresh: 0 msgs (cursor=eyJpZCI6Im)
+09-11 23:39:37.586 26933 28487 D MessageStore: [299-probe] upsert n=50 tx=10ms fts=1ms archive=1ms total=12ms overflow=0
+09-11 23:39:37.996 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:37.996 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:37.997 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:38.998 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:38.998 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:38.999 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:40.000 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:40.001 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:40.001 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:41.003 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:41.003 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:41.003 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:42.004 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:42.004 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:42.005 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:42.277 26933 28487 W SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L2 stale for 44336ms
+09-11 23:39:42.322 26933 28482 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 fallback refresh: 50 msgs
+09-11 23:39:42.322 26933 28482 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 REST message refresh: 0 msgs (cursor=eyJpZCI6Im)
+09-11 23:39:42.582 28641 28641 E FeatureFlagsImplExport: android.os.flagging.AconfigStorageReadException: ERROR_PACKAGE_NOT_FOUND: package android.xr cannot be found on the device
+09-11 23:39:42.598 26933 28482 D MessageStore: [299-probe] upsert n=50 tx=16ms fts=3ms archive=3ms total=22ms overflow=0
+09-11 23:39:43.006 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:43.006 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:43.006 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:44.007 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:44.007 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:44.008 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:45.009 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:45.009 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:45.009 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:46.011 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:46.011 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:46.011 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:47.013 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:47.013 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:47.013 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:47.278 26933 28007 W SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L2 stale for 49337ms
+09-11 23:39:47.319 26933 28487 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 fallback refresh: 50 msgs
+09-11 23:39:47.319 26933 28487 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 REST message refresh: 0 msgs (cursor=eyJpZCI6Im)
+09-11 23:39:47.587 26933 28359 D MessageStore: [299-probe] upsert n=50 tx=11ms fts=2ms archive=0ms total=13ms overflow=0
+09-11 23:39:48.014 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:48.015 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:48.015 11623 13221 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:49.016 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:49.016 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:49.017 11623 11703 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:50.017 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:50.017 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:50.017 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:51.018 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:51.018 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:51.018 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:52.020 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:52.020 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:52.020 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:52.278 26933 28359 W SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L2 stale for 54337ms
+09-11 23:39:52.320 26933 28007 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 fallback refresh: 50 msgs
+09-11 23:39:52.320 26933 28007 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 REST message refresh: 0 msgs (cursor=eyJpZCI6Im)
+09-11 23:39:52.587 26933 28007 D MessageStore: [299-probe] upsert n=50 tx=10ms fts=2ms archive=0ms total=12ms overflow=0
+09-11 23:39:53.021 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:53.021 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:53.021 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:54.022 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:54.022 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:54.023 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:55.023 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:55.023 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:55.024 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:56.024 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:56.024 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:56.024 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:57.026 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:57.026 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:57.026 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:57.279 26933 28007 W SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L2 stale for 59338ms
+09-11 23:39:57.322 26933 28487 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 fallback refresh: 50 msgs
+09-11 23:39:57.322 26933 28487 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 REST message refresh: 0 msgs (cursor=eyJpZCI6Im)
+09-11 23:39:57.601 26933 27009 D MessageStore: [299-probe] upsert n=50 tx=21ms fts=1ms archive=0ms total=22ms overflow=0
+09-11 23:39:58.028 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:58.028 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:58.028 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:59.030 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:59.030 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:39:59.030 11623 13222 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:40:00.032 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:40:00.032 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:40:00.032 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:40:01.034 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:40:01.034 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:40:01.034 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:40:02.036 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:40:02.036 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:40:02.036 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:40:02.280 26933 28007 W SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L2 stale for 64339ms
+09-11 23:40:02.326 26933 28359 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 fallback refresh: 50 msgs
+09-11 23:40:02.326 26933 28359 D SessionStateService: [ses_f7b59d9f3ffeqyWmJpSjIxsXRm] L3 REST message refresh: 0 msgs (cursor=eyJpZCI6Im)
+09-11 23:40:02.597 26933 28359 D MessageStore: [299-probe] upsert n=50 tx=14ms fts=2ms archive=0ms total=16ms overflow=0
+09-11 23:40:03.037 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:40:03.037 11623 13217 W BestClock: java.time.DateTimeException: No network time available
+09-11 23:40:03.038 11623 13217 W BestClock: java.time.DateTimeException: No network time available

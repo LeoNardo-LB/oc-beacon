@@ -1,0 +1,6 @@
+Room 直查证据：cached message payload 中 STEERFIX5 用户消息带 viaSteer=true
+源：adb shell run-as dev.leonardo.ocbeacon.dev cat databases/ocbeacon.db{, -wal} → 字节搜索
+
+nput":198,"output":516,"reasoning":0,"cache":{"���%II�qmsg_0911f3c98001ptv6aDFDd6OB3Uses_f7b59d9f3ffeqyWmJpSjIxsXRm��<�user{"id":"msg_0911f3c98001ptv6aDFDd6OB3U","sessionID":"ses_f7b59d9f3ffeqyWmJpSjIxsXRm","role":"user","time":{"created":1789141138639},"summary":{"body":"STEERFIX5"},"viaSteer":true}�u��$II)�Imsg_0911f3c67001hle67XRnub8oiases_f7b59d9f3ffeqyWmJpSjIxsXRm
+
+MATCH: viaSteer=true persisted in cached message payload

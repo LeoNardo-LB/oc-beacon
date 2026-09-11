@@ -135,8 +135,9 @@
   - 四条静态规则零存量 error：ServerTypeUiBoundary 收窄到非 private 声明后最后 1 条豁免清除（lintDevDebug 0 error）。
   - 2026-09-11 复核：:lint-checks 四规则接入 lintChecks、四规则 baseline 0 条，:app:lintDevDebug 0 new issues。转待用户验收。
 
-- [ ] **#395 立即发送（steer）上屏消息缺标识徽标——chat_queued 徽章链整撤连带丢失** `queue`
+- [~] **#395 立即发送（steer）上屏消息缺标识徽标——chat_queued 徽章链整撤连带丢失** `queue`
   - 用户裁决（2026-09-10）：排队不上屏 ✓ + 立刻发送（steer）上屏 ✓，但 steer 消息上屏后无任何徽标标识是有问题的——需恢复徽标（建议 steer 专属文案如「插话/注入中」而非「排队中」，文案待用户裁决；i18n ×15 + MessageCardUser 两变体渲染点）。注意 steer 无 wire 侧标记——识别依赖发送路径（steer=true 时 seedTranscript 播种），徽章状态需随消息携带或按 rpcId 关联。
+  - 2026-09-12 实现+两轮模拟器复验 PASS：忙碌长按 steer 徽标「插话」持续 ≥45s（越过 L3 REST 兜底刷新），重进会话仍在，Room payload 含 viaSteer:true；负向对照无徽标、crash 0。实现 605d2194 + 持久化修复 d9a79767；证据 docs/acceptance/2026-09-12-395-steer-badge-verification.md。文案 zh=插话（待你最终裁决可调）。转待用户验收。
 
 - [ ] **#392 Sheet fling 手势隔离在 V1 未生效——快速定位抽屉快速下滑仍收起（#379 回归面）** `sheet`
   - 用户自助验收 ⑥ 顺带发现（2026-09-10）：#379 SheetGestures 内容手势隔离（fling 不收起+手柄收起）在 V2 验过，但 V1 服务器上 QuickNavigate 快速下滑 fling 仍会让抽屉收起——服务器类型交互统一铁律（ui-conventions §1）违背。疑点：sheet 组件按 server type 分叉 or V1 会话内容高度/嵌套滚动差异绕过隔离。

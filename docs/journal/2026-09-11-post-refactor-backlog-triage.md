@@ -62,3 +62,16 @@
 - 回归：crash buffer 0 行；app 进程全程存活。
 - 证据：/tmp/acc-fix/394-recheck-{assistant,user}.txt + \*-raw.txt；文档 docs/acceptance/2026-09-12-fixes-394-393-387-verification.md「复验二」节。
 - 判定：**#394 修复成立**（相位钩子 + 键同源 + 角色分流三层齐），转待用户验收。
+
+## #395 steer 插话徽标（实现 + 持久化修复，2026-09-12）
+
+- **实现**（commit `605d2194`）：Message.User.viaSteer + MessageCardUser 两处统计栏 SteerBadge；文案 `chat_steer` ×15 locale（en Interjected / zh-rCN 插话，待用户裁决可调）；标记落点 = seedTranscript 播种（ChatRepositoryImpl steer=true）与 V2SseMapper `delivery=steer`。**顺带修**：V2 `session.input.admitted` 的 delivery 嵌在 `input` 下，原实现只读 `item`/顶层 → 该路径 queue/steer 档位全部失灵（queue 拦截同样受益）。
+- **复验一（FAIL，渲染通过）**：忙碌长按发送键触发 steer，徽标 t+2s~t+12s 命中 `text="插话"` 且同气泡；但 **~16s 后丢失**——V2 REST 持久化载荷无 `delivery`（curl 实证仅 `{id,time,text,agents,type}`），SSE 静默 15.84s 触发 SessionStateService L3 兜底 REST 刷新（REST_AUTHORITY）重建消息，`@Transient` 标记被纯覆盖抹掉；重进会话/分页回补同理。证据 docs/acceptance/2026-09-12-395-steer-badge-verification.md + 证据目录。
+- **持久化修复**（commit `d9a79767`）：`viaSteer` 去 `@Transient`（随 cached_messages payload 持久化）+`MessageMergeEngine.mergeMessageMeta` 与 `MessageEventHandler.upsertRestAuthority` 在 REST 权威覆盖 user 消息时保留既有 `true`；测试 `MessageViaSteerTest`（序列化往返/缺席默认 false）+ `MessageMergeEngineTest`（保留用例）。
+
+## #395 复验二：持久化修复后 PASS（2026-09-12）
+
+- 安装 `cc7fa9f8` 复验：忙碌长按 steer（logcat `Sent prompt … queueRow=false`）后 6 点采样 t+2/10/16/25/35/45s **全部命中 `text="插话"`** 且与 `STEERFIX5` 同气泡——越过 15.84s L3 兜底刷新点（窗口内 10 次 `L3 fallback refresh: 50 msgs` + `upsert n=50`，徽标不丢）。
+- 退出会话重进徽标仍在；Room DB 直查 payload 含 `"viaSteer":true` → 持久化确证。
+- 负向对照（空闲普通发送）无徽标；crash buffer 0 行。
+- 结论：**#395 PASS**，转待用户验收。证据 docs/acceptance/2026-09-12-395-steer-badge-verification.md「复验二」节 + 证据目录 recheck2/。

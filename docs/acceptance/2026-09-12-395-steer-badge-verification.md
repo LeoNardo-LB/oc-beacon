@@ -168,3 +168,116 @@ OpenCode 侧的问题不是「不受理」，而是「徽标不持久」，属�
 会话 sid=`ses_f7b59d9f3ffeqyWmJpSjIxsXRm`；steer 消息 id：`msg_09103fc5c001cOn69f6OuJp4T7`（395）、`msg_0910659f4001dHdPzE6NF5DQNw`（396）。
 
 原始中间 dump/logcat 另存于宿主 `/tmp/ocbeacon-395/`（非持久）。
+
+---
+
+## 复验二（持久化修复后）
+
+- 复验时间：2026-09-11 23:30–23:42（设备/宿主时钟；文件名沿用任务给定 2026-09-12）
+- 设备：emulator-5554（sdk_gphone64_x86_64，Android 16/SDK36），本会话独占
+- 构建：dev flavor（`app/build/outputs/apk/dev/debug/app-dev-debug.apk`，构建时间 09-11 23:24）
+  - 修复 commit：HEAD `d9a79767`（viaSteer 去 `@Transient` + `mergeMessageMeta` / `upsertRestAuthority` 合并保留）
+  - 安装：`adb -s emulator-5554 install -r …` → `Success`（**未卸载**）
+  - 已装包 md5 = `cc7fa9f8ebd3491cffc09043cac857e2`（`pm path` 后 pull + `md5sum` 实测，与任务给定值一致）
+- 服务：OpenCode V2 @4199（debug intent `--es debug_server_type opencode`，user=opencode，debug_name Host-4199，HTTP Basic；密码读 service.json）
+  - `adb reverse tcp:4199 tcp:4199`；App locale zh-CN（`cmd locale set-app-locales … --locales zh-CN` → `[zh-CN]`）
+- 会话：`ses_f7b59d9f3ffeqyWmJpSjIxsXRm`；steer 消息 id `msg_0911f3c98001ptv6aDFDd6OB3U`（文本 `STEERFIX5`，created 1789141138639 = 23:38:58.639）
+- 观测通道：uiautomator dump（text 计数 + bounds）+ logcat + V2 REST 原始载荷 + Room DB 直查
+- 只读 + 设备操作；未改任何产品代码；未运行 Gradle
+- 证据目录：`docs/acceptance/2026-09-12-395-steer-badge/recheck2/`
+
+### 前置校验
+
+| 项 | 判定 | 证据 |
+|---|---|---|
+| install -r 成功（不卸载） | PASS | `Performing Streamed Install / Success` |
+| 已装包 md5 == cc7fa9f8ebd3491cffc09043cac857e2 | PASS | `cc7fa9f8ebd3491cffc09043cac857e2  /tmp/ocbeacon-installed-base.apk` |
+| adb reverse 4199 | PASS | `host-21 tcp:4199 tcp:4199` |
+| App locale zh-CN | PASS | `Locales for dev.leonardo.ocbeacon.dev for user 0 are [zh-CN]` |
+| debug intent 直达会话列表 | PASS | `Debug channel activated` + `NavGraph: Debug channel → SessionList` |
+
+### 结果总表（复验二）
+
+| item | 判定 | 证据 | 一句话 |
+|---|---|---|---|
+| A 会话进入忙碌 | PASS | `02-busy-stop-key.xml` | 发长输出提示后 `chat-stop` 出现（busy） |
+| B 忙碌长按触发 steer | PASS | `03-steer-text-typed.xml`；`05-logcat-steer-window.txt` `Sent prompt … queueRow=false`(23:38:57.942) | 长按经 steer 分支受理，STEERFIX5 上屏 |
+| C **t+35s、t+45s 仍命中 text="插话"** | **PASS** | `04-sample-t35-s.xml`、`04-sample-t45-s.xml` | 越过 15.84s L3 刷新点徽标仍在 |
+| C-机制 L3 REST 兜底刷新确在窗口内发生且徽标存活 | PASS | `05-logcat-steer-window.txt` | 窗口内 10 次 `L3 fallback refresh: 50 msgs` + `upsert n=50`，徽标不丢 |
+| D 空闲普通发送无插话 | PASS | `08-negative-control-t10.xml` | 正文在、全 dump `插话` 计数=0 |
+| E 退出会话再重进徽标仍在 | PASS | `07-reenter-session.xml` | 重进后 `插话` 与 `STEERFIX5` 同气泡 |
+| F Room DB 直查 viaSteer 落盘 | PASS | `10-room-db-viasteer.txt` | payload 含 `"summary":{"body":"STEERFIX5"},"viaSteer":true` |
+| G 崩溃/异常回归 | PASS | crash buffer 0 行；窗口内无 app `E/` | `logcat -d -b crash \| grep -i ocbeacon` 无输出 |
+
+**总体：PASS**（渲染路径通过，且徽标活过 15.84s L3 兜底刷新并持续 ≥45s；重进会话与 Room 直查确证持久化修复生效）
+
+### C 时间序列表（t0 = 长按 23:38:58.03，相对长按）
+
+| 采样 | 时刻 | rel | text="插话" | STEERFIX5 | chat-stop |
+|---|---|---|---|---|---|
+| t+2s | 23:39:00.0 | 2.0 | 1 | 1 | 1 |
+| t+10s | 23:39:08.0 | 10.1 | 1 | 1 | 1 |
+| t+16s | 23:39:14.1 | 16.1 | 1 | 1 | 1 |
+| t+25s | 23:39:23.0 | 25.0 | 1 | 1 | 1 |
+| t+35s | 23:39:33.2 | 35.2 | 1 | 1 | 1 |
+| t+45s | 23:39:43.1 | 45.1 | 1 | 1 | 1 |
+
+- 各采样点气泡节点同一性（bounds 佐证，t+2 / t+45）：
+  - t+2：`'STEERFIX5' b=[74,1048][258,1091]`、`'插话' b=[85,1141][144,1181]`（同气泡，徽标在正文下方统计栏）
+  - t+45：`'STEERFIX5' b=[74,975][258,1018]`、`'插话' b=[85,1068][144,1108]`
+- 基线（长按前）：`01-before-steer-busy.xml` 全 dump `插话`=0、`STEERFIX5`=0 → 徽标确由本次 steer 产生。
+
+### C 机制证据（修复生效链）
+
+1. 长按 steer：`ChatSendDelegate: Sent prompt … (1 parts, queueRow=false)` 23:38:57.942 → steer 分支。
+2. V2 REST 持久化载荷仍无 `delivery`（与上一轮一致）：`06-server-messages.json` 中 `STEERFIX5` 用户消息仅 `id/time/text/agents/type`。
+3. L3 兜底刷新（REST_AUTHORITY 重建）确实发生：
+   - `23:39:17.275 L2 stale for 19334ms` → `23:39:17.360 L3 fallback refresh: 50 msgs` → `23:39:17.627 MessageStore upsert n=50`
+   - 其后每 ~5s 一次，窗口内共 **10 次** `L3 fallback refresh`，每次都 `upsert n=50`。
+   - 首次刷新发生在 t+16 与 t+25 采样之间；两次采样 `插话` 均=1 → 重建未抹掉 `viaSteer`。
+4. 直接落盘证据（Room 直查，`10-room-db-viasteer.txt`）：
+   `{"id":"msg_0911f3c98001ptv6aDFDd6OB3U",…,"summary":{"body":"STEERFIX5"},"viaSteer":true}` → `viaSteer` 已随 cached message payload 持久化。
+
+### D 负向对照（空闲普通发送无徽标）— PASS
+
+在另一空闲会话 `ses_f771d07bcffeiQ6xQiewFCxzst`（列表项「一加一等于二的提问」）普通发送
+`IDLECTRLR2 please reply OK`（空闲、单击发送，非长按/非 steer）：
+
+- t+10s dump `08-negative-control-t10.xml`：用户气泡正文 `IDLECTRLR2 please reply OK` 在屏，**全 dump `插话` 计数=0**。
+- 反向印证徽标具备判别性，并非无差别渲染。
+
+### E 持久化路径（退出会话再重进）— PASS
+
+steer 后从聊天页 BACK 回会话列表，再次点入 `ses_f7b59d9f3ffeqyWmJpSjIxsXRm`：
+
+- `07-reenter-session.xml`：`'STEERFIX5' b=[74,1795][258,1838]`、`'插话' b=[85,1888][144,1928]`，`插话` 计数=1、`STEERFIX5` 计数=1。
+- 说明徽标在消息从缓存重建（非当轮内存态）后仍在，持久化路径成立。
+
+### G 崩溃/异常回归 — PASS
+
+- `adb -s emulator-5554 logcat -d -b crash | grep -i ocbeacon` → **无输出**（crash buffer 计 0 行）。
+- steer 窗口（23:38:57–23:39:43，logcat 已先 `-c`）内以 app pid 过滤无 `E/`、无 `Failed to send`、无异常弹窗。
+
+### 环境注记（方法论，非缺陷）
+
+- 本 server 的 deepseek 端点返回 `402 Insufficient Balance`，自然语言提示 → 助手错误消息（`finish=error`）；此后 SSE 静默 → `L2 stale` → L3 兜底刷新。该状态恰好复现并持续触发了上一轮的 L3 条件，会话保持 busy（`chat-stop` 常驻），为采样提供 ≥45s 窗口。
+- 操作要点：**空闲**长按发送键＝切换 shell 输入模式；**忙碌**长按＝steer（`ChatScreenBottomBar.kt:198` 注释，实测定性）。首轮曾在空闲误长按进入 shell 模式，导致提示被按 shell 命令执行（消息渲染为 `$ sleep 40`、`$ Write a 600 word …`「后台命令完成/失败」），已纠正为「先发自然语言提示进入 busy，再长按」；该误操作不影响本结论。
+
+### 证据路径（复验二）
+
+证据目录：`docs/acceptance/2026-09-12-395-steer-badge/recheck2/`
+
+| 文件 | 内容 |
+|---|---|
+| `01-before-steer-busy.xml` | steer 前基线（`插话`=0、`STEERFIX5`=0） |
+| `02-busy-stop-key.xml` | A 忙碌态（`rid=chat-stop`） |
+| `03-steer-text-typed.xml` | B 忙碌中输入 `STEERFIX5` + `chat-stop`/`chat-send` 就位 |
+| `04-sample-tN-s.xml` | C 六个采样点（N=2/10/16/25/35/45） |
+| `05-logcat-steer-window.txt` | steer 分支 + L2 stale/L3 兜底刷新/upsert 过滤日志 |
+| `06-server-messages.json` | V2 REST 原始载荷（steer 消息无 delivery） |
+| `07-reenter-session.xml` | E 退出重进后徽标仍在 |
+| `08-negative-control-t10.xml` | D 负向对照（无插话） |
+| `10-room-db-viasteer.txt` | F Room DB 中 `viaSteer:true` 落盘片段 |
+
+`/tmp/ocbeacon-395r2/` 另存原始中间 dump/日志（非持久）。
+
