@@ -75,7 +75,7 @@
   - OpenCode V2 面此前已过；V3 五类新事件渲染未覆盖（见 #398）。
   - 2026-09-11 模拟器代替真机全量复跑：A/B/C3/D1/D2/E1/E2 全 PASS、无 BLOCKED；C1 功能 PASS（指定会话因 V3 压缩边界未呈现）、C2 机制 PASS（字面片段在压缩边界外）。证据 docs/acceptance/2026-09-12-391-400-emulator-evidence.md。转待用户裁决 C1/C2 + 验收。
 
-- [ ] **#399 切片9 剩余：条目动作贡献注册表 + 令牌门禁 + 审计矩阵 BAD 归零** `ui` `arch`
+- [~] **#399 切片9 剩余：条目动作贡献注册表 + 令牌门禁 + 审计矩阵 BAD 归零** `ui` `arch`
   - 现状：区域插槽（ServerUiSlot）已落并有三处贡献；但条目级动作仍是组件内联能力判断，非声明式贡献；令牌门禁（硬编码色值/间距/时长）未做。
   - 目标：#391 spec 切片9 统一落地——条目动作贡献注册表 + 令牌 Lint 规则接 :lint-checks + docs/research/2026-09-07-server-face-unification-audit.md 的 BAD 项（FAB 门控/队列空态泄漏）处置。
   - BAD 项核对（2026-09-11）：审计两条 BAD（FAB 五入口无能力位门控 / QUEUE 空态泄漏）已在统一审计批1（36734c23，2026-09-07）+ 本批切片2 能力位化后归零（ChatScreen.kt:1040-1046 entries 按 GOALS/TERMINAL/QUEUE 构建），审计文档未回标。
@@ -88,6 +88,7 @@
   - 剩余：ServerTypeUiBoundary 最后 1 条（ChatMessageList 的 DshJobTimelineCard，需新增消息列表插槽）；声明式条目动作注册表。
   - 统一贡献注册表条目级部分已落：ServerActionContribution/ServerActionRegistry/LocalServerActions + ChatFabActionsModule 声明 5 条 FAB 入口贡献；ChatScreen 内联能力门控改注册表消费。区域插槽 + 条目动作两块齐。
   - 剩余：条目→内容映射仍由通用壳持有（设计如此）；V3 P1 渲染见 #398；E2E 见 #400。
+  - 2026-09-12 收尾完成（a3dc93ce）：通用壳私有 DshJobTimelineCard 迁 CHAT_MESSAGE_LIST 插槽 + DshJobTimelineExtension；ChatViewModel 暴露 uiSlots 两级门禁；契约测试纳入新插槽。设备复验 PASS（3 张任务卡同参 EventCard 渲染、无错位、无崩溃）。证据 docs/acceptance/2026-09-12-399-slot-verification.md。转待用户验收。
 
 - [~] **#398 V3 新事件族渲染（切片7 P1）+ 按代事件词汇表** `dsh` `arch`
   - 现状：#391 两轴评审确认 V3 五类新事件（system/message、assistant/attempt、feedback/message-put|delete、subagent/catalog、deliverables/presented）仅 Ignored(SESSION_FORMAT_V3) 降级不渲染；事件映射仍是单体 when + protocolOf==V012 硬判。
