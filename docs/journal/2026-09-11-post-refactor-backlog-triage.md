@@ -107,3 +107,10 @@
 
 **C. UIUX 改进（先全网调研）**
 - #401 Home/服务器管理界面断连条幅 — **调研前置受阻**：web_search 端点返回 402 Insufficient Balance；M3 文档为 JS 渲染、web_fetch 取不到正文。按纪律**不擅动 UIUX 优化**，待检索恢复（用户可在 Settings > Plugins > Web search 更换端点）。
+
+## #402/#404 根因修复复验 PASS（2026-09-12）
+
+- **#404 复验 PASS**：冷启（force-stop+debug intent）DSH 进入 session-94365bc9 后 **t+4s** 底部 dump 即命中 `bash · sleep 1500`（运行中），t+8..66s 持续；进入后 66s 内 **0 次** JobsSnapshot/QueueSnapshot → 卡片来自 control baseline、未被 subscribed 清空。修复前旧包（75e89ad2）同流程 ≤30s 无卡（见 #399 报告 §BLOCKED）。
+- **#402 复验 PASS**：OpenCode 4199 reverse 拆除后 8+ 次 `ECONNREFUSED`，`Entering SSE cooldown after` = **0**（阈值 5 / 5min），`Reconnecting in` 1000→2000→4000ms 指数退避；恢复 reverse 后 **~2.0s** 重连、断连横幅消失（旧行为 ~4m38s）。
+- 回归：crash buffer 无 ocbeacon、FATAL=0。
+- 证据：docs/acceptance/2026-09-12-402-404-verification.md + 证据目录。

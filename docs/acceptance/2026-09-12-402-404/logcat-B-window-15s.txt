@@ -1,0 +1,53 @@
+--------- beginning of main
+09-12 01:33:00.401 11623 12925 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:00.401 11623 12925 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:00.401 11623 12925 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:00.904 12382 12382 D BoundBrokerSvc: onUnbind: Intent { act=com.google.android.gms.safetynet.service.START xflg=0x4 pkg=com.google.android.gms }
+09-12 01:33:00.920 11566 11605 I netd    : tetherGetStats() -> {[]} <0.43ms>
+09-12 01:33:01.403 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:01.403 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:01.403 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:02.300 11982 12208 D SatelliteController: iisInCarrierRoamingNbIotNtn: satellite is disabled
+09-12 01:33:02.403 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:02.404 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:02.404 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:03.405 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:03.405 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:03.406 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:04.407 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:04.407 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:04.408 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:05.409 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:05.409 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:05.409 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:06.279 11533 11533 W adbd    : timeout expired while flushing socket, closing
+09-12 01:33:06.411 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:06.411 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:06.411 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:07.413 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:07.413 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:07.413 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:08.415 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:08.415 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:08.415 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:09.417 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:09.417 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:09.417 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:10.419 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:10.419 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:10.419 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+--------- beginning of system
+09-12 01:33:10.955 11623 11717 D ActivityManager: freezing 12382 com.google.android.gms
+09-12 01:33:11.421 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:11.421 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:11.421 11623 12487 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:12.300 11982 12208 D SatelliteController: iisInCarrierRoamingNbIotNtn: satellite is disabled
+09-12 01:33:12.421 11623 12925 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:12.422 11623 12925 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:12.422 11623 12925 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:13.424 11623 12925 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:13.424 11623 12925 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:13.424 11623 12925 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:14.425 11623 12925 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:14.425 11623 12925 W BestClock: java.time.DateTimeException: No network time available
+09-12 01:33:14.426 11623 12925 W BestClock: java.time.DateTimeException: No network time available

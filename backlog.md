@@ -118,16 +118,20 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#404 冷进入 DSH 会话后钉底任务卡/队列镜像暂缺——subscribed 空快照抹掉 control 基线** `dsh` `data`
+- [~] **#404 冷进入 DSH 会话后钉底任务卡/队列镜像暂缺——subscribed 空快照抹掉 control 基线** `dsh` `data`
   - session/subscribed 原发空 JobsSnapshot/QueueSnapshot 清空镜像，假设服务器随后重推整快照；本版 0.1.5-rc.1 控制流只在任务/队列变更时增量推送 → 冷进入会话 ≤30s 钉底任务卡缺失（等一次状态变化才出现）。
   - 根因修复：去掉 subscribed 清空，权威快照 = session/control baseline（每次 WS onOpen 重发、last-wins）；DshJobsStore/DshQueueStore 由基线+变更增量驱动。
   - → docs/acceptance/2026-09-12-399-slot-verification.md
+  - 2026-09-12 根因修复（79f4f7f4）：去掉 session/subscribed 的空 JobsSnapshot/QueueSnapshot，权威快照=session/control baseline；两条 subscribed 断言同步更新；待设备冷进入复验（钉底卡应 ≤30s 立即可见）。
+  - 2026-09-12 设备复验 PASS（APK 1a315b12）：冷进入会话 t+4s 即见钉底任务卡（sleep 1500/运行中），进入后 66s 内 0 次快照推送；修复前 ≤30s 无卡。证据 docs/acceptance/2026-09-12-402-404-verification.md。转待用户验收。
 
-- [ ] **#402 SSE 5min 冷却致非网络切换型瞬断恢复迟滞——隧道/服务端瞬断实测 ~4m38s 才重连** `sse` `resilience`
+- [~] **#402 SSE 5min 冷却致非网络切换型瞬断恢复迟滞——隧道/服务端瞬断实测 ~4m38s 才重连** `sse` `resilience`
   - SseConnectionManager 冷却期内 runSseConnectionLoop 只 delay(30s) 不发起连接，仅 Android 网络恢复回调 reconnectServer 会 reset；adb reverse 恢复不触发网络事件 → 等满冷却。
   - 实测：reverse 回加后 HTTP 已 200，但 Connected 迟至 ~4m38s；断连条幅期间用户无手动重连入口（#267 零交互裁决）。
   - → docs/acceptance/2026-09-12-390-disconnect-repro.md
   - 2026-09-12 根因修复：冷却语义专指读超时（withTimeoutOrNull→null→break→流正常结束路径计数），异常分支的连接级快速失败（refused/DNS/HTTP 非 2xx）不再计冷却、改由 calculateBackoff 指数退避；待设备复验恢复时延。
+  - 2026-09-12 根因修复（79f4f7f4）：异常分支不再计冷却，连接级失败走 calculateBackoff；待设备复验（reverse 恢复后重连应 ≤60s）。
+  - 2026-09-12 设备复验 PASS：连接级失败 0 冷却、1000→2000→4000ms 指数退避；reverse 恢复后 ~2.0s 重连（旧 ~4m38s）。证据 docs/acceptance/2026-09-12-402-404-verification.md。转待用户验收。
 
 - [~] **#397 自定义 Android Lint 规则（服务器类型分支白名单 / 界面分层 / 令牌绕过）** `lint` `arch`
   - 背景：#391 切片8 的静态强制部分未落——spec 要求走自定义 Android Lint 规则，但 Lint 检查必须是独立 Gradle 模块，与 spec Out of Scope「不把单模块拆成多 Gradle 模块」存在取舍，需用户裁决。
