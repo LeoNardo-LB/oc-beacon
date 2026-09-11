@@ -107,6 +107,8 @@ class DshServerAdapter @Inject constructor(
         ServerUiSlot.PROVIDER_SETTINGS,
         ServerUiSlot.SERVER_SETTINGS,
         ServerUiSlot.SESSION_LIST_HEADER,
+        // #399：聊天消息列表内的钉底任务时间线（DSH session/jobs 快照）
+        ServerUiSlot.CHAT_MESSAGE_LIST,
     )
 
     /**

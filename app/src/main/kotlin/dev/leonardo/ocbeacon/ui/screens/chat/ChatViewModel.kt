@@ -149,6 +149,10 @@ class ChatViewModel @Inject constructor(
     private val _serverCapabilities = MutableStateFlow(serverAdapters.defaultCapabilities())
     val serverCapabilities: StateFlow<dev.leonardo.ocbeacon.domain.model.ServerCapabilities> = _serverCapabilities.asStateFlow()
 
+    /** #399：适配器声明的界面插槽（两级门禁第一级——通用壳据此决定是否调用注册表）。 */
+    private val _uiSlots = MutableStateFlow<Set<dev.leonardo.ocbeacon.domain.model.ServerUiSlot>>(emptySet())
+    val uiSlots: StateFlow<Set<dev.leonardo.ocbeacon.domain.model.ServerUiSlot>> = _uiSlots.asStateFlow()
+
     // ============ DSH Agent 预设（空白页预设卡，UI-A） ============
     private val _agentPresets = MutableStateFlow<List<AgentPreset>>(emptyList())
     val agentPresets: StateFlow<List<AgentPreset>> = _agentPresets.asStateFlow()
@@ -419,6 +423,7 @@ class ChatViewModel @Inject constructor(
                 ServerConnection.from(it)
             } ?: ServerConnection.from("", "", null)
             _serverCapabilities.value = serverAdapters.capabilities(conn)
+            _uiSlots.value = serverAdapters.uiSlots(conn)
             terminalRegistry.updateConn(serverId, conn)
             // UI-A：DSH-only 读 Agent 预设 roster（能力位内才发 agentPreset.list）
             loadAgentPresets()

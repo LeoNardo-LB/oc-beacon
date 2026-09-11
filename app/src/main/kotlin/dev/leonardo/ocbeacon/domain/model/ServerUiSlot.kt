@@ -21,4 +21,10 @@ enum class ServerUiSlot {
 
     /** 会话列表头部（筛选 / 分组等）。 */
     SESSION_LIST_HEADER,
+
+    /**
+     * 聊天消息列表内的钉底任务时间线（#399）。通用壳逐任务提供 lazy item 与 key，
+     * 贡献方只负责单张卡内容——避免通用壳 import 任何服务器类型 UI 符号。
+     */
+    CHAT_MESSAGE_LIST,
 }

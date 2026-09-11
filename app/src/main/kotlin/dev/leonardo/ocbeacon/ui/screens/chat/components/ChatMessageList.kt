@@ -25,7 +25,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.AccountTree
+import dev.leonardo.ocbeacon.domain.model.ServerUiSlot
+import dev.leonardo.ocbeacon.ui.extension.ChatMessageListSlotHost
+import dev.leonardo.ocbeacon.ui.extension.LocalServerUiSlots
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.outlined.Info
@@ -246,6 +248,10 @@ fun ChatMessageList(
     // #276 后端接口补全：DSH 无 revert/unrevert——撤销/重做 UI 入口（消息长按
     // 撤销、压缩分割线撤销、RevertBanner 重做）按能力位整体隐藏。
     val serverCapabilities by viewModel.serverCapabilities.collectAsStateWithLifecycle()
+    // #399：适配器声明的界面插槽（两级门禁第一级）+ 注册表经组合局部提供。
+    val chatUiSlots by viewModel.uiSlots.collectAsStateWithLifecycle()
+    // 注册表须在 composable 作用域读取（LazyColumn 的 LazyListScope 非 @Composable）。
+    val pinnedJobsSlotRegistry = LocalServerUiSlots.current
     val revertSupported = ServerFeatures.SESSION_REVERT in serverCapabilities
     // ============ #310② 消息反馈 👍/👎 ============
     // #366：能力位门控（原裸 serverType 特判收敛——「UI 入口按能力位隐藏」约定）
@@ -1948,15 +1954,28 @@ fun ChatMessageList(
                     // 改由消息流按时间线渲染（ChatEntry.Turn 的 role='shell' 特判，
                     // 数据源 Part.Shell 载荷），新消息自动顶上去（主对话流语义）。
 
-                    // 2026-09-01（Task 3d）：DSH 后台任务降级 Shell 卡——session/jobs
-                    // 整快照（last-wins）按当前运行状态钉底渲染（kind/label/status/
-                    // detail；DSH 无命令/输出源 → command/output 留空）。先声明 = 视觉
-                    // 底部（reverseLayout）。终态任务随快照自然移除（官方 jobs 语义）。
-                    if (dshJobs.isNotEmpty()) {
+                    // #399（2026-09-12）：钉底后台任务时间线经 CHAT_MESSAGE_LIST 插槽渲染——
+                    // 通用壳零 DSH 卡片知识（原私有 DshJobTimelineCard 已迁类型私有包）。
+                    // 两级门禁：适配器声明（viewModel.uiSlots）+ 贡献方能力位（JOBS_PUSH）。
+                    // 逐任务保持独立 lazy item 与 key（视觉与惰性语义不变）；先声明=视觉底部
+                    //（reverseLayout），终态任务随快照自然移除（官方 jobs 语义）。
+                    if (dshJobs.isNotEmpty() &&
+                        ServerUiSlot.CHAT_MESSAGE_LIST in chatUiSlots &&
+                        pinnedJobsSlotRegistry
+                            .contributions(ServerUiSlot.CHAT_MESSAGE_LIST, serverCapabilities)
+                            .isNotEmpty()
+                    ) {
                         dshJobs.forEach { job ->
                             item(key = "dsh_job_" + job.id) {
                                 Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                                    DshJobTimelineCard(job = job, expandedStates = eventCardExpandedStates)
+                                    pinnedJobsSlotRegistry.Render(
+                                        slot = ServerUiSlot.CHAT_MESSAGE_LIST,
+                                        caps = serverCapabilities,
+                                        host = ChatMessageListSlotHost(
+                                            job = job,
+                                            expandedStates = eventCardExpandedStates,
+                                        ),
+                                    )
                                 }
                             }
                         }
@@ -2325,48 +2344,6 @@ internal fun chatEntryKey(
 ): String =
     if (message.isUser) "u_" + message.message.id
     else "t_" + (turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: message.message.id)
-
-/** 任务状态 → 既有 dsh_job_status_* 文案（Task 3d 降级 Shell 卡；零新增 i18n；
- *  #284：statusKind 枚举分支，UNKNOWN 沿用 completed 兜底保持原渲染）。 */
-@Composable
-private fun dshJobStatusLabel(status: dev.leonardo.ocbeacon.domain.model.JobStatus): String = stringResource(
-    when (status) {
-        dev.leonardo.ocbeacon.domain.model.JobStatus.RUNNING -> R.string.dsh_job_status_running
-        dev.leonardo.ocbeacon.domain.model.JobStatus.STOPPING -> R.string.dsh_job_status_stopping
-        dev.leonardo.ocbeacon.domain.model.JobStatus.KILLED -> R.string.dsh_job_status_killed
-        dev.leonardo.ocbeacon.domain.model.JobStatus.FAILED -> R.string.dsh_job_status_failed
-        dev.leonardo.ocbeacon.domain.model.JobStatus.COMPLETED,
-        dev.leonardo.ocbeacon.domain.model.JobStatus.UNKNOWN -> R.string.dsh_job_status_completed
-    }
-)
-
-/**
- * DSH 后台任务降级 Shell 卡（2026-09-01 Task 3d）：session/jobs 整快照 JobView →
- * 既有统一事件卡（EventCard）视觉。kind/label/status/detail 先行，command/output
- * 留空（DSH 无命令输出源，如实降级）；失败/被杀破色（failed 语义同既有 shell/task 卡）。
- */
-@Composable
-private fun DshJobTimelineCard(
-    job: dev.leonardo.ocbeacon.domain.model.JobView,
-    expandedStates: MutableMap<String, Boolean>,
-) {
-    val failed = job.statusKind == dev.leonardo.ocbeacon.domain.model.JobStatus.FAILED ||
-        job.statusKind == dev.leonardo.ocbeacon.domain.model.JobStatus.KILLED
-    EventCard(
-        eventKey = "dsh_job_" + job.id,
-        timeMs = job.startedAt,
-        label = dshJobStatusLabel(job.statusKind),
-        leadingIcon = if (job.kind == "subagent") Icons.Filled.AccountTree else Icons.Filled.Terminal,
-        failed = failed,
-        // 描述行：kind · label · detail（Q15 槽位——数据在才显示；无命令/输出）
-        description = listOfNotNull(
-            job.kind.takeIf { it.isNotBlank() },
-            job.label.takeIf { it.isNotBlank() },
-            job.detail?.takeIf { it.isNotBlank() },
-        ).joinToString(" · ").takeIf { it.isNotBlank() },
-        expandedStates = expandedStates,
-    )
-}
 
 /**
  * 跳转定位 loading 蒙版（2026-08-21 D-11-2 从主体下沉为小组件）：

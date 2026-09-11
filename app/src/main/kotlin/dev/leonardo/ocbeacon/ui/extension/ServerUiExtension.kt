@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.extension
 
 import androidx.compose.runtime.Composable
+import dev.leonardo.ocbeacon.domain.model.JobView
 import dev.leonardo.ocbeacon.domain.model.ServerCapabilities
 import dev.leonardo.ocbeacon.domain.model.ServerUiSlot
 
@@ -51,4 +52,15 @@ class ServerSettingsSlotHost : ServerUiSlotHost
 /** 会话列表头部槽位宿主（#391 切片9）：通用横幅回退所需的凭据待输入态。 */
 class SessionListHeaderSlotHost(
     val tokenNeeded: Boolean,
+) : ServerUiSlotHost
+
+/**
+ * 聊天消息列表槽位宿主（#399）：通用列表把一个钉底后台任务交给贡献方渲染。
+ *
+ * 通用壳负责逐任务 lazy item 与 key（[job] 的 id），贡献方只渲染单卡内容；[expandedStates]
+ * 复用通用事件卡的展开态存储（同宿主原位更新语义）。
+ */
+class ChatMessageListSlotHost(
+    val job: JobView,
+    val expandedStates: MutableMap<String, Boolean>,
 ) : ServerUiSlotHost

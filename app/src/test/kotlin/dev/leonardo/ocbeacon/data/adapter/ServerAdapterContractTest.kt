@@ -14,6 +14,7 @@ import dev.leonardo.ocbeacon.domain.model.ServerUiSlot
 import dev.leonardo.ocbeacon.testing.FakeServerAdapter
 import dev.leonardo.ocbeacon.ui.extension.ServerUiExtension
 import dev.leonardo.ocbeacon.ui.extension.ServerUiSlotRegistry
+import dev.leonardo.ocbeacon.ui.screens.chat.dsh.DshJobTimelineExtension
 import dev.leonardo.ocbeacon.ui.screens.server.providers.dsh.DshProviderDirectoryExtension
 import dev.leonardo.ocbeacon.ui.screens.sessions.dsh.DshServerAdminExtension
 import dev.leonardo.ocbeacon.ui.screens.sessions.dsh.DshTokenBannerExtension
@@ -125,6 +126,7 @@ class ServerAdapterContractTest {
                 ServerUiSlot.PROVIDER_SETTINGS,
                 ServerUiSlot.SERVER_SETTINGS,
                 ServerUiSlot.SESSION_LIST_HEADER,
+                ServerUiSlot.CHAT_MESSAGE_LIST,
             ),
             real.uiSlots(conn(ServerType.Dsh)),
         )
@@ -158,6 +160,7 @@ class ServerAdapterContractTest {
             DshProviderDirectoryExtension(),
             DshServerAdminExtension(),
             DshTokenBannerExtension(),
+            DshJobTimelineExtension(),
         )
         val slotRegistry = ServerUiSlotRegistry(extensions)
 
@@ -185,6 +188,7 @@ class ServerAdapterContractTest {
                 ServerUiSlot.PROVIDER_SETTINGS,
                 ServerUiSlot.SERVER_SETTINGS,
                 ServerUiSlot.SESSION_LIST_HEADER,
+                ServerUiSlot.CHAT_MESSAGE_LIST,
             ),
             real.uiSlots(conn(ServerType.Dsh)),
         )
