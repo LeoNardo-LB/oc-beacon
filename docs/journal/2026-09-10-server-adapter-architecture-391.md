@@ -397,3 +397,18 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 
 **验证**：主/单测/androidTest 编译 + 全量单测 + lintDevDebug（no new issues）BUILD SUCCESSFUL。
 
+
+## 切片 9 / #400：模拟器端到端验证（OpenCode V2 面）
+
+环境：AVD Pixel6_Android36（API 36，无头 + swiftshader）；宿主 opencode 服务器 127.0.0.1:4199（HTTP 200）；`adb reverse tcp:4199`；`:app:assembleDevDebug` 装包后经 `scripts/debug-entry.sh emulator-5554` 冷启。
+
+证据（uiautomator dump 仪器级断言，非视觉）：
+1. **连接**：logcat `Debug channel activated` → server uuid；`NavGraph: Debug channel → SessionList`。ApiVersionDetector 判 V2（0.0.0-beta-19086）；SSE 走 V2 client。
+2. **会话列表**：真实会话行渲染（标题/目录/时间），无 banner（已连接 → 无断连/TokenNeeded）。
+3. **聊天转录**：进入会话后 dump 出完整 markdown 正文 + 轮次统计（Turn 4 · 22 steps · 30 tools）。
+4. **条目动作注册表（本轮新增）**：点开 FAB dump 出入口 **TODO / Agents / Shells / Queue**——GOAL（需 GOALS 能力位）**按能力正确隐藏**；V2 有 inbox → QUEUE 在场。证明 ServerActionRegistry 在真实设备生效（默认空注册表时不会出现任何入口）。
+5. **SERVER_SETTINGS 槽位两级门禁**：设置页仅渲染通用区块（MCP Servers / Tag management），DSH 私有区块（插件清单 / 设置表单 / 预设）未出现——OpenCode 无 adapter 声明 + 无能力位，贡献被正确拦截。
+6. **稳定性**：crash buffer 空、无 FATAL/AndroidRuntime 异常、无应用 E 级日志。
+
+**未覆盖**：DSH 线面（本机无可连 DSH 服务器）——token 横幅、DSH 设置/插件区块、surfaceOp 越界拒绝重建、assistant-stream 实时流仍需 DSH 靶机；记 #400 剩余。
+
