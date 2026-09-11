@@ -439,3 +439,13 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 
 **验证**：全量单测 + lintDevDebug（no new issues）+ assembleDevDebug + 模拟器实测 BUILD SUCCESSFUL。
 
+
+## 切片 7 / #398（步骤 2）：V3 事件载荷实况取证固化
+
+- 取证源：本机 DSH 0.1.5-rc.1 的 29 个 session.v3.jsonl.zstd 归档（zstd -dc + grep 原始信封）。
+- 频次：assistant/attempt 692、system/message 41、subagent/catalog 16、deliverables/presented 15、feedback/message-* 0（归档无样本）。
+- 固化文档：docs/research/2026-09-11-dsh-v3-event-payloads.md——逐类原始载荷 + 字段拆解 + 建议映射 + 实施顺序，明确「不臆造字段」与 L2 约束（未知仍 SESSION_FORMAT_V3 降级，不得改回拒绝重建）。
+- 为 #398 剩余四类渲染提供权威 wire 规格；下一步按文档顺序落地（assistant/attempt 错误 > deliverables > system/message > subagent/catalog）。
+
+**验证**：文档为取证结论（原始载荷直接摘录），无代码改动。
+

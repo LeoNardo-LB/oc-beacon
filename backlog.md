@@ -93,6 +93,7 @@
   - 前提：需 DSH 0.1.5 真实 wire 样本（当前仅 0.1.1/0.1.2 实录），无样本不臆造字段。
   - 步骤1（2026-09-11，实况取证+修复）：V3 user/message 的 reasoning/tool-call 块此前被丢弃，现 reasoning→Part.Reasoning（对齐 assistant）、tool-call/result→静默（冗余镜像）；模拟器连本机 DSH 0.1.5-rc.1 实测 warning 16→0。
   - 本机 DSH 0.1.5 服务器（3080）已成为权威 wire 取证源；其余 V3 类型渲染 + 按代词汇表待续。
+  - 步骤2（2026-09-11）：29 个 V3 归档取证固化到 docs/research/2026-09-11-dsh-v3-event-payloads.md——assistant/attempt(692)/system/message(41)/subagent/catalog(16)/deliverables/presented(15) 原始载荷+字段+映射计划；feedback/* 归档无样本。
 
 - [ ] **#396 Android Lint devDebug 门禁 4 项存量错误** `lint` `ci`
   - 现象：./gradlew :app:lintDevDebug 红（abortOnError），4 error——HiltEntryActivity MissingClass ×1（src/debug/AndroidManifest.xml:18，类仅存在于 androidTest 源集）+ LocalContextGetResourceValueCall ×3（ChatScreen.kt:786/1067、SettingsScreen.kt:97 的 context.getString 应走 stringResource）。
