@@ -146,7 +146,7 @@ adb -s e69a99d8 shell am start -n dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeaco
 
 ### V1 测试服务器快速搭建（2026-08-25 实战定稿）
 
-本机 `opencode` 二进制即 1.18.18（V1）；与 V2 服务（@opencode-ai/cli）共存互不干扰。隔离启动配方：
+本机 `opencode` 二进制即 V1（2026-08-25 记为 1.18.18；2026-09-12 实测 1.18.27，**版本以 `GET /global/health` 为准**）；与 V2 服务（@opencode-ai/cli）共存互不干扰。隔离启动配方：
 
 ```bash
 # 1. 隔离环境（不隔离会撞现有 DB 报 Database is not empty）
@@ -161,6 +161,12 @@ nohup setsid env XDG_DATA_HOME=/tmp/v1srv/data XDG_CONFIG_HOME=/tmp/v1srv/config
 # 4. adb -s e69a99d8 reverse tcp:4198 tcp:4198
 # 5. App 接入：force-stop 后 debug intent（debug-entry.sh 改 URL/名字等价；warm start 不解析 intent，必须冷启）
 ```
+
+> **AI 会话内启动的例外（2026-09-12 实证）**：上面第 3 步的 `nohup setsid … & disown` 在 **AI 工具调用上下文**里仍会在该次工具调用结束时被连带回收——实测刚启动时 `curl /global/health` 通，下一次工具调用即失联。此场景必须用**受管后台任务**（工具的后台 job 机制）承载 V1 进程，别用 nohup；健康判定恒以 `curl -s -u opencode:<密码> http://127.0.0.1:4198/global/health` 返回 `{"healthy":true,"version":"1.18.27"}` 为准。
+>
+> **造测试会话配方（2026-09-12）**：`POST /session`（空 body，Basic auth）直接返回会话 JSON——**V1 取顶层 `id`**（`data.id` 是 V2 形态）；`POST /session/{id}/prompt_async` body 扁平 `{"parts":[{"type":"text","text":"…"}]}` → 204，用户消息即落库（无 provider 也能造出 13 条 user 消息的跳转靶会话）。
+>
+> **V1 归档端点（2026-09-12 实测，推翻旧「V1 无任何 update 端点」判定）**：`PATCH /session/{id}` body `{"time":{"archived":<epoch_ms>}}` **真的落归档**（响应含时间戳、GET 回读一致；`archived:0` 可清空，`null` 被忽略）。V2（beta-19086）`/openapi.json` 119 路由仍 0 归档端点。
 
 V1 契约要点（实测）：prompt 走 `POST /session/{id}/prompt_async`，body **扁平** `{"parts":[{"type":"text","text":...}]}`（无 data 包装、必带 parts）；compact 产物 = `assistant(agent=compaction)` 常规消息（无 Part.Compaction），app 端渲染为普通气泡——与 V2 的分割线形态是**服务器语义差异**非客户端缺陷。
 - 每轮测试前后 `logcat -c` / `-d` 存档，grep FATAL/AndroidRuntime 计数
