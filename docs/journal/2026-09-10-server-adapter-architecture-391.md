@@ -480,3 +480,12 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 - 新增 `DshV3GoldenSampleTest`：逐字归档载荷（c0ffb1a8 seq203-207 + research §2.2）——ptc-dispatch(present) 非卡内层工具、deliverables 落根宿主、system/message 空 content 零事件、subagent/catalog & assistant/attempt 具名降级、整段 fold 不拒绝重建。
 - 对应 spec 用户故事 22「用真实会话日志黄金样本按代断言映射结果」；为后续「按代事件词汇表」结构重构预置回归护栏（handoff §4 第 4 项先补契约测试再动）。
 - 踩坑：Kotlin 新行首 `+` 会被解析为独立一元表达式语句（`val x = """a"""` 换行 `+ """b"""` 报 Expecting member declaration）——多段原始字符串拼接须把操作符留在行尾或写单行。
+
+## #398 步骤7：按代事件词汇表（spec 切片7 结构项）（2026-09-12）
+
+- 新增 `DshEventVocabulary`（data/api/dsh）：**共享处理器**（DshEventMapper 的 when）只承载有转录语义的映射；**按代词汇表**声明每一代「已知但无需映射」的类型 → 具名忽略原因。未知词汇统一 UNKNOWN_DEGRADED + 日志（附词汇表版本标签），仅结构性违约拒绝重建。
+- 择表维度 = **会话格式版本**：`DshHistoryFolder.fold` 按 session 头 `version` 经 `ofSessionFormatVersion` 择表（1/2→V2、3→V3、缺席/未知→CURRENT，容错优先）；`mapSessionEvent` 增可选 `vocabulary`（默认 CURRENT），实况帧面暂用默认（格式版本仅历史头可得）。
+- 收编原内联忽略分支：subagent/descriptor、plan/mode、agent/inbox/spliced、step/end、log-only 族、model/selection、subagent/model-selection-policy、approval/asked|decided、llm/failover、hook/team、session/projection|jobs|queue、stream/error、tool-workflow/agent-*、V3 的 assistant/attempt + feedback/message-put|delete + subagent/catalog。删除不可达的 `llm/retry` 重复忽略分支与随之失效的 `LLM_RETRY` 常量。
+- 新增 `DshEventVocabularyTest`：V3=V2 超集、有映射类型不入忽略表（防遮蔽共享处理器）、版本择表容错、按代降级（V2 视角 UNKNOWN_DEGRADED vs V3 具名 SESSION_FORMAT_V3）、fold 按头择表。
+- 验证：`:app:testDevDebugUnitTest --rerun` 全绿（dsh 包全量 + 全量套件）；`:app:lintDevDebug` → `Lint found no new issues (257 warnings, 8 hints baseline)`。
+- 说明：本次为**行为等价**重构（所有既有 reason 断言原样通过），零新增依赖；spec 用户故事 20「新增一代只加一个世代描述」的 seam 就位。

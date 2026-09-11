@@ -593,14 +593,26 @@ object DshEventMapper {
     /**
      * 单 SessionEvent 映射。[envelope] 形如 "{type, seq, time, data, ...}"（历史行
      * 与 session/event 帧 event 字段同构）。DshHistoryFolder 与 mapFrame 共用本入口。
+     *
+     * [vocabulary] = 按代事件词汇表（#391 切片7）：已知但无需映射的类型按代具名
+     * 忽略；缺省 [DshEventVocabulary.CURRENT]（历史折叠按 session 头 version 择取，
+     * 见 DshHistoryFolder）。
      */
-    fun mapSessionEvent(sessionId: String, envelope: JsonObject): List<DshMappedEvent> =
-        runCatching { mapSessionEventInner(sessionId, envelope) }.getOrElse { t ->
+    fun mapSessionEvent(
+        sessionId: String,
+        envelope: JsonObject,
+        vocabulary: DshEventVocabulary = DshEventVocabulary.CURRENT,
+    ): List<DshMappedEvent> =
+        runCatching { mapSessionEventInner(sessionId, envelope, vocabulary) }.getOrElse { t ->
             AppLogger.w(TAG, "SessionEvent 映射容错降级: " + envelope.str("type") + " – " + t.message)
             listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
         }
 
-    private fun mapSessionEventInner(sessionId: String, envelope: JsonObject): List<DshMappedEvent> {
+    private fun mapSessionEventInner(
+        sessionId: String,
+        envelope: JsonObject,
+        vocabulary: DshEventVocabulary,
+    ): List<DshMappedEvent> {
         val type = envelope.str("type")
             ?: return listOf(DshMappedEvent.Ignored(DshIgnoreReason.MALFORMED))
         val seq = envelope.long("seq") ?: 0L
@@ -780,7 +792,7 @@ object DshEventMapper {
                 }
                 listOf(DshMappedEvent.Sse(SseEvent.SessionGoalChanged(sessionId = sessionId, goal = projection)))
             }
-            "subagent/descriptor" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.SUBAGENT_DESCRIPTOR))
+            // subagent/descriptor 等已知忽略词汇见 DshEventVocabulary（按代声明）。
             // agent-preset/selected {agentPreset} → SessionAgentPresetChanged：select 成功
             // 回显（非 scoped 重发），折叠进 Session.agentPreset 驱动卡片高亮。
             "agent-preset/selected" -> listOf(
@@ -802,12 +814,9 @@ object DshEventMapper {
                 listOf(DshMappedEvent.Sse(SseEvent.SessionPermissionChanged(sessionId = sessionId, sandboxMode = data.str("mode"))))
             "approval/policy" ->
                 listOf(DshMappedEvent.Sse(SseEvent.SessionPermissionChanged(sessionId = sessionId, approvalPolicy = data.str("policy"))))
-            "plan/mode" ->
-                listOf(DshMappedEvent.Ignored(DshIgnoreReason.POLICY_STATE))
-            "agent/inbox/spliced" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.INBOX))
-            "step/end" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.LIFECYCLE_NOISE))
-            // llm/retry（实测 3,566 次）——Part.Retry 对位留给后续；不进目录会误伤真实会话
-            "llm/retry", "llm/retry-started" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.LLM_RETRY))
+            // plan/mode、agent/inbox/spliced、step/end 等已知忽略词汇见
+            // DshEventVocabulary；llm/retry|retry-started 已在上方映射为
+            // SessionStatus（Retry/Busy），不属忽略目录（原内联分支为不可达死码，删）。
             // #323：斜杠命令执行反馈行——转录 log-only 事件（dsh-commands 契约：run
             // {commandId,name,args?,source} 先于 handler、done {commandId,kind,text?,
             // sourceEventSeq?} 结算后；commandId 配对、直追加无轮包裹）。真实转录
@@ -816,17 +825,9 @@ object DshEventMapper {
             //（#327 历史行防御纪律：不得触发整会话拒绝重建）。
             "command/run" -> mapCommandRun(sessionId, seq, time, data)
             "command/done" -> mapCommandDone(sessionId, seq, time, data)
-            // log-only（设计 Tier3 明列）
-            "request/header", "request/context", "session/end-seed",
-            "web/deepseek-search-llm-request", "schedule/change", "feedback/record",
-            // #310① A8轮3（2026-09-05）：model/selection 与 subagent/model-selection-policy
-            // 是服务器 known-event-types 词汇内声明的 log-only 事件（"Log-only: it
-            // never enters derived model history"——子会话 journal 在首个模型请求前
-            // 必写后者，普通会话常见前者）。缺席折叠词汇曾使 session/page 整页返回后
-            // fold 全量拒绝重建（listMessages msgs=0）——重入子会话转录恒空、status
-            // check 交换不持久（a8r2.log "history fold refused rebuild …" 135+451 次）。
-            "model/selection", "subagent/model-selection-policy",
-                -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.LOG_ONLY))
+            // log-only / 模型选择 / 插件域 / 审批面等已知忽略词汇统一见
+            // DshEventVocabulary（V2/V3 按代声明；原内联分支的逐条依据——含
+            // #310① A8轮3 的 fold 拒绝重建事故——已随语义迁入该文件注释）。
             // #349（2026-09-07 真机实证）：subagent 族 code-dispatch 升格为子代理卡
             // 真源——DSH wire 上子代理派发被 run_code 包裹（tool/call 名恒=run_code，
             // 子会话 id 不在 tool/call|result 的结构化字段），childSessionId 仅存于
@@ -847,59 +848,35 @@ object DshEventMapper {
             //（TurnDeliverables fold 汇入 turn 尾产出文件行；web 同源事件语义见
             // dsh-client-ui-deliverables/lib/client.js selectDeliverables）。
             "deliverables/presented" -> mapDeliverablesPresented(sessionId, time, data)
-            // 其余 V3 新增词汇：仍具名降级（不拒绝重建）。
-            // - assistant/attempt：瞬态尝试记录（实测 692 例中 681 例随后
-            //   llm/retry，逐条渲染会刷屏；终态失败走 turn/end 或 stream/error）。
-            // - subagent/catalog：**双源裁定——不消费**。载荷仅
-            //   {version,childId,childCreatedAt,mode,label}（单条，缺 activity/
-            //   hasChildren/parentAvailable），而目录权威面是 subagents/list RPC
-            //   整帧（SubagentApi.subagentCatalog / SubagentCatalogEntry）；
-            //   app 侧 SubagentModeTracker 已按 sid+parentId 懒加载该整帧。
-            //   0.1.5 全量 web 客户端插件亦无本事件消费点（client-connection 仅
-            //   列词汇）。再落一处本地目录即双源，故维持具名降级。
-            // - feedback/message-put|delete：本机 29 归档 0 样本，待新会话取证
-            //   （App 已有 feedback 端口，事件侧补映射须先有真实载荷）。
-            "assistant/attempt",
-            "feedback/message-put", "feedback/message-delete",
-            "subagent/catalog" ->
-                listOf(DshMappedEvent.Ignored(DshIgnoreReason.SESSION_FORMAT_V3))
-            // durable 审批面：实况弹窗由 mux approval/requested|resolved 承载（本组件），
-            // 历史重放 asked 会造成重复弹窗——#276 裁决是否补充重放语义
-            "approval/asked", "approval/decided" ->
-                listOf(DshMappedEvent.Ignored(DshIgnoreReason.APPROVAL_DURABLE))
-
-            // ---- 插件域扩展（known-49 收尾；E2E 实证 llm/failover 曾致整会话拒绝重建） ----
-            "llm/failover" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.LLM_FAILOVER))
-            "session/title-llm-request" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.LOG_ONLY))
-            "hook/invoked", "hook/result",
-            "team/task", "team/member", "team/message/delivered", "team/message/queued" ->
-                listOf(DshMappedEvent.Ignored(DshIgnoreReason.PLUGIN_DOMAIN))
+            // V3 新增忽略词汇（assistant/attempt、feedback/message-*、subagent/catalog）、
+            // durable 审批面、插件域、llm/failover 等统一见 DshEventVocabulary（V3 表；
+            // subagent/catalog 双源裁定与 feedback 取证状态见该文件注释）。
             // 2026-09-01（Task 3b 卡片缺口）：workflow-run 降级卡——run-start/run-end
             // 映射为 synthetic 任务信封（同 runId 同宿主消息 id → 原位更新：running →
-            // completed/error 单卡）；agent-start/end 是阶段明细（workflow 阶段卡
-            // 后续增强），维持 Ignored 防逐成员刷卡。
+            // completed/error 单卡）；agent-start/end 是阶段明细（防逐成员刷卡），
+            // 已在 DshEventVocabulary 按代声明为已知忽略。
             "tool-workflow/run-start" -> mapWorkflowRunStart(sessionId, time, data)
             "tool-workflow/run-end" -> mapWorkflowRunEnd(sessionId, time, data)
-            "tool-workflow/agent-start", "tool-workflow/agent-end" ->
-                listOf(DshMappedEvent.Ignored(DshIgnoreReason.WORKFLOW_AGENT))
 
-            // ---- Mux 帧类型混入历史行（B.4 防御）：session/projection|jobs|queue、
-            //      stream/error 是 WS 帧面而非 SessionEvent——历史重放/翻页若出现
-            //      这些 type 行，按已知可忽略折叠（不拒绝重建）。 ----
-            "session/projection" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.PROJECTION))
-            "session/jobs" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.JOBS))
-            "session/queue" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.QUEUE))
-            "stream/error" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.STREAM_ERROR))
-
-            // ---- 未知类型：ignorable 旗标兑现（spec：仅 llm/failover 带，但旗标是权威信号）；
-            //      无旗标才拒绝重建（folder 判据） ----
+            // ---- 已知忽略词汇（按代声明）+ 未知降级 ----
+            // Mux 帧类型混入历史行（B.4 防御：session/projection|jobs|queue、
+            // stream/error 是 WS 帧面而非 SessionEvent）亦在词汇表内按代声明。
             else -> {
-                if (envelope.bool("ignorable") == true) {
-                    listOf(DshMappedEvent.Ignored(DshIgnoreReason.IGNORABLE_FLAG))
-                } else {
-                    // #391 切片7 容错优先：未知词汇**具名降级 + 日志遥测**，不拒绝重建
-                    AppLogger.w(TAG, "未知 SessionEvent 类型（已具名降级，不拒绝重建）: " + type)
-                    listOf(DshMappedEvent.Ignored(DshIgnoreReason.UNKNOWN_DEGRADED))
+                val knownReason = vocabulary.ignoreReason(type)
+                when {
+                    // 该代已知但无需映射 → 具名忽略（spec「按代词汇表」）
+                    knownReason != null -> listOf(DshMappedEvent.Ignored(knownReason))
+                    // ignorable 旗标兑现（spec：仅 llm/failover 带，但旗标是权威信号）
+                    envelope.bool("ignorable") == true ->
+                        listOf(DshMappedEvent.Ignored(DshIgnoreReason.IGNORABLE_FLAG))
+                    else -> {
+                        // #391 切片7 容错优先：未知词汇**具名降级 + 日志遥测**，不拒绝重建
+                        AppLogger.w(
+                            TAG,
+                            "未知 SessionEvent 类型（" + vocabulary.version + "，已具名降级，不拒绝重建）: " + type,
+                        )
+                        listOf(DshMappedEvent.Ignored(DshIgnoreReason.UNKNOWN_DEGRADED))
+                    }
                 }
             }
         }
@@ -1972,8 +1949,8 @@ object DshIgnoreReason {
     /** step/end 等无独立语义的生命周期噪声（idle 边界是 turn/end）。 */
     const val LIFECYCLE_NOISE = "lifecycle-noise"
 
-    /** llm/retry(-started)——Part.Retry 对位留给后续。 */
-    const val LLM_RETRY = "llm-retry"
+    // 注：llm/retry(-started) 已映射为 SessionStatus（Retry/Busy，见 mapSessionEventInner），
+    // 不再是忽略原因——原 LLM_RETRY 常量随之删除（#391 切片7 词汇表收编）。
 
     /** llm/failover 提供商切换（E2E 实证曾致拒绝重建，2026-08-31 收编）。 */
     const val LLM_FAILOVER = "llm-failover"

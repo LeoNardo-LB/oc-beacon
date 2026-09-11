@@ -25,7 +25,8 @@ private const val TAG = "DshHistoryFolder"
  * 2. **chunk 族**：assistant/chunk 单块行 + seq0 打包行（reasoning-chunks /
  *    text-chunks / tool-call-chunks，checkpoint-policy 批量块）——一律不进历史 fold，
  *    整装文本由 assistant/message 承载（历史尾页由整装主导，§1.7）；
- * 3. **活事件行**（{type, seq, time, data}）：经 mapper 分派。
+ * 3. **活事件行**（{type, seq, time, data}）：经 mapper 分派，词汇表按会话头
+ *    `version` 择取（[DshEventVocabulary.ofSessionFormatVersion]——#391 切片7）。
  *
  * lastSeq = 全部行（含打包行 seq0——服务端视角已应用水位）的最大 seq；漏计打包行
  * 会让 DshReconciler 对以打包行收尾的会话误判缺口 → 回填死循环。
@@ -44,6 +45,9 @@ object DshHistoryFolder {
      */
     fun fold(events: List<JsonObject>, sessionId: String? = null): DshFoldResult {
         var resolvedSessionId = sessionId ?: ""
+        // #391 切片7：会话格式版本从 session 头行择取按代事件词汇表（缺省走
+        // CURRENT——容错优先，未知版本不拒绝重建）。
+        var formatVersion: Long? = null
         var lastSeq = 0L
         val sseEvents = mutableListOf<SseEvent>()
         val structuralViolations = mutableListOf<String>()
@@ -54,13 +58,20 @@ object DshHistoryFolder {
             val rowSeq = entry.long("seq") ?: entry.long("seq0")
             if (rowSeq != null && rowSeq > lastSeq) lastSeq = rowSeq
             when {
-                // header 行：会话元信息，非事件
-                type == "session" -> resolvedSessionId = sessionId ?: (entry.str("id") ?: resolvedSessionId)
+                // header 行：会话元信息，非事件（version = 会话格式版本）
+                type == "session" -> {
+                    resolvedSessionId = sessionId ?: (entry.str("id") ?: resolvedSessionId)
+                    formatVersion = entry.long("version") ?: formatVersion
+                }
                 // chunk 族（单块行）：流式保真专用，不进历史 fold
                 type == "assistant/chunk" -> Unit
                 // checkpoint 打包行（按 key 区分信封二态：seq0 存在 = 批量块）
                 entry.containsKey("seq0") -> Unit
-                else -> DshEventMapper.mapSessionEvent(resolvedSessionId, entry).forEach { mapped ->
+                else -> DshEventMapper.mapSessionEvent(
+                    resolvedSessionId,
+                    entry,
+                    DshEventVocabulary.ofSessionFormatVersion(formatVersion),
+                ).forEach { mapped ->
                     when (mapped) {
                         is DshMappedEvent.Sse -> sseEvents += mapped.event
                         // 历史行不产生订阅信号（那是 WS 帧面专属）
