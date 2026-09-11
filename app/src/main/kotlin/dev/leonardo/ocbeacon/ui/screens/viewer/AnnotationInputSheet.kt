@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.screens.chat.components.SmallSheetDragHandle
 import dev.leonardo.ocbeacon.ui.screens.chat.components.sheetContentGestureIsolation
+import dev.leonardo.ocbeacon.ui.screens.chat.components.sheetNonScrollableDragBlock
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import kotlinx.coroutines.launch
 
@@ -72,6 +73,8 @@ fun AnnotationInputSheet(
                 .fillMaxWidth()
                 // #379：内容手势隔离——输入表单内拖拽/fling 不致收起
                 .sheetContentGestureIsolation()
+                // #405：非滚动区（标题带/空白带）也不发起收起（指针层兜底）
+                .sheetNonScrollableDragBlock()
                 .padding(SpacingTokens.LG.dp)
                 .padding(bottom = SpacingTokens.XXL.dp),
             verticalArrangement = Arrangement.spacedBy(SpacingTokens.MD.dp)

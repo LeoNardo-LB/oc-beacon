@@ -134,6 +134,8 @@ fun QuickNavigateSheet(
                 .fillMaxWidth()
                 // #379：内容手势隔离——内部拖拽/fling 不致收起（仅手柄/点外/返回）
                 .sheetContentGestureIsolation()
+                // #405：非滚动区（标题带/空白带）也不发起收起（指针层兜底）
+                .sheetNonScrollableDragBlock()
                 // 2026-08-20（用户决策）：主对话抽屉高度统一——min = max = 75% 屏高
                 // （固定高度，与后台面板/模型选择统一；列表 weight(1f) 内部滚动）。
                 .height(
@@ -146,8 +148,6 @@ fun QuickNavigateSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // #405：标题带不发起收起（nestedScroll 只覆盖可滚动子节点；本带 ptr 层拦截）
-                    .sheetHeaderGestureBlock()
                     .padding(horizontal = SpacingTokens.LG.dp, vertical = SpacingTokens.SM.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat
 
 import dev.leonardo.ocbeacon.ui.screens.chat.components.SmallSheetDragHandle
 import dev.leonardo.ocbeacon.ui.screens.chat.components.sheetContentGestureIsolation
+import dev.leonardo.ocbeacon.ui.screens.chat.components.sheetNonScrollableDragBlock
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
@@ -102,6 +103,8 @@ internal fun SheetScaffold(
                 .fillMaxWidth()
                 // #379：内容手势隔离——内部拖拽/fling 不致收起（仅手柄/点外/返回）
                 .sheetContentGestureIsolation()
+                // #405：非滚动区（标题带/空白带）也不发起收起（指针层兜底）
+                .sheetNonScrollableDragBlock()
                 .height(
                     LocalConfiguration.current.screenHeightDp.dp *
                         SheetTokens.ChatSheetHeightFraction

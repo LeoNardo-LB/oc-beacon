@@ -65,18 +65,19 @@ fun SmallSheetDragHandle(modifier: Modifier = Modifier) {
 fun Modifier.sheetContentGestureIsolation(): Modifier = nestedScroll(SheetGestureIsolation)
 
 /**
- * #405（2026-09-12）：非列表头部带（sheet 顶部标题行等）不发起 sheet 拖拽。
+ * #405（2026-09-12）：sheet 内容根的非滚动区（标题带 / 手柄下方空白带）不发起 sheet 拖拽。
  *
  * 为什么 nestedScroll 隔离不够：nestedScroll 只接收**可滚动子节点**派发的位移
- * （LazyColumn）——标题带没有滚动子节点，向下拖拽直接落到 M3 sheet 自身的
+ * （LazyColumn）——标题带/空白带没有滚动子节点，向下拖拽直接落到 M3 sheet 自身的
  * anchoredDraggable（androidx 源码：dragHandle 仅 visual marker，整表可拖），
- * 于是从标题带下滑会收起抽屉，违背 #379「仅手柄 / 点外 / 返回收起」的既定意图。
+ * 于是从这些带下滑会收起抽屉，违背 #379「仅手柄 / 点外 / 返回收起」的既定意图。
  *
- * 机制：挂在头部带的 pointerInput 于 **Main 趟**（child→parent）先于 sheet 的
- * 拖拽检测器拿到事件，向下（收起方向）分量就地消费 → 父层触摸斜率等待因已消费
- * 而取消。仅拦向下；上行分量不消费（该带无滚动语义，避免误伤点击/关闭按钮）。
+ * 机制：挂在内容根（与 [sheetContentGestureIsolation] 同节点）的 pointerInput 于
+ * **Main 趟**（child→parent）处理**未被任何可滚动子节点消费**的向下指针位移——
+ * 列表可滚动时其 scrollable 先消费，本连接跳过；标题/空白带无子消费，本连接就地
+ * 消费 → 父层 sheet 拖拽检测器因已消费而取消。仅拦向下（收起方向）。
  */
-fun Modifier.sheetHeaderGestureBlock(): Modifier = pointerInput(Unit) {
+fun Modifier.sheetNonScrollableDragBlock(): Modifier = pointerInput(Unit) {
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
         var lastY = down.position.y
@@ -86,7 +87,7 @@ fun Modifier.sheetHeaderGestureBlock(): Modifier = pointerInput(Unit) {
             if (!change.pressed) break
             val dy = change.position.y - lastY
             lastY = change.position.y
-            if (dy > 0f) change.consume()
+            if (!change.isConsumed && dy > 0f) change.consume()
         }
     }
 }
