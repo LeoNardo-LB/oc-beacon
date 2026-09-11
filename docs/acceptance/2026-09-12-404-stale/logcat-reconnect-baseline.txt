@@ -1,0 +1,18 @@
+09-12 01:54:51.687 D/SseConnManager( 3756): [127.0.0.1:3080] SSE connection attempt #3
+09-12 01:54:55.693 D/SseConnManager( 3756): [127.0.0.1:3080] SSE connection attempt #4
+09-12 01:54:55.838 D/SseConnManager( 3756): DSH wire generation=v012 authed=true
+09-12 01:54:55.845 I/SseConnManager( 3756): Connected to server c410acc0-7de2-43d8-b854-d1e82c211f61
+09-12 01:54:55.879 D/EventDispatcher( 3756): [dispatch] JobsSnapshot -> DshJobsHandler sid=session-9436
+09-12 01:54:55.881 D/EventDispatcher( 3756): [dispatch] JobsSnapshot -> DshJobsHandler sid=session-1a77
+09-12 01:54:55.881 D/EventDispatcher( 3756): [dispatch] JobsSnapshot -> DshJobsHandler sid=session-e391
+09-12 01:54:55.881 D/EventDispatcher( 3756): [dispatch] JobsSnapshot -> DshJobsHandler sid=session-86d6
+09-12 01:54:55.881 D/EventDispatcher( 3756): [dispatch] JobsSnapshot -> DshJobsHandler sid=session-0a1c
+09-12 01:54:55.881 D/EventDispatcher( 3756): [dispatch] JobsSnapshot -> DshJobsHandler sid=session-6a24
+09-12 01:54:55.882 D/EventDispatcher( 3756): [dispatch] JobsSnapshot -> DshJobsHandler sid=session-8953
+09-12 01:54:55.882 D/EventDispatcher( 3756): [dispatch] JobsSnapshot -> DshJobsHandler sid=session-0494
+09-12 01:54:55.882 D/EventDispatcher( 3756): [dispatch] JobsSnapshot -> DshJobsHandler sid=session-a84e
+09-12 01:54:55.882 D/EventDispatcher( 3756): [dispatch] JobsSnapshot -> DshJobsHandler sid=session-7e30
+09-12 01:54:55.883 D/EventDispatcher( 3756): [dispatch] JobsSnapshot -> DshJobsHandler sid=session-23a6
+09-12 01:54:55.883 D/EventDispatcher( 3756): [dispatch] JobsSnapshot -> DshJobsHandler sid=session-db2b
+09-12 01:54:55.883 D/EventDispatcher( 3756): [dispatch] JobsSnapshot -> DshJobsHandler sid=2ab47ec4-01d
+09-12 01:55:00.989 I/SseConnManager( 3756): [127.0.0.1:3080] Pre-loaded 310 sessions across 4 projects

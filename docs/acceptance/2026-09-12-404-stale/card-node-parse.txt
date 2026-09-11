@@ -1,0 +1,44 @@
+=== T0 (01:44:58, connected, sleep 600 running) ===
+[98,1928][153,1965] | 完成
+[74,1991][954,2025] | bash · emulator -avd Pixel6_Android36 -no-window -no-audio -no-boot-anim -gpu swiftshader_indir
+[98,1736][180,1773] | 运行中
+[74,1799][1006,1833] | bash · /home/linuxbrew/.linuxbrew/share/android-commandlinetools/emulator/emulator -avd Pixel6_
+[98,1544][153,1581] | 完成
+[74,1607][1006,1641] | bash · sleep 900 · exit code: 0
+[98,1352][180,1389] | 已终止
+[74,1415][1006,1449] | bash · sleep 1500 · signal: SIGTERM
+[98,1160][153,1197] | 完成
+[74,1223][1006,1257] | bash · sleep 150 · exit code: 0
+[98,968][180,1005] | 运行中
+[74,1031][1006,1065] | bash · sleep 600
+[287,604][352,649] | 失败
+
+=== T2pre (01:54:51, disconnected, job already ended) ===
+[98,1928][153,1965] | 完成
+[74,1991][954,2025] | bash · emulator -avd Pixel6_Android36 -no-window -no-audio -no-boot-anim -gpu swiftshader_indir
+[98,1736][180,1773] | 运行中
+[74,1799][1006,1833] | bash · /home/linuxbrew/.linuxbrew/share/android-commandlinetools/emulator/emulator -avd Pixel6_
+[98,1544][153,1581] | 完成
+[74,1607][1006,1641] | bash · sleep 900 · exit code: 0
+[98,1352][180,1389] | 已终止
+[74,1415][1006,1449] | bash · sleep 1500 · signal: SIGTERM
+[98,1160][153,1197] | 完成
+[74,1223][1006,1257] | bash · sleep 150 · exit code: 0
+[98,968][180,1005] | 运行中
+[74,1031][1006,1065] | bash · sleep 600
+[287,604][352,649] | 失败
+
+=== T2post (01:55:16, reconnected, baseline applied) ===
+[98,1928][153,1965] | 完成
+[74,1991][954,2025] | bash · emulator -avd Pixel6_Android36 -no-window -no-audio -no-boot-anim -gpu swiftshader_indir
+[98,1736][180,1773] | 运行中
+[74,1799][1006,1833] | bash · /home/linuxbrew/.linuxbrew/share/android-commandlinetools/emulator/emulator -avd Pixel6_
+[98,1544][153,1581] | 完成
+[74,1607][1006,1641] | bash · sleep 900 · exit code: 0
+[98,1352][180,1389] | 已终止
+[74,1415][1006,1449] | bash · sleep 1500 · signal: SIGTERM
+[98,1160][153,1197] | 完成
+[74,1223][1006,1257] | bash · sleep 150 · exit code: 0
+[98,968][153,1005] | 完成
+[74,1031][1006,1065] | bash · sleep 600 · exit code: 0
+[287,604][352,649] | 失败

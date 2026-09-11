@@ -1,0 +1,6 @@
+09-12 01:44:48.572 I/Ktor Client( 3756): REQUEST: http://127.0.0.1:3080/api/session/modelCatalog
+09-12 01:44:48.576 I/Ktor Client( 3756): FROM: http://127.0.0.1:3080/api/llm/listProviders
+09-12 01:44:48.578 I/Ktor Client( 3756): REQUEST: http://127.0.0.1:3080/api/session/modelCatalog
+09-12 01:44:48.586 I/Ktor Client( 3756): FROM: http://127.0.0.1:3080/api/session/modelCatalog
+09-12 01:44:48.590 I/Ktor Client( 3756): FROM: http://127.0.0.1:3080/api/session/modelCatalog
+09-12 01:44:57.222 D/EventDispatcher( 3756): [dispatch] JobsSnapshot -> DshJobsHandler sid=2ab47ec4-01d

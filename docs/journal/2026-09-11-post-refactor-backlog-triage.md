@@ -114,3 +114,9 @@
 - **#402 复验 PASS**：OpenCode 4199 reverse 拆除后 8+ 次 `ECONNREFUSED`，`Entering SSE cooldown after` = **0**（阈值 5 / 5min），`Reconnecting in` 1000→2000→4000ms 指数退避；恢复 reverse 后 **~2.0s** 重连、断连横幅消失（旧行为 ~4m38s）。
 - 回归：crash buffer 无 ocbeacon、FATAL=0。
 - 证据：docs/acceptance/2026-09-12-402-404-verification.md + 证据目录。
+
+## #390 转待验证 + #401 调研降级评估 + #404 残留边界自检（2026-09-12）
+
+- **#390 转待验证**：模拟器复现已证三指控（无横幅/转录空白/弹回管理页）均不成立、#267 覆盖；建议用户验收后关闭。
+- **#401 调研降级评估**：web_search 端点 402，web_fetch 对 M3/M2 文档（JS 渲染）无正文；仅取到 Nielsen Norman Group「Visibility of System Status」（十大启发式）与错误信息指南静态正文。**评估结论**：Home 每张服务器卡已显示「正在连接…/取消」，已满足「系统状态可见」；是否再加全局条幅属**一致性 vs 冗余**取舍（#267 双界面为 Chat/会话列表，Home 为第三面）——建议保留 #401 待用户裁决/检索恢复后再定，不擅改。
+- **#404 残留边界自检**：正在定点测试「断连期间任务结束 → 重连后是否残留陈旧运行中卡」（见后续补记）。

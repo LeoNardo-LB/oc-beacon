@@ -175,7 +175,7 @@
   - → docs/acceptance/2026-09-12-390-disconnect-repro.md
   - 2026-09-12 调研前置受阻：web_search 端点 402 Insufficient Balance、M3 文档 JS 渲染 fetch 无正文；按用户纪律（UIUX 先全网调研）不擅动，待检索恢复后调研再优化。
 
-- [ ] **#390 服务器断连时会话页空白/弹回服务器管理无重连提示** `resilience`
+- [~] **#390 服务器断连时会话页空白/弹回服务器管理无重连提示** `resilience`
   - 今日链路闪断窗口多帧实证（VLM 确认仅剩状态栏）：reverse 隧道拆→app 断连→会话数据释放（EventDispatcher releaseSessionData）→转录空白或弹回服务器管理界面，期间无重连横幅/按钮，用户无路可走。需断连 UX 兜底（提示+重连入口），证据链 journal 2026-09-09-378-380-wire.md §十五
   - 2026-09-12 模拟器 clean-context 复现核查：三处指控（无横幅/转录空白/弹回管理页）均不成立——拆隧 ~5.5s 出现「服务器已断开，正在重连…」条幅且 19/19 帧在、转录 19 帧非空且无 releaseSessionData、90s 无导航；#267 已覆盖，建议关闭（待用户拍板）。残余缺口另立 #401（Home 无条幅）/#402（5min 冷却恢复迟滞）。证据 docs/acceptance/2026-09-12-390-disconnect-repro.md。
 
