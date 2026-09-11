@@ -34,7 +34,6 @@ class DshV3AdaptationTest {
     @Test
     fun `v3 vocabulary is named-degraded and never a structural violation`() {
         val v3Types = listOf(
-            "system/message",
             "assistant/attempt",
             "feedback/message-put",
             "feedback/message-delete",
@@ -49,6 +48,35 @@ class DshV3AdaptationTest {
                 mapped,
             )
         }
+    }
+
+    @Test
+    fun `v3 system message maps to an injection card message`() {
+        // 实况载荷：data.message{id,role=system,source{kind:plugin},content[text]}
+        val data = """{"turn":1,"step":1,"message":{"id":"v2-to-v3-system-abc","role":"system","source":{"kind":"plugin","plugin":"@deepseek-ai/dsh-system-prompt"},"content":[{"type":"text","text":"sys prompt"}]}}"""
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s1",
+            env("""{"type":"system/message","seq":9,"time":100,"data":$data}"""),
+        )
+        val events = mapped.filterIsInstance<DshMappedEvent.Sse>().map { it.event }
+        val updated = events.filterIsInstance<SseEvent.MessageUpdated>().single()
+        val user = updated.info as dev.leonardo.ocbeacon.domain.model.Message.User
+        assertEquals("system", user.role)
+        assertEquals("plugin", user.injectionKind)
+        assertTrue(user.id.startsWith("dsh-sys-"))
+        val text = events.filterIsInstance<SseEvent.MessagePartUpdated>().single().part
+            as dev.leonardo.ocbeacon.domain.model.Part.Text
+        assertEquals("sys prompt", text.text)
+    }
+
+    @Test
+    fun `v3 system message with empty content produces no events`() {
+        val data = """{"turn":1,"step":1,"message":{"id":"s","role":"system","source":{"kind":"plugin"},"content":[]}}"""
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s1",
+            env("""{"type":"system/message","seq":9,"time":100,"data":$data}"""),
+        )
+        assertTrue(mapped.isEmpty())
     }
 
     @Test

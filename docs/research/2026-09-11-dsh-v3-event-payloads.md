@@ -8,8 +8,8 @@
 
 | type | 出现次数 | 优先级 |
 |---|---|---|
-| assistant/attempt | 692 | 高（LLM 失败，当前静默） |
-| system/message | 41 | 中（系统/插件上下文节点） |
+| assistant/attempt | 692 | **低**（瞬态尝试：681/692 后随 llm/retry，逐条渲染会刷屏；终态失败走 turn/end 或 stream/error） |
+| system/message | 41 | 中（系统/插件上下文节点）——**已实现（2026-09-11）** |
 | subagent/catalog | 16 | 中（子智能体目录） |
 | deliverables/presented | 15 | 中（产物交付卡） |
 | feedback/message-put | 0 | 低（归档无样本，需新会话取证） |
@@ -28,8 +28,7 @@
 
 - 结构：data.{turn,step,stream[]}；stream[].chunk 与既有 assistant/chunk 的 chunk 同形（usage/finish）。
 - 语义：该 turn/step 的尝试流，终态 finish.reason.kind；kind=error 时带 failure.{message,code}。
-- 建议映射：finish.kind=error → 合成一条错误通知（复用既有错误/synthetic 卡），文案取 failure.message（截断）；kind!=error 静默。
-- App 落点：新增 mapAssistantAttempt → 既有错误通知通道；需确认 UI 是否有可承载长错误文本的卡。
+- **修正（2026-09-11 频次交叉）**：attempt 是低层「尝试流」记录，非终态失败——692 例中 681 例随后 `llm/retry`/`llm/retry-started`，逐条渲染会刷屏。**维持静默**；终态失败应走 turn/end 的 reason 或 stream/error。若未来要可视化重试，应聚合成「重试中」单卡而非逐 attempt。
 
 ### 2. system/message（系统 / 插件上下文消息）
 
@@ -65,9 +64,9 @@
 
 ## 三、实施建议顺序
 
-1. assistant/attempt(kind=error)——最高频且静默失败，收益最大；先确认既有错误通知承载面。
-2. deliverables/presented——自包含，新卡边界清晰。
-3. system/message——复用注入类合成卡，低风险。
+1. ~~assistant/attempt(kind=error)~~——**修正为维持静默**（瞬态尝试，见 §二-1）。
+2. deliverables/presented——接既有 client-only deliverables 折叠面（ui/screens/chat/tools/TurnDeliverables.kt，当前从工具调用 args 折，改由服务器权威事件供给）。
+3. system/message——**已实现**（复用注入类精简卡，见 DshEventMapper.mapSystemMessage）。
 4. subagent/catalog——需先厘清与既有子智能体目录投影的关系。
 5. feedback/message-*——需新会话取证；App 已有 feedback 端口，事件侧补映射即可。
 

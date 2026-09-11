@@ -829,9 +829,13 @@ object DshEventMapper {
             //（#349 子代理卡真源不变，复用同一映射）
             "tool/ptc-dispatch-start" -> mapCodeDispatchStart(sessionId, time, data)
             "tool/ptc-dispatch" -> mapCodeDispatch(sessionId, time, data)
-            // V3 新增词汇：先具名降级（不拒绝重建），渲染增强（系统消息卡 / 失败尝试 /
-            // 产物交付卡）留后续切片；feedback/message-* 与既有 feedback/record 同域。
-            "system/message", "assistant/attempt",
+            // V3 系统/插件上下文消息：渲染为注入类精简卡（#398 步骤3；载荷见
+            // docs/research/2026-09-11-dsh-v3-event-payloads.md）。
+            "system/message" -> mapSystemMessage(sessionId, seq, time, data)
+            // 其余 V3 新增词汇：仍具名降级（不拒绝重建）——assistant/attempt 属瞬态
+            // 尝试记录（实测 692 例中 681 例随后 llm/retry，逐条渲染会刷屏）；
+            // deliverables/presented 待接既有 client-only deliverables 折叠面。
+            "assistant/attempt",
             "feedback/message-put", "feedback/message-delete",
             "subagent/catalog", "deliverables/presented" ->
                 listOf(DshMappedEvent.Ignored(DshIgnoreReason.SESSION_FORMAT_V3))
@@ -979,6 +983,55 @@ object DshEventMapper {
                 // Part.File 链——DSH attachment 字节拉取留待 session.attachment 接线）。
                 "file", "image" -> events += mapFileBlock(sessionId, id, i, block)
                 else -> AppLogger.w(TAG, "user/message 未支持的内容块类型: " + block.str("type"))
+            }
+        }
+        return events
+    }
+
+    /**
+     * system/message（V3）→ 注入类消息（EventCard 精简折叠卡，对齐 DSH Web）。
+     *
+     * 实况载荷（docs/research/2026-09-11-dsh-v3-event-payloads.md）：
+     * data.message{id,role=system,source{kind,plugin},content[]}。
+     * content 为空时整条不产事件（UI 对无文本注入消息本就跳过，避免噪声）；
+     * injectionKind 透传 source.kind（plugin → 既有 Plugin 标签），工具/推理块不渲染。
+     */
+    private fun mapSystemMessage(sessionId: String, seq: Long, time: Long, data: JsonObject): List<DshMappedEvent> {
+        val message = data.obj("message") ?: return emptyList()
+        val content = message.arr("content") ?: emptyList()
+        if (content.isEmpty()) return emptyList()
+        val wireId = message.str("id")
+        val id = if (wireId.isNullOrBlank()) messageId(sessionId, seq) else "dsh-sys-" + wireId
+        val sourceKind = message.obj("source")?.str("kind")
+        val injectionKind = sourceKind?.takeIf { it.isNotBlank() } ?: "system"
+        val events = mutableListOf<DshMappedEvent>()
+        events += DshMappedEvent.Sse(
+            SseEvent.MessageUpdated(
+                Message.User(
+                    id = id,
+                    sessionId = sessionId,
+                    role = "system",
+                    time = TimeInfo(created = time),
+                    injectionKind = injectionKind,
+                )
+            )
+        )
+        content.forEachIndexed { i, el ->
+            val block = el as? JsonObject ?: return@forEachIndexed
+            when (block.str("type")) {
+                "text" -> events += DshMappedEvent.Sse(
+                    SseEvent.MessagePartUpdated(
+                        Part.Text(
+                            id = PartIdContract.derive(id, "text", i.toLong()),
+                            sessionId = sessionId,
+                            messageId = id,
+                            text = block.str("text") ?: "",
+                            time = Part.Text.Time(start = time, end = time),
+                        )
+                    )
+                )
+                "file", "image" -> events += mapFileBlock(sessionId, id, i, block)
+                else -> Unit
             }
         }
         return events

@@ -449,3 +449,12 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 
 **验证**：文档为取证结论（原始载荷直接摘录），无代码改动。
 
+
+## 切片 7 / #398（步骤 3）：system/message 渲染 + assistant/attempt 判断修正
+
+- **system/message 已实现**：新增 mapSystemMessage（DshEventMapper）——data.message{id,role=system,source{kind,plugin},content[]} → 注入类 Message.User（role=system、injectionKind=source.kind）+ text/file/image part；content 为空整条不产事件。复用既有 injectionKind → EventCard 精简卡渲染路径（plugin 标签），零新增 UI。
+- **assistant/attempt 维持静默（判断修正）**：692 例中 681 例随后 llm/retry，是瞬态尝试记录而非终态失败——逐条渲染会刷屏；终态失败走 turn/end reason / stream/error。已修正 docs/research/2026-09-11-dsh-v3-event-payloads.md。
+- 测试：DshV3AdaptationTest 新增 system/message（有内容/空内容）+ 更新「全 V3 类型降级」用例（system/message 移出）。
+- 真机实测：重装后 logcat `MsgEventHandler [msg] MessageUpdated sid=… id=dsh-sys-… role=system` 多会话命中——wire→映射→事件链路贯通。
+
+**验证**：全量单测 + lintDevDebug（no new issues）+ assembleDevDebug + 模拟器实测 BUILD SUCCESSFUL。
