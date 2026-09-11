@@ -1,0 +1,2 @@
+09-12 04:45:43.185 10205 10205 I ApiVersionDetector: Detected V1 API at http://127.0.0.1:4198 (version=1.18.27, known=V1)
+09-12 04:52:28.222 12376 12376 I ApiVersionDetector: Detected V2 API at http://127.0.0.1:4199 (version=0.0.0-beta-19086, known=V2)

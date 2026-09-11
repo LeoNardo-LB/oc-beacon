@@ -128,3 +128,14 @@
 - **#388 定责（宿主侧）**：V2 `/api/session/{id}/instructions/entries` 对新旧会话**均为空**；抓 `/api/event` 90s，新建 oc-beacon/home 会话仅 `session.created`，**无注入帧** → 新会话零注入是**服务端未推送**（疑似工作区级一次性），非客户端漏收；定责前不动客户端成立。
 - **#387**：V2 无 live 样本（与 DB 扫描结论一致），defensive 嗅探+单测保留。
 - **#350 事实更新**：V1 1.18.27 `PATCH /session/{id}` **真支持 `time.archived` 归档写入**（响应+GET 均落时间戳，非 SPA HTML；`archived:0` 可清），**推翻旧「V1 无任何更新端点」判定**；V2 openapi 119 路由仍 0 归档端点。按本卡最新裁决（删除优先）未接线，待用户重裁。
+
+## #405 内容根手势块 + 抽屉非滚动带定论 + V1/V2 遗留收口（2026-09-12）
+
+- 实现：手势块自标题 Row 上移**内容根 Column**（`sheetNonScrollableDragBlock`，Main 趟仅消费未被可滚动子节点消费的向下位移），4 个 sheet 统一（QuickNavigateSheet / PendingSheets / ModelPickerDialog / AnnotationInputSheet）；commit `ae52aeba`。compile + 单测隔离重跑 + lint（257 warnings / 8 hints，0 new）全绿。
+- 设备复验（模拟器 emulator-5554，V1 4198 + V2 4199，clean-context 子代理，装机 APK md5 `fea3aad2a4e5145821c890f30c441870`）：总判定 **PASS**。内容区（≥538）下滑不收起（541/600/670/700 VISIBLE）；收起三通道正常（手柄 477 下滑 / scrim / Close）；列表滚动、条目跳转、上滑到底正常；crash buffer 0 字节；V1/V2 行为一致。证据 `docs/acceptance/2026-09-12-405-content-root.md`（v2）+ 同目录 dump/截图。
+- **几何定论（原假设证伪）**：可见手柄条 y=519~526（x=503~576，像素探针），手柄槽 = [506,538]（12dp），M3 手柄 48dp 触摸目标 = [459,585]，内容 Column 顶边 = 538。故 #405 复验时判为「残留带」的 490~535 **不是**标题/空白带，而是**手柄本体（槽 + 触摸扩张）**——下滑收起属 #379 设计内。像素探针与源码 dp 换算逐像素吻合（SheetGestures.kt:51-60 的 5dp+28×3dp）。
+- 结论：#405 的「标题带」= 内容区 ≥538，自 `730d5016`（标题 Row 版）起即已受保护；`ae52aeba` 的价值在**统一覆盖内容根的全部非滚动带**（含列表空/加载态与其余 3 个 sheet），实测无回归。
+- 否决的旁路方案：`contentWindowInsets` 去顶部 safeDrawing — 实测本环境顶部 inset = 0（sheet 视觉顶边=506=手柄槽顶），该改动为 no-op；为避免引入未验证的行为变更已 revert，从未装机。
+- #401 调研（web_search 仍 402，降级 curl 直连一手源）：M3/commonMain 93 组件中无 Banner/InlineMessage；Google 官方示例 Now in Android 对离线用 `duration = Indefinite` 常驻 snackbar；本仓库既有 `ServerLinkBanner`（#267）已用于 Chat/会话列表。**建议**＝仅当活动服务器非 Connected 时在 Home 顶部条件渲染既有 ServerLinkBanner（复用不新增组件），待用户拍板。见 `docs/research/2026-09-12-ux-research-405-401.md`。
+- V1 runbook 补正（`docs/device-testing.md` §V1）：AI 工具调用上下文里 `nohup setsid … & disown` 仍会被连带回收 → 必须用受管后台任务；补「造测试会话配方」与「V1 `PATCH /session/{id}` 支持 `time.archived`」实测。
+- 新登记卡片：#406（快速定位跳转后目标未居中，P3 `ui` `chat`）、#407（`RenderSupplyCoordinatorTest` 全量族跑间歇超时 T8/T11，P3 `test`）。

@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#406**（2026-09-12 #405 快速定位抽屉「标题带」下滑仍收起——#379 隔）。
+**编号**：全局递增，不回收。下一编号：**#408**（2026-09-12 #407 RenderSupplyCoordinatorT）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。
 
@@ -158,6 +158,7 @@
 - [~] **#392 Sheet fling 手势隔离在 V1 未生效——快速定位抽屉快速下滑仍收起（#379 回归面）** `sheet`
   - 用户自助验收 ⑥ 顺带发现（2026-09-10）：#379 SheetGestures 内容手势隔离（fling 不收起+手柄收起）在 V2 验过，但 V1 服务器上 QuickNavigate 快速下滑 fling 仍会让抽屉收起——服务器类型交互统一铁律（ui-conventions §1）违背。疑点：sheet 组件按 server type 分叉 or V1 会话内容高度/嵌套滚动差异绕过隔离。
   - 2026-09-12 V1 靶机复现（4198/1.18.27）判定 NOT-REPRO：内容区向下快 fling 18 次 0 收起，V2 对照同构；V1 无 server-type 分叉。真缝隙另立 #405（标题带下滑仍收起）。建议按「不可复现」关闭（待用户确认）；局限=注入 swipe 非真手指采样。证据 docs/acceptance/2026-09-12-392-v1-sheet-fling.md。
+  - 2026-09-12 后续（#405 定论）：V1 无服务器类型分叉已证；卡内所指「标题带」= 内容区 ≥538（标题文本实测 592 起），已受内容根手势块保护（ae52aeba 复验 PASS：600/670/700/541 VISIBLE）。建议 #392 按 NOT-REPRO 关闭。
 
 - [ ] **#387 V2注入刷新消息渲染为用户气泡文字墙** `chat` `ui` `v2`
   - skill-catalog/上下文刷新类注入（<system-reminder>包裹、无source.kind标记）按普通用户气泡整文渲染，[Ack] 3 会话顶部现存活例（VLM 09-41 复核：calculator 全文蓝色气泡墙，而同位插件配置已是收起小卡）。初判服务端对此类刷新不带 kind，mapper 按普通 user 落库。根因方向：对齐 dsh web 对 system-reminder 注入的识别与收起呈现（内容嗅探或等价机制），修在映射/渲染层单点。证据：/tmp/n2_acklink_top.png n2_ackthree_top.png；演示批 journal 待补
@@ -167,11 +168,21 @@
 
 ## P3 — 观察与低价值改进
 
-- [ ] **#405 快速定位抽屉「标题带」下滑仍收起——#379 隔离未覆盖非列表头部（UIUX 待调研）** `ui` `sheet`
+- [ ] **#407 RenderSupplyCoordinatorTest 全量族跑间歇超时（T8/T11）** `test`
+  - 2026-09-12 三次全量 :app:testDevDebugUnitTest 中两次出现 T8/T11 （T11 后再现 T8），**单独 --tests '*RenderSupplyCoordinatorTest' 重跑恒绿**；同次全量里 DraftInputDelegateTest 也偶发 1 次、隔离即绿。
+  - 影响：全量测试门禁随机红，需人工二次判定；方向=核实 T8/T11 的 withTimeout 余量是否受同 JVM 并发/首次类加载拖慢，或改用虚拟时钟/放宽超时；属测试基建（非产品缺陷），登记待排期。
+  - 补正：上条第二处被 shell 反引号吞字——失败类型为 TimeoutCancellationException（kotlinx.coroutines，CoroutineDebugging.kt / Timeout.kt），出现在 RenderSupplyCoordinatorTest T8/T11。
+
+- [ ] **#406 快速定位跳转后目标消息落在视口底部/下缘而非居中** `ui` `chat`
+  - 2026-09-12 #405 抽屉复验观察（两次一致）：点快速定位条目后抽屉关闭、目标消息进入视口且高亮链正常（#394 已修），但落点在视口底部/下缘，阅读上下文需再滑一下。
+  - 方向：评估 jumpTo 后对目标 turn 做 viewport 居中的可行性（LazyListState 的 offset 计算/动画），按「先调研再优化」纪律，登记待排期。
+
+- [~] **#405 快速定位抽屉「标题带」下滑仍收起——#379 隔离未覆盖非列表头部（UIUX 待调研）** `ui` `sheet`
   - 内容区 fling 已隔离（V1/V2 复核 NOT-REPRO）；但起点落在 sheet 顶部非列表带（dragHandle 459–490 + 标题行 490–~706）下滑仍收起，违反 #379「仅手柄/点外/返回收起」设计意图（实测边界 y≈706=列表首项顶）。
   - 根因：sheetContentGestureIsolation 挂在内容 Column，但 nestedScroll 只接收可滚动子节点（LazyColumn）派发，标题带无滚动子节点 → 直接进 sheet anchoredDraggable。修法需 pointerInput 消费 header 竖向拖拽或等价；属 UIUX，按纪律先全网调研（当前 web_search 402 受阻，降级 web_fetch）。
   - → docs/acceptance/2026-09-12-392-v1-sheet-fling.md
   - 2026-09-12 二次修复（commit ae52aeba）：手势块由标题 Row 上移内容根 Column（sheetNonScrollableDragBlock：Main 趟仅消费未被可滚动子节点消费的向下位移），4 个 sheet 统一；compile + 单测 + lint 全绿；本次复验覆盖旧残留带 490/500/510/520/530/535。调研依据 docs/research/2026-09-12-ux-research-405-401.md。
+  - 2026-09-12 内容根版（ae52aeba）设备复验 PASS（V1 4198 + V2 4199，clean-context 子代理）：内容区 ≥538 下滑不收起（541/600/670/700 VISIBLE）；手柄槽 [506,538]（可见条实测 y=519~526）与 M3 48dp 触摸目标 [459,585] 内下滑/点击收起属 #379 设计内——初判的 490~535「残留带」经像素探针 + 源码 dp 换算互证为手柄本体，非缺陷；收起三通道 / 列表滚动 / 条目跳转 / 上滑到底 / crash 0 全 PASS。证据 docs/acceptance/2026-09-12-405-content-root.md（v2）。转待用户验收。
 
 - [~] **#403 DSH system/message 走 role==system 分支遮蔽 injectionKind——标签恒「工具目录已变更」，与 #398「复用 injectionKind→EventCard」不符** `ui` `dsh`
   - ChatMessageList role=="system" 分支（L1664）先于 injectionKind 分支（L1712）；DB 中 system 消息 payload 带 injectionKind=plugin，但 UI 标签恒 chat_event_tool_catalog_changed。 -s 实测（会话 a84edbf7）：展开 system 注入卡字面可见，但标签非 kind 派生；「插件配置/上下文注入」标签只出现在 user/message+source.kind 路径。
