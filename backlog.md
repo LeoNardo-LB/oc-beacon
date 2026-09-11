@@ -171,6 +171,7 @@
   - 内容区 fling 已隔离（V1/V2 复核 NOT-REPRO）；但起点落在 sheet 顶部非列表带（dragHandle 459–490 + 标题行 490–~706）下滑仍收起，违反 #379「仅手柄/点外/返回收起」设计意图（实测边界 y≈706=列表首项顶）。
   - 根因：sheetContentGestureIsolation 挂在内容 Column，但 nestedScroll 只接收可滚动子节点（LazyColumn）派发，标题带无滚动子节点 → 直接进 sheet anchoredDraggable。修法需 pointerInput 消费 header 竖向拖拽或等价；属 UIUX，按纪律先全网调研（当前 web_search 402 受阻，降级 web_fetch）。
   - → docs/acceptance/2026-09-12-392-v1-sheet-fling.md
+  - 2026-09-12 二次修复（commit ae52aeba）：手势块由标题 Row 上移内容根 Column（sheetNonScrollableDragBlock：Main 趟仅消费未被可滚动子节点消费的向下位移），4 个 sheet 统一；compile + 单测 + lint 全绿；本次复验覆盖旧残留带 490/500/510/520/530/535。调研依据 docs/research/2026-09-12-ux-research-405-401.md。
 
 - [~] **#403 DSH system/message 走 role==system 分支遮蔽 injectionKind——标签恒「工具目录已变更」，与 #398「复用 injectionKind→EventCard」不符** `ui` `dsh`
   - ChatMessageList role=="system" 分支（L1664）先于 injectionKind 分支（L1712）；DB 中 system 消息 payload 带 injectionKind=plugin，但 UI 标签恒 chat_event_tool_catalog_changed。 -s 实测（会话 a84edbf7）：展开 system 注入卡字面可见，但标签非 kind 派生；「插件配置/上下文注入」标签只出现在 user/message+source.kind 路径。
@@ -182,6 +183,7 @@
   - 实测：reverse 拆隧后 Chat/会话列表/设置 tab 均有条幅（≈5.5s 首现）；Home 无（step2-home.xml）。
   - → docs/acceptance/2026-09-12-390-disconnect-repro.md
   - 2026-09-12 调研前置受阻：web_search 端点 402 Insufficient Balance、M3 文档 JS 渲染 fetch 无正文；按用户纪律（UIUX 先全网调研）不擅动，待检索恢复后调研再优化。
+  - 2026-09-12 调研完成（web_search 仍 402，降级 curl 直连一手源：androidx 源码 + Google 官方示例 + M3 页面 meta）：M3/commonMain 无常驻条幅组件；Now in Android 对离线用 duration=Indefinite 常驻 snackbar；本仓库既有 ServerLinkBanner（#267）已用于 Chat/会话列表。建议方案=仅当活动服务器非 Connected 时在 Home 顶部条件渲染既有 ServerLinkBanner（复用不新增组件）；冗余风险待用户拍板。详见 docs/research/2026-09-12-ux-research-405-401.md。
 
 - [~] **#390 服务器断连时会话页空白/弹回服务器管理无重连提示** `resilience`
   - 今日链路闪断窗口多帧实证（VLM 确认仅剩状态栏）：reverse 隧道拆→app 断连→会话数据释放（EventDispatcher releaseSessionData）→转录空白或弹回服务器管理界面，期间无重连横幅/按钮，用户无路可走。需断连 UX 兜底（提示+重连入口），证据链 journal 2026-09-09-378-380-wire.md §十五
