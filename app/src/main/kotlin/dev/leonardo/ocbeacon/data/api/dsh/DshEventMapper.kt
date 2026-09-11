@@ -958,6 +958,22 @@ object DshEventMapper {
                         )
                     )
                 )
+                // #398（DSH 0.1.5/V3 实况取证）：V3 user/message 可载 reasoning 块——
+                // 对齐 assistant/message 映射为 Part.Reasoning（此前落 else 整块丢弃）。
+                "reasoning" -> events += DshMappedEvent.Sse(
+                    SseEvent.MessagePartUpdated(
+                        Part.Reasoning(
+                            id = PartIdContract.derive(id, "reasoning", i.toLong()),
+                            sessionId = sessionId,
+                            messageId = id,
+                            text = block.str("text") ?: "",
+                            time = Part.Reasoning.Time(start = time, end = time),
+                        )
+                    )
+                )
+                // tool-call/tool-result 块是工具卡真源（tool/call|result 事件对）的冗余镜像，
+                // 静默确认防重复卡（同 assistant/message 先例）。
+                "tool-call", "tool-result" -> Unit
                 // 2026-09-01（Task 3c 卡片缺口）：file/image ContentBlock → Part.File
                 //（实况日志 829 例 user/message image 块此前被整块丢弃；图片渲染走既有
                 // Part.File 链——DSH attachment 字节拉取留待 session.attachment 接线）。

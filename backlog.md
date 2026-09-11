@@ -91,6 +91,8 @@
   - 现状：#391 两轴评审确认 V3 五类新事件（system/message、assistant/attempt、feedback/message-put|delete、subagent/catalog、deliverables/presented）仅 Ignored(SESSION_FORMAT_V3) 降级不渲染；事件映射仍是单体 when + protocolOf==V012 硬判。
   - 目标：按 spec 切片7 补渲染（系统节点/失败尝试/反馈/子智能体目录/产物卡）+ 落地按代 EventVocabulary 表。
   - 前提：需 DSH 0.1.5 真实 wire 样本（当前仅 0.1.1/0.1.2 实录），无样本不臆造字段。
+  - 步骤1（2026-09-11，实况取证+修复）：V3 user/message 的 reasoning/tool-call 块此前被丢弃，现 reasoning→Part.Reasoning（对齐 assistant）、tool-call/result→静默（冗余镜像）；模拟器连本机 DSH 0.1.5-rc.1 实测 warning 16→0。
+  - 本机 DSH 0.1.5 服务器（3080）已成为权威 wire 取证源；其余 V3 类型渲染 + 按代词汇表待续。
 
 - [ ] **#396 Android Lint devDebug 门禁 4 项存量错误** `lint` `ci`
   - 现象：./gradlew :app:lintDevDebug 红（abortOnError），4 error——HiltEntryActivity MissingClass ×1（src/debug/AndroidManifest.xml:18，类仅存在于 androidTest 源集）+ LocalContextGetResourceValueCall ×3（ChatScreen.kt:786/1067、SettingsScreen.kt:97 的 context.getString 应走 stringResource）。

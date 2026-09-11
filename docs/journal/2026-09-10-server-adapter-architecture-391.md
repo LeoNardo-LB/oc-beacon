@@ -428,3 +428,14 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 
 **未覆盖**：V3 五类新事件（system/message、assistant/attempt、feedback/*、subagent/catalog、deliverables/presented）的**渲染**（本次窗口未出现，或按 SESSION_FORMAT_V3 静默降级）——即 #398。
 
+
+## 切片 7 / #398（步骤 1）：V3 user/message 内容块不再丢弃（reasoning / tool-call）
+
+- **实况取证**：模拟器连本机 DSH 0.1.5-rc.1（wire=v012）后，logcat 报 `user/message 未支持的内容块类型: reasoning` ×12、`tool-call` ×4——`mapUserMessage` 只处理 text/file/image，其余落 else 仅告警并丢弃。
+- **修复**：`reasoning` → `Part.Reasoning`（对齐 `mapAssistantMessage` 既有映射）；`tool-call`/`tool-result` → `Unit`（工具卡真源是 tool/call|result 事件对，块是冗余镜像，静默防重复卡——同 assistant 先例）。
+- **测试**：DshV3AdaptationTest 新增用例（reasoning+tool-call+text 块 → 2 个 part，tool-call 不产 part）。
+- **真机实测**：重装后同会话 warning 16→0；转录正常渲染（Thought 卡 / Run code 卡）；crash buffer 空。
+- **#398 其余**：system/message、assistant/attempt、feedback/message-*、subagent/catalog、deliverables/presented 的 L2 渲染 + 按代事件词汇表仍未落——本机 DSH 0.1.5 服务器现已可作为权威 wire 取证源，后续可继续。
+
+**验证**：全量单测 + lintDevDebug（no new issues）+ assembleDevDebug + 模拟器实测 BUILD SUCCESSFUL。
+

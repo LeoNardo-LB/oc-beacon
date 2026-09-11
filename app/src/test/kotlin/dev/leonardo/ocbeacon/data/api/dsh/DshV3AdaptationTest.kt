@@ -52,6 +52,26 @@ class DshV3AdaptationTest {
     }
 
     @Test
+    fun `v3 user message reasoning block maps to a reasoning part (tool-call mirror silently dropped)`() {
+        // #398 实况取证：V3 user/message 可载 reasoning / tool-call 内容块，此前落 else 丢弃
+        val data = """{"content":[{"type":"reasoning","text":"think"},{"type":"tool-call","id":"c1"},{"type":"text","text":"hi"}],"role":"user","id":"u1"}"""
+        val mapped = DshEventMapper.mapSessionEvent(
+            "s1",
+            env("""{"type":"user/message","seq":9,"time":10,"data":$data}"""),
+        )
+        val parts = mapped.filterIsInstance<DshMappedEvent.Sse>().map { it.event }
+            .filterIsInstance<SseEvent.MessagePartUpdated>()
+            .map { it.part }
+        assertEquals(2, parts.size) // reasoning + text；tool-call 为冗余镜像不产 part
+        val reasoning = parts.filterIsInstance<dev.leonardo.ocbeacon.domain.model.Part.Reasoning>().single()
+        assertEquals("think", reasoning.text)
+        assertEquals(
+            "hi",
+            parts.filterIsInstance<dev.leonardo.ocbeacon.domain.model.Part.Text>().single().text,
+        )
+    }
+
+    @Test
     fun `future unknown vocabulary degrades without refusing the page`() {
         val rows = listOf(
             env("""{"type":"session","version":3,"id":"v3-1","createdAt":1,"cwd":"/w"}"""),
