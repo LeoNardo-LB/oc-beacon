@@ -1680,10 +1680,18 @@ fun ChatMessageList(
                                     // （L1216 padding(bottom=messageSpacing)）之内，return@Box
                                     // 只退内容 lambda 不影响包装器；早前零间隙修复在此重复加了
                                     // 显式底距 → 叠加双倍。撤销显式底距，通用间距已覆盖。
+                                    // #403：system/message 带显式 source.kind（plugin/skill-catalog/…）
+                                    // 时用 kind 派生标签；无 kind（injectionKind="system"）保持历史
+                                    // 「工具目录已变更」语义（该标签早于 #385 注入卡统一，勿丢）。
+                                    val sysInjectionKind = (chatMessage.message as? Message.User)?.injectionKind
                                     EventCard(
                                         eventKey = chatMessage.message.id,
                                         timeMs = chatMessage.message.time.created,
-                                        label = stringResource(R.string.chat_event_tool_catalog_changed),
+                                        label = if (sysInjectionKind != null && sysInjectionKind != "system") {
+                                            injectionKindLabel(sysInjectionKind)
+                                        } else {
+                                            stringResource(R.string.chat_event_tool_catalog_changed)
+                                        },
                                         leadingIcon = Icons.Outlined.Info,
                                         expandedStates = eventCardExpandedStates,
                                         bodyContent = {
@@ -1740,14 +1748,7 @@ fun ChatMessageList(
                                         EventCard(
                                             eventKey = chatMessage.message.id,
                                             timeMs = chatMessage.message.time.created,
-                                            label = stringResource(
-                                                when (injectionKind) {
-                                                    "agent-instructions" -> R.string.chat_injection_agent_instructions
-                                                    "skill-catalog" -> R.string.chat_injection_skill_catalog
-                                                    "plugin" -> R.string.chat_injection_plugin
-                                                    else -> R.string.chat_injection_context
-                                                }
-                                            ),
+                                            label = injectionKindLabel(injectionKind),
                                             leadingIcon = Icons.Outlined.Info,
                                             expandedStates = eventCardExpandedStates,
                                             bodyContent = {
@@ -2292,6 +2293,23 @@ internal fun extractToolSubagentSessionId(tool: Part.Tool): String? {
 // 注入通道设计存档 journal §验收反馈·一 供未来复用。
 
 // 预解析/分片调参常量已随渲染供给协调器外移 RenderSupplyCoordinator.companion（候选 1）。
+
+/**
+ * #385/#403：注入 kind → 注入折叠卡标签（唯一映射源）。
+ *
+ * 显式 source.kind（agent-instructions/skill-catalog/plugin）取专属文案；未知/无 kind
+ * 回落「上下文注入」。system/message 的 role=="system" 分支在显式 kind 时也复用它，
+ * 不再被固定「工具目录已变更」遮蔽。
+ */
+@Composable
+private fun injectionKindLabel(kind: String): String = stringResource(
+    when (kind) {
+        "agent-instructions" -> R.string.chat_injection_agent_instructions
+        "skill-catalog" -> R.string.chat_injection_skill_catalog
+        "plugin" -> R.string.chat_injection_plugin
+        else -> R.string.chat_injection_context
+    }
+)
 
 /**
  * #394：聊天条目 key 统一公式——Lazy item key 与跳转高亮 key 必须同源。
