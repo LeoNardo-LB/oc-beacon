@@ -847,9 +847,18 @@ object DshEventMapper {
             //（TurnDeliverables fold 汇入 turn 尾产出文件行；web 同源事件语义见
             // dsh-client-ui-deliverables/lib/client.js selectDeliverables）。
             "deliverables/presented" -> mapDeliverablesPresented(sessionId, time, data)
-            // 其余 V3 新增词汇：仍具名降级（不拒绝重建）——assistant/attempt 属瞬态
-            // 尝试记录（实测 692 例中 681 例随后 llm/retry，逐条渲染会刷屏）；
-            // subagent/catalog 待厘清与既有子智能体目录投影的双源关系。
+            // 其余 V3 新增词汇：仍具名降级（不拒绝重建）。
+            // - assistant/attempt：瞬态尝试记录（实测 692 例中 681 例随后
+            //   llm/retry，逐条渲染会刷屏；终态失败走 turn/end 或 stream/error）。
+            // - subagent/catalog：**双源裁定——不消费**。载荷仅
+            //   {version,childId,childCreatedAt,mode,label}（单条，缺 activity/
+            //   hasChildren/parentAvailable），而目录权威面是 subagents/list RPC
+            //   整帧（SubagentApi.subagentCatalog / SubagentCatalogEntry）；
+            //   app 侧 SubagentModeTracker 已按 sid+parentId 懒加载该整帧。
+            //   0.1.5 全量 web 客户端插件亦无本事件消费点（client-connection 仅
+            //   列词汇）。再落一处本地目录即双源，故维持具名降级。
+            // - feedback/message-put|delete：本机 29 归档 0 样本，待新会话取证
+            //   （App 已有 feedback 端口，事件侧补映射须先有真实载荷）。
             "assistant/attempt",
             "feedback/message-put", "feedback/message-delete",
             "subagent/catalog" ->

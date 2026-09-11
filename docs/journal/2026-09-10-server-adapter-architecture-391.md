@@ -468,3 +468,9 @@ Spec 轴评审称「审计矩阵 BAD 项归零零证据」。核对 docs/researc
 - 偏差如实记录：web selectDeliverables 分 produced 行 + presented 卡行两段；app 单行合一，故取服务器权威来源在前。
 - 验证（全绿）：`:app:compileDevDebugKotlin`；`:app:testDevDebugUnitTest --rerun`（全量，新增 rootCallId/deliverables 映射/缓存回环/ui 并集共 4 类）；`:app:lintDevDebug` → `Lint found no new issues (257 warnings, 8 hints baseline)`。
 - 待办：模拟器 DSH E2E 验证该行实际渲染（同归档含 1 条 deliverables/presented）。
+
+## #398 步骤5：subagent/catalog 双源裁定（2026-09-12）
+
+- 裁定：**不消费** `subagent/catalog`，维持具名降级。依据：载荷仅 `{version,childId,childCreatedAt,mode,label}`（单条，缺 activity/hasChildren/parentAvailable）；目录权威面是 `subagents/list` RPC 整帧（`SubagentApi.subagentCatalog`/`SubagentCatalogEntry`），app 侧 `SubagentModeTracker` 已按 sid+parentId 懒加载该整帧。
+- DSH 0.1.5 全量 web 客户端插件无本事件消费点（`dsh-client-connection/lib/client.js` 仅把它列入 known 词汇集合）。再落一处本地目录即双源，故不做。
+- feedback/message-put|delete：本机 29 归档 0 样本，待新会话取证；App 已有 feedback 端口，事件侧补映射须先有真实载荷（不臆造）。
