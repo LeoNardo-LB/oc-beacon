@@ -1,0 +1,8 @@
+FILE exp1.xml BOUNDS [74,296][1006,391] LENGTH 35651
+ASSERT_FULL: True
+HEAD: 'You are an AI agent powered by DeepSeek Harness.\n\nThe DeepSeek Harness implementation checkout is at /home/linuxbrew/.linuxbrew/lib/node_modules/@deepseek-ai/dsh/. The checkout location and current wo'
+---
+FILE exp2.xml BOUNDS [74,741][1006,1505] LENGTH 35651
+ASSERT_FULL: True
+HEAD: 'You are an AI agent powered by DeepSeek Harness.\n\nThe DeepSeek Harness implementation checkout is at /home/linuxbrew/.linuxbrew/lib/node_modules/@deepseek-ai/dsh/. The checkout location and current wo'
+---

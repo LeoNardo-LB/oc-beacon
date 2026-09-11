@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#401**（2026-09-11 #400 Testing seam 4：真机/模拟器 +）。
+**编号**：全局递增，不回收。下一编号：**#404**（2026-09-12 #403 DSH system/message 走 rol）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。
 
@@ -118,6 +118,11 @@
 
 ## P2 — 优化与锦上添花
 
+- [ ] **#402 SSE 5min 冷却致非网络切换型瞬断恢复迟滞——隧道/服务端瞬断实测 ~4m38s 才重连** `sse` `resilience`
+  - SseConnectionManager 冷却期内 runSseConnectionLoop 只 delay(30s) 不发起连接，仅 Android 网络恢复回调 reconnectServer 会 reset；adb reverse 恢复不触发网络事件 → 等满冷却。
+  - 实测：reverse 回加后 HTTP 已 200，但 Connected 迟至 ~4m38s；断连条幅期间用户无手动重连入口（#267 零交互裁决）。
+  - → docs/acceptance/2026-09-12-390-disconnect-repro.md
+
 - [~] **#397 自定义 Android Lint 规则（服务器类型分支白名单 / 界面分层 / 令牌绕过）** `lint` `arch`
   - 背景：#391 切片8 的静态强制部分未落——spec 要求走自定义 Android Lint 规则，但 Lint 检查必须是独立 Gradle 模块，与 spec Out of Scope「不把单模块拆成多 Gradle 模块」存在取舍，需用户裁决。
   - 现状：本机 Gradle 缓存已具备 lint-api/lint-checks 32.3.2（与 AGP 9.3.2 匹配），可离线新增 :lint-checks 模块（com.android.lint 插件 + Detector + IssueRegistry + META-INF services）+ app 端 lintChecks(project(:lint-checks))。建议先只落「ServerType 分支白名单」一条（文本级 Detector，白名单：类型定义/ServerConfig/ServerConnection/data-adapter/ServerDialog/调试入口），跑通后再扩 UI 分层与令牌两条（存量需入 baseline）。
@@ -149,8 +154,18 @@
 
 ## P3 — 观察与低价值改进
 
+- [ ] **#403 DSH system/message 走 role==system 分支遮蔽 injectionKind——标签恒「工具目录已变更」，与 #398「复用 injectionKind→EventCard」不符** `ui` `dsh`
+  - ChatMessageList role=="system" 分支（L1664）先于 injectionKind 分支（L1712）；DB 中 system 消息 payload 带 injectionKind=plugin，但 UI 标签恒 chat_event_tool_catalog_changed。 -s 实测（会话 a84edbf7）：展开 system 注入卡字面可见，但标签非 kind 派生；「插件配置/上下文注入」标签只出现在 user/message+source.kind 路径。
+  - → docs/acceptance/2026-09-12-400-c2-literal-verification.md
+
+- [ ] **#401 服务器管理（Home）界面缺断连条幅——#267 双界面范围外的第三面** `ui` `resilience`
+  - 断连态下 Home 的服务器卡片仅「正在连接…」+「取消」，无 ServerLinkBanner；#267 只覆盖 Chat/会话列表两界面（Home 不在其声明范围，非回归）。
+  - 实测：reverse 拆隧后 Chat/会话列表/设置 tab 均有条幅（≈5.5s 首现）；Home 无（step2-home.xml）。
+  - → docs/acceptance/2026-09-12-390-disconnect-repro.md
+
 - [ ] **#390 服务器断连时会话页空白/弹回服务器管理无重连提示** `resilience`
   - 今日链路闪断窗口多帧实证（VLM 确认仅剩状态栏）：reverse 隧道拆→app 断连→会话数据释放（EventDispatcher releaseSessionData）→转录空白或弹回服务器管理界面，期间无重连横幅/按钮，用户无路可走。需断连 UX 兜底（提示+重连入口），证据链 journal 2026-09-09-378-380-wire.md §十五
+  - 2026-09-12 模拟器 clean-context 复现核查：三处指控（无横幅/转录空白/弹回管理页）均不成立——拆隧 ~5.5s 出现「服务器已断开，正在重连…」条幅且 19/19 帧在、转录 19 帧非空且无 releaseSessionData、90s 无导航；#267 已覆盖，建议关闭（待用户拍板）。残余缺口另立 #401（Home 无条幅）/#402（5min 冷却恢复迟滞）。证据 docs/acceptance/2026-09-12-390-disconnect-repro.md。
 
 - [ ] **#388 V2服务端注入推送条件不明：今日新会话零注入** `chat` `v2` `server`
   - 同一服务进程（4199，9-7 22:17 起未重启）下：05-40 前后的 ack 会话有插件配置/工作区指令注入，09-14 后新建会话（leo-tkp 与 oc-beacon 工作区各一，含首轮 hi/1+1 提问）零注入事件（InjCard 全程 kind=null，转录顶无卡）。注入到底何时推送（每工作区一次性？目录变更才推？）未定；需以服务端历史 API 与 dsh web 同会话对照定责（服务端没推 vs 客户端漏收）。定责前不动客户端。证据：/tmp/n1_*.png n2_top_injections.png InjCard logcat

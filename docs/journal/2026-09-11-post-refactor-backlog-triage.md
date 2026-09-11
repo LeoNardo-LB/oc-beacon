@@ -75,3 +75,9 @@
 - 退出会话重进徽标仍在；Room DB 直查 payload 含 `"viaSteer":true` → 持久化确证。
 - 负向对照（空闲普通发送）无徽标；crash buffer 0 行。
 - 结论：**#395 PASS**，转待用户验收。证据 docs/acceptance/2026-09-12-395-steer-badge-verification.md「复验二」节 + 证据目录 recheck2/。
+
+## #390 复现核查：三指控不成立（#267 已覆盖）+ #401/#402 新缺口（2026-09-12）
+
+- clean-context 模拟器复现（reverse 拆隧，只读）：**#390 三处指控均不成立**——① 拆隧 ≈5.5s 后出现「服务器已断开，正在重连…」条幅（Chat+会话列表+设置 tab，19/19 帧在）；② 转录 19 帧非空、logcat 无 EventDispatcher/releaseSessionData；③ 90s 无导航、全程停在会话页。→ 已被 #267「双界面条幅」覆盖，建议关闭（待用户拍板）。
+- **新登记**：#401（P3 服务器管理 Home 界面无该条幅——#267 双界面声明范围外，非回归）；#402（P2 SSE 5min 冷却致非网络切换型瞬断恢复迟滞——reverse 回加后 HTTP 已 200，但 Connected 迟至 ~4m38s；冷却期 `runSseConnectionLoop` 只 `delay(30s)` 不发起连接，仅 Android 网络恢复回调 reset）。
+- 证据：docs/acceptance/2026-09-12-390-disconnect-repro.md + 证据目录 55 文件。

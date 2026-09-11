@@ -1,0 +1,45 @@
+start_epoch=1789141660.188462162
+reverse_removed_epoch=1789141660.198192854
+reverse_after_remove:
+host-21 tcp:3080 tcp:3080
+host-21 tcp:3081 tcp:3080
+
+--- t=0s elapsed=2.1s banner=False resids=['android:id/content', 'chat-message-list', 'more_vert', 'chat-input', 'chat-send']
+   texts=轮次 15 · 3ms · 1 步 · 0 个工具 || 用户 || 23:41:14 || IDLECTRLR2 please reply OK || 工具目录已变更 || 23:41:14 || 思考完毕 · 1.3s || 你好！&#128522; 需要我帮你做什么？比如写故事、回答问题、分析代码等，都可以直接说。 || Build || glm-5.3-flash || 1.3s || 轮次 14 · 1.3s · 1 步 · 0 个工具 || 一加一等于二的提问 || /home/leo-tkp || 1 || Build || DeepSeek V4 Flash Vision Exp || 提问…
+--- t=5s elapsed=9.2s banner=True resids=['android:id/content', 'chat-message-list', 'more_vert', 'chat-input', 'chat-send']
+   texts=轮次 15 · 3ms · 1 步 · 0 个工具 || 用户 || 23:41:14 || IDLECTRLR2 please reply OK || 工具目录已变更 || 23:41:14 || 你好！&#128522; 需要我帮你做什么？比如写故事、回答问题、分析代码等，都可以直接说。 || Build || glm-5.3-flash || 1.3s || 轮次 14 · 1.3s · 1 步 · 0 个工具 || 服务器已断开，正在重连… || 一加一等于二的提问 || /home/leo-tkp || 1 || Build || DeepSeek V4 Flash Vision Exp || 重构…
+--- t=10s elapsed=16.3s banner=True resids=['android:id/content', 'chat-message-list', 'more_vert', 'chat-input', 'chat-send']
+   texts=轮次 15 · 3ms · 1 步 · 0 个工具 || 用户 || 23:41:14 || IDLECTRLR2 please reply OK || 工具目录已变更 || 23:41:14 || 你好！&#128522; 需要我帮你做什么？比如写故事、回答问题、分析代码等，都可以直接说。 || Build || glm-5.3-flash || 1.3s || 轮次 14 · 1.3s · 1 步 · 0 个工具 || 服务器已断开，正在重连… || 一加一等于二的提问 || /home/leo-tkp || 1 || Build || DeepSeek V4 Flash Vision Exp || 解释…的原理
+--- t=15s elapsed=23.4s banner=True resids=['android:id/content', 'chat-message-list', 'more_vert', 'chat-input', 'chat-send']
+   texts=轮次 15 · 3ms · 1 步 · 0 个工具 || 用户 || 23:41:14 || IDLECTRLR2 please reply OK || 工具目录已变更 || 23:41:14 || 你好！&#128522; 需要我帮你做什么？比如写故事、回答问题、分析代码等，都可以直接说。 || Build || glm-5.3-flash || 1.3s || 轮次 14 · 1.3s · 1 步 · 0 个工具 || 服务器已断开，正在重连… || 一加一等于二的提问 || /home/leo-tkp || 1 || Build || DeepSeek V4 Flash Vision Exp || 帮我处理…
+--- t=20s elapsed=30.4s banner=True resids=['android:id/content', 'chat-message-list', 'more_vert', 'chat-input', 'chat-send']
+   texts=轮次 15 · 3ms · 1 步 · 0 个工具 || 用户 || 23:41:14 || IDLECTRLR2 please reply OK || 工具目录已变更 || 23:41:14 || 你好！&#128522; 需要我帮你做什么？比如写故事、回答问题、分析代码等，都可以直接说。 || Build || glm-5.3-flash || 1.3s || 轮次 14 · 1.3s · 1 步 · 0 个工具 || 服务器已断开，正在重连… || 一加一等于二的提问 || /home/leo-tkp || 1 || Build || DeepSeek V4 Flash Vision Exp || 修复…中的 bug
+--- t=25s elapsed=37.5s banner=True resids=['android:id/content', 'chat-message-list', 'more_vert', 'chat-input', 'chat-send']
+   texts=轮次 15 · 3ms · 1 步 · 0 个工具 || 用户 || 23:41:14 || IDLECTRLR2 please reply OK || 工具目录已变更 || 23:41:14 || 你好！&#128522; 需要我帮你做什么？比如写故事、回答问题、分析代码等，都可以直接说。 || Build || glm-5.3-flash || 1.3s || 轮次 14 · 1.3s · 1 步 · 0 个工具 || 服务器已断开，正在重连… || 一加一等于二的提问 || /home/leo-tkp || 1 || Build || DeepSeek V4 Flash Vision Exp || 为…添加测试
+--- t=30s elapsed=44.6s banner=True resids=['android:id/content', 'chat-message-list', 'more_vert', 'chat-input', 'chat-send']
+   texts=轮次 15 · 3ms · 1 步 · 0 个工具 || 用户 || 23:41:14 || IDLECTRLR2 please reply OK || 工具目录已变更 || 23:41:14 || 你好！&#128522; 需要我帮你做什么？比如写故事、回答问题、分析代码等，都可以直接说。 || Build || glm-5.3-flash || 1.3s || 轮次 14 · 1.3s · 1 步 · 0 个工具 || 服务器已断开，正在重连… || 一加一等于二的提问 || /home/leo-tkp || 1 || Build || DeepSeek V4 Flash Vision Exp || 帮我处理…
+--- t=35s elapsed=51.7s banner=True resids=['android:id/content', 'chat-message-list', 'more_vert', 'chat-input', 'chat-send']
+   texts=轮次 15 · 3ms · 1 步 · 0 个工具 || 用户 || 23:41:14 || IDLECTRLR2 please reply OK || 工具目录已变更 || 23:41:14 || 你好！&#128522; 需要我帮你做什么？比如写故事、回答问题、分析代码等，都可以直接说。 || Build || glm-5.3-flash || 1.3s || 轮次 14 · 1.3s · 1 步 · 0 个工具 || 服务器已断开，正在重连… || 一加一等于二的提问 || /home/leo-tkp || 1 || Build || DeepSeek V4 Flash Vision Exp || 提问…
+--- t=40s elapsed=58.8s banner=True resids=['android:id/content', 'chat-message-list', 'more_vert', 'chat-input', 'chat-send']
+   texts=轮次 15 · 3ms · 1 步 · 0 个工具 || 用户 || 23:41:14 || IDLECTRLR2 please reply OK || 工具目录已变更 || 23:41:14 || 你好！&#128522; 需要我帮你做什么？比如写故事、回答问题、分析代码等，都可以直接说。 || Build || glm-5.3-flash || 1.3s || 轮次 14 · 1.3s · 1 步 · 0 个工具 || 服务器已断开，正在重连… || 一加一等于二的提问 || /home/leo-tkp || 1 || Build || DeepSeek V4 Flash Vision Exp || 重构…
+--- t=45s elapsed=65.8s banner=True resids=['android:id/content', 'chat-message-list', 'more_vert', 'chat-input', 'chat-send']
+   texts=轮次 15 · 3ms · 1 步 · 0 个工具 || 用户 || 23:41:14 || IDLECTRLR2 please reply OK || 工具目录已变更 || 23:41:14 || 你好！&#128522; 需要我帮你做什么？比如写故事、回答问题、分析代码等，都可以直接说。 || Build || glm-5.3-flash || 1.3s || 轮次 14 · 1.3s · 1 步 · 0 个工具 || 服务器已断开，正在重连… || 一加一等于二的提问 || /home/leo-tkp || 1 || Build || DeepSeek V4 Flash Vision Exp || 解释…的原理
+--- t=50s elapsed=72.9s banner=True resids=['android:id/content', 'chat-message-list', 'more_vert', 'chat-input', 'chat-send']
+   texts=轮次 15 · 3ms · 1 步 · 0 个工具 || 用户 || 23:41:14 || IDLECTRLR2 please reply OK || 工具目录已变更 || 23:41:14 || 你好！&#128522; 需要我帮你做什么？比如写故事、回答问题、分析代码等，都可以直接说。 || Build || glm-5.3-flash || 1.3s || 轮次 14 · 1.3s · 1 步 · 0 个工具 || 服务器已断开，正在重连… || 一加一等于二的提问 || /home/leo-tkp || 1 || Build || DeepSeek V4 Flash Vision Exp || 提问…
+--- t=55s elapsed=79.9s banner=True resids=['android:id/content', 'chat-message-list', 'more_vert', 'chat-input', 'chat-send']
+   texts=轮次 15 · 3ms · 1 步 · 0 个工具 || 用户 || 23:41:14 || IDLECTRLR2 please reply OK || 工具目录已变更 || 23:41:14 || 你好！&#128522; 需要我帮你做什么？比如写故事、回答问题、分析代码等，都可以直接说。 || Build || glm-5.3-flash || 1.3s || 轮次 14 · 1.3s · 1 步 · 0 个工具 || 服务器已断开，正在重连… || 一加一等于二的提问 || /home/leo-tkp || 1 || Build || DeepSeek V4 Flash Vision Exp || 重构…
+--- t=60s elapsed=87.0s banner=True resids=['android:id/content', 'chat-message-list', 'more_vert', 'chat-input', 'chat-send']
+   texts=轮次 15 · 3ms · 1 步 · 0 个工具 || 用户 || 23:41:14 || IDLECTRLR2 please reply OK || 工具目录已变更 || 23:41:14 || 你好！&#128522; 需要我帮你做什么？比如写故事、回答问题、分析代码等，都可以直接说。 || Build || glm-5.3-flash || 1.3s || 轮次 14 · 1.3s · 1 步 · 0 个工具 || 服务器已断开，正在重连… || 一加一等于二的提问 || /home/leo-tkp || 1 || Build || DeepSeek V4 Flash Vision Exp || 为…添加测试
+--- t=65s elapsed=94.0s banner=True resids=['android:id/content', 'chat-message-list', 'more_vert', 'chat-input', 'chat-send']
+   texts=轮次 15 · 3ms · 1 步 · 0 个工具 || 用户 || 23:41:14 || IDLECTRLR2 please reply OK || 工具目录已变更 || 23:41:14 || 你好！&#128522; 需要我帮你做什么？比如写故事、回答问题、分析代码等，都可以直接说。 || Build || glm-5.3-flash || 1.3s || 轮次 14 · 1.3s · 1 步 · 0 个工具 || 服务器已断开，正在重连… || 一加一等于二的提问 || /home/leo-tkp || 1 || Build || DeepSeek V4 Flash Vision Exp || 帮我处理…
+--- t=70s elapsed=101.1s banner=True resids=['android:id/content', 'chat-message-list', 'more_vert', 'chat-input', 'chat-send']
+   texts=轮次 15 · 3ms · 1 步 · 0 个工具 || 用户 || 23:41:14 || IDLECTRLR2 please reply OK || 工具目录已变更 || 23:41:14 || 你好！&#128522; 需要我帮你做什么？比如写故事、回答问题、分析代码等，都可以直接说。 || Build || glm-5.3-flash || 1.3s || 轮次 14 · 1.3s · 1 步 · 0 个工具 || 服务器已断开，正在重连… || 一加一等于二的提问 || /home/leo-tkp || 1 || Build || DeepSeek V4 Flash Vision Exp || 修复…中的 bug
+--- t=75s elapsed=108.2s banner=True resids=['android:id/content', 'chat-message-list', 'more_vert', 'chat-input', 'chat-send']
+   texts=轮次 15 · 3ms · 1 步 · 0 个工具 || 用户 || 23:41:14 || IDLECTRLR2 please reply OK || 工具目录已变更 || 23:41:14 || 你好！&#128522; 需要我帮你做什么？比如写故事、回答问题、分析代码等，都可以直接说。 || Build || glm-5.3-flash || 1.3s || 轮次 14 · 1.3s · 1 步 · 0 个工具 || 服务器已断开，正在重连… || 一加一等于二的提问 || /home/leo-tkp || 1 || Build || DeepSeek V4 Flash Vision Exp || 为…添加测试
+--- t=80s elapsed=115.2s banner=True resids=['android:id/content', 'chat-message-list', 'more_vert', 'chat-input', 'chat-send']
+   texts=轮次 15 · 3ms · 1 步 · 0 个工具 || 用户 || 23:41:14 || IDLECTRLR2 please reply OK || 工具目录已变更 || 23:41:14 || 你好！&#128522; 需要我帮你做什么？比如写故事、回答问题、分析代码等，都可以直接说。 || Build || glm-5.3-flash || 1.3s || 轮次 14 · 1.3s · 1 步 · 0 个工具 || 服务器已断开，正在重连… || 一加一等于二的提问 || /home/leo-tkp || 1 || Build || DeepSeek V4 Flash Vision Exp || 解释…的原理
+--- t=85s elapsed=122.3s banner=True resids=['android:id/content', 'chat-message-list', 'more_vert', 'chat-input', 'chat-send']
+   texts=轮次 15 · 3ms · 1 步 · 0 个工具 || 用户 || 23:41:14 || IDLECTRLR2 please reply OK || 工具目录已变更 || 23:41:14 || 你好！&#128522; 需要我帮你做什么？比如写故事、回答问题、分析代码等，都可以直接说。 || Build || glm-5.3-flash || 1.3s || 轮次 14 · 1.3s · 1 步 · 0 个工具 || 服务器已断开，正在重连… || 一加一等于二的提问 || /home/leo-tkp || 1 || Build || DeepSeek V4 Flash Vision Exp || 提问…
+--- t=90s elapsed=129.4s banner=True resids=['android:id/content', 'chat-message-list', 'more_vert', 'chat-input', 'chat-send']
+   texts=轮次 15 · 3ms · 1 步 · 0 个工具 || 用户 || 23:41:14 || IDLECTRLR2 please reply OK || 工具目录已变更 || 23:41:14 || 你好！&#128522; 需要我帮你做什么？比如写故事、回答问题、分析代码等，都可以直接说。 || Build || glm-5.3-flash || 1.3s || 轮次 14 · 1.3s · 1 步 · 0 个工具 || 服务器已断开，正在重连… || 一加一等于二的提问 || /home/leo-tkp || 1 || Build || DeepSeek V4 Flash Vision Exp || 重构…
+EXPERIMENT_DONE
