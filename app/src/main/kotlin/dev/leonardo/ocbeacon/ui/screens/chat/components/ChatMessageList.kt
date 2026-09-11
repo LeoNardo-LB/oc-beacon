@@ -882,6 +882,28 @@ fun ChatMessageList(
     // 定位决策全部在 JumpNavigationController 状态机（Preparing→Measuring→Settling→
     // Displayed/Failed）；蒙版/门控从状态派生（单一真相源）；目标一次定位到最终位置
     //（不移动→不回收→不重测→无"重复乱跳"根因）。
+    // #394（2026-09-12 复验根因）：跳转前缀按角色选择。jumpTo 固定 u_ 前缀，
+    // assistant 目标的 Lazy key 是 t_<turn 首条 assistant id>——此前 initial-jump
+    // 对所有命中统一调 jumpTo，assistant 命中 u_<assistantId> 永不匹配 → 重定位
+    // 空转 → 超时 Failed，永不 Displayed（高亮因此完全不可达）。此处按角色分流，
+    // 并以 turn 锚点（首条 assistant）为 t_ 键，兼容多 assistant 的长轮次。
+    fun jumpToResolved(displayItemIndex: Int, targetMsgId: String) {
+        val lazyIndex = bannerCount + chatEntries.displayEntryStart[displayItemIndex]
+        val (rawIndex, targetMsg) = displayItems[displayItemIndex]
+        if (targetMsg.isUser) {
+            jumpController.jumpTo(targetMsgId, lazyIndex)
+        } else {
+            val anchor = turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: targetMsg.message.id
+            if (BuildConfig.DEBUG) {
+                AppLogger.d(
+                    "ChatPaging",
+                    "jumpToResolved assistant anchor=" + anchor.take(12) + " hit=" + targetMsgId.take(12),
+                )
+            }
+            jumpController.jumpToTask(lazyIndex, anchor)
+        }
+    }
+
     fun jumpToMessage(msgId: String) {
         dev.leonardo.ocbeacon.debug.RaceProbe.probe {
             "JUMP start msg=" + msgId.take(14) + " entries=" + chatEntries.entries.size +
@@ -898,10 +920,8 @@ fun ChatMessageList(
         if (targetHasRenderableContent) {
             // 状态机跳转：一次定位 + 蒙版/门控从状态派生
             // 2026-08-20 分片适配：lazyIndex = turn 首 chunk（含标签栏）
-            jumpController.jumpTo(
-                msgId,
-                bannerCount + chatEntries.displayEntryStart[displayItemIndex],
-            )
+            // #394：按角色分流（user→jumpTo / assistant→jumpToTask+turn 锚点）
+            jumpToResolved(displayItemIndex, msgId)
             onQuickNavigateDismiss()
         } else {
             // 未加载或 parts 为空：触发异步跳转加载，等待消息进入 displayItems 后滚动
@@ -1060,10 +1080,8 @@ fun ChatMessageList(
                     // 窗口内存在分片 turn（1→N item）时指向错误位置，viewport 落在
                     // 某个 chunk 中间（用户截图的"不完整气泡/非从头开始的回复"）。
                     // 与 jumpToMessage 主路径/onLocateTask 对齐：displayEntryStart 映射。
-                    jumpController.jumpTo(
-                        target,
-                        bannerCount + chatEntries.displayEntryStart[idx],
-                    )
+                    // #394：按角色分流（assistant 命中此前误走 u_ 前缀 → 超时 Failed）
+                    jumpToResolved(idx, target)
                 }
             }
 
