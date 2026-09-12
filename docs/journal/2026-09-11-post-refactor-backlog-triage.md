@@ -149,3 +149,21 @@
   - 2026-09-12 二次修复（commit ae52aeba）：手势块由标题 Row 上移内容根 Column（sheetNonScrollableDragBlock：Main 趟仅消费未被可滚动子节点消费的向下位移），4 个 sheet 统一；compile + 单测 + lint 全绿；本次复验覆盖旧残留带 490/500/510/520/530/535。调研依据 docs/research/2026-09-12-ux-research-405-401.md。
   - 2026-09-12 内容根版（ae52aeba）设备复验 PASS（V1 4198 + V2 4199，clean-context 子代理）：内容区 ≥538 下滑不收起（541/600/670/700 VISIBLE）；手柄槽 [506,538]（可见条实测 y=519~526）与 M3 48dp 触摸目标 [459,585] 内下滑/点击收起属 #379 设计内——初判的 490~535「残留带」经像素探针 + 源码 dp 换算互证为手柄本体，非缺陷；收起三通道 / 列表滚动 / 条目跳转 / 上滑到底 / crash 0 全 PASS。证据 docs/acceptance/2026-09-12-405-content-root.md（v2）。转待用户验收。
   - 迁入依据：用户 2026-09-12 裁决：按 M3 特性收敛，不再纠结 490~538 手柄区；内容根手势块 ae52aeba 复验 PASS（backlog.sh migrate 2026-09-12）
+
+### **#388 V2服务端注入推送条件不明：今日新会话零注入** `chat` `v2` `server`
+  - 同一服务进程（4199，9-7 22:17 起未重启）下：05-40 前后的 ack 会话有插件配置/工作区指令注入，09-14 后新建会话（leo-tkp 与 oc-beacon 工作区各一，含首轮 hi/1+1 提问）零注入事件（InjCard 全程 kind=null，转录顶无卡）。注入到底何时推送（每工作区一次性？目录变更才推？）未定；需以服务端历史 API 与 dsh web 同会话对照定责（服务端没推 vs 客户端漏收）。定责前不动客户端。证据：/tmp/n1_*.png n2_top_injections.png InjCard logcat
+  - 2026-09-12 宿主侧定责（V2 4199，beta-19086）：抓 /api/event 90s + 新建 oc-beacon/home 会话，仅 session.created（无 inbox.enqueued/注入帧）；/api/session/{id}/instructions/entries 对新旧会话均为空；/session/{id}/context 仅返回会话消息。→ 新会话零注入是**服务端未推送**（疑似工作区级一次性），非客户端漏收；定责前不动客户端的前提成立，建议按服务端行为归档/待上游说明。
+  - 用户 2026-09-12 裁决：定责完成，按外部前提结案（服务端未推送，无客户端可修点）。
+  - 迁入依据：用户 2026-09-12 裁决结案：定责完成——V2 服务端未推送注入（工作区级一次性），无客户端可修点（外部前提性质）（backlog.sh migrate 2026-09-12）
+
+### **#350 V1/V2 归档 API 接线——统一归档面收尾（统一审计批 4）** `v2` `archive`
+  - 方向(若端点就位):V2ApiClient.updateSessionFields 补归档真线面(现仅 title 走 rename,归档字段 no-op 回 getSession);ServerCapabilities V1/V2 archiveSupported 翻 true→长按菜单归档项+已归档折叠区自动统一(能力位门控现成)
+  - **2026-09-07 深夜探针定音(否定)**:服务器修复后实测——opencode2 beta-19086 自家 OpenAPI(/openapi.json,119 路由)**零归档端点**(无 /archive、无 home 域、PATCH /api/session/{id}=404、POST/PATCH /archive=404);审计前提「官方 web 有 archiveHomeSession」对本服务器版本不成立。V1 PATCH /session/{id} 仅 V1 面文档、本环境无 V1 服务器可证
+  - **前提**：上游 opencode 服务器发布归档端点(OpenAPI 出现 archive/home 域)——届时报错即改+真机验收;环境已修复留档:坏因=postinstall 未跑完(stub 占位),本地平台包完好,`node postinstall.mjs` 离线修复,服务已恢复监听 4199
+  - **裁决优先级（2026-09-09 定规）**：以节点 2 最新裁决为准——删除优先，归档仅在删除无 API 的面使用；V1/V2 已有删除 API，上游归档端点就位≠自动接线，届时须先回用户重裁
+  - 前提加固（2026-09-10 端点考古）：V1-4198 无任何会话更新端点（PATCH/PUT 落 SPA 兜底 200 HTML）；V2-4199 无 PATCH /session（rename=POST /session/{id}/rename 单动词）；两服均无归档写入通道——归档接线前提（服务器暴露 time.archived 写）在两现行版本均不成立，维持 P4 待服
+  - 2026-09-12 V1 靶机复证（4198/opencode 1.18.27）推翻旧判定：PATCH /session/{id} 支持 time.archived 真写入（响应+GET 均落时间戳，非 SPA HTML）——V1 归档通道存在；unarchive 传 null/0 均不生效（该版本疑似仅置位）。V2（4199）openapi 119 路由仍 0 归档端点。按本卡最新裁决（删除优先）未接线，待用户重裁。
+  - 2026-09-12 复测更正（V1 4198/1.18.27，临时会话实测后已 DELETE）：PATCH /session/{id}  语义为「置时间戳」；传 0 **会写入 0**（GET 回读 archived=0，等效未归档/可清空），传 null 被忽略（保留原值）。上一条「null/0 均不生效、疑似仅置位」不准确，特此更正。V2（4199）仍 0 归档端点。
+  - 上条更正补字（shell 反引号吞字）：被 PATCH 的字段名是 time.archived（请求体 {"time":{"archived":<ms|0|null>}}）。
+  - 用户 2026-09-12 裁决：选项 a——维持不接线（删除优先）。本卡据此结案。
+  - 迁入依据：用户 2026-09-12 裁决选项 a：维持不接线（删除优先），归档通道即便在 V1 存在也不接线（backlog.sh migrate 2026-09-12）

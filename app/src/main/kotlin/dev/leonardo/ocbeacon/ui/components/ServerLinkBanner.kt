@@ -30,6 +30,16 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
  * - 细条幅形态：errorContainer 底 + CloudOff 图标 + 单行文案，贴 TopAppBar 下沿；
  * - 零交互（点击不重连——重连循环常驻自动进行，无需手动触发）。
  */
+/**
+ * #408（2026-09-12 用户反馈）：topBar 上方渲染了自带 statusBars inset 的横幅
+ * （[ServerLinkBanner] / DshTokenNeededBanner）时，其下方 TopAppBar 必须改用「零 inset」。
+ *
+ * 根因：M3 TopAppBar 默认吃一次状态栏 inset；横幅自己也吃一次 statusBars padding。
+ * 状态栏高度被计两次 → 内容被顶推「横幅高度 + 2×状态栏」（本机实测 195px，应有 66px）。
+ * 横幅在上、TopAppBar 在下时，状态栏归属权只应属于最上面的那个。
+ */
+val ZeroTopAppBarWindowInsets: WindowInsets = WindowInsets(0, 0, 0, 0)
+
 @Composable
 fun ServerLinkBanner(modifier: Modifier = Modifier) {
     Surface(

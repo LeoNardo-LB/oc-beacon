@@ -4,9 +4,9 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#408**（2026-09-12 #407 RenderSupplyCoordinatorT）。
+**编号**：全局递增，不回收。下一编号：**#409**（2026-09-12 #408 断连横幅出现时把原有内容顶推幅度远超横幅自身高度）。
 
-**操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。
+**操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。**反馈归卡（2026-09-12 用户定规）**：用户对某张卡片的反馈/裁决一律经 `backlog.sh note <N>` 记入**该卡片**明细，**不另开新卡**承载反馈；仅当反馈引出**新的独立缺陷**时才另立卡片，并在两卡明细互相引用（#401→#408 为先例）。
 
 > 编号勘误（2026-08-23 合并时）：terminology 分支先行占用的 #194–#199 与主工作区 #194（FAB）撞号，合并时 terminology 侧六卡顺移 +5 → #200–#205；文档内旧引用已同步改。
 
@@ -119,6 +119,11 @@
 
 ## P2 — 优化与锦上添花
 
+- [~] **#408 断连横幅出现时把原有内容顶推幅度远超横幅自身高度** `ui` `resilience`
+  - 用户 2026-09-12 反馈（由 #401 引出）：断连横幅出现后，下方内容被顶推的高度远大于横幅条本身（正常应只等于横幅高度）。
+  - 初判根因：横幅自身加了一次 statusBars inset padding，而其下方 TopAppBar 的 windowInsets 仍含状态栏 → 状态栏被计两次（横幅高度 + 2×状态栏）。待设备实测确认后根因修复。
+  - 2026-09-12 根因确认 + 修复 + 设备复验 PASS：根因 = 横幅自身 statusBars padding（本机 128px）与其下方 TopAppBar 默认 windowInsets 各吃一次状态栏 inset。修复 = 新增 ZeroTopAppBarWindowInsets；ChatTopBar 增 windowInsets 参数；ChatScreen / SessionListScreen 在横幅可见时归零。实测内容顶推 195px → 67px（= 横幅条高 66px），Chat 与会话列表两面一致；服务器恢复后横幅消失、无「已恢复」提示。APK md5 d05e712f8510ef4e27c1530e76810fd8。证据 docs/acceptance/2026-09-12-408-banner-push.md。转待用户验收。
+
 - [~] **#404 冷进入 DSH 会话后钉底任务卡/队列镜像暂缺——subscribed 空快照抹掉 control 基线** `dsh` `data`
   - session/subscribed 原发空 JobsSnapshot/QueueSnapshot 清空镜像，假设服务器随后重推整快照；本版 0.1.5-rc.1 控制流只在任务/队列变更时增量推送 → 冷进入会话 ≤30s 钉底任务卡缺失（等一次状态变化才出现）。
   - 根因修复：去掉 subscribed 清空，权威快照 = session/control baseline（每次 WS onOpen 重发、last-wins）；DshJobsStore/DshQueueStore 由基线+变更增量驱动。
@@ -159,12 +164,15 @@
   - 用户自助验收 ⑥ 顺带发现（2026-09-10）：#379 SheetGestures 内容手势隔离（fling 不收起+手柄收起）在 V2 验过，但 V1 服务器上 QuickNavigate 快速下滑 fling 仍会让抽屉收起——服务器类型交互统一铁律（ui-conventions §1）违背。疑点：sheet 组件按 server type 分叉 or V1 会话内容高度/嵌套滚动差异绕过隔离。
   - 2026-09-12 V1 靶机复现（4198/1.18.27）判定 NOT-REPRO：内容区向下快 fling 18 次 0 收起，V2 对照同构；V1 无 server-type 分叉。真缝隙另立 #405（标题带下滑仍收起）。建议按「不可复现」关闭（待用户确认）；局限=注入 swipe 非真手指采样。证据 docs/acceptance/2026-09-12-392-v1-sheet-fling.md。
   - 2026-09-12 后续（#405 定论）：V1 无服务器类型分叉已证；卡内所指「标题带」= 内容区 ≥538（标题文本实测 592 起），已受内容根手势块保护（ae52aeba 复验 PASS：600/670/700/541 VISIBLE）。建议 #392 按 NOT-REPRO 关闭。
+  - 用户 2026-09-12 反馈：V1/V2 应共用同一套逻辑/容器，不该表现不同——要求深入排查（不接受仅「NOT-REPRO」结论）。
+  - 2026-09-12 用户要求深查（不接受仅 NOT-REPRO）→ clean-context 侦查结论：整条链路（组件签名 / 抽屉几何 / 两道手势防线 / 入口门控 / jumpTargets 数据源 / 程序性 dismiss）无任何按服务器类型或服务器派生状态分叉的代码点；lint 白名单门禁（ServerTypeWhitelistDetector）从结构上禁止 Chat UI 引用 ServerType。差异最可能是**构建时间差**：#405 指针层兜底提交于 2026-09-12 04:18/04:41，SheetGestures 注释自证修复前标题带下滑必收起。唯一真实 V1/V2 输入差异 = 会话内容量（V1 靶会话 13 条 user）→ 抽屉内列表是否越过 75% 屏高可滚动边界，但两种情形两道防线均闭环。建议：核对用户两端 APK 构建 commit；必要时补 2×2 内容量矩阵复测。
 
 - [ ] **#387 V2注入刷新消息渲染为用户气泡文字墙** `chat` `ui` `v2`
   - skill-catalog/上下文刷新类注入（<system-reminder>包裹、无source.kind标记）按普通用户气泡整文渲染，[Ack] 3 会话顶部现存活例（VLM 09-41 复核：calculator 全文蓝色气泡墙，而同位插件配置已是收起小卡）。初判服务端对此类刷新不带 kind，mapper 按普通 user 落库。根因方向：对齐 dsh web 对 system-reminder 注入的识别与收起呈现（内容嗅探或等价机制），修在映射/渲染层单点。证据：/tmp/n2_acklink_top.png n2_ackthree_top.png；演示批 journal 待补
   - 2026-09-12 修复（commit 99f6430f）：新增 domain 纯判定 SystemInjection.isPureReminder + 渲染单点嗅探，无 source.kind 的 <system-reminder> 闭合块走既有折叠卡（混合消息不折叠）；新增 SystemInjectionTest；待模拟器复验。
   - 2026-09-12 模拟器复验 NOT-REPRODUCIBLE：DB 中纯 <system-reminder> 的 user 消息 10 条但 10/10 带 source.kind（DSH 路径已折叠），无 kind 样本 0 条。已落 defensive 渲染层嗅探 + SystemInjection 单测；无 live 样本，请裁决是否关闭/保留观察。
   - 2026-09-12 V2 宿主侧复验：/api/session/{id}/instructions/entries 对新旧会话均为空；抓 /api/event 90s 新会话无注入帧 → 本环境无 live 样本（与模拟器 DB 扫描结论一致）。defensive 嗅探+SystemInjectionTest 保留；建议按「无 live 复现」关闭或保留观察，待你裁决。
+  - 用户 2026-09-12 裁决：参照 dsh web / opencode web 对 system-reminder（注入/上下文刷新）的识别与收起逻辑，仿照其逻辑重构或开发客户端渲染。
 
 ## P3 — 观察与低价值改进
 
@@ -176,6 +184,7 @@
 - [ ] **#406 快速定位跳转后目标消息落在视口底部/下缘而非居中** `ui` `chat`
   - 2026-09-12 #405 抽屉复验观察（两次一致）：点快速定位条目后抽屉关闭、目标消息进入视口且高亮链正常（#394 已修），但落点在视口底部/下缘，阅读上下文需再滑一下。
   - 方向：评估 jumpTo 后对目标 turn 做 viewport 居中的可行性（LazyListState 的 offset 计算/动画），按「先调研再优化」纪律，登记待排期。
+  - 用户 2026-09-12 反馈：记忆中跳转后目标消息是落在视窗顶端的，现在落到底部——要求排查是否为本次重构引入的回归。
 
 - [~] **#403 DSH system/message 走 role==system 分支遮蔽 injectionKind——标签恒「工具目录已变更」，与 #398「复用 injectionKind→EventCard」不符** `ui` `dsh`
   - ChatMessageList role=="system" 分支（L1664）先于 injectionKind 分支（L1712）；DB 中 system 消息 payload 带 injectionKind=plugin，但 UI 标签恒 chat_event_tool_catalog_changed。 -s 实测（会话 a84edbf7）：展开 system 注入卡字面可见，但标签非 kind 派生；「插件配置/上下文注入」标签只出现在 user/message+source.kind 路径。
@@ -188,14 +197,11 @@
   - → docs/acceptance/2026-09-12-390-disconnect-repro.md
   - 2026-09-12 调研前置受阻：web_search 端点 402 Insufficient Balance、M3 文档 JS 渲染 fetch 无正文；按用户纪律（UIUX 先全网调研）不擅动，待检索恢复后调研再优化。
   - 2026-09-12 调研完成（web_search 仍 402，降级 curl 直连一手源：androidx 源码 + Google 官方示例 + M3 页面 meta）：M3/commonMain 无常驻条幅组件；Now in Android 对离线用 duration=Indefinite 常驻 snackbar；本仓库既有 ServerLinkBanner（#267）已用于 Chat/会话列表。建议方案=仅当活动服务器非 Connected 时在 Home 顶部条件渲染既有 ServerLinkBanner（复用不新增组件）；冗余风险待用户拍板。详见 docs/research/2026-09-12-ux-research-405-401.md。
+  - 用户 2026-09-12 裁决：Home 面确实不需要断连条幅（原范围终结，本卡据此结案）。同一反馈引出新缺陷——横幅出现后把原有内容顶推的幅度远超横幅自身高度，另立 #408 跟踪根因修复。
 
 - [~] **#390 服务器断连时会话页空白/弹回服务器管理无重连提示** `resilience`
   - 今日链路闪断窗口多帧实证（VLM 确认仅剩状态栏）：reverse 隧道拆→app 断连→会话数据释放（EventDispatcher releaseSessionData）→转录空白或弹回服务器管理界面，期间无重连横幅/按钮，用户无路可走。需断连 UX 兜底（提示+重连入口），证据链 journal 2026-09-09-378-380-wire.md §十五
   - 2026-09-12 模拟器 clean-context 复现核查：三处指控（无横幅/转录空白/弹回管理页）均不成立——拆隧 ~5.5s 出现「服务器已断开，正在重连…」条幅且 19/19 帧在、转录 19 帧非空且无 releaseSessionData、90s 无导航；#267 已覆盖，建议关闭（待用户拍板）。残余缺口另立 #401（Home 无条幅）/#402（5min 冷却恢复迟滞）。证据 docs/acceptance/2026-09-12-390-disconnect-repro.md。
-
-- [ ] **#388 V2服务端注入推送条件不明：今日新会话零注入** `chat` `v2` `server`
-  - 同一服务进程（4199，9-7 22:17 起未重启）下：05-40 前后的 ack 会话有插件配置/工作区指令注入，09-14 后新建会话（leo-tkp 与 oc-beacon 工作区各一，含首轮 hi/1+1 提问）零注入事件（InjCard 全程 kind=null，转录顶无卡）。注入到底何时推送（每工作区一次性？目录变更才推？）未定；需以服务端历史 API 与 dsh web 同会话对照定责（服务端没推 vs 客户端漏收）。定责前不动客户端。证据：/tmp/n1_*.png n2_top_injections.png InjCard logcat
-  - 2026-09-12 宿主侧定责（V2 4199，beta-19086）：抓 /api/event 90s + 新建 oc-beacon/home 会话，仅 session.created（无 inbox.enqueued/注入帧）；/api/session/{id}/instructions/entries 对新旧会话均为空；/session/{id}/context 仅返回会话消息。→ 新会话零注入是**服务端未推送**（疑似工作区级一次性），非客户端漏收；定责前不动客户端的前提成立，建议按服务端行为归档/待上游说明。
 
 - [ ] **#345 adb 注入 tap 间歇丢弃观察——MIUI 平台行为定性(非 app 缺陷),真手指未复现即不处理** `env` `device`
   - 定性修正(2026-09-07 二查):原「两案全灭」重析后——**第二案翻案**:Doubang 输入法为浅色主题,screencap 下半屏与 app surface 同色族 (247,250,253),误判「无 IME」后 tap 实际全打在键盘上;7 节点 dump=输入法安全窗致盲(平台正常)。第一案(t4401 克隆任务后 composer 聚焦 tap 无响应)仍疑似 MIUI 注入丢弃家族(同 E4② shade 组卡先例);两案中键事件/焦点全程有效(`dumpsys input_method` mServedView 在场实证),app 侧无缺陷证据
@@ -210,16 +216,6 @@
 - [ ] **#352 长按菜单「取消归档」——wire 层无恢复动词（2026-09-07 用户裁决要求，服务器阻塞）** `dsh` `archive` `ui`
   - 裁决原文:「归档单向契约同删除一样在长按弹出框中增加即可」——用户要求已归档行长按菜单加「取消归档」
   - **前提**：上游 dsh 服务器提供恢复动词——实测证据（2026-09-07 深夜，当前部署源码 dsh-api-workspace-controller typert）：WorkspaceArchiveSessionRequest={sessionId} **add-only**，全 API 面仅 archiveSession 一个归档动词，官方 web 客户端同无恢复入口（SessionRowMenu 2026-09-05 四重取证注释仍有效）；动词就位后：菜单项+RPC+已归档折叠区行刷新一步到位（#351 能力位先例同款）
-
-- [ ] **#350 V1/V2 归档 API 接线——统一归档面收尾（统一审计批 4）** `v2` `archive`
-  - 方向(若端点就位):V2ApiClient.updateSessionFields 补归档真线面(现仅 title 走 rename,归档字段 no-op 回 getSession);ServerCapabilities V1/V2 archiveSupported 翻 true→长按菜单归档项+已归档折叠区自动统一(能力位门控现成)
-  - **2026-09-07 深夜探针定音(否定)**:服务器修复后实测——opencode2 beta-19086 自家 OpenAPI(/openapi.json,119 路由)**零归档端点**(无 /archive、无 home 域、PATCH /api/session/{id}=404、POST/PATCH /archive=404);审计前提「官方 web 有 archiveHomeSession」对本服务器版本不成立。V1 PATCH /session/{id} 仅 V1 面文档、本环境无 V1 服务器可证
-  - **前提**：上游 opencode 服务器发布归档端点(OpenAPI 出现 archive/home 域)——届时报错即改+真机验收;环境已修复留档:坏因=postinstall 未跑完(stub 占位),本地平台包完好,`node postinstall.mjs` 离线修复,服务已恢复监听 4199
-  - **裁决优先级（2026-09-09 定规）**：以节点 2 最新裁决为准——删除优先，归档仅在删除无 API 的面使用；V1/V2 已有删除 API，上游归档端点就位≠自动接线，届时须先回用户重裁
-  - 前提加固（2026-09-10 端点考古）：V1-4198 无任何会话更新端点（PATCH/PUT 落 SPA 兜底 200 HTML）；V2-4199 无 PATCH /session（rename=POST /session/{id}/rename 单动词）；两服均无归档写入通道——归档接线前提（服务器暴露 time.archived 写）在两现行版本均不成立，维持 P4 待服
-  - 2026-09-12 V1 靶机复证（4198/opencode 1.18.27）推翻旧判定：PATCH /session/{id} 支持 time.archived 真写入（响应+GET 均落时间戳，非 SPA HTML）——V1 归档通道存在；unarchive 传 null/0 均不生效（该版本疑似仅置位）。V2（4199）openapi 119 路由仍 0 归档端点。按本卡最新裁决（删除优先）未接线，待用户重裁。
-  - 2026-09-12 复测更正（V1 4198/1.18.27，临时会话实测后已 DELETE）：PATCH /session/{id}  语义为「置时间戳」；传 0 **会写入 0**（GET 回读 archived=0，等效未归档/可清空），传 null 被忽略（保留原值）。上一条「null/0 均不生效、疑似仅置位」不准确，特此更正。V2（4199）仍 0 归档端点。
-  - 上条更正补字（shell 反引号吞字）：被 PATCH 的字段名是 time.archived（请求体 {"time":{"archived":<ms|0|null>}}）。
 
 - [ ] **#332 spill 提示行——服务器无结构化信号（工具结果溢出 notice 内嵌纯文本）** `dsh` `sse`
   - **前提**：dsh-spill-policy 全链查实——溢出替换为有界 head/tail 预览+locator 提示全部内嵌工具结果 output 文本,transcript 无 spill 事件（session 事件枚举/types/实现三路 grep 0）;文案模式匹配脆弱（#136 先例:服务器改文案即静默失效）。待服务器暴露结构化字段再实现。→ `docs/research/2026-09-05-audit-309-313.md` #312③ + 实现 agent 取证（暂不可实现）

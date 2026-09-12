@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -26,6 +27,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -78,11 +80,15 @@ fun ChatTopBar(
     onUnshare: () -> Unit,
     onExport: () -> Unit,
     onOpenWorkspace: () -> Unit,
+    /** #408：断连横幅在上方时传 [dev.leonardo.ocbeacon.ui.components.ZeroTopAppBarWindowInsets]，
+     *  避免状态栏 inset 被横幅与本栏各吃一次。 */
+    windowInsets: WindowInsets = TopAppBarDefaults.windowInsets,
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showContextDialog by remember { mutableStateOf(false) }
 
     TopAppBar(
+        windowInsets = windowInsets,
         title = {
             Column {
                 Text(

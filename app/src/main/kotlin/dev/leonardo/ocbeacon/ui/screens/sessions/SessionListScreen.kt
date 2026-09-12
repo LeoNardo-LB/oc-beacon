@@ -45,6 +45,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -71,6 +72,7 @@ import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import dev.leonardo.ocbeacon.domain.model.ServerUiSlot
 import dev.leonardo.ocbeacon.service.ServerLinkState
 import dev.leonardo.ocbeacon.ui.components.ServerLinkBanner
+import dev.leonardo.ocbeacon.ui.components.ZeroTopAppBarWindowInsets
 import dev.leonardo.ocbeacon.ui.extension.LocalServerUiSlots
 import dev.leonardo.ocbeacon.ui.extension.SessionListHeaderSlotHost
 import dev.leonardo.ocbeacon.ui.screens.sessions.components.AgentPresetContentDialog
@@ -194,6 +196,9 @@ viewModel.consumePendingReadSessionId()
                 val serverLinkState by viewModel.serverLinkState.collectAsStateWithLifecycle()
                 // #317：token 待输入优先于一般断连横幅（给出路而非干等重连）
                 val authTokenNeeded by viewModel.authTokenNeeded.collectAsStateWithLifecycle()
+                // #408：只有真有横幅渲染时才把状态栏 inset 让给横幅（槽未声明且非 token 态时无横幅）
+                val headerBannerShown = serverLinkState != ServerLinkState.Connected &&
+                    (ServerUiSlot.SESSION_LIST_HEADER in sessionUiSlots || !authTokenNeeded)
                 if (serverLinkState != ServerLinkState.Connected) {
                     // #391 切片9：类型私有横幅经 SESSION_LIST_HEADER 插槽渲染——通用屏幕只
                     // 提供断连上下文与出路回调；两级门禁：适配器声明先决 + 贡献方能力过滤。
@@ -206,7 +211,13 @@ viewModel.consumePendingReadSessionId()
                     }
                     if (!authTokenNeeded) ServerLinkBanner()
                 }
+                // #408：横幅在上时本栏归零状态栏 inset——否则状态栏高度被计两次
                 TopAppBar(
+                windowInsets = if (headerBannerShown) {
+                    ZeroTopAppBarWindowInsets
+                } else {
+                    TopAppBarDefaults.windowInsets
+                },
                 title = {
                     Text(
                         text = shell.serverName.ifEmpty { stringResource(R.string.sessions_title) },

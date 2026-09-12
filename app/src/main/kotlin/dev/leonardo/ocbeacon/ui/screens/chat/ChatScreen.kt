@@ -232,6 +232,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatMessageList
 import dev.leonardo.ocbeacon.ui.screens.chat.components.QueueSheet
 import dev.leonardo.ocbeacon.service.ServerLinkState
 import dev.leonardo.ocbeacon.ui.components.ServerLinkBanner
+import dev.leonardo.ocbeacon.ui.components.ZeroTopAppBarWindowInsets
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatTopBar
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ErrorPayloadContent
 import dev.leonardo.ocbeacon.ui.components.indicators.PulsingDotsIndicator
@@ -697,10 +698,18 @@ fun ChatScreen(
                 Column {
                     // #267：断连常驻细条幅（恢复自动消失，不弹恢复提示）
                     val serverLinkState by viewModel.serverLinkState.collectAsStateWithLifecycle()
-                    if (serverLinkState != ServerLinkState.Connected) {
+                    // #408：横幅自带 statusBars inset —— 下方 TopAppBar 须归零状态栏 inset，
+                    // 否则状态栏高度被计两次，内容被顶推「横幅高度 + 2×状态栏」。
+                    val linkBannerVisible = serverLinkState != ServerLinkState.Connected
+                    if (linkBannerVisible) {
                         ServerLinkBanner()
                     }
                     ChatTopBar(
+                        windowInsets = if (linkBannerVisible) {
+                            ZeroTopAppBarWindowInsets
+                        } else {
+                            TopAppBarDefaults.windowInsets
+                        },
                         sessionTitle = sessionMeta.sessionTitle,
                         directory = directory,
                         contextDetail = contextDetail,
