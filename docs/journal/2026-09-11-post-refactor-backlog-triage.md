@@ -139,3 +139,13 @@
 - #401 调研（web_search 仍 402，降级 curl 直连一手源）：M3/commonMain 93 组件中无 Banner/InlineMessage；Google 官方示例 Now in Android 对离线用 `duration = Indefinite` 常驻 snackbar；本仓库既有 `ServerLinkBanner`（#267）已用于 Chat/会话列表。**建议**＝仅当活动服务器非 Connected 时在 Home 顶部条件渲染既有 ServerLinkBanner（复用不新增组件），待用户拍板。见 `docs/research/2026-09-12-ux-research-405-401.md`。
 - V1 runbook 补正（`docs/device-testing.md` §V1）：AI 工具调用上下文里 `nohup setsid … & disown` 仍会被连带回收 → 必须用受管后台任务；补「造测试会话配方」与「V1 `PATCH /session/{id}` 支持 `time.archived`」实测。
 - 新登记卡片：#406（快速定位跳转后目标未居中，P3 `ui` `chat`）、#407（`RenderSupplyCoordinatorTest` 全量族跑间歇超时 T8/T11，P3 `test`）。
+
+## 已完结卡片迁入（2026-09-12）
+
+### **#405 快速定位抽屉「标题带」下滑仍收起——#379 隔离未覆盖非列表头部（UIUX 待调研）** `ui` `sheet`
+  - 内容区 fling 已隔离（V1/V2 复核 NOT-REPRO）；但起点落在 sheet 顶部非列表带（dragHandle 459–490 + 标题行 490–~706）下滑仍收起，违反 #379「仅手柄/点外/返回收起」设计意图（实测边界 y≈706=列表首项顶）。
+  - 根因：sheetContentGestureIsolation 挂在内容 Column，但 nestedScroll 只接收可滚动子节点（LazyColumn）派发，标题带无滚动子节点 → 直接进 sheet anchoredDraggable。修法需 pointerInput 消费 header 竖向拖拽或等价；属 UIUX，按纪律先全网调研（当前 web_search 402 受阻，降级 web_fetch）。
+  - → docs/acceptance/2026-09-12-392-v1-sheet-fling.md
+  - 2026-09-12 二次修复（commit ae52aeba）：手势块由标题 Row 上移内容根 Column（sheetNonScrollableDragBlock：Main 趟仅消费未被可滚动子节点消费的向下位移），4 个 sheet 统一；compile + 单测 + lint 全绿；本次复验覆盖旧残留带 490/500/510/520/530/535。调研依据 docs/research/2026-09-12-ux-research-405-401.md。
+  - 2026-09-12 内容根版（ae52aeba）设备复验 PASS（V1 4198 + V2 4199，clean-context 子代理）：内容区 ≥538 下滑不收起（541/600/670/700 VISIBLE）；手柄槽 [506,538]（可见条实测 y=519~526）与 M3 48dp 触摸目标 [459,585] 内下滑/点击收起属 #379 设计内——初判的 490~535「残留带」经像素探针 + 源码 dp 换算互证为手柄本体，非缺陷；收起三通道 / 列表滚动 / 条目跳转 / 上滑到底 / crash 0 全 PASS。证据 docs/acceptance/2026-09-12-405-content-root.md（v2）。转待用户验收。
+  - 迁入依据：用户 2026-09-12 裁决：按 M3 特性收敛，不再纠结 490~538 手柄区；内容根手势块 ae52aeba 复验 PASS（backlog.sh migrate 2026-09-12）
