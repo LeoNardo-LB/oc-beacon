@@ -175,10 +175,11 @@
   - 实现要点：SseConnectionManager 退避 delay 前登记 serverId → 下次尝试墙钟时间（reconnectAt StateFlow），ViewModel 暴露，横幅每秒 tick 计算剩余秒；文案 i18n ×15。
   - 2026-09-12 实现 + 设备复验 PASS：SseConnectionManager 新增 reconnectAt 排程（每次退避 delay 前登记 serverId→下次尝试 epochMs，连接成功/连接销毁/全停清除），Chat/SessionList ViewModel 暴露 serverReconnectAt，横幅 retryAtEpochMs 非空时每秒 tick 显示「N 秒后重试」；i18n 新增键 ×15 语言通过。实测停 V1 后三帧 1s/2s/1s 数值在变，V1 恢复后横幅消失，crash 0。APK md5 e84868574c2df04240808ba3dd9cfd7b。证据 docs/acceptance/2026-09-12-409-reconnect-countdown.md。转待用户验收。
 
-- [ ] **#407 RenderSupplyCoordinatorTest 全量族跑间歇超时（T8/T11）** `test`
+- [~] **#407 RenderSupplyCoordinatorTest 全量族跑间歇超时（T8/T11）** `test`
   - 2026-09-12 三次全量 :app:testDevDebugUnitTest 中两次出现 T8/T11 （T11 后再现 T8），**单独 --tests '*RenderSupplyCoordinatorTest' 重跑恒绿**；同次全量里 DraftInputDelegateTest 也偶发 1 次、隔离即绿。
   - 影响：全量测试门禁随机红，需人工二次判定；方向=核实 T8/T11 的 withTimeout 余量是否受同 JVM 并发/首次类加载拖慢，或改用虚拟时钟/放宽超时；属测试基建（非产品缺陷），登记待排期。
   - 补正：上条第二处被 shell 反引号吞字——失败类型为 TimeoutCancellationException（kotlinx.coroutines，CoroutineDebugging.kt / Timeout.kt），出现在 RenderSupplyCoordinatorTest T8/T11。
+  - 2026-09-12 根因修复 + 验证 ：诊断结论=该类全程 runBlocking + 15s 墙钟 withTimeout，解析链硬编码共享 Dispatchers.Default → 全量跑时调度方差（邻居泄漏/机器争用/GC 风暴）拖穿等待预算；5s→15s 放大已被证伪（2/3 仍红）。修复=给解析链注入 dispatcher（RenderReadiness.preParse 新增 parseDispatcher=Default；RenderSupplyCoordinator 末位同名默认参数——生产行为零变化），测试 Env 传私有 daemon 单线程执行器。验证：隔离 --tests 绿；全量 :app:testDevDebugUnitTest --rerun 连续两次 BUILD SUCCESSFUL（基线 2/3 红）。伴发 DraftInputDelegateTest 为 runTest 默认 10s 墙钟，机制正交未动。转待用户验收。
 
 - [~] **#403 DSH system/message 走 role==system 分支遮蔽 injectionKind——标签恒「工具目录已变更」，与 #398「复用 injectionKind→EventCard」不符** `ui` `dsh`
   - ChatMessageList role=="system" 分支（L1664）先于 injectionKind 分支（L1712）；DB 中 system 消息 payload 带 injectionKind=plugin，但 UI 标签恒 chat_event_tool_catalog_changed。 -s 实测（会话 a84edbf7）：展开 system 注入卡字面可见，但标签非 kind 派生；「插件配置/上下文注入」标签只出现在 user/message+source.kind 路径。
