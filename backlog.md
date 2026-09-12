@@ -160,13 +160,6 @@
   - 用户裁决（2026-09-10）：排队不上屏 ✓ + 立刻发送（steer）上屏 ✓，但 steer 消息上屏后无任何徽标标识是有问题的——需恢复徽标（建议 steer 专属文案如「插话/注入中」而非「排队中」，文案待用户裁决；i18n ×15 + MessageCardUser 两变体渲染点）。注意 steer 无 wire 侧标记——识别依赖发送路径（steer=true 时 seedTranscript 播种），徽章状态需随消息携带或按 rpcId 关联。
   - 2026-09-12 实现+两轮模拟器复验 PASS：忙碌长按 steer 徽标「插话」持续 ≥45s（越过 L3 REST 兜底刷新），重进会话仍在，Room payload 含 viaSteer:true；负向对照无徽标、crash 0。实现 605d2194 + 持久化修复 d9a79767；证据 docs/acceptance/2026-09-12-395-steer-badge-verification.md。文案 zh=插话（待你最终裁决可调）。转待用户验收。
 
-- [~] **#392 Sheet fling 手势隔离在 V1 未生效——快速定位抽屉快速下滑仍收起（#379 回归面）** `sheet`
-  - 用户自助验收 ⑥ 顺带发现（2026-09-10）：#379 SheetGestures 内容手势隔离（fling 不收起+手柄收起）在 V2 验过，但 V1 服务器上 QuickNavigate 快速下滑 fling 仍会让抽屉收起——服务器类型交互统一铁律（ui-conventions §1）违背。疑点：sheet 组件按 server type 分叉 or V1 会话内容高度/嵌套滚动差异绕过隔离。
-  - 2026-09-12 V1 靶机复现（4198/1.18.27）判定 NOT-REPRO：内容区向下快 fling 18 次 0 收起，V2 对照同构；V1 无 server-type 分叉。真缝隙另立 #405（标题带下滑仍收起）。建议按「不可复现」关闭（待用户确认）；局限=注入 swipe 非真手指采样。证据 docs/acceptance/2026-09-12-392-v1-sheet-fling.md。
-  - 2026-09-12 后续（#405 定论）：V1 无服务器类型分叉已证；卡内所指「标题带」= 内容区 ≥538（标题文本实测 592 起），已受内容根手势块保护（ae52aeba 复验 PASS：600/670/700/541 VISIBLE）。建议 #392 按 NOT-REPRO 关闭。
-  - 用户 2026-09-12 反馈：V1/V2 应共用同一套逻辑/容器，不该表现不同——要求深入排查（不接受仅「NOT-REPRO」结论）。
-  - 2026-09-12 用户要求深查（不接受仅 NOT-REPRO）→ clean-context 侦查结论：整条链路（组件签名 / 抽屉几何 / 两道手势防线 / 入口门控 / jumpTargets 数据源 / 程序性 dismiss）无任何按服务器类型或服务器派生状态分叉的代码点；lint 白名单门禁（ServerTypeWhitelistDetector）从结构上禁止 Chat UI 引用 ServerType。差异最可能是**构建时间差**：#405 指针层兜底提交于 2026-09-12 04:18/04:41，SheetGestures 注释自证修复前标题带下滑必收起。唯一真实 V1/V2 输入差异 = 会话内容量（V1 靶会话 13 条 user）→ 抽屉内列表是否越过 75% 屏高可滚动边界，但两种情形两道防线均闭环。建议：核对用户两端 APK 构建 commit；必要时补 2×2 内容量矩阵复测。
-
 - [~] **#387 V2注入刷新消息渲染为用户气泡文字墙** `chat` `ui` `v2`
   - skill-catalog/上下文刷新类注入（<system-reminder>包裹、无source.kind标记）按普通用户气泡整文渲染，[Ack] 3 会话顶部现存活例（VLM 09-41 复核：calculator 全文蓝色气泡墙，而同位插件配置已是收起小卡）。初判服务端对此类刷新不带 kind，mapper 按普通 user 落库。根因方向：对齐 dsh web 对 system-reminder 注入的识别与收起呈现（内容嗅探或等价机制），修在映射/渲染层单点。证据：/tmp/n2_acklink_top.png n2_ackthree_top.png；演示批 journal 待补
   - 2026-09-12 修复（commit 99f6430f）：新增 domain 纯判定 SystemInjection.isPureReminder + 渲染单点嗅探，无 source.kind 的 <system-reminder> 闭合块走既有折叠卡（混合消息不折叠）；新增 SystemInjectionTest；待模拟器复验。
@@ -181,12 +174,6 @@
   - 2026-09-12 三次全量 :app:testDevDebugUnitTest 中两次出现 T8/T11 （T11 后再现 T8），**单独 --tests '*RenderSupplyCoordinatorTest' 重跑恒绿**；同次全量里 DraftInputDelegateTest 也偶发 1 次、隔离即绿。
   - 影响：全量测试门禁随机红，需人工二次判定；方向=核实 T8/T11 的 withTimeout 余量是否受同 JVM 并发/首次类加载拖慢，或改用虚拟时钟/放宽超时；属测试基建（非产品缺陷），登记待排期。
   - 补正：上条第二处被 shell 反引号吞字——失败类型为 TimeoutCancellationException（kotlinx.coroutines，CoroutineDebugging.kt / Timeout.kt），出现在 RenderSupplyCoordinatorTest T8/T11。
-
-- [ ] **#406 快速定位跳转后目标消息落在视口底部/下缘而非居中** `ui` `chat`
-  - 2026-09-12 #405 抽屉复验观察（两次一致）：点快速定位条目后抽屉关闭、目标消息进入视口且高亮链正常（#394 已修），但落点在视口底部/下缘，阅读上下文需再滑一下。
-  - 方向：评估 jumpTo 后对目标 turn 做 viewport 居中的可行性（LazyListState 的 offset 计算/动画），按「先调研再优化」纪律，登记待排期。
-  - 用户 2026-09-12 反馈：记忆中跳转后目标消息是落在视窗顶端的，现在落到底部——要求排查是否为本次重构引入的回归。
-  - 2026-09-12 clean-context 侦查结论：**不是 #391 重构回归，也不是顶对齐→底部的语义翻转**——成功跳转的终态至今=顶对齐（JumpNavigationController 渐进收敛，gap=目标顶边贴视口顶）。落底有两机制：① #394 修复前的 assistant 命中失败（u_ 前缀 vs t_ 键）→ 超时 Failed → 停在初始底部对齐位；窗口=08-31「进入即跳转」特性至 09-11 22:34 修复提交，最新 release v0.3.0(08-29) 无此路径；② 夹持收场（08-21 起，早于重构三周）——目标靠近列表最新端、下方内容不足一屏时顶对齐物理不可达，接受低位 Displayed。本地复验观察（高亮正常 + 两次落底）与②吻合。若要落点居中：把 computeGap / settled 判据 / 900ms 稳定窗口的顶对齐目标改为居中，其余机制不动；该文件是承重墙，须真机三态复验。请用户裁决是否实施居中。
 
 - [~] **#403 DSH system/message 走 role==system 分支遮蔽 injectionKind——标签恒「工具目录已变更」，与 #398「复用 injectionKind→EventCard」不符** `ui` `dsh`
   - ChatMessageList role=="system" 分支（L1664）先于 injectionKind 分支（L1712）；DB 中 system 消息 payload 带 injectionKind=plugin，但 UI 标签恒 chat_event_tool_catalog_changed。 -s 实测（会话 a84edbf7）：展开 system 注入卡字面可见，但标签非 kind 派生；「插件配置/上下文注入」标签只出现在 user/message+source.kind 路径。
