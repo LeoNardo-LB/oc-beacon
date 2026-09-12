@@ -351,3 +351,9 @@
   - 2026-09-12 调研完成（web_search 仍 402，降级 curl 直连一手源：androidx 源码 + Google 官方示例 + M3 页面 meta）：M3/commonMain 无常驻条幅组件；Now in Android 对离线用 duration=Indefinite 常驻 snackbar；本仓库既有 ServerLinkBanner（#267）已用于 Chat/会话列表。建议方案=仅当活动服务器非 Connected 时在 Home 顶部条件渲染既有 ServerLinkBanner（复用不新增组件）；冗余风险待用户拍板。详见 docs/research/2026-09-12-ux-research-405-401.md。
   - 用户 2026-09-12 裁决：Home 面确实不需要断连条幅（原范围终结，本卡据此结案）。同一反馈引出新缺陷——横幅出现后把原有内容顶推的幅度远超横幅自身高度，另立 #408 跟踪根因修复。
   - 迁入依据：用户 2026-09-12 裁决：Home 面确实不需要断连条幅（原范围终结）；同一反馈引出的顶推缺陷另立 #408 且已修复结卡（backlog.sh migrate 2026-09-12）
+
+### **#345 adb 注入 tap 间歇丢弃观察——MIUI 平台行为定性(非 app 缺陷),真手指未复现即不处理** `env` `device`
+  - 定性修正(2026-09-07 二查):原「两案全灭」重析后——**第二案翻案**:Doubang 输入法为浅色主题,screencap 下半屏与 app surface 同色族 (247,250,253),误判「无 IME」后 tap 实际全打在键盘上;7 节点 dump=输入法安全窗致盲(平台正常)。第一案(t4401 克隆任务后 composer 聚焦 tap 无响应)仍疑似 MIUI 注入丢弃家族(同 E4② shade 组卡先例);两案中键事件/焦点全程有效(`dumpsys input_method` mServedView 在场实证),app 侧无缺陷证据
+  - 本批定向复现未再现(IME 抬起+乱序 tap 串轰击后交互正常);缓解纪律已沉淀 device-testing.md(IME 判定用 dumpsys input_method 勿用像素分析;tap 失活二分定位;冷启恢复配方)。保持观察:真手指复现才升级为 app 卡
+  - → 证据:journal §二十五 #345 节 + /tmp/e2e-instr/r1-r3.xml(复现尝试全程交互正常)
+  - 迁入依据：用户 2026-09-12 授权结卡。定性为非 app 缺陷（MIUI 注入丢弃平台行为 + 浅色 IME 误判），缓解纪律已沉淀 docs/device-testing.md；保持观察改为按需——真手指复现再立新卡（backlog.sh migrate 2026-09-12）

@@ -65,13 +65,9 @@
   - 用户 2026-09-12 裁决：参照 dsh web / opencode web 对 system-reminder（注入/上下文刷新）的识别与收起逻辑，仿照其逻辑重构或开发客户端渲染。
   - 2026-09-12 按用户裁决调研 dsh web / opencode web 后实现：两端均**不用内容嗅探**——dsh 靠 user/message 的 source.kind（≠user 即折叠为 context 节点，dsh client.js:6048-6066），opencode 靠 text part 的 synthetic 字段（synthetic part 在用户气泡隐藏，message-part.tsx:1198-1200；生产端 reminders.ts:26-48）。我们的 V2 服务器两类字段都不发 → 「字段优先 + 嗅探兜底」是唯一可行路线。本次改动 = 嗅探下沉到映射单点 DshEventMapper.mapUserMessage（无 source.kind 且整条恰为一个闭合 system-reminder 块 → injectionKind=context），实况/通知/未来消费者共用；渲染层对历史 Room 行的同判据（SystemInjection.isPureReminder）兜底保留，新增单测（纯块→context、混合→null）。后续方向（登记在卡内、不另开卡）：① dsh form 结构化展开体；② opencode synthetic 式 part 级混合拆分。局限：本环境无 live 无字段样本，该路径仅单测覆盖。
   - 用户 2026-09-12 新考虑（本卡保持打开）：是否把 agent 的内容直接输出、不再用 agent 气泡包裹，以及这种形式是否应由 dsh（服务器字段/模型）来驱动。待用户明确指代对象（上下文注入 / 子智能体输出 / assistant 正文）后再定方案。已有调研事实：dsh web 对注入不是裸输出而是折叠成 Context injection/recall 行（标题+来源标签+可展开体，client.js:850-898）；opencode 对 synthetic part 是直接隐藏、工具上下文折叠成 Gathered context 组——两端都不裸输出。
+  - 2026-09-12 后续专题底稿已建：docs/research/2026-09-12-387-followup-discussion.md（已落地最小修复 + dsh/opencode 一手事实 + A/B/C 指代 + 候选方案与验证矩阵）。本卡转「专题讨论待定」，结论出来后按 spec 约定另立 spec/卡。
 
 ## P3 — 观察与低价值改进
-
-- [ ] **#345 adb 注入 tap 间歇丢弃观察——MIUI 平台行为定性(非 app 缺陷),真手指未复现即不处理** `env` `device`
-  - 定性修正(2026-09-07 二查):原「两案全灭」重析后——**第二案翻案**:Doubang 输入法为浅色主题,screencap 下半屏与 app surface 同色族 (247,250,253),误判「无 IME」后 tap 实际全打在键盘上;7 节点 dump=输入法安全窗致盲(平台正常)。第一案(t4401 克隆任务后 composer 聚焦 tap 无响应)仍疑似 MIUI 注入丢弃家族(同 E4② shade 组卡先例);两案中键事件/焦点全程有效(`dumpsys input_method` mServedView 在场实证),app 侧无缺陷证据
-  - 本批定向复现未再现(IME 抬起+乱序 tap 串轰击后交互正常);缓解纪律已沉淀 device-testing.md(IME 判定用 dumpsys input_method 勿用像素分析;tap 失活二分定位;冷启恢复配方)。保持观察:真手指复现才升级为 app 卡
-  - → 证据:journal §二十五 #345 节 + /tmp/e2e-instr/r1-r3.xml(复现尝试全程交互正常)
 
 ## P4 — 外部前提阻塞
 
