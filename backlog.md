@@ -167,12 +167,13 @@
   - 用户 2026-09-12 反馈：V1/V2 应共用同一套逻辑/容器，不该表现不同——要求深入排查（不接受仅「NOT-REPRO」结论）。
   - 2026-09-12 用户要求深查（不接受仅 NOT-REPRO）→ clean-context 侦查结论：整条链路（组件签名 / 抽屉几何 / 两道手势防线 / 入口门控 / jumpTargets 数据源 / 程序性 dismiss）无任何按服务器类型或服务器派生状态分叉的代码点；lint 白名单门禁（ServerTypeWhitelistDetector）从结构上禁止 Chat UI 引用 ServerType。差异最可能是**构建时间差**：#405 指针层兜底提交于 2026-09-12 04:18/04:41，SheetGestures 注释自证修复前标题带下滑必收起。唯一真实 V1/V2 输入差异 = 会话内容量（V1 靶会话 13 条 user）→ 抽屉内列表是否越过 75% 屏高可滚动边界，但两种情形两道防线均闭环。建议：核对用户两端 APK 构建 commit；必要时补 2×2 内容量矩阵复测。
 
-- [ ] **#387 V2注入刷新消息渲染为用户气泡文字墙** `chat` `ui` `v2`
+- [~] **#387 V2注入刷新消息渲染为用户气泡文字墙** `chat` `ui` `v2`
   - skill-catalog/上下文刷新类注入（<system-reminder>包裹、无source.kind标记）按普通用户气泡整文渲染，[Ack] 3 会话顶部现存活例（VLM 09-41 复核：calculator 全文蓝色气泡墙，而同位插件配置已是收起小卡）。初判服务端对此类刷新不带 kind，mapper 按普通 user 落库。根因方向：对齐 dsh web 对 system-reminder 注入的识别与收起呈现（内容嗅探或等价机制），修在映射/渲染层单点。证据：/tmp/n2_acklink_top.png n2_ackthree_top.png；演示批 journal 待补
   - 2026-09-12 修复（commit 99f6430f）：新增 domain 纯判定 SystemInjection.isPureReminder + 渲染单点嗅探，无 source.kind 的 <system-reminder> 闭合块走既有折叠卡（混合消息不折叠）；新增 SystemInjectionTest；待模拟器复验。
   - 2026-09-12 模拟器复验 NOT-REPRODUCIBLE：DB 中纯 <system-reminder> 的 user 消息 10 条但 10/10 带 source.kind（DSH 路径已折叠），无 kind 样本 0 条。已落 defensive 渲染层嗅探 + SystemInjection 单测；无 live 样本，请裁决是否关闭/保留观察。
   - 2026-09-12 V2 宿主侧复验：/api/session/{id}/instructions/entries 对新旧会话均为空；抓 /api/event 90s 新会话无注入帧 → 本环境无 live 样本（与模拟器 DB 扫描结论一致）。defensive 嗅探+SystemInjectionTest 保留；建议按「无 live 复现」关闭或保留观察，待你裁决。
   - 用户 2026-09-12 裁决：参照 dsh web / opencode web 对 system-reminder（注入/上下文刷新）的识别与收起逻辑，仿照其逻辑重构或开发客户端渲染。
+  - 2026-09-12 按用户裁决调研 dsh web / opencode web 后实现：两端均**不用内容嗅探**——dsh 靠 user/message 的 source.kind（≠user 即折叠为 context 节点，dsh client.js:6048-6066），opencode 靠 text part 的 synthetic 字段（synthetic part 在用户气泡隐藏，message-part.tsx:1198-1200；生产端 reminders.ts:26-48）。我们的 V2 服务器两类字段都不发 → 「字段优先 + 嗅探兜底」是唯一可行路线。本次改动 = 嗅探下沉到映射单点 DshEventMapper.mapUserMessage（无 source.kind 且整条恰为一个闭合 system-reminder 块 → injectionKind=context），实况/通知/未来消费者共用；渲染层对历史 Room 行的同判据（SystemInjection.isPureReminder）兜底保留，新增单测（纯块→context、混合→null）。后续方向（登记在卡内、不另开卡）：① dsh form 结构化展开体；② opencode synthetic 式 part 级混合拆分。局限：本环境无 live 无字段样本，该路径仅单测覆盖。
 
 ## P3 — 观察与低价值改进
 
@@ -185,6 +186,7 @@
   - 2026-09-12 #405 抽屉复验观察（两次一致）：点快速定位条目后抽屉关闭、目标消息进入视口且高亮链正常（#394 已修），但落点在视口底部/下缘，阅读上下文需再滑一下。
   - 方向：评估 jumpTo 后对目标 turn 做 viewport 居中的可行性（LazyListState 的 offset 计算/动画），按「先调研再优化」纪律，登记待排期。
   - 用户 2026-09-12 反馈：记忆中跳转后目标消息是落在视窗顶端的，现在落到底部——要求排查是否为本次重构引入的回归。
+  - 2026-09-12 clean-context 侦查结论：**不是 #391 重构回归，也不是顶对齐→底部的语义翻转**——成功跳转的终态至今=顶对齐（JumpNavigationController 渐进收敛，gap=目标顶边贴视口顶）。落底有两机制：① #394 修复前的 assistant 命中失败（u_ 前缀 vs t_ 键）→ 超时 Failed → 停在初始底部对齐位；窗口=08-31「进入即跳转」特性至 09-11 22:34 修复提交，最新 release v0.3.0(08-29) 无此路径；② 夹持收场（08-21 起，早于重构三周）——目标靠近列表最新端、下方内容不足一屏时顶对齐物理不可达，接受低位 Displayed。本地复验观察（高亮正常 + 两次落底）与②吻合。若要落点居中：把 computeGap / settled 判据 / 900ms 稳定窗口的顶对齐目标改为居中，其余机制不动；该文件是承重墙，须真机三态复验。请用户裁决是否实施居中。
 
 - [~] **#403 DSH system/message 走 role==system 分支遮蔽 injectionKind——标签恒「工具目录已变更」，与 #398「复用 injectionKind→EventCard」不符** `ui` `dsh`
   - ChatMessageList role=="system" 分支（L1664）先于 injectionKind 分支（L1712）；DB 中 system 消息 payload 带 injectionKind=plugin，但 UI 标签恒 chat_event_tool_catalog_changed。 -s 实测（会话 a84edbf7）：展开 system 注入卡字面可见，但标签非 kind 派生；「插件配置/上下文注入」标签只出现在 user/message+source.kind 路径。

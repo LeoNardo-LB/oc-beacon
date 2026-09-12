@@ -1,9 +1,11 @@
 package dev.leonardo.ocbeacon.data.api.dsh
 
+import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.SseEvent
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -159,6 +161,35 @@ class DshV3AdaptationTest {
             "hi",
             parts.filterIsInstance<dev.leonardo.ocbeacon.domain.model.Part.Text>().single().text,
         )
+    }
+
+    @Test
+    fun `v3 pure reminder without source kind is tagged injectionKind context (#387)`() {
+        // #387：V2 服务器不带 source.kind —— 映射单点用纯判定兜底，实况/通知层共用
+        val pure = DshEventMapper.mapSessionEvent(
+            "s1",
+            env(
+                """{"type":"user/message","seq":11,"time":20,"data":{"id":"m3","content":[
+                   {"type":"text","text":"<system-reminder>\nskills: calculator\n</system-reminder>"}]}}"""
+            ),
+        )
+        val pureUser = pure.filterIsInstance<DshMappedEvent.Sse>().map { it.event }
+            .filterIsInstance<SseEvent.MessageUpdated>().map { it.info }
+            .filterIsInstance<Message.User>().single()
+        assertEquals("context", pureUser.injectionKind)
+
+        // 混合消息（闭合块 + 真问句）不折叠——避免把用户正文一并吞掉
+        val mixed = DshEventMapper.mapSessionEvent(
+            "s1",
+            env(
+                """{"type":"user/message","seq":12,"time":21,"data":{"id":"m4","content":[
+                   {"type":"text","text":"<system-reminder>ctx</system-reminder>\n1+1=?"}]}}"""
+            ),
+        )
+        val mixedUser = mixed.filterIsInstance<DshMappedEvent.Sse>().map { it.event }
+            .filterIsInstance<SseEvent.MessageUpdated>().map { it.info }
+            .filterIsInstance<Message.User>().single()
+        assertNull(mixedUser.injectionKind)
     }
 
     @Test

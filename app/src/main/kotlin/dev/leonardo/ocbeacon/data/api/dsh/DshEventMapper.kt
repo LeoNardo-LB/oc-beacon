@@ -7,6 +7,7 @@ import dev.leonardo.ocbeacon.domain.model.PartIdContract
 import dev.leonardo.ocbeacon.domain.model.Session
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.domain.model.SseEvent
+import dev.leonardo.ocbeacon.domain.model.SystemInjection
 import dev.leonardo.ocbeacon.domain.model.SessionNextEvent
 import dev.leonardo.ocbeacon.domain.model.TimeInfo
 import dev.leonardo.ocbeacon.domain.model.ToolState
@@ -897,6 +898,18 @@ object DshEventMapper {
         val id = messageId(sessionId, seq)
         val injectionKind = data.obj("source")?.str("kind")
             ?.takeIf { it.isNotBlank() && it != "user" }
+            // #387（2026-09-12 用户裁决：仿 dsh web / opencode web 判据）：V2 服务器对
+            // skill-catalog / 上下文刷新注入**不带 source.kind**；两端 web 分别靠
+            // source.kind 字段（dsh）与 text part 的 synthetic 字段（opencode）判定，
+            // 我们无字段可用 → 在**映射单点**用同一纯判定兜底（渲染层对历史 Room 行的
+            // 同判据兜底保留，历史行不经本路径）。仅「整条恰为一个闭合
+            // <system-reminder> 块」命中；混合消息不折叠（不吞用户正文）。
+            ?: (data.arr("content") ?: emptyList())
+                .filterIsInstance<JsonObject>()
+                .filter { it.str("type") == "text" }
+                .joinToString("") { it.str("text") ?: "" }
+                .takeIf { it.isNotBlank() && SystemInjection.isPureReminder(it) }
+                ?.let { "context" }
         val events = mutableListOf<DshMappedEvent>(
             DshMappedEvent.Sse(
                 SseEvent.MessageUpdated(

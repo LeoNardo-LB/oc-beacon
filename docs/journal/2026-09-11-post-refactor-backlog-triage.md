@@ -167,3 +167,12 @@
   - 上条更正补字（shell 反引号吞字）：被 PATCH 的字段名是 time.archived（请求体 {"time":{"archived":<ms|0|null>}}）。
   - 用户 2026-09-12 裁决：选项 a——维持不接线（删除优先）。本卡据此结案。
   - 迁入依据：用户 2026-09-12 裁决选项 a：维持不接线（删除优先），归档通道即便在 V1 存在也不接线（backlog.sh migrate 2026-09-12）
+
+## 用户第二批裁决落地：#392 深查 / #387 对齐 web / #408 横幅顶推修复 / 反馈归卡约定（2026-09-12）
+
+- **反馈归卡约定（用户定规，写进 backlog.md 头部操作纪律）**：用户对某张卡片的反馈/裁决经 `backlog.sh note <N>` 记入**该卡片**明细，**不另开新卡**承载反馈；仅当反馈引出**新的独立缺陷**时才另立卡片并在两卡明细互相引用（#401→#408 为先例）。
+- **结案**：#388（定责=服务端未推送，外部前提性质）、#350（用户选项 a：维持不接线，删除优先）迁入 journal；#401 按用户裁决结案（Home 面确实不需要条幅）。
+- **#392 深查（用户不接受仅 NOT-REPRO）**：clean-context 侦查穷举整条链路（组件签名 / 抽屉几何 / 两道手势防线 / 入口门控 / jumpTargets 数据源 / 程序性 dismiss）→ **未发现任何按服务器类型或服务器派生状态分叉的代码点**；lint 白名单门禁（ServerTypeWhitelistDetector）从结构上禁止 Chat UI 引用 ServerType。结论=**V1/V2 同一套逻辑/容器**；差异最可能是**构建时间差**（#405 指针层兜底 2026-09-12 04:18/04:41 落地，用户反馈同日）。唯一真实 V1/V2 输入差异=会话内容量（决定抽屉列表是否越过 75% 屏高可滚动边界），但两种情形两道防线均闭环。建议：核对用户两端 APK 构建 commit；必要时补 2×2 内容量矩阵复测。
+- **#387 调研 + 实现（用户裁决：仿照 web 端逻辑）**：dsh web 靠 source.kind 字段（≠user 折叠为 context 节点，client.js:6048-6066）、opencode 靠 text part 的 synthetic 字段（synthetic part 在用户气泡隐藏，message-part.tsx:1198-1200；生产端 reminders.ts:26-48）——**两端都不做内容嗅探**。我们的 V2 服务器两类字段都不发 → 唯一可行路线=**字段优先 + 嗅探兜底**。实现：嗅探下沉到映射单点 DshEventMapper.mapUserMessage（无 kind 且整条恰为一个闭合 system-reminder 块 → injectionKind=context），实况/通知/未来消费者共用；渲染层对历史 Room 行的同判据兜底保留；新增单测（纯块→context、混合→null）。后续方向（卡内登记、不另开卡）：① 对齐 dsh 的 form 结构化展开体；② 对齐 opencode synthetic 的 part 级混合拆分。
+- **#408（P2，由 #401 反馈引出）根因修复 + 设备复验 PASS**：横幅自身 statusBars padding（本机 128px）与下方 TopAppBar 默认 windowInsets **各吃一次状态栏** → 内容被顶推 195px（横幅条仅 66px）。修复=ZeroTopAppBarWindowInsets + ChatTopBar 增 windowInsets 参数 + ChatScreen / SessionListScreen 在横幅可见时归零；复验顶推 **195→67px（=横幅条高）**，Chat 与会话列表两面一致，服务器恢复后横幅消失。证据 docs/acceptance/2026-09-12-408-banner-push.md；提交 f2174f10。
+- **#406 侦查结论**：**不是 #391 重构回归、也不是顶对齐→底部的语义翻转**——成功跳转的终态至今=顶对齐（JNC 渐进收敛；JNC 落点逻辑最后一次行为变更是 08-21 夹持收场，09-10/11 服务层重构未触及）。落底两出口：① #394 修复前 assistant 命中失败（u_ 键 vs t_ 键）→ 超时 Failed 停在初始底部对齐位（窗口=08-31 进入即跳转特性至 09-11 22:34 修复提交；v0.3.0 早于此无该路径）；② 夹持收场——目标下方（更新侧）不足一屏时顶对齐物理不可达，接受低位 Displayed（本地复验「高亮正常 + 两次落底」与此吻合）。若采纳 #406「居中」：只把 computeGap / settled 判据 / 900ms 稳定窗口三处目标改为居中，其余机制不动；JNC 是承重墙，须真机三态复验——待用户裁决。
