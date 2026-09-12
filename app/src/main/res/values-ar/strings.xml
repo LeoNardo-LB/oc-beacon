@@ -867,6 +867,7 @@
     <string name="queue_action_failed">فشل إجراء قائمة الانتظار</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">تم قطع اتصال الخادم، جارٍ إعادة الاتصال…</string>
+    <string name="server_link_disconnected_banner_countdown">انقطع الاتصال بالخادم، جارٍ إعادة الاتصال… (إعادة المحاولة خلال %1$d ثانية)</string>
     <string name="server_link_disconnected_message">الخادم غير متصل، لم يتم إرسال العملية</string>
 
     <!-- #154a 崩溃启动提示 -->

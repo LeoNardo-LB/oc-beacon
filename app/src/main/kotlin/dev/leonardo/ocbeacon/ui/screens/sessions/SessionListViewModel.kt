@@ -141,6 +141,11 @@ class SessionListViewModel @Inject constructor(
         sseConnectionManager.observeLinkState(serverId)
             .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000), sseConnectionManager.linkState(serverId))
 
+    /** #409：下次自动重连尝试时间（epochMs，null = 无排程）——断连条幅倒计时数据源。 */
+    val serverReconnectAt: kotlinx.coroutines.flow.StateFlow<Long?> =
+        sseConnectionManager.observeReconnectAt(serverId)
+            .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000), null)
+
     /** #267：写操作（删除/重命名）断连快速失败——不发请求。 */
     private fun fastFailIfLinkBlocked(): Boolean {
         if (sseConnectionManager.linkState(serverId) == dev.leonardo.ocbeacon.service.ServerLinkState.Connected) return false

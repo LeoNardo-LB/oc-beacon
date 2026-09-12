@@ -851,6 +851,7 @@
     <string name="queue_action_failed">キュー操作に失敗しました</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">サーバーが切断されました。再接続中…</string>
+    <string name="server_link_disconnected_banner_countdown">サーバーが切断されました。再接続中…（%1$d 秒後に再試行）</string>
     <string name="server_link_disconnected_message">サーバーが切断されているため、操作は送信されませんでした</string>
 
     <!-- #154a 崩溃启动提示 -->

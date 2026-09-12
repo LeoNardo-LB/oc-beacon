@@ -6,7 +6,9 @@ import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.logging.AppLogger
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderableTurn
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -37,6 +39,8 @@ internal class RenderSupplyCoordinator(
     private val parseScope: CoroutineScope,
     private val jumpPhase: StateFlow<JumpPhase>,
     private val clock: () -> Long = { android.os.SystemClock.elapsedRealtime() },
+    /** #407：解析链 dispatcher（测试注入私有线程；生产默认 Default）。置于末位避免破坏既有位置参数调用点。 */
+    private val parseDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
 
     /** 已提交分片计划（partId → plan）——buildChatEntries 消费。 */
@@ -199,7 +203,7 @@ internal class RenderSupplyCoordinator(
                     if (registry.current(g.partId) is RenderReadiness.Pending &&
                         g.text.length >= PREPARSE_MIN_CHARS
                     ) {
-                        registry.preParse(g.partId, g.text, parseScope)
+                        registry.preParse(g.partId, g.text, parseScope, parseDispatcher = parseDispatcher)
                     }
                 }
                 materializePendingSegments(items, groups, fissionHead, fissionTail)
@@ -347,6 +351,7 @@ internal class RenderSupplyCoordinator(
                                 key,
                                 textForParse,
                                 parseScope,
+                                parseDispatcher = parseDispatcher,
                             ) { st ->
                                 // 巨型 part 解析完成即计算块级分片计划（主线程
                                 // 回调）——后续该 turn 进入视口时按计划发射

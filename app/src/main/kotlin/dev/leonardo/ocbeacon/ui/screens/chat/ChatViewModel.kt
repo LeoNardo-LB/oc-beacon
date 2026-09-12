@@ -126,6 +126,11 @@ class ChatViewModel @Inject constructor(
         sseConnectionManager.observeLinkState(serverId)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), sseConnectionManager.linkState(serverId))
 
+    /** #409：下次自动重连尝试时间（epochMs，null = 无排程）——断连条幅倒计时数据源。 */
+    val serverReconnectAt: StateFlow<Long?> =
+        sseConnectionManager.observeReconnectAt(serverId)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     /**
      * #267 写操作快速失败哨兵——[sendFailure] 消费端（ChatScreen AlertDialog）
      * 据此映射本地化文案（VM 无 stringResource）。检测滞后由 UI 侧映射兜底。

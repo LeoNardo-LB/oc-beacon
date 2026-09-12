@@ -859,6 +859,7 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="queue_action_failed">Akcja kolejki nie powiodła się</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">Serwer rozłączony, ponowne łączenie…</string>
+    <string name="server_link_disconnected_banner_countdown">Serwer rozłączony, ponowne łączenie… (kolejna próba za %1$d s)</string>
     <string name="server_link_disconnected_message">Serwer rozłączony, operacja nie została wysłana</string>
 
     <!-- #154a 崩溃启动提示 -->

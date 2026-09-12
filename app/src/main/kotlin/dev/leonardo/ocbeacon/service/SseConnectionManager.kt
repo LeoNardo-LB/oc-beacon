@@ -28,6 +28,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.flow.update
@@ -142,6 +144,10 @@ class SseConnectionManager @Inject constructor(
     fun observeLinkState(serverId: String): Flow<ServerLinkState> =
         deriveLinkStateFlow(_connectedServerIds, _connectingServerIds, serverId)
 
+    /** #409：单服务器下次重连尝试时间流（null = 当前无排程）。 */
+    fun observeReconnectAt(serverId: String): Flow<Long?> =
+        _reconnectAt.map { it[serverId] }.distinctUntilChanged()
+
     /**
      * #267（spec §3.3 检测滞后补刀）：REST 传输层失败回灌——不等 SSE 读循环
      * 超时。**踢一次重连自检**：服务器健康则秒级恢复 Connected（条幅闪现即
@@ -194,6 +200,14 @@ class SseConnectionManager @Inject constructor(
     val connectingServerIds: StateFlow<Set<String>>
         get() = _connectingServerIds.asStateFlow()
     private val _connectingServerIds = MutableStateFlow<Set<String>>(emptySet())
+
+    /**
+     * #409：serverId → 下一次重连尝试的墙钟时间（epochMs）。空/缺键 = 当前无待重连
+     * 排程（已连接，或尚未进入退避）。UI 据此每秒计算「N 秒后重试」倒计时。
+     */
+    val reconnectAt: StateFlow<Map<String, Long>>
+        get() = _reconnectAt.asStateFlow()
+    private val _reconnectAt = MutableStateFlow<Map<String, Long>>(emptyMap())
 
     /**
      * #317：DSH 0.1.2+ token 待输入的服务器 ID 集合（探测双形态 401）。
@@ -257,6 +271,7 @@ class SseConnectionManager @Inject constructor(
         dshFrameSources.remove(serverId) // #333：帧源登记随连接销毁
         _connectedServerIds.update { it - serverId }
         _connectingServerIds.update { it - serverId }
+        _reconnectAt.update { it - serverId } // #409：连接销毁，清倒计时排程
         // 双轴审查：TokenNeeded 挂起中取消连接时 markTokenNeeded(false) 不可达
         // （CancellationException 先行）——不在此清理则已删服务器永久残留集合。
         markTokenNeeded(serverId, needed = false)
@@ -281,6 +296,7 @@ class SseConnectionManager @Inject constructor(
         // 调用复活已被清除的 server ID。
         _connectedServerIds.update { emptySet() }
         _connectingServerIds.update { emptySet() }
+        _reconnectAt.update { emptyMap() } // #409：全停，清倒计时排程
         _dshTokenNeededServers.update { emptySet() } // 同 stopConnection：防幽灵 token 提示
         for (serverId in serverIds) {
             eventDispatcher.clearForServer(serverId)
@@ -485,7 +501,7 @@ class SseConnectionManager @Inject constructor(
                             updateServerConnected(server.id, false)
                             if (BuildConfig.DEBUG) AppLogger.d(TAG, "DSH probe unreachable: " + handshake.detail)
                             if (!connections.containsKey(server.id)) break
-                            delay(calculateBackoff(attempt))
+                            delay(backoffWithSchedule(server.id, attempt))
                             continue
                         }
                         dev.leonardo.ocbeacon.data.adapter.ConnectionStatus.ONLINE -> {
@@ -512,7 +528,7 @@ class SseConnectionManager @Inject constructor(
                         preloadJob.cancelAndJoin()
                     }
                     if (!connections.containsKey(server.id)) break
-                    delay(calculateBackoff(attempt))
+                    delay(backoffWithSchedule(server.id, attempt))
                     continue
                 }
                 // SSE 线面消费同一握手产物：UNKNOWN 回落 V1 基线仅记降级（不改变行为）
@@ -612,7 +628,7 @@ class SseConnectionManager @Inject constructor(
                 // 若此服务器已从 connections 中移除，则停止循环
                 if (!connections.containsKey(server.id)) break
 
-                val delayMs = calculateBackoff(attempt)
+                val delayMs = backoffWithSchedule(server.id, attempt)
                 if (BuildConfig.DEBUG) AppLogger.d(TAG, "[${server.displayName}] Reconnecting in ${delayMs}ms (attempt #$attempt)")
                 delay(delayMs)
             }
@@ -738,6 +754,7 @@ class SseConnectionManager @Inject constructor(
         if (connected) {
             _connectingServerIds.update { it - serverId }
             _connectedServerIds.update { it + serverId }
+            _reconnectAt.update { it - serverId } // #409：已连上，清倒计时排程
             AppLogger.i(TAG, "Connected to server $serverId")
         } else {
             _connectedServerIds.update { it - serverId }
@@ -752,6 +769,13 @@ class SseConnectionManager @Inject constructor(
     // retryWithPolicy 仅对瞬时错误（isTransientException：IOException/超时/
     // ApiError.isTransient）重试。语义部分重合、策略不同，不强改统一；
     // 未来若统一，此处应改为组合 RetryPolicy 配置 + ApiError.isTransient 分类。
+    /** #409：登记退避排程（UI 倒计时数据源）并返回本次延迟。 */
+    private suspend fun backoffWithSchedule(serverId: String, attempt: Int): Long {
+        val delayMs = calculateBackoff(attempt)
+        _reconnectAt.update { it + (serverId to System.currentTimeMillis() + delayMs) }
+        return delayMs
+    }
+
     private suspend fun calculateBackoff(attempt: Int): Long {
         val maxDelay = when (settingsRepository.reconnectMode().first()) {
             "aggressive" -> 5_000L

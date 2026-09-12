@@ -193,3 +193,11 @@
   - 用户 2026-09-12 反馈：记忆中跳转后目标消息是落在视窗顶端的，现在落到底部——要求排查是否为本次重构引入的回归。
   - 2026-09-12 clean-context 侦查结论：**不是 #391 重构回归，也不是顶对齐→底部的语义翻转**——成功跳转的终态至今=顶对齐（JumpNavigationController 渐进收敛，gap=目标顶边贴视口顶）。落底有两机制：① #394 修复前的 assistant 命中失败（u_ 前缀 vs t_ 键）→ 超时 Failed → 停在初始底部对齐位；窗口=08-31「进入即跳转」特性至 09-11 22:34 修复提交，最新 release v0.3.0(08-29) 无此路径；② 夹持收场（08-21 起，早于重构三周）——目标靠近列表最新端、下方内容不足一屏时顶对齐物理不可达，接受低位 Displayed。本地复验观察（高亮正常 + 两次落底）与②吻合。若要落点居中：把 computeGap / settled 判据 / 900ms 稳定窗口的顶对齐目标改为居中，其余机制不动；该文件是承重墙，须真机三态复验。请用户裁决是否实施居中。
   - 迁入依据：用户 2026-09-12 裁决：维持顶对齐（不做居中），并要求快速定位与关键词跳转点击两条路径都顶对齐。复测 PASS：两路径落点逐像素一致（用户头 333 / 正文 396，目标为视口第一项）；近列表末端夹持收场属物理不可达、设计内。证据 docs/acceptance/2026-09-12-406-jump-topalign.md（backlog.sh migrate 2026-09-12）
+
+## 用户第三批：V1 复测结案 / 顶对齐复核 / 重连倒计时 / #407 flake 根治（2026-09-12）
+
+- **#392 V1 复测 PASS 并结案**（用户裁决「复测没问题就关闭」）：列表快速 fling 上/下、标题带 600/670/700、内容上沿 545 全 VISIBLE；手柄槽 522 与 scrim 收起正常；crash 0。证据 `docs/acceptance/2026-09-12-392-v1-recheck.md`。
+- **#406 维持顶对齐**（用户裁决不居中）：快速定位 Q1 与关键词 charlie 命中第 1 轮，两条路径落点逐像素一致（用户头 333 / 正文 396，目标为视口第一项）；近列表末端夹持收场属物理不可达、设计内。证据 `docs/acceptance/2026-09-12-406-jump-topalign.md`。
+- **#409（新登记，由 #408 引出）断连横幅倒计时**：确认自动重连后，`SseConnectionManager` 新增 `reconnectAt` 排程（退避 `delay` 前经 `backoffWithSchedule` 登记 serverId→下次尝试 epochMs；连接成功 / `stopConnection` / `stopAllConnections` 清除），Chat/SessionList ViewModel 暴露 `serverReconnectAt`，横幅 `retryAtEpochMs` 非空时每秒 tick 显示「N 秒后重试」；i18n 新增键 ×15 语言通过（885 keys）。设备复验：停 V1 后三帧 1s/2s/1s 数值在变，V1 恢复后横幅消失，crash 0。证据 `docs/acceptance/2026-09-12-409-reconnect-countdown.md`。
+- **#407 全量测试 flake 根因修复**：`RenderSupplyCoordinatorTest` 全程 `runBlocking` + 15s 墙钟 `withTimeout`，解析链硬编码共享 `Dispatchers.Default` → 全量跑时调度方差拖穿等待预算（基线 2/3 红；5s→15s 放大已被证伪）。修复=解析 dispatcher 可注入（`RenderReadiness.preParse` / `RenderSupplyCoordinator` 末位默认参数，**生产默认不变**），测试注入私有 daemon 单线程；隔离 `--tests` 绿 + 全量连续两次 `BUILD SUCCESSFUL`。伴发 `DraftInputDelegateTest` 为 runTest 默认 10s 墙钟（机制正交，未动）。
+- **自身回归教训（已修复）**：ViewModel 新增 `stateIn` 的初值用 relaxed MockK 的 `reconnectAt.value[serverId]` → 返回 `Object` 无法转 Map，82 个 ViewModel 测试 `ClassCastException`；改为初值 `null` 后门禁全绿。

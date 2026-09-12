@@ -851,6 +851,7 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="queue_action_failed">La acción de la cola falló</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">Servidor desconectado, reconectando…</string>
+    <string name="server_link_disconnected_banner_countdown">Servidor desconectado, reconectando… (reintento en %1$d s)</string>
     <string name="server_link_disconnected_message">Servidor desconectado, operación no enviada</string>
 
     <!-- #154a 崩溃启动提示 -->

@@ -851,6 +851,7 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="queue_action_failed">Warteschlangenaktion fehlgeschlagen</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">Server getrennt, Verbindung wird wiederhergestellt…</string>
+    <string name="server_link_disconnected_banner_countdown">Server getrennt, Verbindung wird wiederhergestellt… (neuer Versuch in %1$d s)</string>
     <string name="server_link_disconnected_message">Server nicht verbunden, Vorgang nicht gesendet</string>
 
     <!-- #154a 崩溃启动提示 -->

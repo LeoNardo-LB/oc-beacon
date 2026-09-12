@@ -934,6 +934,7 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="context_pressure_messages">Messages</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">Server disconnected, reconnecting…</string>
+    <string name="server_link_disconnected_banner_countdown">Server disconnected, reconnecting… (retry in %1$d s)</string>
     <string name="server_link_disconnected_message">Server disconnected, operation not sent</string>
 
     <!-- #154a 崩溃启动提示 -->

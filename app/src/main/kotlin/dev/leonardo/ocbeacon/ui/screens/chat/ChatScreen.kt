@@ -701,8 +701,10 @@ fun ChatScreen(
                     // #408：横幅自带 statusBars inset —— 下方 TopAppBar 须归零状态栏 inset，
                     // 否则状态栏高度被计两次，内容被顶推「横幅高度 + 2×状态栏」。
                     val linkBannerVisible = serverLinkState != ServerLinkState.Connected
+                    // #409：下次自动重连时间（倒计时）
+                    val serverReconnectAt by viewModel.serverReconnectAt.collectAsStateWithLifecycle()
                     if (linkBannerVisible) {
-                        ServerLinkBanner()
+                        ServerLinkBanner(retryAtEpochMs = serverReconnectAt)
                     }
                     ChatTopBar(
                         windowInsets = if (linkBannerVisible) {

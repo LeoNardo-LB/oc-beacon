@@ -196,6 +196,8 @@ viewModel.consumePendingReadSessionId()
                 val serverLinkState by viewModel.serverLinkState.collectAsStateWithLifecycle()
                 // #317：token 待输入优先于一般断连横幅（给出路而非干等重连）
                 val authTokenNeeded by viewModel.authTokenNeeded.collectAsStateWithLifecycle()
+                // #409：下次自动重连时间（倒计时）
+                val serverReconnectAt by viewModel.serverReconnectAt.collectAsStateWithLifecycle()
                 // #408：只有真有横幅渲染时才把状态栏 inset 让给横幅（槽未声明且非 token 态时无横幅）
                 val headerBannerShown = serverLinkState != ServerLinkState.Connected &&
                     (ServerUiSlot.SESSION_LIST_HEADER in sessionUiSlots || !authTokenNeeded)
@@ -209,7 +211,7 @@ viewModel.consumePendingReadSessionId()
                             host = SessionListHeaderSlotHost(tokenNeeded = authTokenNeeded),
                         )
                     }
-                    if (!authTokenNeeded) ServerLinkBanner()
+                    if (!authTokenNeeded) ServerLinkBanner(retryAtEpochMs = serverReconnectAt)
                 }
                 // #408：横幅在上时本栏归零状态栏 inset——否则状态栏高度被计两次
                 TopAppBar(

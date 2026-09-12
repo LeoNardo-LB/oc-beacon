@@ -7,9 +7,12 @@ import dev.leonardo.ocbeacon.domain.model.ToolState
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.computeRenderableTurn
 import dev.leonardo.ocbeacon.ui.screens.chat.util.computeTurnGroups
+import java.util.concurrent.Executors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -37,10 +40,19 @@ import org.junit.Test
  * - T9 C-R4c 陈旧丢弃（turn 消失 → pending 真正清空）
  * - T10 流式 turn 记录 + 窗口清理（recentStreamedTurnKeys）
  *
- * 真实 RenderReadinessRegistry + 真实 markdown 解析（Dispatchers.Default，
- * await Parsed 终态同步）；Unconfined 作用域保证相位打点即时生效。
+ * 真实 RenderReadinessRegistry + 真实 markdown 解析（#407：测试私有的单线程
+ * dispatcher，不再用共享 Dispatchers.Default——全量跑时邻居/机器负载会拖穿 15s
+ * 等待预算导致 T8/T11 间歇超时）；Unconfined 作用域保证相位打点即时生效。
  */
 class RenderSupplyCoordinatorTest {
+
+    private companion object {
+        /** #407：测试私有解析线程（daemon，不阻塞 JVM 退出；fork 内仅本类使用）。 */
+        val parseDispatcher: ExecutorCoroutineDispatcher =
+            Executors.newSingleThreadExecutor { r ->
+                Thread(r, "render-parse-test").apply { isDaemon = true }
+            }.asCoroutineDispatcher()
+    }
 
     private class Env {
         val registry = RenderReadinessRegistry()
@@ -49,7 +61,8 @@ class RenderSupplyCoordinatorTest {
         val coordinator = RenderSupplyCoordinator(
             registry,
             CoroutineScope(Dispatchers.Unconfined + SupervisorJob()),
-            jumpPhase,
+            parseDispatcher = parseDispatcher,
+            jumpPhase = jumpPhase,
             clock = { now },
         )
 

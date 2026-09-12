@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat.components
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.mikepenz.markdown.model.State
 import com.mikepenz.markdown.model.parseMarkdownFlow
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -96,6 +97,10 @@ class RenderReadinessRegistry {
         partId: String,
         rawText: String,
         scope: CoroutineScope,
+        // #407（2026-09-12 测试基建根治）：解析链 dispatcher 可注入（默认不改变生产行为）——
+        // 测试传私有单线程，避免共享 Dispatchers.Default 在全量跑时被邻居/机器负载拖穿
+        // 15s 等待预算（RenderSupplyCoordinatorTest T8/T11 间歇超时的根因）。
+        parseDispatcher: CoroutineDispatcher = Dispatchers.Default,
         // 2026-08-20 分片：解析完成回调（主线程——launch 上下文）。调用方
         // （渲染供给协调器）在此计算巨型 part 的块级分片计划。
         onParsed: ((State.Success) -> Unit)? = null,
@@ -116,9 +121,9 @@ class RenderReadinessRegistry {
             kotlinx.coroutines.flow.flow {
                 emit(dev.leonardo.ocbeacon.ui.screens.chat.markdown.normalizeForRender(rawText, isUser = false))
             }
-                .flowOn(Dispatchers.Default)
+                .flowOn(parseDispatcher)
                 .collect { normalized ->
-                    parseMarkdownFlow(normalized).flowOn(Dispatchers.Default).collect { st ->
+                    parseMarkdownFlow(normalized).flowOn(parseDispatcher).collect { st ->
                         when (st) {
                             is State.Success -> {
                                 target.value = RenderReadiness.Parsed(st)

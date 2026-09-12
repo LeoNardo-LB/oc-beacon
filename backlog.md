@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#409**（2026-09-12 #408 断连横幅出现时把原有内容顶推幅度远超横幅自身高度）。
+**编号**：全局递增，不回收。下一编号：**#410**（2026-09-12 #409 断连横幅显示下次重连倒计时）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。**反馈归卡（2026-09-12 用户定规）**：用户对某张卡片的反馈/裁决一律经 `backlog.sh note <N>` 记入**该卡片**明细，**不另开新卡**承载反馈；仅当反馈引出**新的独立缺陷**时才另立卡片，并在两卡明细互相引用（#401→#408 为先例）。
 
@@ -169,6 +169,11 @@
   - 2026-09-12 按用户裁决调研 dsh web / opencode web 后实现：两端均**不用内容嗅探**——dsh 靠 user/message 的 source.kind（≠user 即折叠为 context 节点，dsh client.js:6048-6066），opencode 靠 text part 的 synthetic 字段（synthetic part 在用户气泡隐藏，message-part.tsx:1198-1200；生产端 reminders.ts:26-48）。我们的 V2 服务器两类字段都不发 → 「字段优先 + 嗅探兜底」是唯一可行路线。本次改动 = 嗅探下沉到映射单点 DshEventMapper.mapUserMessage（无 source.kind 且整条恰为一个闭合 system-reminder 块 → injectionKind=context），实况/通知/未来消费者共用；渲染层对历史 Room 行的同判据（SystemInjection.isPureReminder）兜底保留，新增单测（纯块→context、混合→null）。后续方向（登记在卡内、不另开卡）：① dsh form 结构化展开体；② opencode synthetic 式 part 级混合拆分。局限：本环境无 live 无字段样本，该路径仅单测覆盖。
 
 ## P3 — 观察与低价值改进
+
+- [~] **#409 断连横幅显示下次重连倒计时** `ui` `resilience`
+  - 用户 2026-09-12 反馈（由 #408 引出）：确认自动重连后，希望在断连横幅上显示「N 秒后重试」倒计时（现在只有常驻文字）。
+  - 实现要点：SseConnectionManager 退避 delay 前登记 serverId → 下次尝试墙钟时间（reconnectAt StateFlow），ViewModel 暴露，横幅每秒 tick 计算剩余秒；文案 i18n ×15。
+  - 2026-09-12 实现 + 设备复验 PASS：SseConnectionManager 新增 reconnectAt 排程（每次退避 delay 前登记 serverId→下次尝试 epochMs，连接成功/连接销毁/全停清除），Chat/SessionList ViewModel 暴露 serverReconnectAt，横幅 retryAtEpochMs 非空时每秒 tick 显示「N 秒后重试」；i18n 新增键 ×15 语言通过。实测停 V1 后三帧 1s/2s/1s 数值在变，V1 恢复后横幅消失，crash 0。APK md5 e84868574c2df04240808ba3dd9cfd7b。证据 docs/acceptance/2026-09-12-409-reconnect-countdown.md。转待用户验收。
 
 - [ ] **#407 RenderSupplyCoordinatorTest 全量族跑间歇超时（T8/T11）** `test`
   - 2026-09-12 三次全量 :app:testDevDebugUnitTest 中两次出现 T8/T11 （T11 后再现 T8），**单独 --tests '*RenderSupplyCoordinatorTest' 重跑恒绿**；同次全量里 DraftInputDelegateTest 也偶发 1 次、隔离即绿。

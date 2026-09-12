@@ -860,6 +860,7 @@
     <string name="queue_action_failed">Ошибка операции с очередью</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">Сервер отключён, переподключение…</string>
+    <string name="server_link_disconnected_banner_countdown">Сервер отключён, переподключение… (повтор через %1$d с)</string>
     <string name="server_link_disconnected_message">Сервер отключён, операция не отправлена</string>
 
     <!-- #154a 崩溃启动提示 -->

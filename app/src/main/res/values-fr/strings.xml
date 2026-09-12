@@ -849,6 +849,7 @@
     <string name="queue_action_failed">Échec de l action sur la file d attente</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">Serveur déconnecté, reconnexion…</string>
+    <string name="server_link_disconnected_banner_countdown">Serveur déconnecté, reconnexion… (nouvelle tentative dans %1$d s)</string>
     <string name="server_link_disconnected_message">Serveur déconnecté, opération non envoyée</string>
 
     <!-- #154a 崩溃启动提示 -->

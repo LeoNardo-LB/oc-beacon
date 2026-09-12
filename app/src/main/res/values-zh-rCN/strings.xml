@@ -854,6 +854,7 @@
     <string name="queue_action_failed">队列操作失败</string>
     <!-- #267 Server disconnect awareness (banner + fast-fail message) -->
     <string name="server_link_disconnected_banner">服务器已断开，正在重连…</string>
+    <string name="server_link_disconnected_banner_countdown">服务器已断开，正在重连…（%1$d 秒后重试）</string>
     <string name="server_link_disconnected_message">服务器已断开，操作未发送</string>
 
     <!-- #154a 崩溃启动提示 -->
