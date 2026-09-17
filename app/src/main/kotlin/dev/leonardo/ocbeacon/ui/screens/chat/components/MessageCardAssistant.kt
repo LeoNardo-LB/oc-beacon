@@ -217,11 +217,12 @@ internal fun MessageCardAssistant(
     var showMoreSheet by remember { mutableStateOf(false) }
     val moreClipboard = LocalClipboard.current
     val moreScope = rememberCoroutineScope()
-    // US#14：最新轮尾部常显；历史轮默认收起、点击摘要展开（产出文件行随之显隐）
-    var tailExpanded by remember { mutableStateOf(isTurnLast) }
-    LaunchedEffect(isTurnLast) { if (isTurnLast) tailExpanded = true }
+    // US#14：最新轮尾部常显；历史轮默认收起、点击摘要展开（产出文件行随之显隐）。
+    // 派生式：仅显式点击落 override；否则随 isTurnLast 变化（旧最新轮自动收起）。
+    var tailExpandedOverride by remember { mutableStateOf<Boolean?>(null) }
+    val tailExpanded = tailExpandedOverride ?: isTurnLast
 
-        MessageBubble(
+    MessageBubble(
             alignEnd = false,
             containerColor = Color.Transparent,
             flat = true,
@@ -316,7 +317,7 @@ internal fun MessageCardAssistant(
                                             if (tailExpanded) R.string.chat_turn_ledger_collapse
                                             else R.string.chat_turn_ledger_expand,
                                         ),
-                                    ) { tailExpanded = !tailExpanded }
+                                    ) { tailExpandedOverride = !tailExpanded }
                             } else {
                                 Modifier
                             },
@@ -1085,9 +1086,10 @@ private fun ChunkStatsBar(
     var showMoreSheet by remember { mutableStateOf(false) }
     val moreClipboard = LocalClipboard.current
     val moreScope = rememberCoroutineScope()
-    // US#14：最新轮尾部常显；历史轮默认收起、点击摘要展开（产出文件行随之显隐）
-    var tailExpanded by remember { mutableStateOf(isTurnLast) }
-    LaunchedEffect(isTurnLast) { if (isTurnLast) tailExpanded = true }
+    // US#14：最新轮尾部常显；历史轮默认收起、点击摘要展开（产出文件行随之显隐）。
+    // 派生式：仅显式点击落 override；否则随 isTurnLast 变化（旧最新轮自动收起）。
+    var tailExpandedOverride by remember { mutableStateOf<Boolean?>(null) }
+    val tailExpanded = tailExpandedOverride ?: isTurnLast
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -1148,7 +1150,7 @@ private fun ChunkStatsBar(
                                     if (tailExpanded) R.string.chat_turn_ledger_collapse
                                     else R.string.chat_turn_ledger_expand,
                                 ),
-                            ) { tailExpanded = !tailExpanded }
+                            ) { tailExpandedOverride = !tailExpanded }
                     } else {
                         Modifier
                     },
