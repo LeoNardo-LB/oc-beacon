@@ -67,6 +67,7 @@
   - 用户 2026-09-12 新考虑（本卡保持打开）：是否把 agent 的内容直接输出、不再用 agent 气泡包裹，以及这种形式是否应由 dsh（服务器字段/模型）来驱动。待用户明确指代对象（上下文注入 / 子智能体输出 / assistant 正文）后再定方案。已有调研事实：dsh web 对注入不是裸输出而是折叠成 Context injection/recall 行（标题+来源标签+可展开体，client.js:850-898）；opencode 对 synthetic part 是直接隐藏、工具上下文折叠成 Gathered context 组——两端都不裸输出。
   - 2026-09-12 后续专题底稿已建：docs/research/2026-09-12-387-followup-discussion.md（已落地最小修复 + dsh/opencode 一手事实 + A/B/C 指代 + 候选方案与验证矩阵）。本卡转「专题讨论待定」，结论出来后按 spec 约定另立 spec/卡。
   - 2026-09-12 专题结论（6 轮 grilling）：设计定稿并发布为 GitHub Issue #11（标签 ready-for-agent）——消息层改扁平三段式（去气泡外观、保留头部/正文/尾部骨架）；通知层统一为通知卡家族；重指标与逐轮明细收进顶部统计弹窗（改底部可滚动面板）；撤销 UI 层 ×N 合并、改数据层按事件身份键原位更新。spec: docs/specs/2026-09-12-message-chrome-flattening-design.md；字段盘点: docs/research/2026-09-12-message-chrome-field-inventory.md。本卡后续按 #11 跟踪。
+  - - 2026-09-17 按 spec/Issue #11 实施：批1 数据层（DSH 模型路由 + usage 全桶 + agent 漂移清理 + 行模型 seam）与批2 消息层（扁平三段式去容器 + 状态徽标 + 「更多」面板 + 尾部吸收台账/产出 + 间距 16dp + 身份键去重）已提交；批3 统计弹窗实施中。journal: docs/journal/2026-09-17-387.md。
 
 ## P3 — 观察与低价值改进
 
