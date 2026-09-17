@@ -222,11 +222,8 @@
     <string name="chat_event_task_failed">子智能体失败</string>
     <string name="chat_event_shell_completed">后台命令完成</string>
     <string name="chat_event_shell_failed">后台命令失败</string>
-    <string name="chat_turn_ledger_summary">轮次 %1$d · %2$s · %3$d 步 · %4$d 个工具</string>
     <string name="chat_turn_ledger_expand">展开轮次详情</string>
     <string name="chat_turn_ledger_collapse">收起轮次详情</string>
-    <string name="chat_turn_ledger_tool_calls">工具调用: %1$d</string>
-    <string name="chat_turn_ledger_tokens">令牌: %1$s</string>
     <string name="chat_turn_fork_from_here">从此轮分支</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">产物</string>
@@ -254,7 +251,6 @@
     <string name="chat_delete_message_message">此操作将从服务器会话中删除该消息，且无法撤销。</string>
     <string name="chat_message_deleted">消息已删除</string>
     <string name="chat_message_delete_failed">删除消息失败</string>
-    <string name="chat_turn_number">轮次 %1$d</string>
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">令牌/秒</string>
     <string name="chat_msg_tail_summary">%1$d 步 · %2$d 个工具</string>
@@ -558,7 +554,6 @@
     <string name="settings_auto_allow_permissions_desc">对每个权限请求自动应答「始终允许」。规则会持久保存——仅对可信服务器开启。</string>
     <string name="settings_no_auto_approve_rules">没有已保存的自动批准规则</string>
     <string name="settings_delete_rule">删除规则</string>
-    <string name="chat_meta_tokens">%d 个令牌</string>
     <string name="chat_glob_match_count">%d 个匹配</string>
     <string name="tool_web_fetch">WebFetch</string>
     <string name="chat_webfetch_prompt">提示词：%s</string>

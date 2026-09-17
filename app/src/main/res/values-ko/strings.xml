@@ -220,11 +220,8 @@
     <string name="chat_event_task_failed">하위 에이전트 실패</string>
     <string name="chat_event_shell_completed">백그라운드 명령 완료</string>
     <string name="chat_event_shell_failed">백그라운드 명령 실패</string>
-    <string name="chat_turn_ledger_summary">턴 %1$d · %2$s · %3$d단계 · %4$d개 도구</string>
     <string name="chat_turn_ledger_expand">턴 세부정보 표시</string>
     <string name="chat_turn_ledger_collapse">턴 세부정보 숨기기</string>
-    <string name="chat_turn_ledger_tool_calls">도구 호출: %1$d</string>
-    <string name="chat_turn_ledger_tokens">토큰: %1$s</string>
     <string name="chat_turn_fork_from_here">이 턴에서 분기</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">산출물</string>
@@ -252,7 +249,6 @@
     <string name="chat_delete_message_message">이 작업은 서버 세션에서 해당 메시지를 삭제합니다. 이 작업은 취소할 수 없습니다.</string>
     <string name="chat_message_deleted">메시지 삭제됨</string>
     <string name="chat_message_delete_failed">메시지 삭제 실패</string>
-    <string name="chat_turn_number">턴 %1$d</string>
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">토큰/초</string>
     <string name="chat_msg_tail_summary">%1$d단계 · %2$d개 도구</string>
@@ -544,7 +540,6 @@
     <string name="settings_delete_rule">규칙 삭제</string>
     <string name="settings_expand_reasoning">추론 자동 확장</string>
     <string name="settings_expand_reasoning_desc">기본적으로 생각 과정 표시; 헤더를 탭하여 전환</string>
-    <string name="chat_meta_tokens">토큰 %d개</string>
     <string name="chat_glob_match_count">일치 %d개</string>
     <string name="tool_web_fetch">WebFetch</string>
     <string name="chat_webfetch_prompt">프롬프트: %s</string>

@@ -56,7 +56,6 @@ import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.ui.screens.chat.components.RenderReadiness
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.SseEvent
-import dev.leonardo.ocbeacon.ui.components.AmoledDefaultBorder
 import dev.leonardo.ocbeacon.ui.components.ProviderIcon
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 import dev.leonardo.ocbeacon.ui.screens.chat.dialog.QuestionCard
@@ -64,7 +63,9 @@ import dev.leonardo.ocbeacon.ui.screens.chat.tools.ContextToolGroupCard
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.PartGroup
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderableTurn
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.turnLedgerSummary
+import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.RowCapabilities
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.TurnNumber
+import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.messageRowTail
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.statusBadgeFor
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderItem
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalHapticFeedbackEnabled
@@ -126,6 +127,8 @@ internal fun MessageCardAssistant(
     onForkFromTurn: (() -> Unit)? = null,
     /** 2026-09-12 扁平化：删除消息（能力位就绪才传入——US#35）。 */
     onDeleteMessage: (() -> Unit)? = null,
+    /** 2026-09-12 扁平化：行模型能力位（尾部字段/动作门控单源）。 */
+    caps: RowCapabilities? = null,
 ) {
     // D2-L22：原 if(isAmoled) 两分支相同（死条件）——直接取 onSurface
     val textColor = MaterialTheme.colorScheme.onSurface
@@ -205,15 +208,28 @@ internal fun MessageCardAssistant(
     val durationMs = renderableTurn.durationMs
     // #310②：反馈动作位仅已完结消息且服务器门控通过（onRateMessage 非 null）——
     // 流式 turn 脚部恒为耗时 ticker，不受反馈图标影响（SSE 高度补偿铁律）。
-    val hasFooter = (durationMs ?: 0) > 0 || !modelId.isNullOrBlank()
     // 2026-09-12 扁平化：台账摘要收进尾部统计栏（原挂在气泡外的台账行/产出行）
     val ledger = turnLedgerSummary(renderableTurn, turnNumber?.value ?: 0)
     val toolCallCount = ledger.toolCallCount
-    val hasMarkdownCopy = copyText != null
-    val moreAvailable = onRateMessage != null || onDeleteMessage != null || hasMarkdownCopy
-    val showStatsBar = isStreaming || hasFooter || renderableTurn.stepCount > 0 || toolCallCount > 0 ||
-        renderableTurn.deliverableFiles.isNotEmpty() || turnNumber != null ||
-        (copyText != null && onCopy != null) || onForkFromTurn != null || moreAvailable
+    // 尾部字段与动作可用性由行模型 seam 单源决定（spec Testing Decisions：
+    // 信息架构断言落在纯函数，不在 Composable 内联）
+    val tailModel = messageRowTail(
+        turn = renderableTurn,
+        ledger = ledger,
+        turnNumber = turnNumber,
+        userMessage = null,
+        caps = caps ?: RowCapabilities.NONE,
+        isStreaming = isStreaming,
+        hasCopy = copyText != null && onCopy != null,
+        hasRevert = false,
+        hasJump = onForkFromTurn != null,
+        hasFeedbackSheetItem = onRateMessage != null,
+        hasDeleteSheetItem = onDeleteMessage != null,
+        hasMarkdownCopySheetItem = copyText != null,
+        providerId = assistantMsg?.providerId,
+    )
+    val showStatsBar = tailModel.visible
+    val moreAvailable = tailModel.moreAvailable
     var showMoreSheet by remember { mutableStateOf(false) }
     val moreClipboard = LocalClipboard.current
     val moreScope = rememberCoroutineScope()
@@ -246,7 +262,9 @@ internal fun MessageCardAssistant(
                 hasError = assistantMsg?.error != null,
             ),
             tailExtra = {
-                if (tailExpanded && renderableTurn.deliverableFiles.isNotEmpty()) {
+                // SSE 铁律：产出行仅在轮完结后挂载（turnProducedFiles 无完结门控，
+                // 流式中途写类工具完成即非空 → 流式脚部高度突变）
+                if (tailExpanded && renderableTurn.allStepsCompleted && tailModel.producedFiles.isNotEmpty()) {
                     ProducedFilesRow(
                         files = renderableTurn.deliverableFiles,
                         onOpenFile = onOpenFile,
@@ -297,14 +315,6 @@ internal fun MessageCardAssistant(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                         )
                     }
-                    // 第 N 轮编号（server 优先；US#28）
-                    turnNumber?.let { tn ->
-                        Text(
-                            text = stringResource(R.string.chat_turn_number, tn.value),
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
-                        )
-                    }
                     // 步数 · 工具数摘要（US#7）+ US#14 历史轮展开入口
                     if (renderableTurn.stepCount > 0 || toolCallCount > 0) {
                         Row(
@@ -343,7 +353,7 @@ internal fun MessageCardAssistant(
                     }
                     Spacer(modifier = Modifier.weight(1f))
                     // 复制常显（US#9；仅完成态——流式高度补偿不受脚部变化影响）
-                    if (!isStreaming && copyText != null && onCopy != null) {
+                    if (copyText != null && onCopy != null) {
                         CopyButton(
                             text = copyText,
                             modifier = Modifier.size(14.dp),
@@ -709,6 +719,7 @@ internal fun ChunkedAssistantMessage(
     turnNumber: TurnNumber? = null,
     onForkFromTurn: (() -> Unit)? = null,
     onDeleteMessage: (() -> Unit)? = null,
+    caps: RowCapabilities? = null,
 ) {
     if (renderableTurn.isEmpty) return
     val compact = LocalChatDensity.current == ChatDensity.Compact
@@ -722,8 +733,6 @@ internal fun ChunkedAssistantMessage(
             ((item.group as PartGroup.Single).part.id == chunk.plan.partId)
     }
     val range = chunk.plan.ranges[chunk.chunkIndex]
-    val horizPad = if (compact) 10.dp else SpacingTokens.LG.dp
-    val vertPad = if (compact) SpacingTokens.SM.dp else 14.dp
 
     // 2026-09-12 扁平化：分片路径同样走三段式（首段头部 / 末段尾部），
     // 去容器外观——三段式布局单点 = MessageSectionScaffold。
@@ -750,6 +759,7 @@ internal fun ChunkedAssistantMessage(
                 onForkFromTurn = onForkFromTurn,
                 onDeleteMessage = onDeleteMessage,
                 onOpenFile = onOpenFile,
+                caps = caps,
             )
         },
     ) {
@@ -954,6 +964,7 @@ internal fun SegmentedAssistantMessage(
     turnNumber: TurnNumber? = null,
     onForkFromTurn: (() -> Unit)? = null,
     onDeleteMessage: (() -> Unit)? = null,
+    caps: RowCapabilities? = null,
 ) {
     if (renderableTurn.isEmpty) return
     val compact = LocalChatDensity.current == ChatDensity.Compact
@@ -973,8 +984,6 @@ internal fun SegmentedAssistantMessage(
         }
         acc += seg.chunkCount
     }
-    val horizPad = if (compact) 10.dp else SpacingTokens.LG.dp
-    val vertPad = if (compact) SpacingTokens.SM.dp else 14.dp
     // 2026-09-12 扁平化：分段路径同样走三段式（首段头部 / 末段尾部），
     // 去容器外观——三段式布局单点 = MessageSectionScaffold。
     MessageSectionScaffold(
@@ -1000,6 +1009,7 @@ internal fun SegmentedAssistantMessage(
                 onForkFromTurn = onForkFromTurn,
                 onDeleteMessage = onDeleteMessage,
                 onOpenFile = onOpenFile,
+                caps = caps,
             )
         },
     ) {
@@ -1076,13 +1086,30 @@ private fun ChunkStatsBar(
     onForkFromTurn: (() -> Unit)? = null,
     onDeleteMessage: (() -> Unit)? = null,
     onOpenFile: ((String) -> Unit)? = null,
+    caps: RowCapabilities? = null,
 ) {
     val copyText = renderableTurn.copyText
     val modelId = renderableTurn.modelId
     val durationMs = renderableTurn.durationMs
     val ledger = turnLedgerSummary(renderableTurn, turnNumber?.value ?: 0)
     val toolCallCount = ledger.toolCallCount
-    val moreAvailable = onRateMessage != null || onDeleteMessage != null || copyText != null
+    // 行模型 seam 单源（同主路径）
+    val tailModel = messageRowTail(
+        turn = renderableTurn,
+        ledger = ledger,
+        turnNumber = turnNumber,
+        userMessage = null,
+        caps = caps ?: RowCapabilities.NONE,
+        isStreaming = false,
+        hasCopy = copyText != null && onCopy != null,
+        hasRevert = false,
+        hasJump = onForkFromTurn != null,
+        hasFeedbackSheetItem = onRateMessage != null,
+        hasDeleteSheetItem = onDeleteMessage != null,
+        hasMarkdownCopySheetItem = copyText != null,
+        providerId = assistantMsg?.providerId,
+    )
+    val moreAvailable = tailModel.moreAvailable
     var showMoreSheet by remember { mutableStateOf(false) }
     val moreClipboard = LocalClipboard.current
     val moreScope = rememberCoroutineScope()
@@ -1127,13 +1154,6 @@ private fun ChunkStatsBar(
             if ((durationMs ?: 0L) > 0) {
                 Text(
                     text = formatDuration(durationMs!!),
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                )
-            }
-            turnNumber?.let { tn ->
-                Text(
-                    text = stringResource(R.string.chat_turn_number, tn.value),
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
                 )
@@ -1202,8 +1222,8 @@ private fun ChunkStatsBar(
                 )
             }
         }
-        if (tailExpanded && renderableTurn.deliverableFiles.isNotEmpty()) {
-            ProducedFilesRow(files = renderableTurn.deliverableFiles, onOpenFile = onOpenFile)
+        if (tailExpanded && renderableTurn.allStepsCompleted && tailModel.producedFiles.isNotEmpty()) {
+            ProducedFilesRow(files = tailModel.producedFiles, onOpenFile = onOpenFile)
         }
     }
 

@@ -246,11 +246,8 @@
     <string name="chat_event_task_failed">Сбой субагента</string>
     <string name="chat_event_shell_completed">Фоновая команда завершена</string>
     <string name="chat_event_shell_failed">Сбой фоновой команды</string>
-    <string name="chat_turn_ledger_summary">Раунд %1$d · %2$s · %3$d шагов · %4$d инструментов</string>
     <string name="chat_turn_ledger_expand">Показать подробности раунда</string>
     <string name="chat_turn_ledger_collapse">Скрыть подробности раунда</string>
-    <string name="chat_turn_ledger_tool_calls">Вызовы инструментов: %1$d</string>
-    <string name="chat_turn_ledger_tokens">Токены: %1$s</string>
     <string name="chat_turn_fork_from_here">Ответвить от этого хода</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Создано</string>
@@ -278,7 +275,6 @@
     <string name="chat_delete_message_message">Это удалит сообщение из сессии на сервере. Это действие нельзя отменить.</string>
     <string name="chat_message_deleted">Сообщение удалено</string>
     <string name="chat_message_delete_failed">Не удалось удалить сообщение</string>
-    <string name="chat_turn_number">Раунд %1$d</string>
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">токенов/с</string>
     <string name="chat_msg_tail_summary">%1$d шагов · %2$d инструментов</string>
@@ -553,7 +549,6 @@
     <string name="settings_delete_rule">Удалить правило</string>
     <string name="settings_expand_reasoning">Авторазворачивать размышление</string>
     <string name="settings_expand_reasoning_desc">Показывать размышления по умолчанию; нажмите на заголовок для переключения</string>
-    <string name="chat_meta_tokens">%d токенов</string>
     <string name="chat_glob_match_count">%d совпадений</string>
     <string name="tool_web_fetch">WebFetch</string>
     <string name="chat_webfetch_prompt">Запрос: %s</string>

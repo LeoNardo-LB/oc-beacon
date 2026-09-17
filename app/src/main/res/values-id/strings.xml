@@ -156,11 +156,8 @@
     <string name="chat_event_task_failed">Subagen gagal</string>
     <string name="chat_event_shell_completed">Perintah latar belakang selesai</string>
     <string name="chat_event_shell_failed">Perintah latar belakang gagal</string>
-    <string name="chat_turn_ledger_summary">Putaran %1$d · %2$s · %3$d langkah · %4$d alat</string>
     <string name="chat_turn_ledger_expand">Tampilkan detail putaran</string>
     <string name="chat_turn_ledger_collapse">Sembunyikan detail putaran</string>
-    <string name="chat_turn_ledger_tool_calls">Panggilan alat: %1$d</string>
-    <string name="chat_turn_ledger_tokens">Token: %1$s</string>
     <string name="chat_turn_fork_from_here">Cabangkan dari giliran ini</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Dihasilkan</string>
@@ -188,7 +185,6 @@
     <string name="chat_delete_message_message">Ini akan menghapus pesan dari sesi server. Tindakan ini tidak dapat dibatalkan.</string>
     <string name="chat_message_deleted">Pesan dihapus</string>
     <string name="chat_message_delete_failed">Gagal menghapus pesan</string>
-    <string name="chat_turn_number">Putaran %1$d</string>
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">token/s</string>
     <string name="chat_msg_tail_summary">%1$d langkah · %2$d alat</string>
@@ -550,7 +546,6 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_delete_rule">Hapus aturan</string>
     <string name="settings_expand_reasoning">Auto-perluas penalaran</string>
     <string name="settings_expand_reasoning_desc">Tampilkan proses berpikir secara default; ketuk header untuk beralih</string>
-    <string name="chat_meta_tokens">%d token</string>
     <string name="chat_glob_match_count">%d kecocokan</string>
     <string name="tool_web_fetch">WebFetch</string>
     <string name="chat_webfetch_prompt">Prompt: %s</string>

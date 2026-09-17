@@ -220,11 +220,8 @@
     <string name="chat_event_task_failed">Subagente non riuscito</string>
     <string name="chat_event_shell_completed">Comando in background completato</string>
     <string name="chat_event_shell_failed">Comando in background non riuscito</string>
-    <string name="chat_turn_ledger_summary">Turno %1$d · %2$s · %3$d passaggi · %4$d strumenti</string>
     <string name="chat_turn_ledger_expand">Mostra dettagli del turno</string>
     <string name="chat_turn_ledger_collapse">Nascondi dettagli del turno</string>
-    <string name="chat_turn_ledger_tool_calls">Chiamate strumenti: %1$d</string>
-    <string name="chat_turn_ledger_tokens">Token: %1$s</string>
     <string name="chat_turn_fork_from_here">Crea un ramo da questo turno</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Prodotto</string>
@@ -252,7 +249,6 @@
     <string name="chat_delete_message_message">Il messaggio verrà rimosso dalla sessione del server. Questa azione non può essere annullata.</string>
     <string name="chat_message_deleted">Messaggio eliminato</string>
     <string name="chat_message_delete_failed">Impossibile eliminare il messaggio</string>
-    <string name="chat_turn_number">Turno %1$d</string>
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">token/s</string>
     <string name="chat_msg_tail_summary">%1$d passaggi · %2$d strumenti</string>
@@ -544,7 +540,6 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_delete_rule">Elimina regola</string>
     <string name="settings_expand_reasoning">Espansione automatica del ragionamento</string>
     <string name="settings_expand_reasoning_desc">Mostra il processo di pensiero per impostazione predefinita; tocca l\'intestazione per cambiare</string>
-    <string name="chat_meta_tokens">%d token</string>
     <string name="chat_glob_match_count">%d corrispondenze</string>
     <string name="tool_web_fetch">WebFetch</string>
     <string name="chat_webfetch_prompt">Prompt: %s</string>

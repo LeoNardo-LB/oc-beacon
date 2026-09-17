@@ -41,7 +41,19 @@ data class RowCapabilities(
     val revert: Boolean,
     val fork: Boolean,
     val messageDelete: Boolean,
-)
+) {
+    companion object {
+        /** 未探测 / 无服务器上下文时的最保守缺省（能力全隐藏；数据在场仍兜底）。 */
+        val NONE = RowCapabilities(
+            cost = false,
+            timing = false,
+            feedback = false,
+            revert = false,
+            fork = false,
+            messageDelete = false,
+        )
+    }
+}
 
 fun rowCapabilitiesFor(caps: ServerCapabilities): RowCapabilities = RowCapabilities(
     cost = ServerFeatures.COST in caps,
@@ -55,9 +67,6 @@ fun rowCapabilitiesFor(caps: ServerCapabilities): RowCapabilities = RowCapabilit
 // ---------------------------------------------------------------------------
 // L1 消息层
 // ---------------------------------------------------------------------------
-
-/** 头部角色标签。 */
-enum class MessageRoleLabel { USER, AGENT, SYSTEM }
 
 /**
  * 头部状态徽标——只覆盖非完成态（US#6：完成态不显示，界面不被默认态噪音占满）。

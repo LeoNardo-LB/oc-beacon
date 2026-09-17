@@ -220,11 +220,8 @@
     <string name="chat_event_task_failed">Subagent fehlgeschlagen</string>
     <string name="chat_event_shell_completed">Hintergrundbefehl abgeschlossen</string>
     <string name="chat_event_shell_failed">Hintergrundbefehl fehlgeschlagen</string>
-    <string name="chat_turn_ledger_summary">Runde %1$d · %2$s · %3$d Schritte · %4$d Werkzeuge</string>
     <string name="chat_turn_ledger_expand">Rundendetails anzeigen</string>
     <string name="chat_turn_ledger_collapse">Rundendetails ausblenden</string>
-    <string name="chat_turn_ledger_tool_calls">Werkzeugaufrufe: %1$d</string>
-    <string name="chat_turn_ledger_tokens">Tokens: %1$s</string>
     <string name="chat_turn_fork_from_here">Von dieser Runde abzweigen</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Erstellt</string>
@@ -252,7 +249,6 @@
     <string name="chat_delete_message_message">Dies entfernt die Nachricht aus der Serversitzung. Dies kann nicht rückgängig gemacht werden.</string>
     <string name="chat_message_deleted">Nachricht gelöscht</string>
     <string name="chat_message_delete_failed">Nachricht konnte nicht gelöscht werden</string>
-    <string name="chat_turn_number">Runde %1$d</string>
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">Tokens/s</string>
     <string name="chat_msg_tail_summary">%1$d Schritte · %2$d Werkzeuge</string>
@@ -544,7 +540,6 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_delete_rule">Regel löschen</string>
     <string name="settings_expand_reasoning">Schlussfolgerung auto-erweitern</string>
     <string name="settings_expand_reasoning_desc">Denkprozess standardmäßig anzeigen; Kopfzeile antippen zum Umschalten</string>
-    <string name="chat_meta_tokens">%d Tokens</string>
     <string name="chat_glob_match_count">%d Treffer</string>
     <string name="tool_web_fetch">WebFetch</string>
     <string name="chat_webfetch_prompt">Eingabe: %s</string>

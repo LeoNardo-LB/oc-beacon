@@ -220,11 +220,8 @@
     <string name="chat_event_task_failed">Falha do subagente</string>
     <string name="chat_event_shell_completed">Comando em segundo plano concluído</string>
     <string name="chat_event_shell_failed">Falha do comando em segundo plano</string>
-    <string name="chat_turn_ledger_summary">Turno %1$d · %2$s · %3$d etapas · %4$d ferramentas</string>
     <string name="chat_turn_ledger_expand">Mostrar detalhes do turno</string>
     <string name="chat_turn_ledger_collapse">Ocultar detalhes do turno</string>
-    <string name="chat_turn_ledger_tool_calls">Chamadas de ferramentas: %1$d</string>
-    <string name="chat_turn_ledger_tokens">Tokens: %1$s</string>
     <string name="chat_turn_fork_from_here">Criar ramificação a partir deste turno</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Produzido</string>
@@ -252,7 +249,6 @@
     <string name="chat_delete_message_message">Isso removerá a mensagem da sessão do servidor. Esta ação não pode ser desfeita.</string>
     <string name="chat_message_deleted">Mensagem excluída</string>
     <string name="chat_message_delete_failed">Falha ao excluir mensagem</string>
-    <string name="chat_turn_number">Turno %1$d</string>
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">tokens/s</string>
     <string name="chat_msg_tail_summary">%1$d etapas · %2$d ferramentas</string>
@@ -544,7 +540,6 @@ Tokens: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_delete_rule">Excluir regra</string>
     <string name="settings_expand_reasoning">Auto-expandir raciocínio</string>
     <string name="settings_expand_reasoning_desc">Mostrar processo de pensamento por padrão; toque no cabeçalho para alternar</string>
-    <string name="chat_meta_tokens">%d tokens</string>
     <string name="chat_glob_match_count">%d correspondências</string>
     <string name="tool_web_fetch">WebFetch</string>
     <string name="chat_webfetch_prompt">Prompt: %s</string>

@@ -20,6 +20,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -28,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem
 import dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating
+import dev.leonardo.ocbeacon.ui.components.ConfirmDialog
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
@@ -51,6 +56,8 @@ internal fun MessageMoreSheet(
     onDelete: (() -> Unit)?,
     onDismiss: () -> Unit,
 ) {
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -108,13 +115,24 @@ internal fun MessageMoreSheet(
                     icon = Icons.Filled.Delete,
                     label = stringResource(R.string.chat_delete_message),
                     destructive = true,
-                    onClick = {
-                        onDelete()
-                        onDismiss()
-                    },
+                    onClick = { showDeleteConfirm = true },
                 )
             }
         }
+    }
+
+    if (showDeleteConfirm && onDelete != null) {
+        ConfirmDialog(
+            title = stringResource(R.string.chat_delete_message_title),
+            message = stringResource(R.string.chat_delete_message_message),
+            confirmLabel = stringResource(R.string.chat_delete_message),
+            onDismiss = { showDeleteConfirm = false },
+            onConfirm = {
+                showDeleteConfirm = false
+                onDelete()
+                onDismiss()
+            },
+        )
     }
 }
 

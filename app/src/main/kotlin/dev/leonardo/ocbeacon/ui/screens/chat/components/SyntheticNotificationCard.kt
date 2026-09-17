@@ -23,6 +23,7 @@ import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 import dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent
+import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.notificationRowModel
 import dev.leonardo.ocbeacon.util.DateFormatters
 import java.util.Date
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
@@ -121,15 +122,25 @@ internal fun SyntheticNotificationCard(
 
     val timeMs = currentMessage.message.time.created
 
+    // 行模型 seam（spec Testing Decisions）：标签 / 失败 / 单行摘要 / 可展开 /
+    // 跳转箭头由纯函数单源决定（本体点击=展开唯一入口；箭头常驻不冲突）。
+    val rowModel = notificationRowModel(
+        label = label,
+        failed = isFailed,
+        description = description,
+        hasBody = output != null,
+        navTargetId = navTargetId,
+    )
+
     EventCard(
         eventKey = currentMessage.message.id,
         timeMs = timeMs,
-        label = label,
+        label = rowModel.label,
         leadingIcon = if (info == null) unknownIcon else sourceIcon,
-        failed = isFailed,
-        description = description,
+        failed = rowModel.failed,
+        description = rowModel.description,
         expandedStates = eventExpandedStates,
-        navTargetId = navTargetId,
+        navTargetId = rowModel.navTargetId,
         onNavClick = { id -> onViewSubSession?.invoke(id) },
         bodyFontScale = 0.85f,
         bodyContent = output?.let { out ->
@@ -143,11 +154,11 @@ internal fun SyntheticNotificationCard(
                 )
             }
         },
-        actions = if (navTargetId != null && onLocateTask != null) {
+        actions = if (rowModel.navTargetId != null && onLocateTask != null) {
             // Q4：「定位发起卡片」在展开区动作位（折叠态无此钮——spec §2）
             @Composable {
                 TextButton(
-                    onClick = { navTargetId?.let(onLocateTask) },
+                    onClick = { rowModel.navTargetId?.let(onLocateTask) },
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     ),

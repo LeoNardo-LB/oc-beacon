@@ -207,11 +207,8 @@
     <string name="chat_event_task_failed">Subagent failed</string>
     <string name="chat_event_shell_completed">Background command completed</string>
     <string name="chat_event_shell_failed">Background command failed</string>
-    <string name="chat_turn_ledger_summary">Turn %1$d · %2$s · %3$d steps · %4$d tools</string>
     <string name="chat_turn_ledger_expand">Show turn details</string>
     <string name="chat_turn_ledger_collapse">Hide turn details</string>
-    <string name="chat_turn_ledger_tool_calls">Tool calls: %1$d</string>
-    <string name="chat_turn_ledger_tokens">Tokens: %1$s</string>
     <string name="chat_turn_fork_from_here">Fork from this turn</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Produced</string>
@@ -240,7 +237,6 @@
     <string name="chat_delete_message_message">This removes the message from the server session. This cannot be undone.</string>
     <string name="chat_message_deleted">Message deleted</string>
     <string name="chat_message_delete_failed">Failed to delete message</string>
-    <string name="chat_turn_number">Turn %1$d</string>
     <string name="chat_msg_tail_summary">%1$d steps · %2$d tools</string>
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">tokens/s</string>
@@ -658,7 +654,6 @@
     <string name="crash_logs_dir">Crash logs at Download/%1$s/</string>
 
     <!-- Message meta info -->
-    <string name="chat_meta_tokens">%d tokens</string>
     <string name="chat_glob_match_count">%d matches</string>
     <string name="tool_web_fetch">WebFetch</string>
     <string name="chat_webfetch_prompt">Prompt: %s</string>

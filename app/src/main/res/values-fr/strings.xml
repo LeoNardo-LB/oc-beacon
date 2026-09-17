@@ -220,11 +220,8 @@
     <string name="chat_event_task_failed">Échec du sous-agent</string>
     <string name="chat_event_shell_completed">Commande d’arrière-plan terminée</string>
     <string name="chat_event_shell_failed">Échec de la commande d’arrière-plan</string>
-    <string name="chat_turn_ledger_summary">Tour %1$d · %2$s · %3$d étapes · %4$d outils</string>
     <string name="chat_turn_ledger_expand">Afficher les détails du tour</string>
     <string name="chat_turn_ledger_collapse">Masquer les détails du tour</string>
-    <string name="chat_turn_ledger_tool_calls">Appels d\'outils : %1$d</string>
-    <string name="chat_turn_ledger_tokens">Tokens : %1$s</string>
     <string name="chat_turn_fork_from_here">Créer une branche depuis ce tour</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Produit</string>
@@ -252,7 +249,6 @@
     <string name="chat_delete_message_message">Cela supprimera le message de la session sur le serveur. Cette action ne peut pas être annulée.</string>
     <string name="chat_message_deleted">Message supprimé</string>
     <string name="chat_message_delete_failed">Échec de la suppression du message</string>
-    <string name="chat_turn_number">Tour %1$d</string>
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">jetons/s</string>
     <string name="chat_msg_tail_summary">%1$d étapes · %2$d outils</string>
@@ -542,7 +538,6 @@
     <string name="settings_delete_rule">Supprimer la règle</string>
     <string name="settings_expand_reasoning">Développer automatiquement le raisonnement</string>
     <string name="settings_expand_reasoning_desc">Afficher le processus de réflexion par défaut ; appuyez sur l\'en-tête pour basculer</string>
-    <string name="chat_meta_tokens">%d jetons</string>
     <string name="chat_glob_match_count">%d correspondances</string>
     <string name="tool_web_fetch">WebFetch</string>
     <string name="chat_webfetch_prompt">Prompt : %s</string>

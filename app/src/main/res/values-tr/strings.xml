@@ -220,11 +220,8 @@
     <string name="chat_event_task_failed">Alt ajan başarısız</string>
     <string name="chat_event_shell_completed">Arka plan komutu tamamlandı</string>
     <string name="chat_event_shell_failed">Arka plan komutu başarısız</string>
-    <string name="chat_turn_ledger_summary">Tur %1$d · %2$s · %3$d adım · %4$d araç</string>
     <string name="chat_turn_ledger_expand">Tur ayrıntılarını göster</string>
     <string name="chat_turn_ledger_collapse">Tur ayrıntılarını gizle</string>
-    <string name="chat_turn_ledger_tool_calls">Araç çağrıları: %1$d</string>
-    <string name="chat_turn_ledger_tokens">Token: %1$s</string>
     <string name="chat_turn_fork_from_here">Bu turdan çatalla</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Üretilen</string>
@@ -252,7 +249,6 @@
     <string name="chat_delete_message_message">Bu işlem mesajı sunucu oturumundan kaldırır. Bu işlem geri alınamaz.</string>
     <string name="chat_message_deleted">Mesaj silindi</string>
     <string name="chat_message_delete_failed">Mesaj silinemedi</string>
-    <string name="chat_turn_number">Tur %1$d</string>
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">token/s</string>
     <string name="chat_msg_tail_summary">%1$d adım · %2$d araç</string>
@@ -544,7 +540,6 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_delete_rule">Kuralı sil</string>
     <string name="settings_expand_reasoning">Akıl yürütmeyi otomatik genişlet</string>
     <string name="settings_expand_reasoning_desc">Düşünce sürecini varsayılan olarak göster; geçiş yapmak için başlığa dokun</string>
-    <string name="chat_meta_tokens">%d token</string>
     <string name="chat_glob_match_count">%d eşleşme</string>
     <string name="tool_web_fetch">WebFetch</string>
     <string name="chat_webfetch_prompt">İstem: %s</string>

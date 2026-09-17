@@ -83,7 +83,7 @@ internal fun ContextDetailDialog(
         normalElevation = 0.dp,
     )
     // 逐轮行折叠/展开状态（key = 列表下标；rows 由 remember 缓存，下标稳定）
-    val expanded = remember { mutableStateMapOf<Int, Boolean>() }
+    val expanded = remember { mutableStateMapOf<String, Boolean>() }
     // 能力位门控 + 可选桶归一在装配期完成（组合外一次计算）
     val rows = remember(state.turnDetailInputs, caps) {
         buildTurnDetailRows(state.turnDetailInputs, caps)
@@ -364,8 +364,8 @@ internal fun ContextDetailDialog(
                             style = MaterialTheme.typography.labelMedium,
                         )
                     }
-                    itemsIndexed(rows, key = { index, _ -> "turn-row-$index" }) { index, row ->
-                        TurnDetailEntry(row = row, index = index, expanded = expanded)
+                    itemsIndexed(rows, key = { _, row -> turnRowKey(row) }) { index, row ->
+                        TurnDetailEntry(row = row, index = index, rowKey = turnRowKey(row), expanded = expanded)
                     }
                 }
             }
@@ -453,21 +453,27 @@ private fun ProjectionSection(state: ContextDetailState) {
  * 点击展开 = tokens 桶 / TTFT / 速度 / 步骤数 / 工具数 / 成本 / 模型
  * （null 项整项不渲染——装配期已按能力位门控）。
  */
+/** 逐轮行稳定身份键（server 轮号优先；客户端锚点序号兜底）——不用列表下标
+ *（倒序列表新轮插头部会让全体下标 +1 → 折叠态错位）。 */
+private fun turnRowKey(row: TurnDetailRow): String =
+    "turn-" + (row.turnNumber?.let { it.source.name + "-" + it.value } ?: "unknown")
+
 @Composable
 private fun TurnDetailEntry(
     row: TurnDetailRow,
     index: Int,
-    expanded: MutableMap<Int, Boolean>,
+    rowKey: String,
+    expanded: MutableMap<String, Boolean>,
 ) {
     val hasBody = row.expandable || row.tokensInput != null || row.tokensOutput != null
-    val isExpanded = hasBody && expanded[index] == true
+    val isExpanded = hasBody && expanded[rowKey] == true
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .then(
                     if (hasBody) {
-                        Modifier.clickable { expanded[index] = !isExpanded }
+                        Modifier.clickable { expanded[rowKey] = !isExpanded }
                     } else {
                         Modifier
                     }

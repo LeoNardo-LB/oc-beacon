@@ -232,11 +232,8 @@
     <string name="chat_event_task_failed">فشل الوكيل الفرعي</string>
     <string name="chat_event_shell_completed">اكتمل أمر الخلفية</string>
     <string name="chat_event_shell_failed">فشل أمر الخلفية</string>
-    <string name="chat_turn_ledger_summary">الدور %1$d · %2$s · %3$d خطوات · %4$d أدوات</string>
     <string name="chat_turn_ledger_expand">إظهار تفاصيل الدور</string>
     <string name="chat_turn_ledger_collapse">إخفاء تفاصيل الدور</string>
-    <string name="chat_turn_ledger_tool_calls">استدعاءات الأدوات: %1$d</string>
-    <string name="chat_turn_ledger_tokens">الرموز: %1$s</string>
     <string name="chat_turn_fork_from_here">تفرع من هذا الدور</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">النواتج</string>
@@ -264,7 +261,6 @@
     <string name="chat_delete_message_message">سيؤدي هذا إلى إزالة الرسالة من جلسة الخادم. لا يمكن التراجع عن هذا الإجراء.</string>
     <string name="chat_message_deleted">تم حذف الرسالة</string>
     <string name="chat_message_delete_failed">فشل في حذف الرسالة</string>
-    <string name="chat_turn_number">الدور %1$d</string>
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">tokens/s</string>
     <string name="chat_msg_tail_summary">%1$d خطوات · %2$d أدوات</string>
@@ -560,7 +556,6 @@
     <string name="settings_delete_rule">حذف القاعدة</string>
     <string name="settings_expand_reasoning">توسيع الاستدلال تلقائيًا</string>
     <string name="settings_expand_reasoning_desc">عرض عملية التفكير بشكل افتراضي؛ انقر على العنوان للتبديل</string>
-    <string name="chat_meta_tokens">%d رمزي</string>
     <string name="chat_glob_match_count">%d تطابق</string>
     <string name="tool_web_fetch">WebFetch</string>
     <string name="chat_webfetch_prompt">الملف: %s</string>

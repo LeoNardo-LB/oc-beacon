@@ -226,11 +226,8 @@
     <string name="chat_event_task_failed">Збій субагента</string>
     <string name="chat_event_shell_completed">Фонова команда завершена</string>
     <string name="chat_event_shell_failed">Збій фонової команди</string>
-    <string name="chat_turn_ledger_summary">Раунд %1$d · %2$s · %3$d кроків · %4$d інструментів</string>
     <string name="chat_turn_ledger_expand">Показати деталі раунду</string>
     <string name="chat_turn_ledger_collapse">Сховати деталі раунду</string>
-    <string name="chat_turn_ledger_tool_calls">Виклики інструментів: %1$d</string>
-    <string name="chat_turn_ledger_tokens">Токени: %1$s</string>
     <string name="chat_turn_fork_from_here">Відгалужити від цього ходу</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Створено</string>
@@ -258,7 +255,6 @@
     <string name="chat_delete_message_message">Це видалить повідомлення з сесії на сервері. Цю дію не можна скасувати.</string>
     <string name="chat_message_deleted">Повідомлення видалено</string>
     <string name="chat_message_delete_failed">Не вдалося видалити повідомлення</string>
-    <string name="chat_turn_number">Раунд %1$d</string>
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">токенів/с</string>
     <string name="chat_msg_tail_summary">%1$d кроків · %2$d інструментів</string>
@@ -552,7 +548,6 @@
     <string name="settings_delete_rule">Видалити правило</string>
     <string name="settings_expand_reasoning">Автоматично розгортати міркування</string>
     <string name="settings_expand_reasoning_desc">Показувати міркування за замовчуванням; натисніть заголовок для перемикання</string>
-    <string name="chat_meta_tokens">%d токенів</string>
     <string name="chat_glob_match_count">%d збігів</string>
     <string name="tool_web_fetch">WebFetch</string>
     <string name="chat_webfetch_prompt">Запит: %s</string>

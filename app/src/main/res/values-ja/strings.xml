@@ -220,11 +220,8 @@
     <string name="chat_event_task_failed">サブエージェント失敗</string>
     <string name="chat_event_shell_completed">バックグラウンドコマンド完了</string>
     <string name="chat_event_shell_failed">バックグラウンドコマンド失敗</string>
-    <string name="chat_turn_ledger_summary">ターン %1$d · %2$s · %3$d ステップ · %4$d ツール</string>
     <string name="chat_turn_ledger_expand">ターンの詳細を表示</string>
     <string name="chat_turn_ledger_collapse">ターンの詳細を隠す</string>
-    <string name="chat_turn_ledger_tool_calls">ツール呼び出し: %1$d</string>
-    <string name="chat_turn_ledger_tokens">トークン: %1$s</string>
     <string name="chat_turn_fork_from_here">このターンから分岐</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">成果物</string>
@@ -252,7 +249,6 @@
     <string name="chat_delete_message_message">この操作で、このメッセージがサーバーのセッションから削除されます。この操作は元に戻せません。</string>
     <string name="chat_message_deleted">メッセージを削除しました</string>
     <string name="chat_message_delete_failed">メッセージの削除に失敗しました</string>
-    <string name="chat_turn_number">ターン %1$d</string>
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">トークン/秒</string>
     <string name="chat_msg_tail_summary">%1$d ステップ · %2$d ツール</string>
@@ -544,7 +540,6 @@
     <string name="settings_delete_rule">ルールを削除</string>
     <string name="settings_expand_reasoning">推論を自動展開</string>
     <string name="settings_expand_reasoning_desc">デフォルトで思考過程を表示。ヘッダーをタップで切替</string>
-    <string name="chat_meta_tokens">%dトークン</string>
     <string name="chat_glob_match_count">%d件一致</string>
     <string name="tool_web_fetch">WebFetch</string>
     <string name="chat_webfetch_prompt">プロンプト: %s</string>

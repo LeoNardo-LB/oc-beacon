@@ -91,6 +91,8 @@ import dev.leonardo.ocbeacon.ui.screens.chat.dialog.PermissionCard
 import dev.leonardo.ocbeacon.ui.screens.chat.dialog.QuestionCard
 import dev.leonardo.ocbeacon.ui.screens.chat.components.AlwaysConfirmDialog
 import dev.leonardo.ocbeacon.ui.screens.chat.util.rememberSafeFlingBehavior
+import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.RowCapabilities
+import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.rowCapabilitiesFor
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.turnNumberFor
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderableTurn
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.computeRenderableTurn
@@ -253,6 +255,11 @@ fun ChatMessageList(
     // 注册表须在 composable 作用域读取（LazyColumn 的 LazyListScope 非 @Composable）。
     val pinnedJobsSlotRegistry = LocalServerUiSlots.current
     val revertSupported = ServerFeatures.SESSION_REVERT in serverCapabilities
+    // US#35：删除消息入口按能力位整项隐藏（DSH 客户端 deleteMessage 恒 false →
+    // 不出现「更多」，避免"点了没反应/失败"）
+    val messageDeleteSupported = ServerFeatures.MESSAGE_DELETE in serverCapabilities
+    // 2026-09-12 扁平化：行模型能力位（单源——尾部字段/动作可用性断言落在 seam）
+    val rowCaps: RowCapabilities = rowCapabilitiesFor(serverCapabilities)
     // ============ #310② 消息反馈 👍/👎 ============
     // #366：能力位门控（原裸 serverType 特判收敛——「UI 入口按能力位隐藏」约定）
     val messageFeedbackMap by viewModel.messageFeedbackItems.collectAsStateWithLifecycle()
@@ -513,7 +520,6 @@ fun ChatMessageList(
     // 分页窗口变化号码随之平移——绝对轮次号无数据源，纯函数可测）+ 台账
     // 展开记忆表（#227 屏幕级模式：滚出视口不丢、离会话即清）。
     val turnOrdinalByMsgId = remember(displayItems) { turnOrdinalByAnchorId(displayItems) }
-    val turnLedgerExpandedStates = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
 
     // #217/#226：尾部兜底去重判据（消息 id 集 + V1 摘要消息入列判定）——
     // 纯逻辑在 CompactionDividerPolicy（C4），此处只做 remember 缓存。
@@ -1258,7 +1264,8 @@ fun ChatMessageList(
                                             turnOrdinalByMsgId[msg.message.id],
                                         ),
                                         onForkFromTurn = if (isTurnLast) ({ forkFromTurn(turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id) }) else null,
-                                        onDeleteMessage = { deleteMessageAction(msg.message.id) },
+                                        onDeleteMessage = if (messageDeleteSupported) ({ deleteMessageAction(msg.message.id) }) else null,
+                                        caps = rowCaps,
                                     )
                                     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                                         android.os.Trace.endSection()
@@ -1318,7 +1325,8 @@ fun ChatMessageList(
                                             turnOrdinalByMsgId[msg.message.id],
                                         ),
                                         onForkFromTurn = if (isTurnLast) ({ forkFromTurn(turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id) }) else null,
-                                        onDeleteMessage = { deleteMessageAction(msg.message.id) },
+                                        onDeleteMessage = if (messageDeleteSupported) ({ deleteMessageAction(msg.message.id) }) else null,
+                                        caps = rowCaps,
                                     )
                                     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                                         android.os.Trace.endSection()
@@ -1543,7 +1551,8 @@ fun ChatMessageList(
                                         turnOrdinalByMsgId[msg.message.id],
                                     ),
                                     onForkFromTurn = if (isTurnLast) ({ forkFromTurn(turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id) }) else null,
-                                    onDeleteMessage = { deleteMessageAction(msg.message.id) },
+                                    onDeleteMessage = if (messageDeleteSupported) ({ deleteMessageAction(msg.message.id) }) else null,
+                                    caps = rowCaps,
                                 )
                                 if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                                     android.os.Trace.endSection()
@@ -1885,7 +1894,7 @@ fun ChatMessageList(
                                     },
                                     isAmoled = isAmoled,
                                     eventExpandedStates = eventCardExpandedStates,
-                                    onDeleteMessage = { deleteMessageAction(chatMessage.message.id) },
+                                    onDeleteMessage = if (messageDeleteSupported) ({ deleteMessageAction(chatMessage.message.id) }) else null,
                                 )
                                 if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                                     android.os.Trace.endSection()

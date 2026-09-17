@@ -226,11 +226,8 @@
     <string name="chat_event_task_failed">Błąd podagenta</string>
     <string name="chat_event_shell_completed">Polecenie w tle zakończone</string>
     <string name="chat_event_shell_failed">Błąd polecenia w tle</string>
-    <string name="chat_turn_ledger_summary">Tura %1$d · %2$s · %3$d kroków · %4$d narzędzi</string>
     <string name="chat_turn_ledger_expand">Pokaż szczegóły tury</string>
     <string name="chat_turn_ledger_collapse">Ukryj szczegóły tury</string>
-    <string name="chat_turn_ledger_tool_calls">Wywołania narzędzi: %1$d</string>
-    <string name="chat_turn_ledger_tokens">Tokeny: %1$s</string>
     <string name="chat_turn_fork_from_here">Rozgałęź od tej tury</string>
     <!-- #311 Task4 deliverables 产出文件行 + Task5 skill 工具卡 -->
     <string name="chat_produced_files_label">Utworzone</string>
@@ -258,7 +255,6 @@
     <string name="chat_delete_message_message">Spowoduje to usunięcie wiadomości z sesji na serwerze. Tej operacji nie można cofnąć.</string>
     <string name="chat_message_deleted">Wiadomość usunięta</string>
     <string name="chat_message_delete_failed">Nie udało się usunąć wiadomości</string>
-    <string name="chat_turn_number">Tura %1$d</string>
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">tokenów/s</string>
     <string name="chat_msg_tail_summary">%1$d kroków · %2$d narzędzi</string>
@@ -552,7 +548,6 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_delete_rule">Usuń regułę</string>
     <string name="settings_expand_reasoning">Auto-rozwijanie rozumowania</string>
     <string name="settings_expand_reasoning_desc">Domyślnie pokazuj proces myślenia; dotknij nagłówka aby przełączyć</string>
-    <string name="chat_meta_tokens">%d tokenów</string>
     <string name="chat_glob_match_count">%d dopasowań</string>
     <string name="tool_web_fetch">WebFetch</string>
     <string name="chat_webfetch_prompt">Prompt: %s</string>

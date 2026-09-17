@@ -48,6 +48,8 @@ internal fun MessageCard(
     onForkFromTurn: (() -> Unit)? = null,
     /** 2026-09-12 扁平化：删除消息（能力位就绪才传入）。 */
     onDeleteMessage: (() -> Unit)? = null,
+    /** 2026-09-12 扁平化：行模型能力位（尾部字段/动作门控单源）。 */
+    caps: dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.RowCapabilities? = null,
 ) {
     when (role) {
         MessageCardRole.USER -> MessageCardUser(
@@ -85,6 +87,7 @@ internal fun MessageCard(
             turnNumber = turnNumber,
             onForkFromTurn = onForkFromTurn,
             onDeleteMessage = onDeleteMessage,
+            caps = caps,
         )
     }
 }
