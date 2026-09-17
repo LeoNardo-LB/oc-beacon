@@ -62,7 +62,7 @@ Material 3 `ListItem` 内容 padding 的三种密度级别 — `ContentPaddingSm
 
 ### Sheet tokens (SheetTokens.kt)
 
-主对话抽屉（ModalBottomSheet）统一高度 — `SheetTokens.ChatSheetHeightFraction = 0.75f`（2026-08-20 用户决策：主对话内所有抽屉屏占比一致，min = max = 75% 屏高，固定高度——内容少时留白不塌缩，内容多时内部滚动）。标准三件套：抽屉内容根 `Modifier.height(LocalConfiguration.current.screenHeightDp.dp * SheetTokens.ChatSheetHeightFraction)` + 内部列表 `weight(1f)` + `rememberModalBottomSheetState(skipPartiallyExpanded = true)`（避免固定高度先落半展开锚点）。现覆盖 TaskSheet / ModelPickerDialog / QuickNavigateSheet / PendingTodoSheet；新增主对话抽屉必须遵循。
+主对话抽屉（ModalBottomSheet）统一高度 — `SheetTokens.ChatSheetHeightFraction = 0.75f`（2026-08-20 用户决策：主对话内所有抽屉屏占比一致，min = max = 75% 屏高，固定高度——内容少时留白不塌缩，内容多时内部滚动）。标准三件套：抽屉内容根 `Modifier.height(LocalConfiguration.current.screenHeightDp.dp * SheetTokens.ChatSheetHeightFraction)` + 内部列表 `weight(1f)` + `rememberModalBottomSheetState(skipPartiallyExpanded = true)`（避免固定高度先落半展开锚点）。现覆盖 TaskSheet / ModelPickerDialog / QuickNavigateSheet / PendingTodoSheet / ContextDetailDialog；新增主对话抽屉必须遵循。**例外（2026-09-17 登记）**：低频「动作菜单」类 sheet（如 MessageMoreSheet 的 👍👎 / 复制 Markdown 源码 / 删除消息）为 **wrap-content 高度**，不使用固定 75% 三件套——动作菜单内容少，固定高度会造成大片留白；判定标准：sheet 主体是**若干动作项**而非长内容面板。
 
 ### 暗色主题
 

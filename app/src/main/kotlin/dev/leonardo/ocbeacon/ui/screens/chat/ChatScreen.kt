@@ -909,7 +909,7 @@ fun ChatScreen(
                     )
                 }
                 else -> {
-                     val messageSpacing = if (LocalChatDensity.current == ChatDensity.Compact) 8.dp else 16.dp
+                    val messageSpacing = if (LocalChatDensity.current == ChatDensity.Compact) 8.dp else 16.dp
 
                         // messageListState 返回最旧优先；常规布局将
                         // 索引 0（最旧）渲染在顶部，最后一个索引（最新）在底部。

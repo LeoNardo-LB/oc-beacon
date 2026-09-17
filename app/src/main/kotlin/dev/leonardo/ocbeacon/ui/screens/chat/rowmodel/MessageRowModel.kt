@@ -270,6 +270,9 @@ fun buildTurnDetailRows(
     val reasoning = t?.reasoning?.takeIf { it > 0 }?.toLong()
     val cacheRead = t?.cache?.read?.takeIf { it > 0 }?.toLong()
     val cacheWrite = t?.cache?.write?.takeIf { it > 0 }?.toLong()
+    // total 口径：优先服务器 total；缺席时 V1/V2 语义 = input+output（无 cache 桶并入）。
+    // 注意与 DSH usageTokens 的缺席派生（input+output+cacheRead+cacheWrite，服务器 totalTokens
+    // 语义含 cache）不同——两者各自忠实于本服务器面，勿合并。
     val total = t?.total?.toLong() ?: t?.let { (it.input + it.output).toLong() }
     val expandable = modelId != null || cost != null || ttftMs != null || tps != null ||
         reasoning != null || cacheRead != null || cacheWrite != null
