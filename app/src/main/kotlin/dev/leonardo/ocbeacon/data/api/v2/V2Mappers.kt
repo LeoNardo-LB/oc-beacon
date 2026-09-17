@@ -356,17 +356,17 @@ object V2MessageMapper {
             }
             "synthetic" -> {
                 val text = obj["text"]?.jsonPrimitive?.contentOrNull ?: ""
-                // 2026-08-12：映射 metadata.agent（"Explore"/"general" 等子智能体类型）
-                // → Message.User.agent，供 SyntheticNotificationCard 展示具体类型。
-                // 服务器 payload：metadata = {source:"subagent", childID, agent:"Explore", state:"completed"}
-                val agent = obj["metadata"]?.jsonObject
-                    ?.get("agent")?.jsonPrimitive?.contentOrNull
+                // 2026-09-12（消息层扁平化 (f)）：删除 metadata.agent → Message.User.agent
+                // 的漂移映射。该字段全链零消费者——SyntheticNotificationCard 的来源/类型
+                // 一律从 synthetic 文本的 task|subagent|shell 标签解析（parseSyntheticTask）；
+                // 唯一读取方 ModelConfigDelegate 的 agent 回填反被此 subagent 值污染
+                //（2026-08-16 被迫加 primary-agent 过滤防御）。User.agent 只保留
+                //「发送时选择的 agent」单一语义（写入方 = 发送路径）。
                 val message = Message.User(
                     id = id,
                     sessionId = sessionId,
                     role = "synthetic",
-                    time = TimeInfo(created = timeCreated),
-                    agent = agent
+                    time = TimeInfo(created = timeCreated)
                 )
                 val parts = if (text.isNotEmpty()) {
                     listOf(Part.Text(id = "", sessionId = sessionId, messageId = id, text = text))

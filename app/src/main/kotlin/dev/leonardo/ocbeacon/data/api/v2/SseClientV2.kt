@@ -423,9 +423,8 @@ class SseClientV2 @Inject constructor(
                             sessionId = sessionId,
                             role = inputType, // "synthetic"（兼容其他非 user 类型）
                             time = TimeInfo(created = System.currentTimeMillis()),
-                            // 2026-08-12：映射 metadata.agent（子智能体类型）→ agent 字段
-                            agent = dataObj?.get("metadata")?.jsonObject
-                                ?.get("agent")?.jsonPrimitive?.contentOrNull,
+                            // 2026-09-12（(f)）：删除 metadata.agent → agent 漂移映射
+                            //（全链零消费者；来源类型由 SyntheticNotificationCard 解析文本标签）。
                             summary = Message.User.UserSummary(
                                 body = text,
                                 title = description

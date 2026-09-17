@@ -1104,13 +1104,18 @@ object DshEventMapper {
         if (turn != null && step != null) {
             events += DshMappedEvent.Sse(SseEvent.MessageRemoved(sessionId, streamingMessageId(turn, step)))
         }
-        val usage = data.obj("usage")
-        val tokens = usage?.let { u ->
-            val input = u.long("inputTokens")?.toInt() ?: 0
-            val output = u.long("outputTokens")?.toInt() ?: 0
-            Message.Assistant.Tokens(input = input, output = output, total = input + output)
-        }
+        // (2026-09-12 消息层扁平化 (a)) 模型路由：DSH 把 provider/model 放在
+        // data.message.source（实况：{"kind":"model","provider":"...","model":"..."}，
+        // web 侧 messageRoute() = message.source —— chat.js:6921-6927）。此前 app
+        // 完全不读该字段 → Message.Assistant.modelId/providerId 在 DSH 面结构性恒空
+        // → 统计栏永远没有模型名。source.kind 非 model（理论上的其他来源）时不取值。
         val message = data.obj("message")
+        val source = message?.obj("source")
+        val modelId = source?.str("model")?.takeIf { it.isNotBlank() }
+        val providerId = source?.str("provider")?.takeIf { it.isNotBlank() }
+        // (2026-09-12 消息层扁平化 (e)) usage 全桶：input/output/total/reasoning/
+        // cache(read/write) 一次读齐——此前只读 input/output，reasoning/cache 结构性丢失。
+        val tokens = usageTokens(data.obj("usage"))
         events += DshMappedEvent.Sse(
             SseEvent.MessageUpdated(
                 Message.Assistant(
@@ -1118,6 +1123,8 @@ object DshEventMapper {
                     sessionId = sessionId,
                     time = TimeInfo(created = time, completed = time),
                     parentId = "",
+                    modelId = modelId,
+                    providerId = providerId,
                     tokens = tokens,
                     // DSH interrupted 前缀标记（§1.5）→ finish 语义对位；缺席为 null
                     finish = if (data.bool("interrupted") == true) "interrupted" else null,
@@ -1595,7 +1602,9 @@ object DshEventMapper {
      *   isTerminal 覆盖语义假定 incoming 是全量终值（官方 text.ended 契约）——发空
      *   文本终态 part 会清空已流式文本；终态化由 turn/end → SessionIdle →
      *   markSessionIdle 路径承担（偏离任务草案的定点裁决，见报告）；
-     * - usage → Ignored（#276 SessionUsage 对位）。
+     * - usage → tokens-only MessageUpdated 写流式宿主（(e) 全桶接入；宿主由消费端
+     *   惰性播种，terminate 时 assistant/message 的 MessageRemoved 拆除，
+     *   不污染终态权威 usage）。
      */
     private fun mapChunk(sessionId: String, time: Long, data: JsonObject): List<DshMappedEvent> {
         val chunk = data.obj("chunk")
@@ -1644,7 +1653,33 @@ object DshEventMapper {
                 )
             )
             "block-end" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.CHUNK_BLOCK_END))
-            "usage" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.CHUNK_USAGE))
+            "usage" -> {
+                // (2026-09-12 消息层扁平化 (e))：usage 帧按 turn/step 定址到流式宿主
+                // dsh-t{turn}s{step}，发 tokens-only MessageUpdated——消费端
+                // mergeAssistantMeta 的非空合并恰好「只写 tokens、不碰其余字段」
+                // (MessageMergeEngine.kt:549)，且宿主是桥消息（终态 assistant/message
+                // 到达时被 MessageRemoved 拆除），不会污染终态权威 usage。
+                // 注意：assistant/attempt 的流式 usage 不走本路径（attempt 整体静默），
+                // 故此处是正常流式尾部帧，宿主已由 block-start 播种。
+                val tokens = usageTokens(chunk.obj("usage"))
+                if (tokens == null) {
+                    listOf(DshMappedEvent.Ignored(DshIgnoreReason.CHUNK_USAGE))
+                } else {
+                    listOf(
+                        DshMappedEvent.Sse(
+                            SseEvent.MessageUpdated(
+                                Message.Assistant(
+                                    id = messageId,
+                                    sessionId = sessionId,
+                                    time = TimeInfo(created = time),
+                                    parentId = "",
+                                    tokens = tokens,
+                                )
+                            )
+                        )
+                    )
+                }
+            }
             // E2E 实况情报（spec 五子型之外）：工具调用流式增量与收尾标记——
             // 工具卡终态走 tool/call|result 事件，此处静默。
             "tool-call-delta", "finish" -> listOf(DshMappedEvent.Ignored(DshIgnoreReason.CHUNK_LIFECYCLE))
@@ -1812,6 +1847,35 @@ object DshEventMapper {
     private fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject
 
     private fun JsonObject.arr(key: String): JsonArray? = this[key] as? JsonArray
+
+    /**
+     * (2026-09-12 消息层扁平化 (e)) usage 全桶 → Message.Assistant.Tokens。
+     *
+     * 权威形状（DSH 0.1.5 实况信封 + web normalizeUsage chat.js:6931-6964）：
+     * inputTokens / outputTokens / totalTokens? / cacheReadTokens? / cacheWriteTokens? /
+     * reasoningTokens?。input/output 缺席视为「无 usage」（null，不给全零假值）；
+     * total 优先取服务器 totalTokens，缺席时按 input + output + cacheRead + cacheWrite
+     * 派生——与 web knownPrompt + outputTokens（knownPrompt = input+cacheRead+cacheWrite）
+     * 同构（实况样本 input=8343 output=554 cacheRead=8576 total=17473 完全吻合）。
+     * reasoning 语义上是 output 的子集（web 校验 reasoningTokens <= outputTokens），
+     * 原样透传不并入 total。
+     */
+    private fun usageTokens(usage: JsonObject?): Message.Assistant.Tokens? {
+        if (usage == null) return null
+        val input = usage.long("inputTokens")?.toInt() ?: return null
+        val output = usage.long("outputTokens")?.toInt() ?: return null
+        val cacheRead = usage.long("cacheReadTokens")?.toInt() ?: 0
+        val cacheWrite = usage.long("cacheWriteTokens")?.toInt() ?: 0
+        val reasoning = usage.long("reasoningTokens")?.toInt() ?: 0
+        val total = usage.long("totalTokens")?.toInt() ?: (input + output + cacheRead + cacheWrite)
+        return Message.Assistant.Tokens(
+            input = input,
+            output = output,
+            total = total,
+            reasoning = reasoning,
+            cache = Message.Assistant.Tokens.Cache(read = cacheRead, write = cacheWrite),
+        )
+    }
 
     /** 位置参数取文本（#296 host/remote-event args 列表元素）。 */
     private fun JsonElement.text(): String? =
