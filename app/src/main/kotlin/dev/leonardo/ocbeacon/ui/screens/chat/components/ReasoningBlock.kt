@@ -138,7 +138,9 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
     }
 
     Surface(
-        shape = ShapeTokens.none,
+        // v2（2026-09-17）：思考卡原先 shape=none（0dp）是唯一无圆角的卡片；
+        // 统一到工具卡家族 smallMedium（6dp）。
+        shape = ShapeTokens.smallMedium,
         color = containerColor,
         modifier = Modifier.fillMaxWidth()
     ) {

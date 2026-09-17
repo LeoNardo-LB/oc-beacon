@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -145,6 +146,8 @@ internal fun MessageCardUser(
         shape = UserBubbleShape,
         // v2：头部标签栏整体删除（时间 / 删除都在「详情」弹窗里）
         showLabelRow = false,
+        // v2：用户消息最大宽度 90%
+        maxWidthFraction = 0.9f,
         timeMs = currentMessage.message.time.created,
         modifier = if (isJumpObserveTarget) {
             Modifier.graphicsLayer { alpha = jumpAlpha }
@@ -351,78 +354,84 @@ internal fun ChunkedUserMessage(
         else -> RoundedCornerShape(0.dp)
     }
 
-    Surface(
-        color = backgroundColor,
-        shape = shape,
-        border = border,
+    // v2：用户消息最大宽度 90%（与非分片路径一致）
+    Box(
         modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.CenterEnd,
     ) {
-        Column(
-            modifier = Modifier.padding(
-                start = horizPad, end = horizPad,
-                top = if (chunk.isFirst) vertPad else 0.dp,
-                bottom = if (chunk.isLast) vertPad else 0.dp,
-            ),
+        Surface(
+            color = backgroundColor,
+            shape = shape,
+            border = border,
+            modifier = Modifier.fillMaxWidth(0.9f),
         ) {
-            // v2：头部标签栏整体删除——分段正文直接起始
-            // 分段正文（所有段）——纯 Text（用户消息不渲染 Markdown，官方 TUI 对齐）
-            SelectionContainer {
-                Text(
-                    text = chunk.plan.segments[chunk.chunkIndex],
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = textColor,
-                )
-            }
-            // ③ 统计栏（仅末段）——QUEUED 徽章 + 撤销 + 复制
-            if (chunk.isLast) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.padding(top = if (compact) SpacingTokens.XS.dp else 10.dp),
-                ) {
-                    Spacer(modifier = Modifier.weight(1f))
-                    // #395：插话（steer）徽标
-                    if ((currentMessage.message as? Message.User)?.viaSteer == true) {
-                        SteerBadge()
-                    }
-                    // 2026-09-10（用户裁决⑦）：QUEUED 徽章移除——排队消息不上转录
-                    if (onRevert != null) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.Undo,
-                            contentDescription = stringResource(R.string.chat_revert),
-                            modifier = Modifier
-                                .size(14.dp)
-                                .clickable {
-                                    performHaptic(hapticView, hapticOn)
-                                    showRevertConfirmation = true
-                                },
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                        )
-                    }
-                    if (onCopyText != null) {
-                        Icon(
-                            Icons.Default.ContentCopy,
-                            contentDescription = stringResource(R.string.chat_copy),
-                            modifier = Modifier
-                                .size(14.dp)
-                                .clickable {
-                                    performHaptic(hapticView, hapticOn)
-                                    onCopyText()
-                                },
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                        )
-                    }
-                    Icon(
-                        Icons.Outlined.Info,
-                        contentDescription = stringResource(R.string.a11y_message_detail),
-                        modifier = Modifier
-                            .size(16.dp)
-                            .clickable {
-                                performHaptic(hapticView, hapticOn)
-                                showDetailDialog = true
-                            },
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+            Column(
+                modifier = Modifier.padding(
+                    start = horizPad, end = horizPad,
+                    top = if (chunk.isFirst) vertPad else 0.dp,
+                    bottom = if (chunk.isLast) vertPad else 0.dp,
+                ),
+            ) {
+                // v2：头部标签栏整体删除——分段正文直接起始
+                // 分段正文（所有段）——纯 Text（用户消息不渲染 Markdown，官方 TUI 对齐）
+                SelectionContainer {
+                    Text(
+                        text = chunk.plan.segments[chunk.chunkIndex],
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = textColor,
                     )
+                }
+                // ③ 统计栏（仅末段）——QUEUED 徽章 + 撤销 + 复制
+                if (chunk.isLast) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.padding(top = if (compact) SpacingTokens.XS.dp else 10.dp),
+                    ) {
+                        Spacer(modifier = Modifier.weight(1f))
+                        // #395：插话（steer）徽标
+                        if ((currentMessage.message as? Message.User)?.viaSteer == true) {
+                            SteerBadge()
+                        }
+                        // 2026-09-10（用户裁决⑦）：QUEUED 徽章移除——排队消息不上转录
+                        if (onRevert != null) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Undo,
+                                contentDescription = stringResource(R.string.chat_revert),
+                                modifier = Modifier
+                                    .size(14.dp)
+                                    .clickable {
+                                        performHaptic(hapticView, hapticOn)
+                                        showRevertConfirmation = true
+                                    },
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                            )
+                        }
+                        if (onCopyText != null) {
+                            Icon(
+                                Icons.Default.ContentCopy,
+                                contentDescription = stringResource(R.string.chat_copy),
+                                modifier = Modifier
+                                    .size(14.dp)
+                                    .clickable {
+                                        performHaptic(hapticView, hapticOn)
+                                        onCopyText()
+                                    },
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                            )
+                        }
+                        Icon(
+                            Icons.Outlined.Info,
+                            contentDescription = stringResource(R.string.a11y_message_detail),
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clickable {
+                                    performHaptic(hapticView, hapticOn)
+                                    showDetailDialog = true
+                                },
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                        )
+                    }
                 }
             }
         }

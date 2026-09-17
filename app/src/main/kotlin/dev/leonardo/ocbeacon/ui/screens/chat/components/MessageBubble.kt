@@ -85,6 +85,8 @@ internal fun MessageBubble(
     flat: Boolean = false,
     /** 非 flat 路径是否渲染统一标签栏；用户气泡 v2 起传 false（「用户 / 智能体」文字已删）。 */
     showLabelRow: Boolean = true,
+    /** 非 flat 路径最大宽度比例（用户消息 0.9）；null = 占满（通知卡）。 */
+    maxWidthFraction: Float? = null,
     /** flat 模式：统计栏之下的附加尾部内容（产出文件行等）。 */
     tailExtra: (@Composable ColumnScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
@@ -123,7 +125,7 @@ internal fun MessageBubble(
             colors = CardDefaults.cardColors(containerColor = containerColor),
             border = border,
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(maxWidthFraction ?: 1f)
         ) {
             Column(
                 modifier = Modifier
