@@ -1,10 +1,10 @@
 # Message-layer flattening and unified notification cards
 
-- **Status**: implemented（2026-09-17；V1 门禁全绿 + 模拟器 V3 走查通过，见「验证证据」节）
+- **Status**: implemented v2（2026-09-17 v2 修订：角色消息头部标签栏整体删除，时间 / 状态徽标 / agent / 低频动作重排；v1 门禁全绿见「验证证据」节）
 - **Issue**: [#11](https://github.com/LeoNardo-LB/oc-beacon/issues/11) (`ready-for-agent`)
-- **Date**: 2026-09-12（2026-09-17 修订：用户消息保留三段式气泡，扁平化仅作用于智能体正文）
+- **Date**: 2026-09-12（2026-09-17 v1：用户消息保留三段式气泡、扁平化仅作用智能体正文；2026-09-17 v2：头部标签栏删除 + 「更多」抽屉改「消息详情」弹窗 + 尾部重排）
 - **Source**: user decisions in the 2026-09-12 dedicated topic (6 grilling rounds) + first-hand research on both reference clients (dsh web `dsh-client-ui-chat`, opencode web `session-ui`) + repository field inventory
-- **Acceptance**: docs/acceptance/2026-09-17-387/ 与 docs/journal/2026-09-17-387.md
+- **Acceptance**: docs/acceptance/2026-09-17-387/（v1）与 docs/acceptance/2026-09-17-387-v2/（v2 实机走查，截图本地留存）与 docs/journal/2026-09-17-387.md
 - **Evidence**: `docs/research/2026-09-12-message-chrome-field-inventory.md`
 - **Related**: backlog #387 follow-up topic; **reverses** the 2026-08-12 "unified bubble for the three message roles" decision (commit `7aa9788b`); coordinates with #215 (card unification, not yet implemented)
 
@@ -23,26 +23,26 @@
 
 把聊天页拆成**两层语言**：
 
-1. **消息层** → **三段式骨架**：**智能体正文扁平化**（头部标题栏 / 正文栏 / 尾部统计栏，无背景、无边框、无圆角）；**用户消息保留三段式气泡**（primaryContainer 底色 + AMOLED 描边 + 非对称圆角）——助手正文是「内容」平面直出，用户消息保留气泡以维持「谁说的」识别（与两端参考实现一致：dsh/opencode 均保留用户气泡、仅助手平面）。
-2. **通知层**（子智能体 / 后台 Shell / task / 系统通知 / 上下文注入 / 压缩 / 错误·重试 / workflow）→ **统一通知卡家族**：一个 scaffold + 每个类型一个薄适配器。
+1. **消息层** → **两段式骨架**（正文栏 + 尾部统计栏；v2 起删除头部标签栏）：**智能体正文扁平化**（无背景、无边框、无圆角）；**用户消息保留气泡**（primaryContainer 底色 + AMOLED 描边 + 非对称圆角）。角色文字标签（用户 / 智能体）零信息量，整体删除；时间、agent、状态徽标与低频动作（分支 / 删除 / 评分 / 复制 Markdown 源码）由尾部常驻的**「详情」入口**打开的居中弹窗承载。
+2. **通知层**（子智能体 / 后台 Shell / task / 系统通知 / 上下文注入 / 压缩 / 错误·重试 / workflow）→ **统一通知卡家族**：一个 scaffold + 每个类型一个薄适配器（v2 不动，通知卡仍保留自身头部标签栏）。
 
-重指标与逐轮明细收进顶部导航栏的统计弹窗（由不可滚动的对话框改为可滚动的底部面板），消息流保持轻量。
+重指标与逐轮明细收进顶部导航栏的统计弹窗（可滚动的底部面板），消息流保持轻量。
 
 ## User Stories
 
 1. As a 聊天用户, I want 智能体正文全宽直出、不再被气泡包裹, so that 长回复更好读、屏幕利用率更高
-2. As a 聊天用户, I want 用户消息保留原三段式气泡（仅保持右对齐）, so that 我一眼能分清"谁说的"
-3. As a 聊天用户, I want 头部标题栏显示角色标签与 agent 名, so that 我能快速识别消息来源
-4. As a 聊天用户, I want 头部标题栏显示时间戳, so that 我能定位消息发生的时刻
-5. As a 聊天用户, I want 头部显示状态徽标（流式中 / 已中断 / 出错）, so that 我知道这条消息当前处于什么状态
+2. As a 聊天用户, I want 用户消息保留气泡（仅保持右对齐）, so that 我一眼能分清「谁说的」
+3. As a 聊天用户, I want 消息本体不再出现「用户 / 智能体」标签栏, so that 无信息量的角色文字不再占据界面
+4. As a 聊天用户, I want 时间戳等元信息收进「消息详情」弹窗, so that 消息本体保持干净、需要时再查
+5. As a 聊天用户, I want 状态徽标（流式中 / 已中断 / 出错）落在尾部统计栏, so that 我知道这条消息当前处于什么状态
 6. As a 聊天用户, I want 已完成态不显示状态徽标, so that 界面不被默认态噪音占满
 7. As a 聊天用户, I want 尾部统计栏显示步数与工具数摘要, so that 我能一眼看出这一轮干了多少活
 8. As a 聊天用户, I want 产出文件行留在消息尾部且可点开, so that 我不用去别处找这一轮产出的文件
 9. As a 聊天用户, I want 复制按钮常显在尾部, so that 我最常用的动作不需要多点一次
 10. As a 聊天用户, I want 用户消息尾部有撤销入口, so that 我能把消息撤回到该点
-11. As a 聊天用户, I want assistant 尾部有跳转 / 分支入口, so that 我能定位子会话或从该轮分叉
-12. As a 聊天用户, I want 点赞点踩收进「更多」弹窗, so that 主界面保持干净
-13. As a 聊天用户, I want「更多」弹窗放在底部面板里且可滚动, so that 小屏也能操作
+11. As a 聊天用户, I want assistant 尾部常驻复制入口、「从此轮分支」收进「消息详情」, so that 主界面只留下最高频动作
+12. As a 聊天用户, I want 点赞点踩 / 复制 Markdown 源码 / 删除收进「消息详情」弹窗, so that 主界面保持干净
+13. As a 聊天用户, I want「消息详情」是居中弹窗（内容可滚动）, so that 小屏也能操作且与主对话抽屉区分
 14. As a 聊天用户, I want 最新一轮的尾部统计常显、历史轮点击展开, so that 当前轮信息随手可见、历史不占屏
 15. As a 聊天用户, I want 流式期间的消息流内能看到耗时在走, so that 我知道模型还在输出
 16. As a 聊天用户, I want 相邻消息之间有足够间距, so that 助手正文去掉气泡后消息不会糊在一起
@@ -71,27 +71,35 @@
 39. As a 聊天用户, I want 流式输出时视口不跳、不闪, so that 阅读不被打断
 40. As a 聊天用户, I want 从快速导航 / 关键词搜索跳转后高亮仍准确, so that 我知道跳到了哪里
 41. As a 15 语言用户, I want 新增文案（第 N 轮 / TTFT / 已中断 / 更多 等）已本地化, so that 界面不中英混杂
-42. As an AMOLED 用户, I want 助手正文去掉气泡描边后仍能看清消息结构（用户消息气泡保留描边）, so that 界面层次不丢
+42. As an AMOLED 用户, I want 去掉头部标签栏后仍能看清消息结构（用户气泡保留描边、助手靠间距与尾部统计栏区分轮次）, so that 界面层次不丢
 43. As a 开发者, I want 信息架构能通过纯函数单测验证, so that 字段分配与门控不靠截图回归
 44. As a 开发者, I want 通知类型都走同一 scaffold，各自只填差异, so that 新增通知类型不用再造一套容器
+45. As a 聊天用户, I want 每条角色消息都有常驻「详情」入口, so that 时间等元信息移出头部后仍然随手可查
+46. As an OpenCode 用户, I want 逐消息 agent 名显示在助手尾部统计栏, so that 多 agent 会话里我能分辨每条消息由谁回答
+47. As a DSH 用户, I want 单 agent 会话的 agent 只在会话级别（顶部栏）显示一次, so that 消息流不重复同一个 agent 预设
 
 ## Implementation Decisions
 
 ### 总纲：两层语言
 
-- **L1 消息层**：**智能体正文**扁平三段式，无背景 / 无边框 / 无圆角；**用户消息保留原三段式气泡**（去容器只作用于助手正文，2026-09-17 用户裁决）。
+- **L1 消息层**：**两段式**（正文 + 尾部统计栏；v2 删除头部标签栏）；**智能体正文**扁平（无背景 / 无边框 / 无圆角）；**用户消息保留气泡**（去容器只作用于助手正文，2026-09-17 v1 裁决）。
 - **L2 通知层**（子智能体 / 后台 Shell / task / 系统通知 / 上下文注入 / 压缩 / 错误·重试 / workflow）：统一通知卡 = 一个 scaffold + 每类型一个薄适配器。
 - 判据：**助手正文 = 内容，平面；事件 = 通知，成卡；用户消息 = 带气泡的角色消息**。该判据与两端参考实现一致（dsh web 助手正文与过程行全平、用户仍带气泡；opencode 唯一保留块状的正是可跳转的 task 卡）。
 
-### L1 三段式规格
+### L1 消息规格（v2：两段式 + 消息详情弹窗）
 
-- **头部标题栏**（助手正文；用户消息沿用气泡自身的标签栏）：左 = 角色图标 + 角色标签（智能体 / 系统）+ agent 名（有则）；右 = 时间戳 + 状态徽标。状态徽标只覆盖"进行中 / 已中断 / 出错"，不标"已完成"。轮次序号不在消息流出现（仅统计弹窗）。
+- **头部标签栏（v2 删除）**：角色图标 / 「用户」「智能体」文字 / agent 标签 / 时间 / 状态徽标一律不再出现在消息头部。删除判据：角色文字零信息量，且用户气泡 + 助手平面本身已区分说话人。
+- **尾部统计栏（唯一信息锚点）**：
+  - 左侧信息簇：状态徽标（仅流式中 / 已中断 / 出错）+ agent 标签（仅逐消息 agent 非空时）+ provider·模型 + 耗时（流式实时 ticker）+ 步数·工具数摘要。
+  - 右侧动作簇：复制（常显）+ 「详情」入口（`ⓘ`，每条角色消息常驻）。
+  - 用户消息动作簇：撤销（仅主会话）+ 复制 + 「详情」。
+- **消息详情弹窗**：居中 `AlertDialog`（v1 的 `MessageMoreSheet` 底部抽屉退役）。上半只读信息——用户 = 时间；助手 = 时间 / 智能体（有则）/ provider·模型（有则）/ 耗时 / 步数 / 工具数 / tokens 总量（有则）/ 成本（有则）；空值整行不渲染。下半动作列表——点赞点踩（DSH）/ 复制 Markdown 源码 / 从此轮分支（仅末轮）/ 删除消息（能力位就绪）。因为时间已移出消息本体，**该入口每条角色消息都渲染**。
+- **agent 可见性（数据驱动，不看服务器类型）**：逐消息 agent（`Message.Assistant.agent`，OpenCode 有值）→ 助手尾部统计栏显示；逐消息 agent 为空（DSH 不写该字段）→ 回落到会话级 `Session.agentPreset`，在顶部栏**标题行内**以弱色小字显示一次（不新增第三行——M3 TopAppBar 固定 64dp）。
 - **正文栏**：内容渲染保持现状；工具卡 / 推理块 / 提问卡**保持各自容器**（卡片层容器统一是 #215 的范围，本 spec 不碰）。
-- **尾部统计栏**：**模型名 + provider 图标（有则——用户第 1 轮裁决「模型名称放在底部」）** + 步数·工具数摘要 + 产物文件行（吸收原先挂在气泡外的台账行与产出行）+ 常显动作（复制；用户消息另有撤销；assistant 另有跳转 / 分支）+ 「更多」入口。**不放** token 桶 / TTFT / 速度 / 成本（进统计弹窗；逐轮明细展开行同样含模型，属历史记录，两处不冲突）。
-- **「更多」**：底部面板，含点赞点踩（仅 DSH）+ 复制 Markdown 源码 + 消息删除（能力位就绪才出现）。
-- **显隐策略**：最新轮常显；流式期间耗时 ticker 常显并与状态徽标同屏；历史轮默认收起、点击展开。
-- **用户消息**：右对齐 + 保留三段式气泡（primaryContainer 底色 + AMOLED 描边 + 非对称圆角）；实现走 [MessageBubble] 容器路径（flat=false），不适用扁平骨架的 82% 最大宽度。
-- **间距与分隔**：消息间距 8dp → 16dp（紧凑密度 2dp → 8dp）；仅靠间距 + 头部角色标签分隔，不加分隔线；**助手正文**在 AMOLED 下不再有气泡描边（接受），**用户消息气泡保留 AMOLED 描边**。
+- **不放** token 桶 / TTFT / 速度 / 成本明细（进统计弹窗；逐轮明细展开行含模型，属历史记录，两处不冲突）。
+- **显隐策略**：最新轮尾部常显；流式期间耗时 ticker 常显；历史轮默认收起、点击摘要展开产出文件行。
+- **用户消息**：右对齐 + 气泡（primaryContainer 底色 + AMOLED 描边 + 非对称圆角）；走 `MessageBubble` flat=false 路径。
+- **间距与分隔**：消息间距 16dp（紧凑密度 8dp）；**不加分隔线**（v2 裁决：头部标签删除后靠间距 + 尾部统计栏作轮次锚点）；助手正文 AMOLED 无描边，用户气泡保留描边。
 
 ### L2 通知卡规格
 
@@ -115,7 +123,7 @@
 | 5 | 压缩卡 | CompactionCard（自绘 + MessageBubble） | 有 | 撤销（V1） | 迁统一卡；**收起态"流分隔线"形态例外**（语义优先） |
 | 6 | 命令反馈 | CommandFeedbackCard（自绘 Surface） | 有 | — | 迁统一卡 |
 | 7 | 错误 / 重试 / 中断 / 超限 | RevertBanner、TurnMaxTokensCard、SessionErrorCard（自绘 Surface） | 部分 | 撤销 / 重试 | **例外：颜色即含义的语义警示卡**（#215 已列） |
-| 8 | 状态徽标（进行中 / 已中断 / 出错） | 无 | — | — | 新增，落消息层头部（非通知卡） |
+| 8 | 状态徽标（进行中 / 已中断 / 出错） | 无 | — | — | 新增，落**消息层尾部统计栏**（v2 从头部迁移；非通知卡） |
 | 9 | 台账行 + 产出文件行 | TurnLedgerRow（自绘） | 有 | 分支 | 并入消息层尾部统计栏（非通知卡） |
 
 **留在卡片层、不并入通知卡家族**（#215 范围）：工具卡族（ToolCardScaffold，C1/C2）、推理块（ReasoningBlock）、文件卡（FileCard）、token 用量 / 进度卡（C3/C4）；**输入型交互卡**（提问卡、权限卡）按 #215 的 C5 例外保留表单语义。
@@ -145,7 +153,7 @@
 
 - (a) DSH 读 `data.message.source.{provider,model}` → 补齐智能体消息的模型名
 - (b) 统计弹窗渲染 sessionStats + 逐轮明细
-- (c) `interrupted` → 头部状态徽标
+- (c) `interrupted` → 尾部统计栏状态徽标（v2 从头部迁移）
 - (d) fork 入口使用「仅最后一条消息可分支」的判据（实现取**非末轮整项隐藏**——app 无 branchUnavailable 文案资源，能力位式隐藏即满足「不误分支」；DSH web 的禁用态形态未采纳）
 - (e) chunk usage 全桶（reasoning / cache）接入
 - (f) 清理 `Message.User.agent` 漂移；**删除死组件 MessageMetaInfo**（主代码零调用，含两个 androidTest 引用）
@@ -169,8 +177,8 @@
 
 好的测试只断言**外部可观察行为**，不锁实现细节（例如不断言具体 Composable 的层级或私有函数名）。
 
-- **主 seam：消息 / 通知"行模型"纯函数**（唯一新增 seam，最高层，无 Compose / 无网络 / 无 Android 依赖）。输入的领域对象（Message / Part / RenderableTurn / ServerCapabilities）→ 输出纯数据行模型（头部字段、尾部字段与动作可用性、通知卡字段、逐轮行字段）。信息架构的全部断言都落在这里：字段分配、能力位门控、第 N 轮编号来源、事件身份键去重、状态徽标派生。
-  - **生产接线（2026-09-17）**：statusBadgeFor / turnNumberFor / buildTurnDetailRows / dedupeByEventIdentity / rowCapabilitiesFor 已被 UI/装配层调用；messageRowTail 驱动助手尾部字段与动作可用性（主路径 + 分片统计栏），notificationRowModel 驱动通知卡标签/摘要/展开/跳转——消除「两源」分叉。
+  - **主 seam：消息 / 通知「行模型」纯函数**（唯一新增 seam，最高层，无 Compose / 无网络 / 无 Android 依赖）。输入的领域对象（Message / Part / RenderableTurn / ServerCapabilities）→ 输出纯数据行模型（尾部字段与动作可用性、详情弹窗字段与动作、通知卡字段、逐轮行字段）。信息架构的全部断言都落在这里：字段分配、能力位门控、第 N 轮编号来源、事件身份键去重、状态徽标派生、agent 逐消息 / 会话级分流。
+  - **生产接线（2026-09-17，v2 更新）**：statusBadgeFor / turnNumberFor / buildTurnDetailRows / dedupeByEventIdentity / rowCapabilitiesFor 已被 UI / 装配层调用；messageRowTail 驱动助手尾部字段与详情入口（主路径 + 分片统计栏），用户尾部为固定三动作（撤销 / 复制 / 详情）而 `messageDetailFields` 承载详情字段分配；notificationRowModel 驱动通知卡标签 / 摘要 / 展开 / 跳转——消除两源分叉。
 - **复用现有 seam**：`computeRenderableTurn`（扩展而非重写）；`DshEventMapper` / V2 映射的单测（承载数据层补全 (a)(e)(f)）；androidTest Compose（先例：提问卡相关测试；MessageMetaInfoTest 将随 (f) 删除，仅作历史形态参照）只验渲染；模拟器 E2E 只验滚动 / 跳转 / 交互。
 - **不设 seam 的地方**：Compose 组件内部不承载业务判定；不让 E2E 承担信息架构断言。
 - **回归重点**：SSE 流式滚动稳定性（48ms 批处理 → 高度补偿 → 渲染三铁律）、跳转高亮、分片 / 分段渲染（长轮次不退化）。
@@ -185,16 +193,19 @@
 
 ## Further Notes
 
-- **旧裁决回写**：`MessageBubble` 的头注释标注：2026-08-12「三气泡统一容器」被本设计**部分反转**——**仅智能体正文**去容器（flat 委派三段式骨架），**用户消息保留气泡**，通知层继续使用容器；三段式骨架保留。并于 journal 与 backlog 对应条目留痕。
-- **2026-09-17 用户裁决（修订 US#2 / L1 规格）**：用户消息**保留原三段式气泡**（原计划「去底色」被用户否决）；扁平化范围收窄为**智能体正文**。上文 US#2 / Solution / L1 规格 / 间距节已按此修订。
+- **旧裁决回写**：`MessageBubble` 的头注释标注：2026-08-12「三气泡统一容器」被本设计**部分反转**——**仅智能体正文**去容器（flat 委派骨架），**用户消息保留气泡**，通知层继续使用容器；骨架保留（v2 起为两段式：正文 + 尾部）。并于 journal 与 backlog 对应条目留痕。
+- **2026-09-17 用户裁决 v1（修订 US#2 / L1 规格）**：用户消息**保留原三段式气泡**（原计划「去底色」被用户否决）；扁平化范围收窄为**智能体正文**。
+- **2026-09-17 用户裁决 v2（修订 US#2/#3/#4/#5/#11/#12/#13/#42，新增 US#45-47）**：角色消息头部标签栏整体删除（用户与助手都是）；时间 / 状态徽标 / 逐消息 agent 标签 / 低频动作（从此轮分支）收进尾部与「消息详情」弹窗；`MessageMoreSheet` 底部抽屉改为居中 `BasicAlertDialog`。Solution / US / L1 规格 / 间距节已按此修订；**L2 通知层不动**。
+- **v2 已接受后果**：时间只在「消息详情」里可见（用户裁决接受）；消息流不再显示角色文字；AMOLED 下用户气泡描边 + 助手平面靠间距区分；结构可读性依据从「头部角色标签」改为「间距 + 尾部统计栏」（原 US#42 判据作废）。
 - **通知卡家族边界**：归并表见 Implementation Decisions；DSH workflow 降级卡随批2 一并核对是否已走 EventCard 语言。
 - **i18n**：新增文案（第 N 轮 / TTFT / tokens·s / 已中断 / 更多 / 复制 Markdown 源码 等）需按 i18n 工作流补 15 语言并过检查脚本。
 - **与 #215 的关系**：两者相邻但不同层——#215 管卡片容器，本 spec 管消息层容器；实现顺序上本 spec 批2 与 #215 可能触碰同一批文件，需串行。
-- **已知偏离 / 后续卡（2026-09-17 登记）**：
+- **已知偏离 / 后续卡（2026-09-17 登记；v2 更新）**：
   - 尾部主路径与 ChunkStatsBar 约 120 行同构未抽单点（backlog P3 卡：助手消息尾部统计栏单点抽取）。
   - DSH 逐轮 TTFT / tokens·s 无数据源 → 逐轮展开体整项隐藏（US#26 部分；backlog P3 卡：DSH 逐轮 timing 数据源接入）；会话级 TTFT 均值 / 解码速度已由 sessionStats 区补齐（US#24 达成）。
-  - MessageMoreSheet 为**动作菜单**抽屉，wrap-content 高度（已在 docs/ui-conventions.md 登记为主对话抽屉三件套的例外）。
-  - androidTest 的 Hilt 代码生成缺失（kspAndroidTest(hilt-compiler) 缺失）+ FakeDomainModule 缺 ServerSettingsRepository 绑定，于本卡收尾修复。
+  - v2 起 `MessageMoreSheet` 底部抽屉退役，改为「消息详情」居中弹窗——docs/ui-conventions.md 的 MessageMoreSheet 抽屉例外登记随之撤销。
+  - androidTest 的 Hilt 代码生成缺失（kspAndroidTest(hilt-compiler)）+ FakeDomainModule 缺 ServerSettingsRepository 绑定，于本卡收尾修复。
+  - androidTest 的 `ComposeNotIdleException`（常驻帧泵 `ChatMessageList.kt` `while(true){withFrameNanos{}}`，#258 遗留）未修，已登记 P2 卡（帧泵空闲信号 / 测试专用 Local）。
 
 ## 验证证据（2026-09-17）
 
@@ -203,3 +214,32 @@
 - **i18n**：scripts/i18n-check.sh PASSED（912 keys × 14 languages）。
 - **androidTest**：connectedDevDebugAndroidTest 在模拟器执行（Hilt 测试图缺口修复后）。
 - **局限**：Maestro CLI 本机未安装 → maestro/e2e-message-flattening.yaml 未执行（以 adb + 截图走查替代）；真机（小米 houji）当次未连接。
+
+## v2 修订记录（2026-09-17）
+
+用户手动测试后提出的 7 条反馈，经 3 轮拷问定稿：
+
+1. 统计栏中动作在 3 个以内时不设溢出菜单——入口保留，但语义从「更多」改为「详情」（图标 `ⓘ`）。
+2. 助手头部时间未居中——时间整体移出消息头部，问题自然消解。
+3. 用户与助手的头部标签栏都不保留，信息与动作收进「消息详情」。
+4. 「更多」从底部抽屉改为「详情 + 选择」居中弹窗。
+5. `从此轮分支` 从尾部移入「消息详情」；助手尾部只剩 `复制` + `详情`。
+6. 原头部信息盘点：角色标签（用户 / 智能体）删除；时间与逐消息 agent 移入详情 / 尾部；会话级 agent 落顶部栏。
+7. 统计栏一开始就展示、有什么显示什么——核对后助手尾部流式期本就在渲染（`visible = isStreaming || …`），用户消息迟到属服务器确认后才有气泡（正常空档），**本次不改发送路径 / 不加乐观插入**。
+
+### v2 落点
+
+- `MessageSectionScaffold.kt`：删除头部渲染分支（角色图标 / 标签 / 时间 / 徽标 / headerTrailing），骨架缩为正文 + 尾部。
+- `MessageCardAssistant.kt`（主 / Chunked / Segmented 三路径）：尾部信息簇重排（徽标 → agent 逐消息标签 → 模型 → 耗时 → 摘要），动作簇 = 复制 + 详情。
+- `MessageCardUser.kt` / `ChunkedUserMessage`：头部标签行删除；尾部 = 撤销 + 复制 + 详情。
+- `MessageMoreSheet.kt` → `MessageDetailDialog.kt`：`BasicAlertDialog`，详情区 + 动作区（评分 / 复制 Markdown 源码 / 从此轮分支 / 删除）。
+- `MessageRowModel.kt`：`messageRowTail` 承载尾部信息簇、动作可用性与详情入口门控；`statusBadgeFor` 落尾部；新增「逐消息 / 会话级」agent 分流。
+- `ChatTopBar.kt`：会话级 agent（`sessionAgent ?: agentPresetName`）弱色小字。
+- i18n：新增 `chat_msg_detail_title` / `chat_detail_time` / `chat_detail_duration` / `chat_detail_tokens` 与 `a11y_message_detail`；删除孤儿 `chat_more` / `a11y_message_more`（`chat_label_user` / `chat_label_agent` 仍被会话列表与详情弹窗使用，保留）。
+- `docs/ui-conventions.md`：撤销 MessageMoreSheet 抽屉例外登记。
+
+## 验证证据（v2，2026-09-17）
+
+- **V1（代码层）**：compileDevDebugKotlin、testDevDebugUnitTest --rerun、lintDevDebug（0 error）、assembleDevDebug。
+- **V3（模拟器实机走查）**：前台带窗口 AVD + debug intent；验证用户气泡（无头部）/ 助手平面（无头部）/ 尾部徽标 / 逐消息 agent 标签 / 详情弹窗（详情 + 动作）/ 单 agent 会话顶部栏 agent。
+- **i18n**：scripts/i18n-check.sh。
