@@ -1,10 +1,10 @@
 # Message-layer flattening and unified notification cards
 
-- **Status**: ready for agent
+- **Status**: implemented（2026-09-17；V1 门禁全绿 + 模拟器 V3 走查通过，见「验证证据」节）
 - **Issue**: [#11](https://github.com/LeoNardo-LB/oc-beacon/issues/11) (`ready-for-agent`)
-- **Date**: 2026-09-12
+- **Date**: 2026-09-12（2026-09-17 修订：用户消息保留三段式气泡，扁平化仅作用于智能体正文）
 - **Source**: user decisions in the 2026-09-12 dedicated topic (6 grilling rounds) + first-hand research on both reference clients (dsh web `dsh-client-ui-chat`, opencode web `session-ui`) + repository field inventory
-- **Design doc**: `docs/specs/2026-09-12-message-chrome-flattening-design.md`
+- **Acceptance**: docs/acceptance/2026-09-17-387/ 与 docs/journal/2026-09-17-387.md
 - **Evidence**: `docs/research/2026-09-12-message-chrome-field-inventory.md`
 - **Related**: backlog #387 follow-up topic; **reverses** the 2026-08-12 "unified bubble for the three message roles" decision (commit `7aa9788b`); coordinates with #215 (card unification, not yet implemented)
 
@@ -45,10 +45,10 @@
 13. As a 聊天用户, I want「更多」弹窗放在底部面板里且可滚动, so that 小屏也能操作
 14. As a 聊天用户, I want 最新一轮的尾部统计常显、历史轮点击展开, so that 当前轮信息随手可见、历史不占屏
 15. As a 聊天用户, I want 流式期间的消息流内能看到耗时在走, so that 我知道模型还在输出
-16. As a 聊天用户, I want 相邻消息之间有足够间距, so that 去掉气泡后消息不会糊在一起
+16. As a 聊天用户, I want 相邻消息之间有足够间距, so that 助手正文去掉气泡后消息不会糊在一起
 17. As a 聊天用户, I want 所有后台 / 系统通知用统一形态呈现, so that 我不用为每种通知重新学习怎么读
-18. As a 聊天用户, I want 通知卡折叠时一行就能读懂（图标 + 类型 + 来源 + 单行摘要）, so that 不展开也不丢信息
-19. As a 聊天用户, I want 通知卡整行可点展开看输出, so that 展开入口足够大
+18. As a 聊天用户, I want 通知卡折叠时一行就能读懂（状态图标 + 类型标签 + 时间；来源/命令预览落在描述行）, so that 不展开也不丢信息
+19. As a 聊天用户, I want 通知卡本体整行可点展开看输出（唯一展开入口）, so that 展开入口足够大且不与跳转冲突
 20. As a 聊天用户, I want 可跳转的通知卡有常驻的尾部箭头一键进入子会话, so that 跳转入口可预期且不与展开冲突
 21. As a 聊天用户, I want 跳转目标旁有弱化的外链箭头, so that 我能预期这是可跳转的
 22. As a 聊天用户, I want 重复的同源通知只保留一条并原位更新状态, so that 通知不刷屏
@@ -71,7 +71,7 @@
 39. As a 聊天用户, I want 流式输出时视口不跳、不闪, so that 阅读不被打断
 40. As a 聊天用户, I want 从快速导航 / 关键词搜索跳转后高亮仍准确, so that 我知道跳到了哪里
 41. As a 15 语言用户, I want 新增文案（第 N 轮 / TTFT / 已中断 / 更多 等）已本地化, so that 界面不中英混杂
-42. As an AMOLED 用户, I want 去掉气泡描边后仍能看清消息结构, so that 界面层次不丢
+42. As an AMOLED 用户, I want 助手正文去掉气泡描边后仍能看清消息结构（用户消息气泡保留描边）, so that 界面层次不丢
 43. As a 开发者, I want 信息架构能通过纯函数单测验证, so that 字段分配与门控不靠截图回归
 44. As a 开发者, I want 通知类型都走同一 scaffold，各自只填差异, so that 新增通知类型不用再造一套容器
 
@@ -96,9 +96,9 @@
 ### L2 通知卡规格
 
 - **容器**：沿用现役 EventCard 语言（透明底 + 1dp 描边 + medium 圆角 + AMOLED 处理），不新造容器。
-- **头部**：状态图标（运行 = 进行中指示 / 完成 / 失败）+ 类型标签 + 来源（agent 或会话）+ 状态徽标 + 时间。
+- **头部**（现役 EventCard 语言，不新造）：状态图标（运行 = 进行中指示 / 完成 / 失败 = ErrorOutline 破色）+ 类型标签 + 时间 + chevron；**来源信息落在描述行**（task 描述 / shell 命令预览 / 系统来源标签），不另立头部槽位。
 - **正文**：折叠态 = 单行摘要且必须自解释；展开体承载实际输出（shell 输出 / task 摘要 / 注入正文）；**行平面、体可色块**。
-- **尾部**：计数 / 耗时（小号弱化色、tabular-nums）+ 动作。
+- **尾部**：**现役卡无独立计数/耗时行**（时间在头部；计数类信息按需落描述行）——保持沿用、不新增（2026-09-17 实现裁决，避免为凑规格引入无数据槽位）。
 - **交互**（对齐 #215 C2 既有契约，避免“一次点击两个含义”）：**本体点击 = 展开 / 收起（唯一入口）**；跳转 = 尾部弱化外链箭头钮（常驻，仅可跳转者渲染）；只有破坏性 / 次要动作才用卡内按钮。
 - **去重**：撤销 UI 层"×N"合并；改在映射 / 装配层按**事件身份键**（工具 callId / 子会话 id / 消息 id）收敛为一条并**状态原位更新**。
 - **与面板的分工**：Shell 面板 / 智能体面板继续承担"实时列表"；消息流只放"完成事件"。
@@ -108,7 +108,7 @@
 
 | # | 类型 | 现状容器 | 折叠 | 动作 | 归并决定 |
 |---|---|---|---|---|---|
-| 1 | 合成通知（task / 子智能体 / 后台 Shell） | EventCard（内套 MessageBubble） | 有 | 跳转 / 定位 | **已是统一卡**：只需去掉 MessageBubble 外壳 |
+| 1 | 合成通知（task / 子智能体 / 后台 Shell） | EventCard（scaffold；容器 = MessageBubble 卡语言） | 有 | 跳转 / 定位 | **已是统一卡**：SyntheticNotificationCard 直接使用 EventCard scaffold（不再内套第二层容器）；容器语言由 flat=false 的 MessageBubble 提供 |
 | 2 | 系统消息（role=system：工具目录变更 / kind 标签） | EventCard | 有 | — | 同上 |
 | 3 | 上下文注入（injectionKind：context / plugin / skill-catalog …） | EventCard | 有 | — | 同上 |
 | 4 | 后台任务时间线（DSH jobs） | EventCard | 有 | — | 同上 |
@@ -139,13 +139,14 @@
 | 点赞点踩 | 无 | 无 | 有 |
 | 状态·已中断 | abort part / error | finish + aborted | `interrupted` 布尔 |
 | 撤销 revert | 有 | 有 | 无 |
+| 消息删除 | 有（deleteMessage 端点） | 有（deleteMessage 端点） | 无（客户端 deleteMessage 恒 false → 入口整项隐藏，US#35） |
 
 ### 数据层补全（并入本卡）
 
 - (a) DSH 读 `data.message.source.{provider,model}` → 补齐智能体消息的模型名
 - (b) 统计弹窗渲染 sessionStats + 逐轮明细
 - (c) `interrupted` → 头部状态徽标
-- (d) fork 入口使用"仅最后一条消息可分支"的禁用判据
+- (d) fork 入口使用「仅最后一条消息可分支」的判据（实现取**非末轮整项隐藏**——app 无 branchUnavailable 文案资源，能力位式隐藏即满足「不误分支」；DSH web 的禁用态形态未采纳）
 - (e) chunk usage 全桶（reasoning / cache）接入
 - (f) 清理 `Message.User.agent` 漂移；**删除死组件 MessageMetaInfo**（主代码零调用，含两个 androidTest 引用）
 
@@ -157,11 +158,19 @@
 
 分批验证分配（用户第 4 轮裁决）：**批1** = 单测 + 模拟器抽查；**批2** = 单测 + 模拟器 E2E（流式滚动铁律回归 / 跳转高亮 / 截图基线）+ **真机**；**批3** = 单测 + 模拟器。
 
+**实施结果（2026-09-17）**：
+- 批1 = DshAssistantSourceUsageTest + V2SyntheticAgentDriftTest + MessageRowModelTest（行模型 / 逐轮模型 seam）。
+- 批2 = 助手三路径扁平化 + 状态徽标 + 「更多」面板 + 尾部吸收 + 间距 + 身份键去重 + US#14/#34；命令反馈迁统一 EventCard。
+- 批3 = 底部面板化 + sessionStats 区 + 逐轮明细列表 + 稳定身份键。
+- 双轴 code-review 修复：B1 产出行流式门控、US#35 删除门控、轮次序号移出消息流、US#9 复制流式常显、删除确认框、孤儿键清理、seam 生产接线。
+- 真机（小米 houji）当次未连接，未执行；模拟器（前台带窗口 AVD）已完成 V3 走查。
+
 ## Testing Decisions
 
 好的测试只断言**外部可观察行为**，不锁实现细节（例如不断言具体 Composable 的层级或私有函数名）。
 
 - **主 seam：消息 / 通知"行模型"纯函数**（唯一新增 seam，最高层，无 Compose / 无网络 / 无 Android 依赖）。输入的领域对象（Message / Part / RenderableTurn / ServerCapabilities）→ 输出纯数据行模型（头部字段、尾部字段与动作可用性、通知卡字段、逐轮行字段）。信息架构的全部断言都落在这里：字段分配、能力位门控、第 N 轮编号来源、事件身份键去重、状态徽标派生。
+  - **生产接线（2026-09-17）**：statusBadgeFor / turnNumberFor / buildTurnDetailRows / dedupeByEventIdentity / rowCapabilitiesFor 已被 UI/装配层调用；messageRowTail 驱动助手尾部字段与动作可用性（主路径 + 分片统计栏），notificationRowModel 驱动通知卡标签/摘要/展开/跳转——消除「两源」分叉。
 - **复用现有 seam**：`computeRenderableTurn`（扩展而非重写）；`DshEventMapper` / V2 映射的单测（承载数据层补全 (a)(e)(f)）；androidTest Compose（先例：提问卡相关测试；MessageMetaInfoTest 将随 (f) 删除，仅作历史形态参照）只验渲染；模拟器 E2E 只验滚动 / 跳转 / 交互。
 - **不设 seam 的地方**：Compose 组件内部不承载业务判定；不让 E2E 承担信息架构断言。
 - **回归重点**：SSE 流式滚动稳定性（48ms 批处理 → 高度补偿 → 渲染三铁律）、跳转高亮、分片 / 分段渲染（长轮次不退化）。
@@ -181,3 +190,16 @@
 - **通知卡家族边界**：归并表见 Implementation Decisions；DSH workflow 降级卡随批2 一并核对是否已走 EventCard 语言。
 - **i18n**：新增文案（第 N 轮 / TTFT / tokens·s / 已中断 / 更多 / 复制 Markdown 源码 等）需按 i18n 工作流补 15 语言并过检查脚本。
 - **与 #215 的关系**：两者相邻但不同层——#215 管卡片容器，本 spec 管消息层容器；实现顺序上本 spec 批2 与 #215 可能触碰同一批文件，需串行。
+- **已知偏离 / 后续卡（2026-09-17 登记）**：
+  - 尾部主路径与 ChunkStatsBar 约 120 行同构未抽单点（backlog P3 卡：助手消息尾部统计栏单点抽取）。
+  - DSH 逐轮 TTFT / tokens·s 无数据源 → 逐轮展开体整项隐藏（US#26 部分；backlog P3 卡：DSH 逐轮 timing 数据源接入）；会话级 TTFT 均值 / 解码速度已由 sessionStats 区补齐（US#24 达成）。
+  - MessageMoreSheet 为**动作菜单**抽屉，wrap-content 高度（已在 docs/ui-conventions.md 登记为主对话抽屉三件套的例外）。
+  - androidTest 的 Hilt 代码生成缺失（kspAndroidTest(hilt-compiler) 缺失）+ FakeDomainModule 缺 ServerSettingsRepository 绑定，于本卡收尾修复。
+
+## 验证证据（2026-09-17）
+
+- **V1（代码层）**：compileDevDebugKotlin、testDevDebugUnitTest --rerun（全量 0 failure）、compileDevDebugAndroidTestKotlin、lintDevDebug（0 error）、assembleDevDebug 全绿。
+- **V3（模拟器实机走查）**：前台带窗口 AVD Pixel6_Android36 + debug intent；截图 docs/acceptance/2026-09-17-387/01-stats-bottom-sheet.png 与 02-user-bubble-and-assistant-flat.png。实测：用户消息三段式气泡 + 助手扁平三段式（尾部 omen-alpha · 2.4s · 1 步 · 0 个工具 + 复制 + 从此轮分支）+ 通知卡同列同宽 + 统计底部面板（会话级 + 各轮次详情倒序）。
+- **i18n**：scripts/i18n-check.sh PASSED（912 keys × 14 languages）。
+- **androidTest**：connectedDevDebugAndroidTest 在模拟器执行（Hilt 测试图缺口修复后）。
+- **局限**：Maestro CLI 本机未安装 → maestro/e2e-message-flattening.yaml 未执行（以 adb + 截图走查替代）；真机（小米 houji）当次未连接。

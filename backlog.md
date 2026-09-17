@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#410**（2026-09-12 #409 断连横幅显示下次重连倒计时）。
+**编号**：全局递增，不回收。下一编号：**#413**（2026-09-18 #412 androidTest 长期不可运行：Compo）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。**反馈归卡（2026-09-12 用户定规）**：用户对某张卡片的反馈/裁决一律经 `backlog.sh note <N>` 记入**该卡片**明细，**不另开新卡**承载反馈；仅当反馈引出**新的独立缺陷**时才另立卡片，并在两卡明细互相引用（#401→#408 为先例）。
 
@@ -57,6 +57,11 @@
 
 ## P2 — 优化与锦上添花
 
+- [ ] **#412 androidTest 长期不可运行：Compose 常驻帧泵致 idle 超时 + Room 迁移缺失（预存在）** `test` `infra` `dsh`
+  - 2026-09-17 修复 Hilt 测试图缺口（build.gradle.kts 补 kspAndroidTest(hilt-compiler)；FakeDomainModule 补 ServerSettingsRepository 绑定 + FakeServerSettingsRepository）后，connectedDevDebugAndroidTest 首次真正运行：113 tests / 25 failures。20 例为 androidx.compose.ui.test ComposeNotIdleException（Idling resource timed out）。
+  - 根因：ChatMessageList.kt 常驻 LaunchedEffect { while(true){ withFrameNanos{}; PreRenderShiftChannel.drain(listState) } }（#258 渲染前补偿帧界排空泵）——任何渲染 ChatScreen 的 Compose 测试永不 idle。另：SampleInstrumentedTest 等有 1 例 IllegalStateException（Room 迁移 1→9 缺失）+ 1 例 AssertionError。
+  - 修法（需谨慎，属 SSE 铁律域）：给 PreRenderShiftChannel 增加「待排空信号」（Compose MutableState 计数器 + snapshotFlow，或 Channel）使泵仅在有待注入时起帧，空闲时挂起 → 测试可 idle 且不改变帧时序语义；或为测试提供 Local 关闭泵。需真机/模拟器复核流式滚动三铁律不回归。Hilt 部分已修（2026-09-17）。
+
 - [~] **#387 V2注入刷新消息渲染为用户气泡文字墙** `chat` `ui` `v2`
   - skill-catalog/上下文刷新类注入（<system-reminder>包裹、无source.kind标记）按普通用户气泡整文渲染，[Ack] 3 会话顶部现存活例（VLM 09-41 复核：calculator 全文蓝色气泡墙，而同位插件配置已是收起小卡）。初判服务端对此类刷新不带 kind，mapper 按普通 user 落库。根因方向：对齐 dsh web 对 system-reminder 注入的识别与收起呈现（内容嗅探或等价机制），修在映射/渲染层单点。证据：/tmp/n2_acklink_top.png n2_ackthree_top.png；演示批 journal 待补
   - 2026-09-12 修复（commit 99f6430f）：新增 domain 纯判定 SystemInjection.isPureReminder + 渲染单点嗅探，无 source.kind 的 <system-reminder> 闭合块走既有折叠卡（混合消息不折叠）；新增 SystemInjectionTest；待模拟器复验。
@@ -72,6 +77,13 @@
   - - 2026-09-17 用户裁决修订：**用户消息保留原三段式气泡**（否决「去底色」）；扁平化范围收窄为智能体正文。spec/研究底稿/kdoc/Issue #11 已同步。
 
 ## P3 — 观察与低价值改进
+
+- [ ] **#411 DSH 逐轮 TTFT / tokens·s 数据源接入（统计弹窗逐轮展开）** `dsh` `ui`
+  - #387 spec US#26 部分实现：逐轮明细展开体的 TTFT / 解码速度当前恒 null（ContextDetailDelegate 无逐轮源，能力位门控正确隐藏）。dsh web 有 per-turn ttftMs / tokensPerSecond（节点 timing.firstTokenTime/stepStartTime 派生，盘点 §4.2）；app 尚未消费 DSH per-step timing。修法：DSH 事件侧持久化 step timing → TurnDetailInput.ttftMs/tokensPerSecond。
+
+- [ ] **#410 助手消息尾部统计栏单点抽取（消 AssistantTurnTail 与 ChunkStatsBar 同构）** `refactor` `ui`
+  - #387 双轴评审 S1：主路径尾部（MessageCardAssistant statsBar）与 ChunkStatsBar 约 120 行同构（模型/耗时/轮号/步数工具摘要/tailExpanded 状态机/复制/分支/更多/MoreSheet 装配/ProducedFilesRow 全部成对重复）；turnNumber/onForkFromTurn/onDeleteMessage 三参数贯穿 5 层 composable（Data Clump）。修法：抽单一 AssistantTurnTail，参数打包；ChunkStatsBar 更名。
+  - 风险：layout scope（RowScope vs ColumnScope）迁移需模拟器复核流式/分片两态。
 
 ## P4 — 外部前提阻塞
 
