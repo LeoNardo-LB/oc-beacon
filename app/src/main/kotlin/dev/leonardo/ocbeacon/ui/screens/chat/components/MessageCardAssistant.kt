@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.ThumbDown
 import androidx.compose.material.icons.filled.ThumbUp
@@ -28,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -37,6 +40,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -55,6 +60,9 @@ import dev.leonardo.ocbeacon.ui.screens.chat.dialog.QuestionCard
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.ContextToolGroupCard
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.PartGroup
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderableTurn
+import dev.leonardo.ocbeacon.ui.screens.chat.tools.turnLedgerSummary
+import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.TurnNumber
+import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.statusBadgeFor
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderItem
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalShowTurnDividers
@@ -65,7 +73,9 @@ import dev.leonardo.ocbeacon.ui.theme.ChatDensity
 import dev.leonardo.ocbeacon.ui.theme.LocalChatDensity
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
+import dev.leonardo.ocbeacon.util.copyToClipboard
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * 智能体消息气泡——统一容器（MessageBubble）：
@@ -107,6 +117,12 @@ internal fun MessageCardAssistant(
      */
     messageFeedback: dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem? = null,
     onRateMessage: ((dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating) -> Unit)? = null,
+    /** 2026-09-12 扁平化：第 N 轮编号（server 优先；null = 不渲染——US#28）。 */
+    turnNumber: TurnNumber? = null,
+    /** 2026-09-12 扁平化：「从此轮分支」尾部动作（null = 不显示——US#11）。 */
+    onForkFromTurn: (() -> Unit)? = null,
+    /** 2026-09-12 扁平化：删除消息（能力位就绪才传入——US#35）。 */
+    onDeleteMessage: (() -> Unit)? = null,
 ) {
     // D2-L22：原 if(isAmoled) 两分支相同（死条件）——直接取 onSurface
     val textColor = MaterialTheme.colorScheme.onSurface
@@ -186,19 +202,23 @@ internal fun MessageCardAssistant(
     val durationMs = renderableTurn.durationMs
     // #310②：反馈动作位仅已完结消息且服务器门控通过（onRateMessage 非 null）——
     // 流式 turn 脚部恒为耗时 ticker，不受反馈图标影响（SSE 高度补偿铁律）。
-    val showFeedbackActions = !isStreaming && onRateMessage != null
-    val hasFooter = (durationMs ?: 0) > 0 || !modelId.isNullOrBlank() || !agentName.isNullOrBlank()
-    val showStatsBar = isStreaming || hasFooter || (copyText != null && isTurnLast) || showFeedbackActions
+    val hasFooter = (durationMs ?: 0) > 0 || !modelId.isNullOrBlank()
+    // 2026-09-12 扁平化：台账摘要收进尾部统计栏（原挂在气泡外的台账行/产出行）
+    val ledger = turnLedgerSummary(renderableTurn, turnNumber?.value ?: 0)
+    val toolCallCount = ledger.toolCallCount
+    val hasMarkdownCopy = copyText != null
+    val moreAvailable = onRateMessage != null || onDeleteMessage != null || hasMarkdownCopy
+    val showStatsBar = isStreaming || hasFooter || renderableTurn.stepCount > 0 || toolCallCount > 0 ||
+        renderableTurn.deliverableFiles.isNotEmpty() || turnNumber != null ||
+        (copyText != null && onCopy != null) || onForkFromTurn != null || moreAvailable
+    var showMoreSheet by remember { mutableStateOf(false) }
+    val moreClipboard = LocalClipboard.current
+    val moreScope = rememberCoroutineScope()
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.Start
-    ) {
         MessageBubble(
             alignEnd = false,
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            border = if (isAmoled) AmoledDefaultBorder else null,
-            shape = ShapeTokens.medium,
+            containerColor = Color.Transparent,
+            flat = true,
             label = stringResource(R.string.chat_label_agent),
             // 2026-08-16（标题栏规范·类型图标）：智能体=SmartToy
             labelLeading = {
@@ -210,6 +230,22 @@ internal fun MessageCardAssistant(
                 )
             },
             timeMs = currentMessage.message.time.created,
+            agentName = agentName,
+            agents = agents,
+            onAgentClick = onAgentClick,
+            statusBadge = statusBadgeFor(
+                isStreaming = isStreaming,
+                finish = assistantMsg?.finish,
+                hasError = assistantMsg?.error != null,
+            ),
+            tailExtra = {
+                if (renderableTurn.deliverableFiles.isNotEmpty()) {
+                    ProducedFilesRow(
+                        files = renderableTurn.deliverableFiles,
+                        onOpenFile = onOpenFile,
+                    )
+                }
+            },
             statsBar = if (showStatsBar) {
                 {
                     // 耗时显示：流式 = 实时 ticker（独立子 composable，重组只限单个 Text，
@@ -217,12 +253,6 @@ internal fun MessageCardAssistant(
                     // 与 48ms flush 叠加 ~30 次/s footer 重组）；完成 = 固定时长。
                     val startMs = renderableTurn.turnStartMs ?: assistantMsg?.time?.created
 
-                    // Agent 名称标签（2026-08-12：与输入组件 agent 选择器同款紧凑标签——
-                    // M3 SuggestionChip 32dp 偏大，用户确认改回紧凑样式）
-                    if (!agentName.isNullOrBlank()) {
-                        val tagColor = agentColor(agentName, agents)
-                        AgentTag(agent = agentName, tagColor = tagColor, onClick = { onAgentClick?.invoke(agentName) })
-                    }
                     // 提供商图标 + 模型名
                     val hasProviderOrModel = assistantMsg?.providerId != null || !modelId.isNullOrBlank()
                     if (hasProviderOrModel) {
@@ -260,20 +290,58 @@ internal fun MessageCardAssistant(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                         )
                     }
-                    Spacer(modifier = Modifier.weight(1f))
-                    // #310② 消息反馈 👍/👎（仅完结态；点击 = 评价／同向撤销／换向）
-                    if (showFeedbackActions && onRateMessage != null) {
-                        MessageFeedbackButtons(
-                            current = messageFeedback,
-                            onRate = onRateMessage,
+                    // 第 N 轮编号（server 优先；US#28）
+                    turnNumber?.let { tn ->
+                        Text(
+                            text = stringResource(R.string.chat_turn_number, tn.value),
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                         )
                     }
-                    // 复制按钮（仅完成态）
-                    if (!isStreaming && copyText != null) {
+                    // 步数 · 工具数摘要（US#7）
+                    if (renderableTurn.stepCount > 0 || toolCallCount > 0) {
+                        Text(
+                            text = stringResource(
+                                R.string.chat_msg_tail_summary,
+                                renderableTurn.stepCount,
+                                toolCallCount,
+                            ),
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
+                        )
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                    // 复制常显（US#9；仅完成态——流式高度补偿不受脚部变化影响）
+                    if (!isStreaming && copyText != null && onCopy != null) {
                         CopyButton(
                             text = copyText,
                             modifier = Modifier.size(14.dp),
                             onCopied = onCopy
+                        )
+                    }
+                    // 「从此轮分支」（US#11）
+                    if (onForkFromTurn != null) {
+                        Text(
+                            text = stringResource(R.string.chat_turn_fork_from_here),
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .clip(ShapeTokens.small)
+                                .clickable(onClickLabel = stringResource(R.string.chat_turn_fork_from_here)) {
+                                    onForkFromTurn()
+                                }
+                                .padding(horizontal = SpacingTokens.SM.dp, vertical = 2.dp),
+                        )
+                    }
+                    // 「更多」（US#12：点赞点踩 / 复制 Markdown 源码 / 删除消息）
+                    if (moreAvailable) {
+                        androidx.compose.material3.Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Filled.MoreHoriz,
+                            contentDescription = stringResource(R.string.a11y_message_more),
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clickable { showMoreSheet = true },
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
                         )
                     }
                 }
@@ -466,7 +534,34 @@ internal fun MessageCardAssistant(
                 }
             }
         }
+
+    // 「更多」底部面板（US#12/#13/#31/#35/#36）
+    if (showMoreSheet) {
+        MessageMoreSheet(
+            feedback = messageFeedback,
+            onRate = onRateMessage,
+            onCopyMarkdownSource = copyText?.let { src ->
+                {
+                    moreScope.launch {
+                        moreClipboard.copyToClipboard("copy", src)
+                        onCopy?.invoke()
+                    }
+                }
+            },
+            onDelete = onDeleteMessage,
+            onDismiss = { showMoreSheet = false },
+        )
     }
+}
+
+@Composable
+private fun AssistantLabelIcon() {
+    androidx.compose.material3.Icon(
+        imageVector = androidx.compose.material.icons.Icons.Filled.SmartToy,
+        contentDescription = null,
+        modifier = Modifier.size(13.dp),
+        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+    )
 }
 
 /**
@@ -580,11 +675,13 @@ internal fun ChunkedAssistantMessage(
     /** #310②：分片 turn 恒已完结——反馈动作位直接门控于回调非 null。 */
     messageFeedback: dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem? = null,
     onRateMessage: ((dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating) -> Unit)? = null,
+    turnNumber: TurnNumber? = null,
+    onForkFromTurn: (() -> Unit)? = null,
+    onDeleteMessage: (() -> Unit)? = null,
 ) {
     if (renderableTurn.isEmpty) return
     val compact = LocalChatDensity.current == ChatDensity.Compact
     val textColor = MaterialTheme.colorScheme.onSurface
-    val containerColor = MaterialTheme.colorScheme.surfaceVariant
     val readinessRegistry = LocalRenderReadiness.current
     val assistantMsg = currentMessage.message as? Message.Assistant
 
@@ -597,54 +694,34 @@ internal fun ChunkedAssistantMessage(
     val horizPad = if (compact) 10.dp else SpacingTokens.LG.dp
     val vertPad = if (compact) SpacingTokens.SM.dp else 14.dp
 
-    // 分段 shape：首段顶圆角 / 中段直角 / 末段底圆角（12dp = ShapeTokens.medium）
-    val shape = when {
-        chunk.isFirst -> RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
-        chunk.isLast -> RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)
-        else -> RoundedCornerShape(0.dp)
-    }
-
-    Surface(color = containerColor, shape = shape, modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(
-                start = horizPad, end = horizPad,
-                top = if (chunk.isFirst) vertPad else 0.dp,
-                bottom = if (chunk.isLast) vertPad else 0.dp,
-            ),
-        ) {
-            // ① 标签栏（仅首段）——与 MessageBubble 标签栏视觉一致
-            if (chunk.isFirst) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
-                    modifier = Modifier.padding(bottom = if (compact) SpacingTokens.XS.dp else 10.dp),
-                ) {
-                    androidx.compose.material3.Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Filled.SmartToy,
-                        contentDescription = null,
-                        modifier = Modifier.size(13.dp),
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                    )
-                    Text(
-                        text = stringResource(R.string.chat_label_agent),
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    // #312③：时间居中（左右等权区，同 MessageBubble 三段式标签栏）
-                    Spacer(modifier = Modifier.weight(1f))
-                    Text(
-                        text = remember(currentMessage.message.time.created) {
-                            dev.leonardo.ocbeacon.util.DateFormatters.messageTimestamp(currentMessage.message.time.created)
-                        },
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
+    // 2026-09-12 扁平化：分片路径同样走三段式（首段头部 / 末段尾部），
+    // 去容器外观——三段式布局单点 = MessageSectionScaffold。
+    MessageSectionScaffold(
+        label = stringResource(R.string.chat_label_agent),
+        timeMs = currentMessage.message.time.created,
+        labelLeading = { AssistantLabelIcon() },
+        agentName = renderableTurn.agentName,
+        agents = agents,
+        onAgentClick = onAgentClick,
+        showHeader = chunk.isFirst,
+        showTail = chunk.isLast,
+        tail = {
+            ChunkStatsBar(
+                renderableTurn = renderableTurn,
+                assistantMsg = assistantMsg,
+                isTurnLast = isTurnLast,
+                agents = agents,
+                onAgentClick = onAgentClick,
+                onCopy = onCopy,
+                messageFeedback = messageFeedback,
+                onRateMessage = onRateMessage,
+                turnNumber = turnNumber,
+                onForkFromTurn = onForkFromTurn,
+                onDeleteMessage = onDeleteMessage,
+                onOpenFile = onOpenFile,
+            )
+        },
+    ) {
             // ② 首段：巨型 part 之前的 renderItems（reasoning / 工具卡等）
             if (chunk.isFirst && targetIdx > 0) {
                 ChunkAssistantItems(
@@ -712,18 +789,7 @@ internal fun ChunkedAssistantMessage(
                         )
                     }
                 }
-                ChunkStatsBar(
-                    renderableTurn = renderableTurn,
-                    assistantMsg = assistantMsg,
-                    isTurnLast = isTurnLast,
-                    agents = agents,
-                    onAgentClick = onAgentClick,
-                    onCopy = onCopy,
-                    messageFeedback = messageFeedback,
-                    onRateMessage = onRateMessage,
-                )
             }
-        }
     }
 }
 
@@ -854,11 +920,13 @@ internal fun SegmentedAssistantMessage(
     /** #310②：分段 turn 恒已完结——反馈动作位直接门控于回调非 null。 */
     messageFeedback: dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem? = null,
     onRateMessage: ((dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating) -> Unit)? = null,
+    turnNumber: TurnNumber? = null,
+    onForkFromTurn: (() -> Unit)? = null,
+    onDeleteMessage: (() -> Unit)? = null,
 ) {
     if (renderableTurn.isEmpty) return
     val compact = LocalChatDensity.current == ChatDensity.Compact
     val textColor = MaterialTheme.colorScheme.onSurface
-    val containerColor = MaterialTheme.colorScheme.surfaceVariant
     val readinessRegistry = LocalRenderReadiness.current
     val assistantMsg = currentMessage.message as? Message.Assistant
 
@@ -876,53 +944,34 @@ internal fun SegmentedAssistantMessage(
     }
     val horizPad = if (compact) 10.dp else SpacingTokens.LG.dp
     val vertPad = if (compact) SpacingTokens.SM.dp else 14.dp
-    val shape = when {
-        chunk.isFirst -> RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
-        chunk.isLast -> RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)
-        else -> RoundedCornerShape(0.dp)
-    }
-
-    Surface(color = containerColor, shape = shape, modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(
-                start = horizPad, end = horizPad,
-                top = if (chunk.isFirst) vertPad else 0.dp,
-                bottom = if (chunk.isLast) vertPad else 0.dp,
-            ),
-        ) {
-            // ① 标签栏（仅首段）——与 ChunkedAssistantMessage 视觉一致
-            if (chunk.isFirst) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
-                    modifier = Modifier.padding(bottom = if (compact) SpacingTokens.XS.dp else 10.dp),
-                ) {
-                    androidx.compose.material3.Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Filled.SmartToy,
-                        contentDescription = null,
-                        modifier = Modifier.size(13.dp),
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                    )
-                    Text(
-                        text = stringResource(R.string.chat_label_agent),
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    // #312③：时间居中（左右等权区，同 MessageBubble 三段式标签栏）
-                    Spacer(modifier = Modifier.weight(1f))
-                    Text(
-                        text = remember(currentMessage.message.time.created) {
-                            dev.leonardo.ocbeacon.util.DateFormatters.messageTimestamp(currentMessage.message.time.created)
-                        },
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
+    // 2026-09-12 扁平化：分段路径同样走三段式（首段头部 / 末段尾部），
+    // 去容器外观——三段式布局单点 = MessageSectionScaffold。
+    MessageSectionScaffold(
+        label = stringResource(R.string.chat_label_agent),
+        timeMs = currentMessage.message.time.created,
+        labelLeading = { AssistantLabelIcon() },
+        agentName = renderableTurn.agentName,
+        agents = agents,
+        onAgentClick = onAgentClick,
+        showHeader = chunk.isFirst,
+        showTail = chunk.isLast,
+        tail = {
+            ChunkStatsBar(
+                renderableTurn = renderableTurn,
+                assistantMsg = assistantMsg,
+                isTurnLast = isTurnLast,
+                agents = agents,
+                onAgentClick = onAgentClick,
+                onCopy = onCopy,
+                messageFeedback = messageFeedback,
+                onRateMessage = onRateMessage,
+                turnNumber = turnNumber,
+                onForkFromTurn = onForkFromTurn,
+                onDeleteMessage = onDeleteMessage,
+                onOpenFile = onOpenFile,
+            )
+        },
+    ) {
             // ② 段主体
             when (val seg = segment) {
                 is TurnSegmentPlan.Segment.Items -> {
@@ -975,22 +1024,13 @@ internal fun SegmentedAssistantMessage(
                         )
                     }
                 }
-                ChunkStatsBar(
-                    renderableTurn = renderableTurn,
-                    assistantMsg = assistantMsg,
-                    isTurnLast = isTurnLast,
-                    agents = agents,
-                    onAgentClick = onAgentClick,
-                    onCopy = onCopy,
-                    messageFeedback = messageFeedback,
-                    onRateMessage = onRateMessage,
-                )
             }
-        }
     }
 }
 
-/** 分片场景统计栏（历史消息：isStreaming=false 恒成立）。 */
+/** 分片 / 分段场景尾部统计栏（历史消息：isStreaming=false 恒成立）。
+ *  2026-09-12 扁平化：与主路径尾部同构（模型 / 第 N 轮 / 耗时 / 摘要 / 产出 /
+ *  复制 / 分支 / 更多）——三段式尾部只此一份语义。 */
 @Composable
 private fun ChunkStatsBar(
     renderableTurn: RenderableTurn,
@@ -1001,62 +1041,126 @@ private fun ChunkStatsBar(
     onCopy: (() -> Unit)?,
     messageFeedback: dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem? = null,
     onRateMessage: ((dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating) -> Unit)? = null,
+    turnNumber: TurnNumber? = null,
+    onForkFromTurn: (() -> Unit)? = null,
+    onDeleteMessage: (() -> Unit)? = null,
+    onOpenFile: ((String) -> Unit)? = null,
 ) {
-    val agentName = renderableTurn.agentName
     val copyText = renderableTurn.copyText
     val modelId = renderableTurn.modelId
     val durationMs = renderableTurn.durationMs
-    val hasFooter = (durationMs ?: 0) > 0 || !modelId.isNullOrBlank() || !agentName.isNullOrBlank()
-    // #310②：反馈动作位存在时统计栏也要渲染（否则无脚部可落）
-    if (!hasFooter && !(copyText != null && isTurnLast) && onRateMessage == null) return
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    val ledger = turnLedgerSummary(renderableTurn, turnNumber?.value ?: 0)
+    val toolCallCount = ledger.toolCallCount
+    val moreAvailable = onRateMessage != null || onDeleteMessage != null || copyText != null
+    var showMoreSheet by remember { mutableStateOf(false) }
+    val moreClipboard = LocalClipboard.current
+    val moreScope = rememberCoroutineScope()
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
     ) {
-        if (!agentName.isNullOrBlank()) {
-            AgentTag(agent = agentName, tagColor = agentColor(agentName, agents), onClick = { onAgentClick?.invoke(agentName) })
-        }
-        val hasProviderOrModel = assistantMsg?.providerId != null || !modelId.isNullOrBlank()
-        if (hasProviderOrModel) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
-            ) {
-                if (assistantMsg?.providerId != null) {
-                    ProviderIcon(
-                        providerId = assistantMsg.providerId,
-                        size = 10.dp,
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                    )
-                }
-                if (!modelId.isNullOrBlank()) {
-                    Text(
-                        text = modelId,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val hasProviderOrModel = assistantMsg?.providerId != null || !modelId.isNullOrBlank()
+            if (hasProviderOrModel) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
+                    if (assistantMsg?.providerId != null) {
+                        ProviderIcon(
+                            providerId = assistantMsg.providerId,
+                            size = 10.dp,
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                        )
+                    }
+                    if (!modelId.isNullOrBlank()) {
+                        Text(
+                            text = modelId,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
+            if ((durationMs ?: 0L) > 0) {
+                Text(
+                    text = formatDuration(durationMs!!),
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                )
+            }
+            turnNumber?.let { tn ->
+                Text(
+                    text = stringResource(R.string.chat_turn_number, tn.value),
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                )
+            }
+            if (renderableTurn.stepCount > 0 || toolCallCount > 0) {
+                Text(
+                    text = stringResource(
+                        R.string.chat_msg_tail_summary,
+                        renderableTurn.stepCount,
+                        toolCallCount,
+                    ),
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                )
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            if (copyText != null && onCopy != null) {
+                CopyButton(text = copyText, modifier = Modifier.size(14.dp), onCopied = onCopy)
+            }
+            if (onForkFromTurn != null) {
+                Text(
+                    text = stringResource(R.string.chat_turn_fork_from_here),
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clip(ShapeTokens.small)
+                        .clickable(onClickLabel = stringResource(R.string.chat_turn_fork_from_here)) {
+                            onForkFromTurn()
+                        }
+                        .padding(horizontal = SpacingTokens.SM.dp, vertical = 2.dp),
+                )
+            }
+            if (moreAvailable) {
+                androidx.compose.material3.Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Filled.MoreHoriz,
+                    contentDescription = stringResource(R.string.a11y_message_more),
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable { showMoreSheet = true },
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                )
+            }
         }
-        if ((durationMs ?: 0L) > 0) {
-            Text(
-                text = formatDuration(durationMs!!),
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-            )
+        if (renderableTurn.deliverableFiles.isNotEmpty()) {
+            ProducedFilesRow(files = renderableTurn.deliverableFiles, onOpenFile = onOpenFile)
         }
-        Spacer(modifier = Modifier.weight(1f))
-        // #310② 消息反馈（分片 turn 恒已完结——无流式门控）
-        if (onRateMessage != null) {
-            MessageFeedbackButtons(current = messageFeedback, onRate = onRateMessage)
-        }
-        if (copyText != null) {
-            CopyButton(text = copyText, modifier = Modifier.size(14.dp), onCopied = onCopy)
-        }
+    }
+
+    if (showMoreSheet) {
+        MessageMoreSheet(
+            feedback = messageFeedback,
+            onRate = onRateMessage,
+            onCopyMarkdownSource = copyText?.let { src ->
+                {
+                    moreScope.launch {
+                        moreClipboard.copyToClipboard("copy", src)
+                        onCopy?.invoke()
+                    }
+                }
+            },
+            onDelete = onDeleteMessage,
+            onDismiss = { showMoreSheet = false },
+        )
     }
 }

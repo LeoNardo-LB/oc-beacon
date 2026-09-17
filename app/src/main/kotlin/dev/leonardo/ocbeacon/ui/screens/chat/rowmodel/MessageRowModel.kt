@@ -1,7 +1,8 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.rowmodel
 
 import dev.leonardo.ocbeacon.domain.model.Message
-import dev.leonardo.ocbeacon.domain.model.ServerType
+import dev.leonardo.ocbeacon.domain.model.ServerCapabilities
+import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderableTurn
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.TurnLedgerSummary
 
@@ -24,13 +25,14 @@ import dev.leonardo.ocbeacon.ui.screens.chat.tools.TurnLedgerSummary
 
 /**
  * 行模型能力位（spec 能力位门控表）：只产生「整项隐藏」差异，绝不改变形态。
+ * 一律由 [ServerCapabilities] 能力位派生（#391 架构；不写服务器类型分支）。
  *
- * - cost：V1/V2 有（消息级/会话级），DSH 全链无 → DSH 不渲染成本项；
- * - timing：TTFT / tokens·s 仅 DSH 有 → V1/V2 不渲染；
- * - feedback：👍👎 仅 DSH 有；
- * - revert：撤销仅 OpenCode 系（V1/V2）有；
- * - fork：三面都有；
- * - messageDelete：V1/V2 端点在（DSH 客户端恒返回 false）→ DSH 不出现删除入口。
+ * - cost：core.cost 在场（V1/V2 消息带 cost；DSH 全链无）→ 缺席即不渲染成本项；
+ * - timing：core.turnTiming 在场（TTFT / tokens·s 仅 DSH 投影面）；
+ * - feedback：core.feedback（👍👎 仅 DSH）；
+ * - revert：core.session.revert（撤销仅 OpenCode 系）；
+ * - fork：三面都有（fork 端点齐备）；
+ * - messageDelete：core.message.delete（DSH 客户端恒返回 false → 不出现入口）。
  */
 data class RowCapabilities(
     val cost: Boolean,
@@ -41,24 +43,14 @@ data class RowCapabilities(
     val messageDelete: Boolean,
 )
 
-fun rowCapabilitiesFor(serverType: ServerType): RowCapabilities = when (serverType) {
-    ServerType.Dsh -> RowCapabilities(
-        cost = false,
-        timing = true,
-        feedback = true,
-        revert = false,
-        fork = true,
-        messageDelete = false,
-    )
-    ServerType.OpenCode -> RowCapabilities(
-        cost = true,
-        timing = false,
-        feedback = false,
-        revert = true,
-        fork = true,
-        messageDelete = true,
-    )
-}
+fun rowCapabilitiesFor(caps: ServerCapabilities): RowCapabilities = RowCapabilities(
+    cost = ServerFeatures.COST in caps,
+    timing = ServerFeatures.TURN_TIMING in caps,
+    feedback = ServerFeatures.FEEDBACK in caps,
+    revert = ServerFeatures.SESSION_REVERT in caps,
+    fork = true,
+    messageDelete = ServerFeatures.MESSAGE_DELETE in caps,
+)
 
 // ---------------------------------------------------------------------------
 // L1 消息层

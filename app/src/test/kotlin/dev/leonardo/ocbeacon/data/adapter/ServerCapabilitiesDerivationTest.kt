@@ -53,6 +53,8 @@ class ServerCapabilitiesDerivationTest {
         assertTrue(has(caps, ServerFeatures.FILE_SEARCH))
         assertTrue(has(caps, ServerFeatures.SESSION_DELETE))
         assertTrue(has(caps, ServerFeatures.SESSION_REVERT))
+        assertTrue(has(caps, ServerFeatures.COST))
+        assertTrue(has(caps, ServerFeatures.MESSAGE_DELETE))
         assertFalse(has(caps, ServerFeatures.PERMISSION_SWITCH))
         assertFalse(has(caps, ServerFeatures.AGENT_PRESET))
         assertFalse(has(caps, ServerFeatures.GOALS))
@@ -111,6 +113,7 @@ class ServerCapabilitiesDerivationTest {
         assertTrue(has(c, ServerFeatures.SUBAGENTS))
         assertTrue(has(c, ServerFeatures.SERVER_SETTINGS))
         assertTrue(has(c, ServerFeatures.AUTH_TOKEN))
+        assertTrue(has(c, ServerFeatures.TURN_TIMING))
         // 端口缺席 ⇒ 无能力（终端 / shell）
         assertFalse(has(c, ServerFeatures.TERMINAL))
         assertFalse(has(c, ServerFeatures.SHELL))

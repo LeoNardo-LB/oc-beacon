@@ -44,6 +44,12 @@ internal fun MessageCard(
      */
     messageFeedback: dev.leonardo.ocbeacon.domain.model.MessageFeedbackItem? = null,
     onRateMessage: ((dev.leonardo.ocbeacon.domain.model.MessageFeedbackRating) -> Unit)? = null,
+    /** 2026-09-12 扁平化：第 N 轮编号（server 优先）。 */
+    turnNumber: dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.TurnNumber? = null,
+    /** 2026-09-12 扁平化：「从此轮分支」尾部动作。 */
+    onForkFromTurn: (() -> Unit)? = null,
+    /** 2026-09-12 扁平化：删除消息（能力位就绪才传入）。 */
+    onDeleteMessage: (() -> Unit)? = null,
 ) {
     when (role) {
         MessageCardRole.USER -> MessageCardUser(
@@ -51,6 +57,7 @@ internal fun MessageCard(
             onRevert = onRevert,
             onCopyText = onCopyText,
             isAmoled = isAmoled,
+            onDeleteMessage = onDeleteMessage,
         )
         MessageCardRole.SYNTHETIC -> SyntheticNotificationCard(
             currentMessage = currentMessage,
@@ -78,6 +85,9 @@ internal fun MessageCard(
             eventExpandedStates = eventExpandedStates,
             messageFeedback = messageFeedback,
             onRateMessage = onRateMessage,
+            turnNumber = turnNumber,
+            onForkFromTurn = onForkFromTurn,
+            onDeleteMessage = onDeleteMessage,
         )
     }
 }

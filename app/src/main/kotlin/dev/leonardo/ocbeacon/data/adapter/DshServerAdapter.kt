@@ -129,6 +129,8 @@ class DshServerAdapter @Inject constructor(
         // 后台任务帧推送 + plan 投影域（DSH 专属）
         add(ServerFeatures.JOBS_PUSH)
         add(ServerFeatures.PLAN)
+        // turn 级计时（ttftMs / tokensPerSecond / runMs）——DSH 投影面专属
+        add(ServerFeatures.TURN_TIMING)
     }
 
     companion object {

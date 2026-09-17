@@ -78,6 +78,9 @@ class OpenCodeServerAdapter @Inject constructor(
         add(ServerFeatures.FILE_SEARCH)
         add(ServerFeatures.SESSION_DELETE)
         add(ServerFeatures.SESSION_REVERT)
+        // 消息级成本桶（V1/V2 消息载荷带 cost）与单条消息删除动词
+        add(ServerFeatures.COST)
+        add(ServerFeatures.MESSAGE_DELETE)
         if (conn.apiVersion.isV2) {
             add(ServerFeatures.SESSION_BACKGROUND)
         } else {

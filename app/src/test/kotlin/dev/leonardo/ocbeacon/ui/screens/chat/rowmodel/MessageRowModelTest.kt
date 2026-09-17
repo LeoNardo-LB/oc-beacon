@@ -1,8 +1,10 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.rowmodel
 
+import dev.leonardo.ocbeacon.domain.model.CoreFlags
 import dev.leonardo.ocbeacon.domain.model.Message
-import dev.leonardo.ocbeacon.domain.model.ServerType
-import dev.leonardo.ocbeacon.domain.model.TimeInfo
+import dev.leonardo.ocbeacon.domain.model.ServerCapabilities
+import dev.leonardo.ocbeacon.domain.model.ServerFeature
+import dev.leonardo.ocbeacon.domain.model.ServerFeatures
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -14,6 +16,25 @@ import org.junit.Test
  * （字段分配 / 能力位门控 / 第 N 轮来源 / 状态徽标 / 通知卡 / 逐轮行）。
  */
 class MessageRowModelTest {
+
+    private val emptyFlags = CoreFlags(
+        compactionAsync = false,
+        compactionModelIndependent = false,
+        exportIsArchive = false,
+        configEditable = true,
+    )
+
+    private fun capsOf(features: Set<ServerFeature>) =
+        ServerCapabilities(coreFlags = emptyFlags, features = features)
+
+    private val dshCaps = capsOf(setOf(ServerFeatures.TURN_TIMING, ServerFeatures.FEEDBACK))
+    private val openCodeCaps = capsOf(
+        setOf(
+            ServerFeatures.COST,
+            ServerFeatures.SESSION_REVERT,
+            ServerFeatures.MESSAGE_DELETE,
+        ),
+    )
 
     private fun assistantTokens(
         input: Int,
@@ -34,7 +55,7 @@ class MessageRowModelTest {
 
     @Test
     fun `dsh capabilities hide cost and revert but keep timing and feedback`() {
-        val caps = rowCapabilitiesFor(ServerType.Dsh)
+        val caps = rowCapabilitiesFor(dshCaps)
         assertFalse(caps.cost)
         assertTrue(caps.timing)
         assertTrue(caps.feedback)
@@ -45,7 +66,7 @@ class MessageRowModelTest {
 
     @Test
     fun `opencode capabilities keep cost and revert but hide timing and feedback`() {
-        val caps = rowCapabilitiesFor(ServerType.OpenCode)
+        val caps = rowCapabilitiesFor(openCodeCaps)
         assertTrue(caps.cost)
         assertFalse(caps.timing)
         assertFalse(caps.feedback)
@@ -131,7 +152,7 @@ class MessageRowModelTest {
                     tokensPerSecond = 12.5,
                 ),
             ),
-            rowCapabilitiesFor(ServerType.Dsh),
+            rowCapabilitiesFor(dshCaps),
         )
         val row = rows.single()
         assertEquals(4, row.turnNumber!!.value)
@@ -166,7 +187,7 @@ class MessageRowModelTest {
             ttftMs = 100,
             tokensPerSecond = 9.0,
         )
-        val opencode = buildTurnDetailRows(listOf(input), rowCapabilitiesFor(ServerType.OpenCode)).single()
+        val opencode = buildTurnDetailRows(listOf(input), rowCapabilitiesFor(openCodeCaps)).single()
         assertNull(opencode.ttftMs)
         assertNull(opencode.tokensPerSecond)
         assertEquals(0.42, opencode.cost!!, 0.0)
@@ -183,7 +204,7 @@ class MessageRowModelTest {
                     modelId = null, providerId = null,
                 ),
             ),
-            rowCapabilitiesFor(ServerType.Dsh),
+            rowCapabilitiesFor(dshCaps),
         ).single()
         assertNull(row.tokensInput)
         assertNull(row.tokensOutput)

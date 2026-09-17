@@ -107,7 +107,13 @@ sealed class Message {
          * 转录本地 id 仍是 [id]（seq-N 派生）——两址域经此桥接。
          */
         val wireId: String? = null,
-        val summary: Boolean? = null
+        val summary: Boolean? = null,
+        /**
+         * (2026-09-12 消息层扁平化 US#28)：服务器会话内轮次号（DSH
+         * assistant/message 的 data.turn）。OpenCode 恒 null → 客户端锚点
+         * 序号兜底。会话内稳定、分页不漂移。
+         */
+        val turnNumber: Long? = null,
     ) : Message() {
         @Serializable
         data class PathInfo(

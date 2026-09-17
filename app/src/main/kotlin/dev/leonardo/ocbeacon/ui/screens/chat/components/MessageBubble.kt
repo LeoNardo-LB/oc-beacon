@@ -26,6 +26,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.domain.model.AgentInfo
+import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.MessageStatusBadge
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ChatDensity
 import dev.leonardo.ocbeacon.ui.theme.LocalChatDensity
@@ -37,7 +39,14 @@ import java.util.Date
 /**
  * 统一消息气泡容器（2026-08-12 用户要求：标签栏/正文栏/统计栏样式强一致）。
  *
- * 三种角色（用户 / 智能体 / 合成通知）共用同一外层结构，仅通过参数区分：
+ * **2026-09-12 旧裁决回写（消息层扁平化 spec / GitHub #11）**：「三气泡统一容器」
+ * 于 2026-09-12 被本设计**反转**——**只有角色消息（用户 / 智能体）去容器**
+ * （flat=true 委派 [MessageSectionScaffold]，无背景 / 无边框 / 无圆角），
+ * **三段式骨架保留**；**通知层（EventCard / 合成通知卡）继续使用本容器**
+ * （flat=false：透明底 + 1dp 描边 + medium 圆角）。判据：消息 = 内容，平面；
+ * 事件 = 通知，成卡。
+ *
+ * 三种角色共用同一外层结构，仅通过参数区分：
  * - [alignEnd]：user 右对齐（true）；assistant/synthetic 左对齐（false）
  * - [containerColor] / [border]：底色与边框（synthetic = 透明 + 边框类型）
  * - [shape]：圆角（user 用聊天气泡非对称圆角；其他用 medium）
@@ -69,9 +78,53 @@ internal fun MessageBubble(
      *  对称），展开/收起恒有动画（取代三轮b 的 contentVisible 条件卸载——它把
      *  收起动画截胡成了瞬间消失）。 */
     contentExpanded: Boolean? = null,
+    // ---- 2026-09-12 消息层扁平化：flat 模式（角色消息去容器外观）----
+    /** true = 角色消息扁平三段式（无背景 / 无边框 / 无圆角）——委派 [MessageSectionScaffold]。
+     *  false（默认）= 通知层的卡片容器（EventCard / 合成通知卡沿用）。 */
+    flat: Boolean = false,
+    /** flat 模式下用户消息的最大宽度比例（spec：82%）。 */
+    maxWidthFraction: Float? = null,
+    /** flat 模式：agent 名（头部标签）。 */
+    agentName: String? = null,
+    agents: List<AgentInfo> = emptyList(),
+    onAgentClick: ((String) -> Unit)? = null,
+    /** flat 模式：头部状态徽标（进行中 / 已中断 / 出错）。 */
+    statusBadge: MessageStatusBadge? = null,
+    /** flat 模式：统计栏之下的附加尾部内容（产出文件行等）。 */
+    tailExtra: (@Composable ColumnScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val compact = LocalChatDensity.current == ChatDensity.Compact
+
+    if (flat) {
+        MessageSectionScaffold(
+            label = label,
+            timeMs = timeMs,
+            modifier = modifier,
+            labelLeading = labelLeading,
+            alignEnd = alignEnd,
+            maxWidthFraction = maxWidthFraction,
+            agentName = agentName,
+            agents = agents,
+            onAgentClick = onAgentClick,
+            statusBadge = statusBadge,
+            headerTrailing = labelTrailing,
+            tail = {
+                if (statsBar != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        statsBar(this)
+                    }
+                }
+                tailExtra?.invoke(this)
+            },
+            content = content,
+        )
+        return
+    }
 
     Column(
         modifier = modifier.fillMaxWidth(),

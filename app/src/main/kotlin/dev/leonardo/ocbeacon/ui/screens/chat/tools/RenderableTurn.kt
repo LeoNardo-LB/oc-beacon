@@ -28,6 +28,11 @@ data class RenderableTurn(
     val durationMs: Long?,
     val turnStartMs: Long?,
     /**
+     * US#28：服务器会话内轮次号（DSH data.turn；OpenCode 恒 null）。
+     * 第 N 轮编号服务器优先，否则客户端锚点序号。
+     */
+    val serverTurn: Long? = null,
+    /**
      * #343 完结信号（与时长解耦）：turn 内存在 assistant 消息且全部带
      * completed（computeRenderableTurn 语义）。durationMs 只回答「跨度
      * 可测与否」——DSH 整装事件 created==completed 同信封（零跨度）时
@@ -221,6 +226,7 @@ fun computeRenderableTurn(
     // turn 起点 —— turn 内首条 assistant 消息的 created。
     // turn 分组只含 assistant 消息；minOf 比较时间戳不依赖列表顺序。
     val turnStartMs: Long? = assistantsForMeta.minOfOrNull { it.time.created }
+    val serverTurn: Long? = (firstAssistant ?: currentAssistant)?.turnNumber
 
     // 时长 —— turn 级跨度：首条 created → 末条 completed。
     // 完结信号与时长测量解耦（#343）：allStepsCompleted 回答「轮是否完结」
@@ -278,6 +284,7 @@ fun computeRenderableTurn(
         modelId = modelId,
         durationMs = durationMs,
         turnStartMs = turnStartMs,
+        serverTurn = serverTurn,
         allStepsCompleted = allStepsCompleted,
         stepFinishes = stepFinishes,
         taskAgentName = taskAgentName,

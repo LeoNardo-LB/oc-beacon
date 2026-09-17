@@ -507,7 +507,8 @@ internal object MessageMergeEngine {
         fun withMeta(m: Message.Assistant): Message.Assistant = if (restA == null) m else m.copy(
             modelId = m.modelId ?: restA.modelId,
             providerId = m.providerId ?: restA.providerId,
-            agent = m.agent ?: restA.agent
+            agent = m.agent ?: restA.agent,
+            turnNumber = m.turnNumber ?: restA.turnNumber
         )
 
         // 对于 Assistant 消息：
@@ -548,6 +549,7 @@ internal object MessageMergeEngine {
             cost = incoming.cost ?: existing.cost,
             tokens = incoming.tokens ?: existing.tokens,
             finish = incoming.finish ?: existing.finish,
+            turnNumber = incoming.turnNumber ?: existing.turnNumber,
             time = incoming.time.copy(
                 created = minOf(existing.time.created, incoming.time.created),
                 completed = incoming.time.completed ?: existing.time.completed

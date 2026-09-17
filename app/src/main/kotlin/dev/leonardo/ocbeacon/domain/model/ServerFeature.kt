@@ -96,6 +96,15 @@ object ServerFeatures {
     /** 消息 👍/👎 反馈。 */
     val FEEDBACK = ServerFeature("core.feedback")
 
+    /** 消息级成本（cost 桶在场；DSH 全链无 → 不渲染成本项）。 */
+    val COST = ServerFeature("core.cost")
+
+    /** 消息级删除动词（单条消息可删；DSH 客户端恒返回 false → 不出现入口）。 */
+    val MESSAGE_DELETE = ServerFeature("core.message.delete")
+
+    /** turn 级计时（TTFT / tokens·s；仅 DSH 投影面提供）。 */
+    val TURN_TIMING = ServerFeature("core.turnTiming")
+
     /** 权限预设切换器（沙箱 × 审批组合档位）。 */
     val PERMISSION_SWITCH = ServerFeature("core.permissionSwitch")
 

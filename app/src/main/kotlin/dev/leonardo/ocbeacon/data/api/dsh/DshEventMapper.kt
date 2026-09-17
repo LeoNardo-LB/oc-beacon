@@ -1125,6 +1125,8 @@ object DshEventMapper {
                     parentId = "",
                     modelId = modelId,
                     providerId = providerId,
+                    // US#28：服务器轮次号（会话内绝对；客户端锚点序号仅兜底）
+                    turnNumber = data.long("turn"),
                     tokens = tokens,
                     // DSH interrupted 前缀标记（§1.5）→ finish 语义对位；缺席为 null
                     finish = if (data.bool("interrupted") == true) "interrupted" else null,

@@ -91,6 +91,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.dialog.PermissionCard
 import dev.leonardo.ocbeacon.ui.screens.chat.dialog.QuestionCard
 import dev.leonardo.ocbeacon.ui.screens.chat.components.AlwaysConfirmDialog
 import dev.leonardo.ocbeacon.ui.screens.chat.util.rememberSafeFlingBehavior
+import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.turnNumberFor
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderableTurn
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.computeRenderableTurn
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.turnOrdinalByAnchorId
@@ -298,6 +299,17 @@ fun ChatMessageList(
                 coroutineScope.launch {
                     snackbarHostState.showSnackbar(context.getString(R.string.chat_fork_failed))
                 }
+            }
+        }
+    }
+    /** 2026-09-12 扁平化 US#35：删除消息（能力位就绪时由尾部「更多」调起）。 */
+    val deleteMessageAction: (String) -> Unit = { msgId ->
+        viewModel.deleteMessage(msgId) { ok ->
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    if (ok) context.getString(R.string.chat_message_deleted)
+                    else context.getString(R.string.chat_message_delete_failed)
+                )
             }
         }
     }
@@ -1242,6 +1254,12 @@ fun ChatMessageList(
                                         onOpenFile = onOpenFile,
                                         onLocateTask = onLocateTask,
                                         eventExpandedStates = eventCardExpandedStates,
+                                                                            turnNumber = turnNumberFor(
+                                            chunkTurn.serverTurn,
+                                            turnOrdinalByMsgId[msg.message.id],
+                                        ),
+                                        onForkFromTurn = { forkFromTurn(turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id) },
+                                        onDeleteMessage = { deleteMessageAction(msg.message.id) },
                                     )
                                     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                                         android.os.Trace.endSection()
@@ -1251,23 +1269,6 @@ fun ChatMessageList(
                                             "perf-flng",
                                             "chunk compose " + (android.os.SystemClock.elapsedRealtimeNanos() - chunkT0) / 1e6 +
                                                 "ms key=" + entry.key.takeLast(12)
-                                        )
-                                    }
-                                    // #310④ 台账行：分片 turn 的视觉末段（entry.isLast）挂台账
-                                    if (entry.isLast) {
-                                        MaybeTurnLedgerRow(
-                                            turn = chunkTurn,
-                                            anchorMsgId = turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id,
-                                            turnNumber = turnOrdinalByMsgId[msg.message.id],
-                                            expandedStates = turnLedgerExpandedStates,
-                                            onForkFromTurn = forkFromTurn,
-                                        )
-                                        // #311 Task4 产出文件行：台账行之后（气泡下方），
-                                        // 空产出/流式进行中不挂载（Maybe 内部以
-                                        // allStepsCompleted 判完结，SSE 铁律同台账）。
-                                        MaybeProducedFilesRow(
-                                            turn = chunkTurn,
-                                            onOpenFile = onOpenFile,
                                         )
                                     }
                                     } // Column（#310④：气泡 + 台账行）
@@ -1313,6 +1314,12 @@ fun ChatMessageList(
                                         onOpenFile = onOpenFile,
                                         onLocateTask = onLocateTask,
                                         eventExpandedStates = eventCardExpandedStates,
+                                                                            turnNumber = turnNumberFor(
+                                            segTurn.serverTurn,
+                                            turnOrdinalByMsgId[msg.message.id],
+                                        ),
+                                        onForkFromTurn = { forkFromTurn(turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id) },
+                                        onDeleteMessage = { deleteMessageAction(msg.message.id) },
                                     )
                                     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                                         android.os.Trace.endSection()
@@ -1320,21 +1327,6 @@ fun ChatMessageList(
                                             "perf-flng",
                                             "seg compose " + (android.os.SystemClock.elapsedRealtimeNanos() - segT0) / 1e6 +
                                                 "ms key=" + entry.key.takeLast(12),
-                                        )
-                                    }
-                                    // #310④ 台账行：分段 turn 的视觉末段（entry.isLast）挂台账
-                                    if (entry.isLast) {
-                                        MaybeTurnLedgerRow(
-                                            turn = segTurn,
-                                            anchorMsgId = turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id,
-                                            turnNumber = turnOrdinalByMsgId[msg.message.id],
-                                            expandedStates = turnLedgerExpandedStates,
-                                            onForkFromTurn = forkFromTurn,
-                                        )
-                                        // #311 Task4 产出文件行（同上：台账行之后，空/流式不挂载）
-                                        MaybeProducedFilesRow(
-                                            turn = segTurn,
-                                            onOpenFile = onOpenFile,
                                         )
                                     }
                                     } // Column（#310④：气泡 + 台账行）
@@ -1547,25 +1539,13 @@ fun ChatMessageList(
                                     },
                                     questionAnswersCache = viewModel.questionAnswerStore,
                                     eventExpandedStates = eventCardExpandedStates,
+                                    turnNumber = turnNumberFor(
+                                        renderableTurns[displayItemIndex]?.serverTurn,
+                                        turnOrdinalByMsgId[msg.message.id],
+                                    ),
+                                    onForkFromTurn = { forkFromTurn(turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id) },
+                                    onDeleteMessage = { deleteMessageAction(msg.message.id) },
                                 )
-                                // #310④ 台账行：轮次边界（气泡下方）。仅已完结轮次——
-                                // MaybeTurnLedgerRow 以 allStepsCompleted 判完结，流式进行中
-                                // 轮次不显示（SSE 铁律；此处 !isStreamingMsg 为双保险）。
-                                if (!isStreamingMsg) {
-                                    MaybeTurnLedgerRow(
-                                        turn = renderableTurns[displayItemIndex],
-                                        anchorMsgId = turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id,
-                                        turnNumber = turnOrdinalByMsgId[msg.message.id],
-                                        expandedStates = turnLedgerExpandedStates,
-                                        onForkFromTurn = forkFromTurn,
-                                    )
-                                    // #311 Task4 产出文件行（台账行之后；空产出/
-                                    // 流式进行中不挂载——allStepsCompleted 完结判定同台账）
-                                    MaybeProducedFilesRow(
-                                        turn = renderableTurns[displayItemIndex],
-                                        onOpenFile = onOpenFile,
-                                    )
-                                }
                                 if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                                     android.os.Trace.endSection()
                                 }
@@ -1907,7 +1887,8 @@ fun ChatMessageList(
                                     isAmoled = isAmoled,
                                     eventExpandedStates = eventCardExpandedStates,
                                     // #243 连续同内容去重：本卡为保留首张时显示 ×N
-                                    eventDupCount = syntheticDupCounts[chatMessage.message.id] ?: 0
+                                    eventDupCount = syntheticDupCounts[chatMessage.message.id] ?: 0,
+                                    onDeleteMessage = { deleteMessageAction(chatMessage.message.id) },
                                 )
                                 if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                                     android.os.Trace.endSection()

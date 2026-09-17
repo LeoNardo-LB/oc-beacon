@@ -26,29 +26,8 @@ import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import dev.leonardo.ocbeacon.util.PathUtils
 
-/**
- * #311 Task4 deliverables——turn 尾产出文件行（气泡下方，台账行之后）。
- *
- * 数据 = [RenderableTurn.deliverableFiles] 纯投影（TurnDeliverables fold，
- * 契约 ②）；呈现 = 「Produced」弱化标签 + 文件名 chips（basename 展示、
- * 点击整路径打开、chip 上限 6 + 「+N」余量计数——web mod28 ProducedFiles
- * 同构；web 的容器宽度自适应折叠在 Compose 无对应物，取固定上限，偏差
- * 见 #311 任务报告）。产出为空不挂载（空不挂载，契约 ②）。
- */
 @Composable
-internal fun MaybeProducedFilesRow(
-    turn: RenderableTurn?,
-    onOpenFile: ((String) -> Unit)?,
-    modifier: Modifier = Modifier,
-) {
-    if (turn == null || !turn.allStepsCompleted) return
-    val files = turn.deliverableFiles
-    if (files.isEmpty()) return
-    ProducedFilesRow(files = files, onOpenFile = onOpenFile, modifier = modifier)
-}
-
-@Composable
-private fun ProducedFilesRow(
+internal fun ProducedFilesRow(
     files: List<String>,
     onOpenFile: ((String) -> Unit)?,
     modifier: Modifier = Modifier,
