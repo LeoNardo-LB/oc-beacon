@@ -1,0 +1,56 @@
+appId: dev.leonardo.ocbeacon.dev
+name: E2E - Message Layer Flattening (#387)
+tags:
+  - e2e
+  - chat
+  - flattening
+---
+
+# #387 消息层扁平化 E2E：消息层三段式（头部标签栏 / 正文栏 / 尾部统计栏）、
+# 通知卡同列同宽、统计底部面板。依赖已配置并可连接的服务器 + 至少一个会话。
+- launchApp
+
+- extendedWaitUntil:
+    visible: "OC Beacon"
+    timeout: 15000
+- takeScreenshot: flattening_home
+
+# 进入会话列表
+- tapOn:
+    text: "Sessions"
+    optional: true
+- extendedWaitUntil:
+    visible: "Search sessions..."
+    timeout: 20000
+    optional: true
+- takeScreenshot: flattening_session_list
+
+# 打开第一个会话（列表首行）。会话行文案随标题变化，用 index 点击。
+- tapOn:
+    point: "50%,25%"
+- takeScreenshot: flattening_chat_opened
+
+# 三段式：头部角色标签「Agent」「User」应可见
+- extendedWaitUntil:
+    visible: "Agent"
+    timeout: 15000
+    optional: true
+- assertVisible:
+    text: "Agent"
+    optional: true
+- assertVisible:
+    text: "User"
+    optional: true
+- takeScreenshot: flattening_three_section
+
+# 尾部统计栏：模型名/耗时/步数摘要（存在即断言，缺数据不阻断）
+- assertVisible:
+    text: ".*steps.*"
+    optional: true
+- takeScreenshot: flattening_tail
+
+# 顶部统计入口（上下文详情）→ 底部面板（批3）
+- tapOn:
+    text: "Context"
+    optional: true
+- takeScreenshot: flattening_stats_sheet

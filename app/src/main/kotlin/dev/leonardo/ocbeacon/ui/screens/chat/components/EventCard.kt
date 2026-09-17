@@ -77,6 +77,8 @@ internal fun EventCard(
     timeMs: Long,
     label: String,
     leadingIcon: ImageVector,
+    /** 覆盖 leadingIcon 的前导内容槽（如运行中 spinner）；null = 用 leadingIcon。 */
+    leadingContent: (@Composable () -> Unit)? = null,
     expandedStates: MutableMap<String, Boolean>,
     modifier: Modifier = Modifier,
     failed: Boolean = false,
@@ -124,7 +126,7 @@ internal fun EventCard(
         border = BorderStroke(1.dp, borderColor),
         shape = ShapeTokens.medium,
         label = label,
-        labelLeading = {
+        labelLeading = leadingContent ?: {
             Icon(
                 imageVector = labelIcon,
                 contentDescription = null,

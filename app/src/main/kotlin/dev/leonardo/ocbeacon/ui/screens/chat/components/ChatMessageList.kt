@@ -1189,7 +1189,7 @@ fun ChatMessageList(
                     fun renderTranscriptCardItem(card: TranscriptCardItem, spacingBelow: Boolean) {
                         Box(modifier = Modifier.padding(bottom = if (spacingBelow) messageSpacing else 0.dp)) {
                             when (card) {
-                                is TranscriptCardItem.Command -> CommandFeedbackCard(state = card.feedback)
+                                is TranscriptCardItem.Command -> CommandFeedbackCard(state = card.feedback, expandedStates = eventCardExpandedStates)
                                 is TranscriptCardItem.Compaction -> CompactionTranscriptCard(entry = card.entry)
                             }
                         }
@@ -1257,7 +1257,7 @@ fun ChatMessageList(
                                             chunkTurn.serverTurn,
                                             turnOrdinalByMsgId[msg.message.id],
                                         ),
-                                        onForkFromTurn = { forkFromTurn(turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id) },
+                                        onForkFromTurn = if (isTurnLast) ({ forkFromTurn(turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id) }) else null,
                                         onDeleteMessage = { deleteMessageAction(msg.message.id) },
                                     )
                                     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
@@ -1317,7 +1317,7 @@ fun ChatMessageList(
                                             segTurn.serverTurn,
                                             turnOrdinalByMsgId[msg.message.id],
                                         ),
-                                        onForkFromTurn = { forkFromTurn(turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id) },
+                                        onForkFromTurn = if (isTurnLast) ({ forkFromTurn(turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id) }) else null,
                                         onDeleteMessage = { deleteMessageAction(msg.message.id) },
                                     )
                                     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
@@ -1542,7 +1542,7 @@ fun ChatMessageList(
                                         renderableTurns[displayItemIndex]?.serverTurn,
                                         turnOrdinalByMsgId[msg.message.id],
                                     ),
-                                    onForkFromTurn = { forkFromTurn(turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id) },
+                                    onForkFromTurn = if (isTurnLast) ({ forkFromTurn(turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id) }) else null,
                                     onDeleteMessage = { deleteMessageAction(msg.message.id) },
                                 )
                                 if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {

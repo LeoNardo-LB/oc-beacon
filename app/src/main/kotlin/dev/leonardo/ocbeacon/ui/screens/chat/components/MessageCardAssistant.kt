@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.ThumbDown
@@ -214,6 +217,9 @@ internal fun MessageCardAssistant(
     var showMoreSheet by remember { mutableStateOf(false) }
     val moreClipboard = LocalClipboard.current
     val moreScope = rememberCoroutineScope()
+    // US#14：最新轮尾部常显；历史轮默认收起、点击摘要展开（产出文件行随之显隐）
+    var tailExpanded by remember { mutableStateOf(isTurnLast) }
+    LaunchedEffect(isTurnLast) { if (isTurnLast) tailExpanded = true }
 
         MessageBubble(
             alignEnd = false,
@@ -239,7 +245,7 @@ internal fun MessageCardAssistant(
                 hasError = assistantMsg?.error != null,
             ),
             tailExtra = {
-                if (renderableTurn.deliverableFiles.isNotEmpty()) {
+                if (tailExpanded && renderableTurn.deliverableFiles.isNotEmpty()) {
                     ProducedFilesRow(
                         files = renderableTurn.deliverableFiles,
                         onOpenFile = onOpenFile,
@@ -298,17 +304,41 @@ internal fun MessageCardAssistant(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                         )
                     }
-                    // 步数 · 工具数摘要（US#7）
+                    // 步数 · 工具数摘要（US#7）+ US#14 历史轮展开入口
                     if (renderableTurn.stepCount > 0 || toolCallCount > 0) {
-                        Text(
-                            text = stringResource(
-                                R.string.chat_msg_tail_summary,
-                                renderableTurn.stepCount,
-                                toolCallCount,
-                            ),
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = if (!isTurnLast) {
+                                Modifier
+                                    .clip(ShapeTokens.small)
+                                    .clickable(
+                                        onClickLabel = stringResource(
+                                            if (tailExpanded) R.string.chat_turn_ledger_collapse
+                                            else R.string.chat_turn_ledger_expand,
+                                        ),
+                                    ) { tailExpanded = !tailExpanded }
+                            } else {
+                                Modifier
+                            },
+                        ) {
+                            Text(
+                                text = stringResource(
+                                    R.string.chat_msg_tail_summary,
+                                    renderableTurn.stepCount,
+                                    toolCallCount,
+                                ),
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
+                            )
+                            if (!isTurnLast) {
+                                androidx.compose.material3.Icon(
+                                    imageVector = if (tailExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(12.dp),
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                                )
+                            }
+                        }
                     }
                     Spacer(modifier = Modifier.weight(1f))
                     // 复制常显（US#9；仅完成态——流式高度补偿不受脚部变化影响）
@@ -1055,6 +1085,9 @@ private fun ChunkStatsBar(
     var showMoreSheet by remember { mutableStateOf(false) }
     val moreClipboard = LocalClipboard.current
     val moreScope = rememberCoroutineScope()
+    // US#14：最新轮尾部常显；历史轮默认收起、点击摘要展开（产出文件行随之显隐）
+    var tailExpanded by remember { mutableStateOf(isTurnLast) }
+    LaunchedEffect(isTurnLast) { if (isTurnLast) tailExpanded = true }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -1104,15 +1137,40 @@ private fun ChunkStatsBar(
                 )
             }
             if (renderableTurn.stepCount > 0 || toolCallCount > 0) {
-                Text(
-                    text = stringResource(
-                        R.string.chat_msg_tail_summary,
-                        renderableTurn.stepCount,
-                        toolCallCount,
-                    ),
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                )
+                // US#14：历史轮点击摘要展开（产出文件行随之显隐）
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = if (!isTurnLast) {
+                        Modifier
+                            .clip(ShapeTokens.small)
+                            .clickable(
+                                onClickLabel = stringResource(
+                                    if (tailExpanded) R.string.chat_turn_ledger_collapse
+                                    else R.string.chat_turn_ledger_expand,
+                                ),
+                            ) { tailExpanded = !tailExpanded }
+                    } else {
+                        Modifier
+                    },
+                ) {
+                    Text(
+                        text = stringResource(
+                            R.string.chat_msg_tail_summary,
+                            renderableTurn.stepCount,
+                            toolCallCount,
+                        ),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                    )
+                    if (!isTurnLast) {
+                        androidx.compose.material3.Icon(
+                            imageVector = if (tailExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                            contentDescription = null,
+                            modifier = Modifier.size(12.dp),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                        )
+                    }
+                }
             }
             Spacer(modifier = Modifier.weight(1f))
             if (copyText != null && onCopy != null) {
@@ -1142,7 +1200,7 @@ private fun ChunkStatsBar(
                 )
             }
         }
-        if (renderableTurn.deliverableFiles.isNotEmpty()) {
+        if (tailExpanded && renderableTurn.deliverableFiles.isNotEmpty()) {
             ProducedFilesRow(files = renderableTurn.deliverableFiles, onOpenFile = onOpenFile)
         }
     }
