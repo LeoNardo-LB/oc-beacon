@@ -248,7 +248,10 @@
     <string name="chat_msg_status_streaming">Потокова передача</string>
     <string name="chat_msg_status_interrupted">Перервано</string>
     <string name="chat_msg_status_error">Помилка</string>
-    <string name="chat_more">Ще</string>
+    <string name="chat_msg_detail_title">Деталі повідомлення</string>
+    <string name="chat_detail_time">Час</string>
+    <string name="chat_detail_duration">Тривалість</string>
+    <string name="chat_detail_tokens">Токени</string>
     <string name="chat_copy_markdown_source">Копіювати вихідний Markdown</string>
     <string name="chat_delete_message">Видалити повідомлення</string>
     <string name="chat_delete_message_title">Видалити повідомлення?</string>
@@ -258,7 +261,7 @@
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">токенів/с</string>
     <string name="chat_msg_tail_summary">%1$d кроків · %2$d інструментів</string>
-    <string name="a11y_message_more">Інші дії</string>
+    <string name="a11y_message_detail">Деталі повідомлення</string>
     <string name="chat_stats_session_title">Статистика сесії</string>
     <string name="chat_stats_summary">%1$d раундів · %2$d кроків · %3$s LLM · %4$s інструментів</string>
     <string name="chat_stats_ttft_avg">Сер. TTFT: %1$s</string>

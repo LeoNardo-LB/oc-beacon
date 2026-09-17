@@ -264,4 +264,77 @@ class MessageRowModelTest {
         assertEquals("child:ses", eventIdentityKey(null, "ses", "m"))
         assertEquals("msg:m", eventIdentityKey("", null, "m"))
     }
+
+    // ---- 尾部统计栏（v2） ---------------------------------------------------
+
+    @Test
+    fun `tail is always visible because the detail entry is always present`() {
+        val tail = messageRowTail(
+            turn = null, ledger = null, turnNumber = null, userMessage = null,
+            caps = RowCapabilities.NONE, isStreaming = false,
+            hasCopy = false, hasRevert = false, hasJump = false,
+            hasFeedbackSheetItem = false, hasDeleteSheetItem = false,
+            hasMarkdownCopySheetItem = false,
+        )
+        assertTrue(tail.visible)
+        assertTrue(tail.detailAvailable)
+        assertNull(tail.agentName)
+    }
+
+    @Test
+    fun `fork makes the detail dialog non-empty`() {
+        val tail = messageRowTail(
+            turn = null, ledger = null, turnNumber = null, userMessage = null,
+            caps = RowCapabilities.NONE, isStreaming = false,
+            hasCopy = false, hasRevert = false, hasJump = true,
+            hasFeedbackSheetItem = false, hasDeleteSheetItem = false,
+            hasMarkdownCopySheetItem = false,
+        )
+        assertTrue(tail.moreAvailable)
+    }
+
+    // ---- 详情弹窗字段（v2） -------------------------------------------------
+
+    @Test
+    fun `user detail shows only the timestamp`() {
+        val fields = messageDetailFields(MessageDetailInput(isUser = true, timeMs = 1L))
+        assertEquals(listOf(MessageDetailField.TIME), fields)
+    }
+
+    @Test
+    fun `assistant detail orders present fields and drops absent ones`() {
+        val fields = messageDetailFields(
+            MessageDetailInput(
+                isUser = false,
+                timeMs = 1L,
+                agentName = "build",
+                providerId = "oc",
+                modelId = "gpt",
+                durationMs = 2400,
+                stepCount = 3,
+                toolCallCount = 2,
+                tokensTotal = 1234,
+                cost = 0.42,
+            ),
+        )
+        assertEquals(
+            listOf(
+                MessageDetailField.TIME,
+                MessageDetailField.AGENT,
+                MessageDetailField.MODEL,
+                MessageDetailField.DURATION,
+                MessageDetailField.STEPS,
+                MessageDetailField.TOOLS,
+                MessageDetailField.TOKENS,
+                MessageDetailField.COST,
+            ),
+            fields,
+        )
+    }
+
+    @Test
+    fun `assistant detail omits absent data and zero step tool pairs`() {
+        val fields = messageDetailFields(MessageDetailInput(isUser = false, timeMs = 1L))
+        assertEquals(listOf(MessageDetailField.TIME), fields)
+    }
 }

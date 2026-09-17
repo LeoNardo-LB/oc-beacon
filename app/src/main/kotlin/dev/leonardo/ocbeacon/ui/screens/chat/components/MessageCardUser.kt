@@ -12,10 +12,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.filled.RateReview
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,13 +39,13 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.ui.components.ConfirmDialog
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
 import dev.leonardo.ocbeacon.ui.screens.chat.isBubbleRenderablePart
+import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.MessageDetailInput
 import dev.leonardo.ocbeacon.ui.screens.chat.dialog.ImageThumbnailRow
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
@@ -109,7 +108,7 @@ internal fun MessageCardUser(
     }
 
     var showRevertConfirmation by remember { mutableStateOf(false) }
-    var showMoreSheet by remember { mutableStateOf(false) }
+    var showDetailDialog by remember { mutableStateOf(false) }
 
     // 2026-08-13：将 parts 分组计算提升到 MessageBubble 外——jumpMdState（跳转
     // 预渲染注册 + 淡入）需要在这里创建（content lambda 内定义则外层不可见）。
@@ -144,16 +143,8 @@ internal fun MessageCardUser(
         containerColor = backgroundColor,
         border = bubbleBorder,
         shape = UserBubbleShape,
-        label = stringResource(R.string.chat_label_user),
-        // 2026-08-16（标题栏规范·类型图标）：用户=Person，14dp FAINT
-        labelLeading = {
-            androidx.compose.material3.Icon(
-                imageVector = androidx.compose.material.icons.Icons.Filled.Person,
-                contentDescription = null,
-                modifier = Modifier.size(13.dp),
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-            )
-        },
+        // v2：头部标签栏整体删除（时间 / 删除都在「详情」弹窗里）
+        showLabelRow = false,
         timeMs = currentMessage.message.time.created,
         modifier = if (isJumpObserveTarget) {
             Modifier.graphicsLayer { alpha = jumpAlpha }
@@ -202,20 +193,18 @@ internal fun MessageCardUser(
                 )
             }
 
-            // 「更多」（US#35：删除消息——能力位就绪才出现）
-            if (onDeleteMessage != null) {
-                Icon(
-                    Icons.Filled.MoreHoriz,
-                    contentDescription = stringResource(R.string.a11y_message_more),
-                    modifier = Modifier
-                        .size(16.dp)
-                        .clickable {
-                            performHaptic(hapticView, hapticOn)
-                            showMoreSheet = true
-                        },
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
-                )
-            }
+            // 「详情」入口（v2：时间 / 删除都在这里；每条角色消息常驻）
+            Icon(
+                Icons.Outlined.Info,
+                contentDescription = stringResource(R.string.a11y_message_detail),
+                modifier = Modifier
+                    .size(16.dp)
+                    .clickable {
+                        performHaptic(hapticView, hapticOn)
+                        showDetailDialog = true
+                    },
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
+            )
         }
     ) {
         // 内容 parts（文本、推理、补丁等）
@@ -282,13 +271,18 @@ internal fun MessageCardUser(
         )
     }
 
-    if (showMoreSheet && onDeleteMessage != null) {
-        MessageMoreSheet(
+    if (showDetailDialog) {
+        MessageDetailDialog(
+            input = MessageDetailInput(
+                isUser = true,
+                timeMs = currentMessage.message.time.created,
+            ),
             feedback = null,
             onRate = null,
             onCopyMarkdownSource = null,
+            onForkFromTurn = null,
             onDelete = onDeleteMessage,
-            onDismiss = { showMoreSheet = false },
+            onDismiss = { showDetailDialog = false },
         )
     }
 }
@@ -317,8 +311,7 @@ private fun SteerBadge(modifier: Modifier = Modifier) {
 /**
  * 长用户消息分片渲染（2026-08-22 滚动巨帧根治，见 splitUserTextChunks）。
  *
- * 视觉对齐 ChunkedAssistantMessage 的分段语言：首段带标签栏（时间 + Person
- * + 「用户」）、末段带统计栏（QUEUED 徽章 + 撤销 + 复制）、中段纯正文；
+ * v2：分段只保留正文；末段带尾部动作（撤销 + 复制 + 「详情」）——头部标签栏删除。
  * 圆角取 UserBubbleShape 的非对称值（首段顶角 18/4，末段底角 18）。
  */
 @Composable
@@ -346,7 +339,7 @@ internal fun ChunkedUserMessage(
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
     var showRevertConfirmation by remember { mutableStateOf(false) }
-    var showMoreSheet by remember { mutableStateOf(false) }
+    var showDetailDialog by remember { mutableStateOf(false) }
 
     val horizPad = if (compact) 10.dp else SpacingTokens.LG.dp
     val vertPad = if (compact) SpacingTokens.SM.dp else 14.dp
@@ -371,39 +364,8 @@ internal fun ChunkedUserMessage(
                 bottom = if (chunk.isLast) vertPad else 0.dp,
             ),
         ) {
-            // ① 标签栏（仅首段）——与 MessageBubble 标签栏视觉一致
-            if (chunk.isFirst) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
-                    modifier = Modifier.padding(bottom = if (compact) SpacingTokens.XS.dp else 10.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Person,
-                        contentDescription = null,
-                        modifier = Modifier.size(13.dp),
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                    )
-                    Text(
-                        text = stringResource(R.string.chat_label_user),
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
-                        maxLines = 1,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    // #312③：时间居中（左右等权区，同 MessageBubble 三段式标签栏）
-                    Spacer(modifier = Modifier.weight(1f))
-                    Text(
-                        text = remember(currentMessage.message.time.created) {
-                            dev.leonardo.ocbeacon.util.DateFormatters.messageTimestamp(currentMessage.message.time.created)
-                        },
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
-            // ② 分段正文（所有段）——纯 Text（用户消息不渲染 Markdown，官方 TUI 对齐）
+            // v2：头部标签栏整体删除——分段正文直接起始
+            // 分段正文（所有段）——纯 Text（用户消息不渲染 Markdown，官方 TUI 对齐）
             SelectionContainer {
                 Text(
                     text = chunk.plan.segments[chunk.chunkIndex],
@@ -450,19 +412,17 @@ internal fun ChunkedUserMessage(
                             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
                         )
                     }
-                    if (onDeleteMessage != null) {
-                        Icon(
-                            Icons.Filled.MoreHoriz,
-                            contentDescription = stringResource(R.string.a11y_message_more),
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clickable {
-                                    performHaptic(hapticView, hapticOn)
-                                    showMoreSheet = true
-                                },
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                        )
-                    }
+                    Icon(
+                        Icons.Outlined.Info,
+                        contentDescription = stringResource(R.string.a11y_message_detail),
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clickable {
+                                performHaptic(hapticView, hapticOn)
+                                showDetailDialog = true
+                            },
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                    )
                 }
             }
         }
@@ -482,13 +442,18 @@ internal fun ChunkedUserMessage(
         )
     }
 
-    if (showMoreSheet && onDeleteMessage != null) {
-        MessageMoreSheet(
+    if (showDetailDialog) {
+        MessageDetailDialog(
+            input = MessageDetailInput(
+                isUser = true,
+                timeMs = currentMessage.message.time.created,
+            ),
             feedback = null,
             onRate = null,
             onCopyMarkdownSource = null,
+            onForkFromTurn = null,
             onDelete = onDeleteMessage,
-            onDismiss = { showMoreSheet = false },
+            onDismiss = { showDetailDialog = false },
         )
     }
 }

@@ -295,6 +295,8 @@ fun ChatScreen(
     val modelConfig by viewModel.modelConfigState.collectAsStateWithLifecycle()
     val directory by viewModel.directoryState.collectAsStateWithLifecycle()
     val contextDetail by viewModel.contextDetailState.collectAsStateWithLifecycle()
+    // v2：会话级 agent 名字解析（DSH agentPreset id → roster name）
+    val agentPresets by viewModel.agentPresets.collectAsStateWithLifecycle()
     val restoredDraft by viewModel.composer.restoredDraftState.collectAsStateWithLifecycle()
     val draftText by viewModel.composer.draftText.collectAsStateWithLifecycle()
     val serverCapabilities by viewModel.serverCapabilities.collectAsStateWithLifecycle()
@@ -716,6 +718,10 @@ fun ChatScreen(
                         },
                         sessionTitle = sessionMeta.sessionTitle,
                         directory = directory,
+                        // v2：单 agent 会话（DSH）逐消息 agent 缺席 → 会话级显示一次
+                        sessionAgent = sessionMeta.sessionAgentPreset?.let { id ->
+                            agentPresets.firstOrNull { it.id == id }?.name ?: id
+                        },
                         contextDetail = contextDetail,
                         caps = rowCapabilitiesFor(serverCapabilities),
                         sessionParentId = sessionMeta.sessionParentId,

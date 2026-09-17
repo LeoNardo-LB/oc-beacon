@@ -242,7 +242,10 @@
     <string name="chat_msg_status_streaming">In streaming</string>
     <string name="chat_msg_status_interrupted">Interrotto</string>
     <string name="chat_msg_status_error">Errore</string>
-    <string name="chat_more">Altro</string>
+    <string name="chat_msg_detail_title">Dettagli messaggio</string>
+    <string name="chat_detail_time">Ora</string>
+    <string name="chat_detail_duration">Durata</string>
+    <string name="chat_detail_tokens">Token</string>
     <string name="chat_copy_markdown_source">Copia sorgente Markdown</string>
     <string name="chat_delete_message">Elimina messaggio</string>
     <string name="chat_delete_message_title">Eliminare il messaggio?</string>
@@ -252,7 +255,7 @@
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">token/s</string>
     <string name="chat_msg_tail_summary">%1$d passaggi · %2$d strumenti</string>
-    <string name="a11y_message_more">Altre azioni</string>
+    <string name="a11y_message_detail">Dettagli messaggio</string>
     <string name="chat_stats_session_title">Statistiche della sessione</string>
     <string name="chat_stats_summary">%1$d turni · %2$d passaggi · %3$s LLM · %4$s strumenti</string>
     <string name="chat_stats_ttft_avg">TTFT medio: %1$s</string>

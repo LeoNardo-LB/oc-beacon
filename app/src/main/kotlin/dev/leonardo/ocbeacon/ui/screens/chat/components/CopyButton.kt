@@ -22,7 +22,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.AppMotion
 import dev.leonardo.ocbeacon.util.copyToClipboard
@@ -39,9 +41,11 @@ import kotlinx.coroutines.launch
 fun CopyButton(
     text: String,
     modifier: Modifier = Modifier,
-    contentDescription: String = "Copy",
+    /** null = 取本地化的 `chat_copy`（i18n 硬规则：禁止硬编码英文无障碍描述）。 */
+    contentDescription: String? = null,
     onCopied: (() -> Unit)? = null,
 ) {
+    val desc = contentDescription ?: stringResource(R.string.chat_copy)
     val clipboard = LocalClipboard.current
     val clipScope = rememberCoroutineScope()
     var copied by remember { mutableStateOf(false) }
@@ -68,7 +72,7 @@ fun CopyButton(
         ) { isCopied ->
             Icon(
                 imageVector = if (isCopied) Icons.Filled.Check else Icons.Default.ContentCopy,
-                contentDescription = contentDescription,
+                contentDescription = desc,
                 tint = if (isCopied) MaterialTheme.colorScheme.primary
                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
                 modifier = Modifier.size(16.dp)

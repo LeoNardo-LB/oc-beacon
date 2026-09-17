@@ -244,7 +244,10 @@
     <string name="chat_msg_status_streaming">正在流式输出</string>
     <string name="chat_msg_status_interrupted">已中断</string>
     <string name="chat_msg_status_error">错误</string>
-    <string name="chat_more">更多</string>
+    <string name="chat_msg_detail_title">消息详情</string>
+    <string name="chat_detail_time">时间</string>
+    <string name="chat_detail_duration">时长</string>
+    <string name="chat_detail_tokens">令牌</string>
     <string name="chat_copy_markdown_source">复制 Markdown 源文</string>
     <string name="chat_delete_message">删除消息</string>
     <string name="chat_delete_message_title">删除消息？</string>
@@ -254,7 +257,7 @@
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">令牌/秒</string>
     <string name="chat_msg_tail_summary">%1$d 步 · %2$d 个工具</string>
-    <string name="a11y_message_more">更多操作</string>
+    <string name="a11y_message_detail">消息详情</string>
     <string name="chat_stats_session_title">会话统计</string>
     <string name="chat_stats_summary">轮次 %1$d · %2$d 步 · %3$s LLM · %4$s 个工具</string>
     <string name="chat_stats_ttft_avg">平均 TTFT：%1$s</string>

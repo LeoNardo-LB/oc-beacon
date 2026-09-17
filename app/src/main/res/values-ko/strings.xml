@@ -242,7 +242,10 @@
     <string name="chat_msg_status_streaming">스트리밍 중</string>
     <string name="chat_msg_status_interrupted">중단됨</string>
     <string name="chat_msg_status_error">오류</string>
-    <string name="chat_more">더보기</string>
+    <string name="chat_msg_detail_title">메시지 세부정보</string>
+    <string name="chat_detail_time">시간</string>
+    <string name="chat_detail_duration">소요 시간</string>
+    <string name="chat_detail_tokens">토큰</string>
     <string name="chat_copy_markdown_source">Markdown 원본 복사</string>
     <string name="chat_delete_message">메시지 삭제</string>
     <string name="chat_delete_message_title">메시지를 삭제하시겠습니까?</string>
@@ -252,7 +255,7 @@
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">토큰/초</string>
     <string name="chat_msg_tail_summary">%1$d단계 · %2$d개 도구</string>
-    <string name="a11y_message_more">추가 작업</string>
+    <string name="a11y_message_detail">메시지 세부정보</string>
     <string name="chat_stats_session_title">세션 통계</string>
     <string name="chat_stats_summary">턴 %1$d · %2$d단계 · %3$s LLM · %4$s개 도구</string>
     <string name="chat_stats_ttft_avg">평균 TTFT: %1$s</string>

@@ -242,7 +242,10 @@
     <string name="chat_msg_status_streaming">ストリーミング中</string>
     <string name="chat_msg_status_interrupted">中止</string>
     <string name="chat_msg_status_error">エラー</string>
-    <string name="chat_more">その他</string>
+    <string name="chat_msg_detail_title">メッセージの詳細</string>
+    <string name="chat_detail_time">時刻</string>
+    <string name="chat_detail_duration">所要時間</string>
+    <string name="chat_detail_tokens">トークン</string>
     <string name="chat_copy_markdown_source">Markdown ソースをコピー</string>
     <string name="chat_delete_message">メッセージを削除</string>
     <string name="chat_delete_message_title">メッセージを削除しますか？</string>
@@ -252,7 +255,7 @@
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">トークン/秒</string>
     <string name="chat_msg_tail_summary">%1$d ステップ · %2$d ツール</string>
-    <string name="a11y_message_more">その他の操作</string>
+    <string name="a11y_message_detail">メッセージの詳細</string>
     <string name="chat_stats_session_title">セッション統計</string>
     <string name="chat_stats_summary">ターン %1$d · %2$d ステップ · %3$s LLM · %4$s ツール</string>
     <string name="chat_stats_ttft_avg">平均 TTFT: %1$s</string>

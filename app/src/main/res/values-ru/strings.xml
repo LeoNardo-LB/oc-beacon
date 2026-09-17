@@ -268,7 +268,10 @@
     <string name="chat_msg_status_streaming">Потоковая передача</string>
     <string name="chat_msg_status_interrupted">Прервано</string>
     <string name="chat_msg_status_error">Ошибка</string>
-    <string name="chat_more">Ещё</string>
+    <string name="chat_msg_detail_title">Детали сообщения</string>
+    <string name="chat_detail_time">Время</string>
+    <string name="chat_detail_duration">Длительность</string>
+    <string name="chat_detail_tokens">Токены</string>
     <string name="chat_copy_markdown_source">Копировать исходный Markdown</string>
     <string name="chat_delete_message">Удалить сообщение</string>
     <string name="chat_delete_message_title">Удалить сообщение?</string>
@@ -278,7 +281,7 @@
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">токенов/с</string>
     <string name="chat_msg_tail_summary">%1$d шагов · %2$d инструментов</string>
-    <string name="a11y_message_more">Другие действия</string>
+    <string name="a11y_message_detail">Детали сообщения</string>
     <string name="chat_stats_session_title">Статистика сессии</string>
     <string name="chat_stats_summary">%1$d раундов · %2$d шагов · %3$s LLM · %4$s инструментов</string>
     <string name="chat_stats_ttft_avg">Ср. TTFT: %1$s</string>

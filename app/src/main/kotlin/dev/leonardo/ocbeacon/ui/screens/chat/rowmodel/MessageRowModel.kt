@@ -136,13 +136,17 @@ data class MessageRowTail(
     val ledgerTurnNumber: TurnNumber?,
     val ledgerToolNames: List<String>,
     val ledgerTokensTotal: Long?,
+    /** v2：尾部逐消息 agent 标签（`Message.Assistant.agent`；DSH 恒 null → 不渲染）。 */
+    val agentName: String?,
+    /** v2：「详情」入口（每条角色消息常驻——时间只在这里可见）。 */
+    val detailAvailable: Boolean,
     /** 常显动作。 */
     val copyAvailable: Boolean,
     val revertAvailable: Boolean,
     val jumpAvailable: Boolean,
-    /** 「更多」弹窗是否有内容（无内容则不渲染入口）。 */
+    /** 「详情」弹窗是否有动作项（入口本身常驻——不再据此渲染）。 */
     val moreAvailable: Boolean,
-    /** 尾部统计栏是否整体渲染（流式必有；否则有任一内容/动作）。 */
+    /** 尾部统计栏是否整体渲染（v2：详情入口常驻 → 恒真）。 */
     val visible: Boolean,
 )
 
@@ -174,13 +178,14 @@ fun messageRowTail(
     providerId: String? = null,
 ): MessageRowTail {
     val modelId = turn?.modelId?.takeIf { it.isNotBlank() }
-    val moreAvailable = hasFeedbackSheetItem || hasDeleteSheetItem || hasMarkdownCopySheetItem
+    // v2：「从此轮分支」也进详情弹窗 → 计入弹窗内容。
+    val moreAvailable = hasFeedbackSheetItem || hasDeleteSheetItem || hasMarkdownCopySheetItem || hasJump
+    val detailAvailable = true
+    val agentName = turn?.agentName?.takeIf { it.isNotBlank() }
     val files = turn?.deliverableFiles ?: emptyList()
-    val visible = isStreaming ||
-        modelId != null ||
-        (turn?.stepCount ?: 0) > 0 ||
-        files.isNotEmpty() ||
-        hasCopy || hasRevert || hasJump || moreAvailable
+    // v2：详情入口每条角色消息常驻（时间只在此可见）→ 尾部恒渲染；
+    // 其余字段 / 动作只决定尾部内容，不再参与可见性。
+    val visible = detailAvailable
     return MessageRowTail(
         modelId = modelId,
         providerId = providerId?.takeIf { it.isNotBlank() },
@@ -192,12 +197,54 @@ fun messageRowTail(
         ledgerTurnNumber = turnNumber,
         ledgerToolNames = ledger?.toolNames ?: emptyList(),
         ledgerTokensTotal = ledger?.tokensTotal,
+        agentName = agentName,
+        detailAvailable = detailAvailable,
         copyAvailable = hasCopy,
         revertAvailable = hasRevert && userMessage != null && caps.revert,
         jumpAvailable = hasJump,
         moreAvailable = moreAvailable,
         visible = visible,
     )
+}
+
+// ---------------------------------------------------------------------------
+// 消息详情弹窗（v2）
+// ---------------------------------------------------------------------------
+
+/** 详情弹窗只读字段（顺序即渲染顺序；UI 负责把枚举映射到字符串资源）。 */
+enum class MessageDetailField { TIME, AGENT, MODEL, DURATION, STEPS, TOOLS, TOKENS, COST }
+
+/** 详情弹窗字段装配输入（值由调用方预计算；null = 该字段缺席）。 */
+data class MessageDetailInput(
+    val isUser: Boolean,
+    val timeMs: Long,
+    val agentName: String? = null,
+    val providerId: String? = null,
+    val modelId: String? = null,
+    val durationMs: Long? = null,
+    val stepCount: Int = 0,
+    val toolCallCount: Int = 0,
+    val tokensTotal: Long? = null,
+    val cost: Double? = null,
+)
+
+/**
+ * 详情弹窗字段分配（US#45–47）：只读信息按「有则显示」顺序编排——角色标签已删，
+ * 时间成为每条消息的必显项；其余字段数据缺席即整项不渲染（宁缺勿谎）。
+ */
+fun messageDetailFields(input: MessageDetailInput): List<MessageDetailField> {
+    val fields = mutableListOf(MessageDetailField.TIME)
+    if (input.isUser) return fields
+    if (!input.agentName.isNullOrBlank()) fields += MessageDetailField.AGENT
+    if (input.providerId != null || !input.modelId.isNullOrBlank()) fields += MessageDetailField.MODEL
+    if ((input.durationMs ?: 0L) > 0) fields += MessageDetailField.DURATION
+    if (input.stepCount > 0 || input.toolCallCount > 0) {
+        fields += MessageDetailField.STEPS
+        fields += MessageDetailField.TOOLS
+    }
+    if ((input.tokensTotal ?: 0L) > 0) fields += MessageDetailField.TOKENS
+    if (input.cost != null) fields += MessageDetailField.COST
+    return fields
 }
 
 // ---------------------------------------------------------------------------

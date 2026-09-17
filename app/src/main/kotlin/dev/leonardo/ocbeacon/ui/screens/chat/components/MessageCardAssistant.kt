@@ -15,8 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.filled.ThumbDown
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material3.HorizontalDivider
@@ -63,6 +62,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.tools.ContextToolGroupCard
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.PartGroup
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderableTurn
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.turnLedgerSummary
+import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.MessageDetailInput
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.RowCapabilities
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.TurnNumber
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.messageRowTail
@@ -72,6 +72,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalShowTurnDividers
 import dev.leonardo.ocbeacon.ui.screens.chat.util.agentColor
 import dev.leonardo.ocbeacon.ui.screens.chat.util.formatDuration
+import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ChatDensity
 import dev.leonardo.ocbeacon.ui.theme.LocalChatDensity
@@ -82,10 +83,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * 智能体消息气泡——统一容器（MessageBubble）：
- * 标签栏（时间 + "智能体"）+ 正文（renderItems：文本/推理/工具卡片/分隔线）+
- * 统计栏（agent 标签 / 提供商·模型 / 时长 / 复制）+ 错误展示（气泡内）。
- * 左对齐 + surfaceVariant 底色 + ShapeTokens.medium 圆角。
+ * 智能体消息（v2 两段式：正文 + 尾部统计栏）——扁平，无气泡容器、无头部标签栏。
+ * 正文 = renderItems（文本 / 推理 / 工具卡片 / 分隔线）+ 错误展示；
+ * 尾部 = 状态徽标 / 逐消息 agent 标签 / 提供商·模型 / 时长 / 步数·工具摘要
+ *        + 复制 + 「详情」入口（时间与低频动作在详情弹窗里）。
  */
 @Composable
 internal fun MessageCardAssistant(
@@ -154,7 +155,6 @@ internal fun MessageCardAssistant(
     val isStreaming = isStreamingTurn || (assistantMsg?.time?.completed == null)
 
     // 预计算的元数据
-    val agentName = renderableTurn.agentName
     val copyText = renderableTurn.copyText
     val modelId = renderableTurn.modelId
 
@@ -229,8 +229,7 @@ internal fun MessageCardAssistant(
         providerId = assistantMsg?.providerId,
     )
     val showStatsBar = tailModel.visible
-    val moreAvailable = tailModel.moreAvailable
-    var showMoreSheet by remember { mutableStateOf(false) }
+    var showDetailDialog by remember { mutableStateOf(false) }
     val moreClipboard = LocalClipboard.current
     val moreScope = rememberCoroutineScope()
     // US#14：最新轮尾部常显；历史轮默认收起、点击摘要展开（产出文件行随之显隐）。
@@ -238,29 +237,15 @@ internal fun MessageCardAssistant(
     var tailExpandedOverride by remember { mutableStateOf<Boolean?>(null) }
     val tailExpanded = tailExpandedOverride ?: isTurnLast
 
+    val statusBadge = statusBadgeFor(
+        isStreaming = isStreaming,
+        finish = assistantMsg?.finish,
+        hasError = assistantMsg?.error != null,
+    )
     MessageBubble(
             alignEnd = false,
             containerColor = Color.Transparent,
             flat = true,
-            label = stringResource(R.string.chat_label_agent),
-            // 2026-08-16（标题栏规范·类型图标）：智能体=SmartToy
-            labelLeading = {
-                androidx.compose.material3.Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Filled.SmartToy,
-                    contentDescription = null,
-                    modifier = Modifier.size(13.dp),
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                )
-            },
-            timeMs = currentMessage.message.time.created,
-            agentName = agentName,
-            agents = agents,
-            onAgentClick = onAgentClick,
-            statusBadge = statusBadgeFor(
-                isStreaming = isStreaming,
-                finish = assistantMsg?.finish,
-                hasError = assistantMsg?.error != null,
-            ),
             tailExtra = {
                 // SSE 铁律：产出行仅在轮完结后挂载（turnProducedFiles 无完结门控，
                 // 流式中途写类工具完成即非空 → 流式脚部高度突变）
@@ -278,7 +263,20 @@ internal fun MessageCardAssistant(
                     // 与 48ms flush 叠加 ~30 次/s footer 重组）；完成 = 固定时长。
                     val startMs = renderableTurn.turnStartMs ?: assistantMsg?.time?.created
 
-                    // 提供商图标 + 模型名
+                    // ① 状态徽标（v2：从头部迁到尾部信息簇首位；完成态不渲染）
+                    if (statusBadge != null) {
+                        MessageStatusBadgeLabel(statusBadge)
+                    }
+                    // ② 逐消息 agent 标签（v2：OpenCode 逐消息 agent；DSH 恒 null → 走会话级）
+                    val tailAgent = tailModel.agentName
+                    if (!tailAgent.isNullOrBlank()) {
+                        AgentTag(
+                            agent = tailAgent,
+                            tagColor = agentColor(tailAgent, agents),
+                            onClick = onAgentClick?.let { cb -> { cb(tailAgent) } },
+                        )
+                    }
+                    // ③ 提供商图标 + 模型名
                     val hasProviderOrModel = assistantMsg?.providerId != null || !modelId.isNullOrBlank()
                     if (hasProviderOrModel) {
                         Row(
@@ -360,31 +358,18 @@ internal fun MessageCardAssistant(
                             onCopied = onCopy
                         )
                     }
-                    // 「从此轮分支」（US#11）
-                    if (onForkFromTurn != null) {
-                        Text(
-                            text = stringResource(R.string.chat_turn_fork_from_here),
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .clip(ShapeTokens.small)
-                                .clickable(onClickLabel = stringResource(R.string.chat_turn_fork_from_here)) {
-                                    onForkFromTurn()
-                                }
-                                .padding(horizontal = SpacingTokens.SM.dp, vertical = 2.dp),
-                        )
-                    }
-                    // 「更多」（US#12：点赞点踩 / 复制 Markdown 源码 / 删除消息）
-                    if (moreAvailable) {
-                        androidx.compose.material3.Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Filled.MoreHoriz,
-                            contentDescription = stringResource(R.string.a11y_message_more),
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clickable { showMoreSheet = true },
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                        )
-                    }
+                    // ⑦ 「详情」入口（v2：取代「更多」溢出菜单；每条角色消息常驻）
+                    androidx.compose.material3.Icon(
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = stringResource(R.string.a11y_message_detail),
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clickable {
+                                performHaptic(hapticView, hapticOn)
+                                showDetailDialog = true
+                            },
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                    )
                 }
             } else null,
         ) {
@@ -576,9 +561,21 @@ internal fun MessageCardAssistant(
             }
         }
 
-    // 「更多」底部面板（US#12/#13/#31/#35/#36）
-    if (showMoreSheet) {
-        MessageMoreSheet(
+    // 消息详情弹窗（v2：US#13/#45）
+    if (showDetailDialog) {
+        MessageDetailDialog(
+            input = MessageDetailInput(
+                isUser = false,
+                timeMs = currentMessage.message.time.created,
+                agentName = renderableTurn.agentName,
+                providerId = assistantMsg?.providerId,
+                modelId = renderableTurn.modelId,
+                durationMs = renderableTurn.durationMs,
+                stepCount = renderableTurn.stepCount,
+                toolCallCount = toolCallCount,
+                tokensTotal = ledger.tokensTotal,
+                cost = assistantMsg?.cost,
+            ),
             feedback = messageFeedback,
             onRate = onRateMessage,
             onCopyMarkdownSource = copyText?.let { src ->
@@ -589,20 +586,11 @@ internal fun MessageCardAssistant(
                     }
                 }
             },
+            onForkFromTurn = onForkFromTurn,
             onDelete = onDeleteMessage,
-            onDismiss = { showMoreSheet = false },
+            onDismiss = { showDetailDialog = false },
         )
     }
-}
-
-@Composable
-private fun AssistantLabelIcon() {
-    androidx.compose.material3.Icon(
-        imageVector = androidx.compose.material.icons.Icons.Filled.SmartToy,
-        contentDescription = null,
-        modifier = Modifier.size(13.dp),
-        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-    )
 }
 
 /**
@@ -737,13 +725,6 @@ internal fun ChunkedAssistantMessage(
     // 2026-09-12 扁平化：分片路径同样走三段式（首段头部 / 末段尾部），
     // 去容器外观——三段式布局单点 = MessageSectionScaffold。
     MessageSectionScaffold(
-        label = stringResource(R.string.chat_label_agent),
-        timeMs = currentMessage.message.time.created,
-        labelLeading = { AssistantLabelIcon() },
-        agentName = renderableTurn.agentName,
-        agents = agents,
-        onAgentClick = onAgentClick,
-        showHeader = chunk.isFirst,
         showTail = chunk.isLast,
         tail = {
             ChunkStatsBar(
@@ -987,13 +968,6 @@ internal fun SegmentedAssistantMessage(
     // 2026-09-12 扁平化：分段路径同样走三段式（首段头部 / 末段尾部），
     // 去容器外观——三段式布局单点 = MessageSectionScaffold。
     MessageSectionScaffold(
-        label = stringResource(R.string.chat_label_agent),
-        timeMs = currentMessage.message.time.created,
-        labelLeading = { AssistantLabelIcon() },
-        agentName = renderableTurn.agentName,
-        agents = agents,
-        onAgentClick = onAgentClick,
-        showHeader = chunk.isFirst,
         showTail = chunk.isLast,
         tail = {
             ChunkStatsBar(
@@ -1070,8 +1044,8 @@ internal fun SegmentedAssistantMessage(
 }
 
 /** 分片 / 分段场景尾部统计栏（历史消息：isStreaming=false 恒成立）。
- *  2026-09-12 扁平化：与主路径尾部同构（模型 / 第 N 轮 / 耗时 / 摘要 / 产出 /
- *  复制 / 分支 / 更多）——三段式尾部只此一份语义。 */
+ *  v2：与主路径尾部同构（状态徽标 / 逐消息 agent / 模型 / 耗时 / 摘要 / 产出 /
+ *  复制 / 「详情」）——两段式尾部只此一份语义。 */
 @Composable
 private fun ChunkStatsBar(
     renderableTurn: RenderableTurn,
@@ -1088,6 +1062,8 @@ private fun ChunkStatsBar(
     onOpenFile: ((String) -> Unit)? = null,
     caps: RowCapabilities? = null,
 ) {
+    val hapticView = LocalView.current
+    val hapticOn = LocalHapticFeedbackEnabled.current
     val copyText = renderableTurn.copyText
     val modelId = renderableTurn.modelId
     val durationMs = renderableTurn.durationMs
@@ -1109,10 +1085,15 @@ private fun ChunkStatsBar(
         hasMarkdownCopySheetItem = copyText != null,
         providerId = assistantMsg?.providerId,
     )
-    val moreAvailable = tailModel.moreAvailable
-    var showMoreSheet by remember { mutableStateOf(false) }
+    var showDetailDialog by remember { mutableStateOf(false) }
     val moreClipboard = LocalClipboard.current
     val moreScope = rememberCoroutineScope()
+    // 历史（分片 / 分段）turn 恒非流式；中断 / 出错仍要标（US#5）
+    val statusBadge = statusBadgeFor(
+        isStreaming = false,
+        finish = assistantMsg?.finish,
+        hasError = assistantMsg?.error != null,
+    )
     // US#14：最新轮尾部常显；历史轮默认收起、点击摘要展开（产出文件行随之显隐）。
     // 派生式：仅显式点击落 override；否则随 isTurnLast 变化（旧最新轮自动收起）。
     var tailExpandedOverride by remember { mutableStateOf<Boolean?>(null) }
@@ -1127,6 +1108,17 @@ private fun ChunkStatsBar(
             horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (statusBadge != null) {
+                MessageStatusBadgeLabel(statusBadge)
+            }
+            val tailAgent = tailModel.agentName
+            if (!tailAgent.isNullOrBlank()) {
+                AgentTag(
+                    agent = tailAgent,
+                    tagColor = agentColor(tailAgent, agents),
+                    onClick = onAgentClick?.let { cb -> { cb(tailAgent) } },
+                )
+            }
             val hasProviderOrModel = assistantMsg?.providerId != null || !modelId.isNullOrBlank()
             if (hasProviderOrModel) {
                 Row(
@@ -1198,37 +1190,37 @@ private fun ChunkStatsBar(
             if (copyText != null && onCopy != null) {
                 CopyButton(text = copyText, modifier = Modifier.size(14.dp), onCopied = onCopy)
             }
-            if (onForkFromTurn != null) {
-                Text(
-                    text = stringResource(R.string.chat_turn_fork_from_here),
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .clip(ShapeTokens.small)
-                        .clickable(onClickLabel = stringResource(R.string.chat_turn_fork_from_here)) {
-                            onForkFromTurn()
-                        }
-                        .padding(horizontal = SpacingTokens.SM.dp, vertical = 2.dp),
-                )
-            }
-            if (moreAvailable) {
-                androidx.compose.material3.Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Filled.MoreHoriz,
-                    contentDescription = stringResource(R.string.a11y_message_more),
-                    modifier = Modifier
-                        .size(16.dp)
-                        .clickable { showMoreSheet = true },
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                )
-            }
+            androidx.compose.material3.Icon(
+                imageVector = Icons.Outlined.Info,
+                contentDescription = stringResource(R.string.a11y_message_detail),
+                modifier = Modifier
+                    .size(16.dp)
+                    .clickable {
+                        performHaptic(hapticView, hapticOn)
+                        showDetailDialog = true
+                    },
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+            )
         }
         if (tailExpanded && renderableTurn.allStepsCompleted && tailModel.producedFiles.isNotEmpty()) {
             ProducedFilesRow(files = tailModel.producedFiles, onOpenFile = onOpenFile)
         }
     }
 
-    if (showMoreSheet) {
-        MessageMoreSheet(
+    if (showDetailDialog) {
+        MessageDetailDialog(
+            input = MessageDetailInput(
+                isUser = false,
+                timeMs = assistantMsg?.time?.created ?: 0L,
+                agentName = renderableTurn.agentName,
+                providerId = assistantMsg?.providerId,
+                modelId = renderableTurn.modelId,
+                durationMs = renderableTurn.durationMs,
+                stepCount = renderableTurn.stepCount,
+                toolCallCount = toolCallCount,
+                tokensTotal = ledger.tokensTotal,
+                cost = assistantMsg?.cost,
+            ),
             feedback = messageFeedback,
             onRate = onRateMessage,
             onCopyMarkdownSource = copyText?.let { src ->
@@ -1239,8 +1231,9 @@ private fun ChunkStatsBar(
                     }
                 }
             },
+            onForkFromTurn = onForkFromTurn,
             onDelete = onDeleteMessage,
-            onDismiss = { showMoreSheet = false },
+            onDismiss = { showDetailDialog = false },
         )
     }
 }

@@ -230,7 +230,10 @@
     <string name="chat_msg_status_streaming">Streaming</string>
     <string name="chat_msg_status_interrupted">Interrupted</string>
     <string name="chat_msg_status_error">Error</string>
-    <string name="chat_more">More</string>
+    <string name="chat_msg_detail_title">Message details</string>
+    <string name="chat_detail_time">Time</string>
+    <string name="chat_detail_duration">Duration</string>
+    <string name="chat_detail_tokens">Tokens</string>
     <string name="chat_copy_markdown_source">Copy Markdown source</string>
     <string name="chat_delete_message">Delete message</string>
     <string name="chat_delete_message_title">Delete message?</string>
@@ -258,7 +261,7 @@
     <string name="chat_stats_tools">Tools</string>
     <string name="chat_stats_expand">Expand turn details</string>
     <string name="chat_stats_collapse">Collapse turn details</string>
-    <string name="a11y_message_more">More actions</string>
+    <string name="a11y_message_detail">Message details</string>
     <string name="chat_subagent_completed_notification">Subagent completed</string>
     <string name="chat_subagent_failed_notification">Subagent failed</string>
     <string name="chat_status_updating_tasks">Updating tasks</string>

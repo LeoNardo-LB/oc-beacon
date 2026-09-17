@@ -242,7 +242,10 @@
     <string name="chat_msg_status_streaming">Akış halinde</string>
     <string name="chat_msg_status_interrupted">Yarıda kesildi</string>
     <string name="chat_msg_status_error">Hata</string>
-    <string name="chat_more">Daha fazla</string>
+    <string name="chat_msg_detail_title">Mesaj ayrıntıları</string>
+    <string name="chat_detail_time">Zaman</string>
+    <string name="chat_detail_duration">Süre</string>
+    <string name="chat_detail_tokens">Token</string>
     <string name="chat_copy_markdown_source">Markdown kaynağını kopyala</string>
     <string name="chat_delete_message">Mesajı sil</string>
     <string name="chat_delete_message_title">Mesaj silinsin mi?</string>
@@ -252,7 +255,7 @@
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">token/s</string>
     <string name="chat_msg_tail_summary">%1$d adım · %2$d araç</string>
-    <string name="a11y_message_more">Diğer işlemler</string>
+    <string name="a11y_message_detail">Mesaj ayrıntıları</string>
     <string name="chat_stats_session_title">Oturum istatistikleri</string>
     <string name="chat_stats_summary">%1$d tur · %2$d adım · %3$s LLM · %4$s araç</string>
     <string name="chat_stats_ttft_avg">Ort. TTFT: %1$s</string>

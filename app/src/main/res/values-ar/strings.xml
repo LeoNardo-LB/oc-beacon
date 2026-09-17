@@ -254,7 +254,10 @@
     <string name="chat_msg_status_streaming">جارٍ البث</string>
     <string name="chat_msg_status_interrupted">تم الإيقاف</string>
     <string name="chat_msg_status_error">خطأ</string>
-    <string name="chat_more">المزيد</string>
+    <string name="chat_msg_detail_title">تفاصيل الرسالة</string>
+    <string name="chat_detail_time">الوقت</string>
+    <string name="chat_detail_duration">المدة</string>
+    <string name="chat_detail_tokens">الرموز</string>
     <string name="chat_copy_markdown_source">نسخ مصدر Markdown</string>
     <string name="chat_delete_message">حذف الرسالة</string>
     <string name="chat_delete_message_title">حذف الرسالة؟</string>
@@ -264,7 +267,7 @@
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">tokens/s</string>
     <string name="chat_msg_tail_summary">%1$d خطوات · %2$d أدوات</string>
-    <string name="a11y_message_more">المزيد من الإجراءات</string>
+    <string name="a11y_message_detail">تفاصيل الرسالة</string>
     <string name="chat_stats_session_title">إحصاءات الجلسة</string>
     <string name="chat_stats_summary">الدور %1$d · %2$d خطوات · %3$s LLM · %4$s أدوات</string>
     <string name="chat_stats_ttft_avg">متوسط TTFT: %1$s</string>

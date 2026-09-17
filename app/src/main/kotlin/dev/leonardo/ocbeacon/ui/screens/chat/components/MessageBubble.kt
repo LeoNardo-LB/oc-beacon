@@ -26,8 +26,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.leonardo.ocbeacon.R
-import dev.leonardo.ocbeacon.domain.model.AgentInfo
-import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.MessageStatusBadge
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ChatDensity
 import dev.leonardo.ocbeacon.ui.theme.LocalChatDensity
@@ -50,15 +48,18 @@ import java.util.Date
  * - [alignEnd]：user 右对齐（true）；assistant/synthetic 左对齐（false）
  * - [containerColor] / [border]：底色与边框（synthetic = 透明 + 边框类型）
  * - [shape]：圆角（user 用聊天气泡非对称圆角；其他用 medium）
- * - 标签栏统一：`[时间] [labelLeading?] [类型标签] [Spacer] [labelTrailing?]`
- * - 统计栏可选（assistant 的 agent/模型/时长/复制；user 的 QUEUED 徽章）
+ * - 标签栏（非 flat 路径，[showLabelRow]=true）：`[左区 labelLeading?+标签+suffix] [中区 时间] [右区 labelTrailing?]`；
+ *   v2 起用户气泡传 showLabelRow=false（角色文字已删），助手正文走 flat。
+ * - 统计栏可选（synthetic / 通知卡用；角色消息 v2 走 [MessageSectionScaffold] 尾部）
  */
 @Composable
 internal fun MessageBubble(
     alignEnd: Boolean,
     containerColor: Color,
-    label: String,
-    timeMs: Long,
+    /** 标签栏文案（非 flat 路径用）；flat 路径无标签栏 → 可省略。 */
+    label: String = "",
+    /** 标签栏时间戳；flat 路径无标签栏 → 可省略。 */
+    timeMs: Long = 0L,
     modifier: Modifier = Modifier,
     shape: Shape = ShapeTokens.medium,
     border: BorderStroke? = null,
@@ -78,18 +79,12 @@ internal fun MessageBubble(
      *  对称），展开/收起恒有动画（取代三轮b 的 contentVisible 条件卸载——它把
      *  收起动画截胡成了瞬间消失）。 */
     contentExpanded: Boolean? = null,
-    // ---- 2026-09-12 消息层扁平化：flat 模式（角色消息去容器外观）----
-    /** true = 角色消息扁平三段式（无背景 / 无边框 / 无圆角）——委派 [MessageSectionScaffold]。
-     *  false（默认）= 通知层的卡片容器（EventCard / 合成通知卡沿用）。 */
+    // ---- 2026-09-12 扁平化 / 2026-09-17 v2 两段式 ----
+    /** true = 角色消息两段式（无背景 / 无边框 / 无圆角、无头部标签栏）——委派 [MessageSectionScaffold]。
+     *  false（默认）= 通知层卡片容器（EventCard / 合成通知卡 / 用户气泡沿用）。 */
     flat: Boolean = false,
-    /** flat 模式下用户消息的最大宽度比例（spec：82%）。 */
-    maxWidthFraction: Float? = null,
-    /** flat 模式：agent 名（头部标签）。 */
-    agentName: String? = null,
-    agents: List<AgentInfo> = emptyList(),
-    onAgentClick: ((String) -> Unit)? = null,
-    /** flat 模式：头部状态徽标（进行中 / 已中断 / 出错）。 */
-    statusBadge: MessageStatusBadge? = null,
+    /** 非 flat 路径是否渲染统一标签栏；用户气泡 v2 起传 false（「用户 / 智能体」文字已删）。 */
+    showLabelRow: Boolean = true,
     /** flat 模式：统计栏之下的附加尾部内容（产出文件行等）。 */
     tailExtra: (@Composable ColumnScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
@@ -98,17 +93,8 @@ internal fun MessageBubble(
 
     if (flat) {
         MessageSectionScaffold(
-            label = label,
-            timeMs = timeMs,
             modifier = modifier,
-            labelLeading = labelLeading,
             alignEnd = alignEnd,
-            maxWidthFraction = maxWidthFraction,
-            agentName = agentName,
-            agents = agents,
-            onAgentClick = onAgentClick,
-            statusBadge = statusBadge,
-            headerTrailing = labelTrailing,
             tail = {
                 if (statsBar != null) {
                     Row(
@@ -152,45 +138,48 @@ internal fun MessageBubble(
                 // #312③（2026-09-10 用户裁决「时间放在中央」）：左右两区等权（weight 1f），
                 // 时间恒在整行水平中央（titlebar 模式）；labelFillRemaining 机制随之退役。
                 // 时间格式＝绝对（messageTimestamp：当天 HH:mm:ss、跨天 yyyy-MM-dd HH:mm:ss）。
-                val timeText = remember(timeMs) {
-                    DateFormatters.messageTimestamp(timeMs)
-                }
-                Row(
-                    modifier = Modifier
-                        .padding(horizontal = labelRowHorizontalPadding ?: contentHPad),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
-                ) {
-                    // 左区（weight 1f）：图标 + 标签（区内省略） + suffix
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        labelLeading?.invoke()
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                        labelSuffix?.invoke()
+                // v2：用户气泡传 showLabelRow=false —— 标签栏整体不渲染。
+                if (showLabelRow) {
+                    val timeText = remember(timeMs) {
+                        DateFormatters.messageTimestamp(timeMs)
                     }
-                    // 中区：绝对时间（整行中央）
-                    Text(
-                        text = timeText,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
-                    )
-                    // 右区（weight 1f，尾对齐）：trailing 图标组
                     Row(
+                        modifier = Modifier
+                            .padding(horizontal = labelRowHorizontalPadding ?: contentHPad),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp, Alignment.End),
-                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp)
                     ) {
-                        labelTrailing?.invoke(this)
+                        // 左区（weight 1f）：图标 + 标签（区内省略） + suffix
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            labelLeading?.invoke()
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            labelSuffix?.invoke()
+                        }
+                        // 中区：绝对时间（整行中央）
+                        Text(
+                            text = timeText,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
+                        )
+                        // 右区（weight 1f，尾对齐）：trailing 图标组
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp, Alignment.End),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            labelTrailing?.invoke(this)
+                        }
                     }
                 }
 
