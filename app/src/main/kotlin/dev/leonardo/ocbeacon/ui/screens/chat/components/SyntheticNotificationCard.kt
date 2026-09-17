@@ -55,8 +55,6 @@ internal fun SyntheticNotificationCard(
     eventExpandedStates: MutableMap<String, Boolean>,
     onViewSubSession: ((String) -> Unit)? = null,
     onLocateTask: ((String) -> Unit)? = null,
-    /** #243 连续同内容去重：本卡代表的被抑制重复数（0=无重复）。标签行显示 ×(N+1)。 */
-    dupCount: Int = 0,
 ) {
     val text = currentMessage.parts
         .filterIsInstance<Part.Text>()
@@ -107,8 +105,9 @@ internal fun SyntheticNotificationCard(
         )
     }
 
-    // #243 连续同内容去重：×N 后缀（N=含本卡的总出现次数）；重复卡不渲染
-    val label = if (dupCount > 0) "$labelBase ×${dupCount + 1}" else labelBase
+    // 2026-09-12 扁平化（US#22）：撤销 UI 层 ×N 合并——重复同源通知已在装配层
+    // 按事件身份键收敛为一条并原位更新状态（rowmodel.dedupeByEventIdentity）。
+    val label = labelBase
 
     // Q15 描述行：描述数据实际存在才激活——task=任务描述（identity 信息）、
     // shell=命令预览（description 属性）、解析失败降级=原始全文截断
@@ -197,6 +196,23 @@ internal fun extractTaskDescription(summary: String?): String {
     return stripped.ifBlank { s }
 }
 
+/**
+ * （2026-09-12 扁平化 US#22）合成通知的事件身份键：
+ * 子会话 / shell id 优先（同源通知原位更新），无 id 则消息 id（不折叠）。
+ * 纯函数，JVM 可测——装配层 [dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.dedupeByEventIdentity]
+ * 的字面键提取器。
+ */
+internal fun syntheticEventIdentityKey(msg: ChatMessage): String? {
+    if (!msg.isSynthetic) return null
+    val text = msg.parts.filterIsInstance<Part.Text>().firstOrNull { it.text.isNotBlank() }?.text
+    val parsed = text?.let(::parseSyntheticTask)
+    return dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.eventIdentityKey(
+        callId = null,
+        childSessionId = parsed?.sessionId,
+        messageId = msg.message.id,
+    )
+}
+
 /** 解析服务器 synthetic 文本的 <task> 结构化格式。解析失败返回 null。 */
 internal data class SyntheticTaskInfo(
     val sessionId: String?,
@@ -248,50 +264,4 @@ internal fun parseSyntheticTask(text: String): SyntheticTaskInfo? {
         outputRegex.find(text)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() }
     }
     return SyntheticTaskInfo(sessionId, state, summary, output, source)
-}
-
-// ---------------------------------------------------------------------------
-// #243 连续同内容去重（2026-08-27 用户裁决：完全相同内容不重复渲染，首张 + ×N）
-// ---------------------------------------------------------------------------
-
-/**
- * 去重键：仅 shell 合成卡参与（task/subagent 卡携带子会话跳转载荷，永不折叠）。
- * 键 = source|state|描述|输出——call_ 工具调用 id 等易变字段不参与，
- * 因此「同一命令跑 N 次」产生的 N 张卡同键。
- */
-internal fun syntheticDedupKey(text: String): String? {
-    val info = parseSyntheticTask(text) ?: return null
-    if (info.source != "shell") return null
-    return listOf(info.source, info.state ?: "", info.summary ?: "", info.output ?: "")
-        .joinToString("\u0001")
-}
-
-/**
- * 连续同键 shell 卡去重（纯函数，JVM 可测）：首张保留并计数，后续抑制。
- * 返回 (过滤后列表, 保留消息 id → 被抑制数)。只折叠连续同键——被其他消息
- * 隔开的同内容卡不算重复。
- */
-internal fun <F> dedupeConsecutiveSynthetics(
-    items: List<Pair<F, ChatMessage>>,
-): Pair<List<Pair<F, ChatMessage>>, Map<String, Int>> {
-    val suppressed = HashSet<String>()
-    val counts = LinkedHashMap<String, Int>()
-    var lastKey: String? = null
-    var lastKeptId: String? = null
-    for ((first, msg) in items) {
-        val key = if (msg.isSynthetic) {
-            val text = msg.parts.filterIsInstance<Part.Text>().firstOrNull { it.text.isNotBlank() }?.text
-            text?.let(::syntheticDedupKey)
-        } else {
-            null
-        }
-        if (key != null && key == lastKey && lastKeptId != null) {
-            suppressed.add(msg.message.id)
-            counts[lastKeptId] = (counts[lastKeptId] ?: 0) + 1
-        } else {
-            lastKey = key
-            lastKeptId = msg.message.id
-        }
-    }
-    return items.filter { it.second.message.id !in suppressed } to counts
 }

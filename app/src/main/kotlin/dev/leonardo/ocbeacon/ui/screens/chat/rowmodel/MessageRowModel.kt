@@ -336,6 +336,27 @@ fun notificationRowModel(
  * 通知 / 事件的稳定身份键：工具 callId → 子会话 id → 消息 id。
  * 同键 = 同源事件（重复注入），装配层保留一条并原位更新状态。
  */
+fun <T> dedupeByEventIdentity(items: List<T>, identityKey: (T) -> String?): List<T> {
+    val indexByKey = HashMap<String, Int>()
+    val out = ArrayList<T>(items.size)
+    for (item in items) {
+        val key = identityKey(item)
+        if (key == null) {
+            out.add(item)
+            continue
+        }
+        val existing = indexByKey[key]
+        if (existing != null) {
+            // 原位更新：保留首个出现位置，值取最新一条（重复注入不刷屏，状态最新）。
+            out[existing] = item
+        } else {
+            indexByKey[key] = out.size
+            out.add(item)
+        }
+    }
+    return out
+}
+
 fun eventIdentityKey(
     callId: String?,
     childSessionId: String?,

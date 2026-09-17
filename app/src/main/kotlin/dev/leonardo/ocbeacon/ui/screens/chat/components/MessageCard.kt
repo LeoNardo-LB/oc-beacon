@@ -36,8 +36,6 @@ internal fun MessageCard(
     /** #234：事件卡统一展开表（屏幕级，#227 模式）——synthetic 卡与 assistant
      *  turn 内防御性 RenderItem.SyntheticNotice 渲染共用同一记忆。 */
     eventExpandedStates: MutableMap<String, Boolean>,
-    /** #243 连续同内容去重：本卡代表的被抑制重复数（0=无）。 */
-    eventDupCount: Int = 0,
     /**
      * #310②：本消息当前反馈快照（null = 未评）。仅 DSH 且已完结
      * 时非 null 回调伴随出现脚部 👍/👎 动作位。
@@ -64,7 +62,6 @@ internal fun MessageCard(
             onViewSubSession = onViewSubSession,
             onLocateTask = onLocateTask,
             eventExpandedStates = eventExpandedStates,
-            dupCount = eventDupCount,
         )
         MessageCardRole.ASSISTANT -> MessageCardAssistant(
             renderableTurn = renderableTurn ?: error("renderableTurn is required for ASSISTANT role"),

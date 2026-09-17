@@ -225,7 +225,8 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.PromptBuilder
 import dev.leonardo.ocbeacon.ui.screens.chat.components.MessageCard
 import dev.leonardo.ocbeacon.ui.screens.chat.components.MessageCardRole
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatEmptyState
-import dev.leonardo.ocbeacon.ui.screens.chat.components.dedupeConsecutiveSynthetics
+import dev.leonardo.ocbeacon.ui.screens.chat.components.syntheticEventIdentityKey
+import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.dedupeByEventIdentity
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatErrorState
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatMessageList
@@ -937,36 +938,37 @@ fun ChatScreen(
                         // return 空，保留在 displayItems 会形成空行（"返回后消息流
                         // 乱了"的现象之一）。
                         // #243 连续同内容 shell 卡去重（首张 + ×N，其余抑制渲染）
-                        val displayItemsPair = remember(rawMessages) {
-                            dedupeConsecutiveSynthetics(
-                            rawMessages.mapIndexedNotNull { index, msg ->
-                                when {
-                                    msg.isUser && !msg.isSynthetic -> index to msg
-                                    msg.isSynthetic -> {
-                                        val hasText = msg.parts
-                                            .filterIsInstance<Part.Text>()
-                                            .any { it.text.isNotBlank() } ||
-                                            (msg.message as? Message.User)?.summary?.body?.isNotBlank() == true
-                                        // 2026-08-12 用户决策：synthetic 是独立消息 → 独立气泡
-                                        // （与 user 消息同构，ChatMessageList 已按 role 分发
-                                        // SYNTHETIC 卡片）。不再邻接判断/嵌入 assistant turn。
-                                        if (!hasText) {
-                                            null
-                                        } else {
-                                            index to msg
+                        // 2026-09-12 扁平化（US#22）：撤销 UI 层「×N」连续同内容合并——
+                        // 改为装配层按**事件身份键**（子会话 id / shell id / 消息 id）
+                        // 收敛为一条并原位更新状态（rowmodel.dedupeByEventIdentity）。
+                        val displayItems = remember(rawMessages) {
+                            dedupeByEventIdentity(
+                                rawMessages.mapIndexedNotNull { index, msg ->
+                                    when {
+                                        msg.isUser && !msg.isSynthetic -> index to msg
+                                        msg.isSynthetic -> {
+                                            val hasText = msg.parts
+                                                .filterIsInstance<Part.Text>()
+                                                .any { it.text.isNotBlank() } ||
+                                                (msg.message as? Message.User)?.summary?.body?.isNotBlank() == true
+                                            // 2026-08-12 用户决策：synthetic 是独立消息 → 独立气泡
+                                            // （与 user 消息同构，ChatMessageList 已按 role 分发
+                                            //  SYNTHETIC 卡片）。不再邻接判断/嵌入 assistant turn。
+                                            if (!hasText) {
+                                                null
+                                            } else {
+                                                index to msg
+                                            }
                                         }
+                                        msg.isAssistant -> {
+                                            val prevMsg = rawMessages.getOrNull(index - 1)
+                                            if (prevMsg?.isAssistant != true) index to msg else null
+                                        }
+                                        else -> null
                                     }
-                                    msg.isAssistant -> {
-                                        val prevMsg = rawMessages.getOrNull(index - 1)
-                                        if (prevMsg?.isAssistant != true) index to msg else null
-                                    }
-                                    else -> null
-                                }
-                            }
-                            )
+                                },
+                            ) { pair -> syntheticEventIdentityKey(pair.second) }
                         }
-                        val displayItems = displayItemsPair.first
-                        val syntheticDupCounts = displayItemsPair.second
 
                     // #137（D2-L65）：此处原重复定义 onViewToolLambda（死代码——
                     // LocalOnViewTool 由外层的定义提供，本内层定义从未被使用）
@@ -981,7 +983,6 @@ fun ChatScreen(
                         interaction = interaction,
                         rawMessages = rawMessages,
                         displayItems = displayItems,
-                        syntheticDupCounts = syntheticDupCounts,
                         isAtBottomState = scrollController.isAtBottomState,
                         autoScrollState = scrollController.autoScrollState,
                         isAmoled = isAmoled,

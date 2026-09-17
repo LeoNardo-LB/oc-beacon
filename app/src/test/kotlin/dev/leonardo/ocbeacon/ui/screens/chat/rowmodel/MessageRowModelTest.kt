@@ -239,6 +239,23 @@ class MessageRowModelTest {
         assertFalse(model.navArrowVisible)
     }
 
+    // ---- 事件身份键去重（US#22） -------------------------------------------
+
+    @Test
+    fun `dedupe by event identity keeps first position and newest value`() {
+        val items = listOf("a" to "k1", "b" to "k2", "c" to "k1")
+        val out = dedupeByEventIdentity(items) { it.second }
+        // 位置 = 首次出现（第 1 项），值 = 最新（c）
+        assertEquals(listOf("c", "b"), out.map { it.first })
+    }
+
+    @Test
+    fun `dedupe by event identity keeps null key items untouched`() {
+        val items = listOf("a" to null, "b" to "k", "c" to null)
+        val out = dedupeByEventIdentity(items) { it.second }
+        assertEquals(listOf("a", "b", "c"), out.map { it.first })
+    }
+
     // ---- 事件身份键 ---------------------------------------------------------
 
     @Test
