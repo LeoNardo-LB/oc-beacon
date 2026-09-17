@@ -281,6 +281,10 @@ dependencies {
     androidTestImplementation(composeBom)
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("com.google.dagger:hilt-android-testing:2.60.1")
+    // 2026-09-17（#387 收尾）：androidTest 的 Hilt 代码生成缺失——@HiltAndroidTest 的
+    // *_TestComponentDataSupplier 从未生成（ClassNotFoundException → 全部 Hilt 插桩测试失败）。
+    // 主源集有 ksp("hilt-compiler")，androidTest 源集同样需要它。
+    kspAndroidTest("com.google.dagger:hilt-compiler:2.60.1")
 }
 
 tasks.withType<Test>().configureEach {

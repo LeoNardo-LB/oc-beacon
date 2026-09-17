@@ -60,6 +60,9 @@ abstract class FakeDomainModule {
 
     // 2026-08-16：androidTest 测试图补 MessageCacheRepository（此前源集从未编译、缺口被掩盖）
     @Binds @Singleton abstract fun bindMessageCacheRepository(impl: dev.leonardo.ocbeacon.fakes.FakeMessageCacheRepository): dev.leonardo.ocbeacon.domain.repository.MessageCacheRepository
+    // 2026-09-17：androidTest 测试图补 ServerSettingsRepository（DomainModule 已绑定，
+    // FakeDomainModule replaces 后缺 provider → Hilt 测试组件 MissingBinding）。
+    @Binds @Singleton abstract fun bindServerSettingsRepository(impl: dev.leonardo.ocbeacon.fakes.FakeServerSettingsRepository): dev.leonardo.ocbeacon.domain.repository.ServerSettingsRepository
     @Binds @Singleton abstract fun bindMcpRepository(impl: FakeMcpRepository): McpRepository
 
     // ServerRepository 及其 2 个子接口 —— 全部由单个 FakeServerRepository 支撑
