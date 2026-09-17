@@ -66,6 +66,7 @@
   - 2026-09-12 按用户裁决调研 dsh web / opencode web 后实现：两端均**不用内容嗅探**——dsh 靠 user/message 的 source.kind（≠user 即折叠为 context 节点，dsh client.js:6048-6066），opencode 靠 text part 的 synthetic 字段（synthetic part 在用户气泡隐藏，message-part.tsx:1198-1200；生产端 reminders.ts:26-48）。我们的 V2 服务器两类字段都不发 → 「字段优先 + 嗅探兜底」是唯一可行路线。本次改动 = 嗅探下沉到映射单点 DshEventMapper.mapUserMessage（无 source.kind 且整条恰为一个闭合 system-reminder 块 → injectionKind=context），实况/通知/未来消费者共用；渲染层对历史 Room 行的同判据（SystemInjection.isPureReminder）兜底保留，新增单测（纯块→context、混合→null）。后续方向（登记在卡内、不另开卡）：① dsh form 结构化展开体；② opencode synthetic 式 part 级混合拆分。局限：本环境无 live 无字段样本，该路径仅单测覆盖。
   - 用户 2026-09-12 新考虑（本卡保持打开）：是否把 agent 的内容直接输出、不再用 agent 气泡包裹，以及这种形式是否应由 dsh（服务器字段/模型）来驱动。待用户明确指代对象（上下文注入 / 子智能体输出 / assistant 正文）后再定方案。已有调研事实：dsh web 对注入不是裸输出而是折叠成 Context injection/recall 行（标题+来源标签+可展开体，client.js:850-898）；opencode 对 synthetic part 是直接隐藏、工具上下文折叠成 Gathered context 组——两端都不裸输出。
   - 2026-09-12 后续专题底稿已建：docs/research/2026-09-12-387-followup-discussion.md（已落地最小修复 + dsh/opencode 一手事实 + A/B/C 指代 + 候选方案与验证矩阵）。本卡转「专题讨论待定」，结论出来后按 spec 约定另立 spec/卡。
+  - 2026-09-12 专题结论（6 轮 grilling）：设计定稿并发布为 GitHub Issue #11（标签 ready-for-agent）——消息层改扁平三段式（去气泡外观、保留头部/正文/尾部骨架）；通知层统一为通知卡家族；重指标与逐轮明细收进顶部统计弹窗（改底部可滚动面板）；撤销 UI 层 ×N 合并、改数据层按事件身份键原位更新。spec: docs/specs/2026-09-12-message-chrome-flattening-design.md；字段盘点: docs/research/2026-09-12-message-chrome-field-inventory.md。本卡后续按 #11 跟踪。
 
 ## P3 — 观察与低价值改进
 
