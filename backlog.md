@@ -68,6 +68,8 @@
   - 2026-09-12 后续专题底稿已建：docs/research/2026-09-12-387-followup-discussion.md（已落地最小修复 + dsh/opencode 一手事实 + A/B/C 指代 + 候选方案与验证矩阵）。本卡转「专题讨论待定」，结论出来后按 spec 约定另立 spec/卡。
   - 2026-09-12 专题结论（6 轮 grilling）：设计定稿并发布为 GitHub Issue #11（标签 ready-for-agent）——消息层改扁平三段式（去气泡外观、保留头部/正文/尾部骨架）；通知层统一为通知卡家族；重指标与逐轮明细收进顶部统计弹窗（改底部可滚动面板）；撤销 UI 层 ×N 合并、改数据层按事件身份键原位更新。spec: docs/specs/2026-09-12-message-chrome-flattening-design.md；字段盘点: docs/research/2026-09-12-message-chrome-field-inventory.md。本卡后续按 #11 跟踪。
   - - 2026-09-17 按 spec/Issue #11 实施：批1 数据层（DSH 模型路由 + usage 全桶 + agent 漂移清理 + 行模型 seam）与批2 消息层（扁平三段式去容器 + 状态徽标 + 「更多」面板 + 尾部吸收台账/产出 + 间距 16dp + 身份键去重）已提交；批3 统计弹窗实施中。journal: docs/journal/2026-09-17-387.md。
+  - - 2026-09-17 实现完成（批1/批2/批3 + i18n），V1 门禁全绿（compile / 3337 单测 0 fail / androidTest 编译 / assembleDevDebug / lintDevDebug 0 error）；V3 模拟器走查通过（用户消息扁平、assistant 三段式、通知卡同宽、统计底部面板 + 逐轮明细），证据 docs/acceptance/2026-09-17-387/。详见 journal docs/journal/2026-09-17-387.md。局限：Maestro CLI 未安装（V2 flow 未执行）。等用户验收。
+  - - 2026-09-17 用户裁决修订：**用户消息保留原三段式气泡**（否决「去底色」）；扁平化范围收窄为智能体正文。spec/研究底稿/kdoc/Issue #11 已同步。
 
 ## P3 — 观察与低价值改进
 
