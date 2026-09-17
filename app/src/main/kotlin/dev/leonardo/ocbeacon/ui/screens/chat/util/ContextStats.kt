@@ -7,6 +7,7 @@ import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.MessageWithParts
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.ToolState
+import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.TurnDetailInput
 import kotlin.math.ceil
 
 enum class BreakdownRole { USER, ASSISTANT, TOOL, OTHER }
@@ -51,6 +52,8 @@ data class ContextDetailState(
     val projectionBreakdown: DshContextBreakdown? = null,
     /** DSH sessionStats 投影（全日志累计 turns/steps/llmMs/toolMs/…）；OpenCode 恒 null。 */
     val projectionSessionStats: DshSessionStats? = null,
+    /** 逐轮明细装配输入（时间倒序 = 最新在上；由 buildContextDetailState 从 messages 构造）。 */
+    val turnDetailInputs: List<TurnDetailInput> = emptyList(),
 )
 
 private fun estimateTokens(chars: Int): Int = if (chars == 0) 0 else ceil(chars / 4.0).toInt()

@@ -244,6 +244,24 @@
     <string name="chat_msg_tail_summary">%1$d steps · %2$d tools</string>
     <string name="chat_stats_ttft">TTFT</string>
     <string name="chat_stats_tokens_per_second">tokens/s</string>
+    <!-- 2026-09-12 消息层扁平化 批3：统计弹窗（sessionStats + 逐轮明细） -->
+    <string name="chat_stats_session_title">Session stats</string>
+    <string name="chat_stats_summary">%1$d turns · %2$d steps · %3$s LLM · %4$s tools</string>
+    <string name="chat_stats_ttft_avg">Avg TTFT: %1$s</string>
+    <string name="chat_stats_decode">%1$s tokens/s</string>
+    <string name="chat_stats_per_turn_title">Per-turn details</string>
+    <string name="chat_stats_turn_row">Turn %1$d · %2$s · %3$s</string>
+    <string name="chat_stats_input">Input</string>
+    <string name="chat_stats_output">Output</string>
+    <string name="chat_stats_reasoning">Reasoning</string>
+    <string name="chat_stats_cache_read">Cache read</string>
+    <string name="chat_stats_cache_write">Cache write</string>
+    <string name="chat_stats_cost">Cost</string>
+    <string name="chat_stats_model">Model</string>
+    <string name="chat_stats_steps">Steps</string>
+    <string name="chat_stats_tools">Tools</string>
+    <string name="chat_stats_expand">Expand turn details</string>
+    <string name="chat_stats_collapse">Collapse turn details</string>
     <string name="a11y_message_more">More actions</string>
     <string name="chat_subagent_completed_notification">Subagent completed</string>
     <string name="chat_subagent_failed_notification">Subagent failed</string>

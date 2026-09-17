@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.components.AmoledDefaultBorder
+import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.RowCapabilities
 import dev.leonardo.ocbeacon.ui.screens.chat.util.ContextDetailState
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
@@ -52,6 +53,8 @@ fun ChatTopBar(
     sessionTitle: String,
     directory: String,
     contextDetail: ContextDetailState,
+    /** 行模型能力位（批3 统计弹窗逐轮明细门控：cost/timing 缺席即整项隐藏）。 */
+    caps: RowCapabilities,
     sessionParentId: String?,
     shareUrl: String?,
     contextWindow: Int = 0,
@@ -162,6 +165,7 @@ fun ChatTopBar(
             if (showContextDialog) {
                 ContextDetailDialog(
                     state = contextDetail,
+                    caps = caps,
                     onDismiss = { showContextDialog = false }
                 )
             }

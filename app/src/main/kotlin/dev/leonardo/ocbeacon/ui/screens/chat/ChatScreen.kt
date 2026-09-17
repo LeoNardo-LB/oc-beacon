@@ -227,6 +227,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.components.MessageCardRole
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatEmptyState
 import dev.leonardo.ocbeacon.ui.screens.chat.components.syntheticEventIdentityKey
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.dedupeByEventIdentity
+import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.rowCapabilitiesFor
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatErrorState
 import dev.leonardo.ocbeacon.domain.model.SessionStatus
 import dev.leonardo.ocbeacon.ui.screens.chat.components.ChatMessageList
@@ -716,6 +717,7 @@ fun ChatScreen(
                         sessionTitle = sessionMeta.sessionTitle,
                         directory = directory,
                         contextDetail = contextDetail,
+                        caps = rowCapabilitiesFor(serverCapabilities),
                         sessionParentId = sessionMeta.sessionParentId,
                         shareUrl = sessionMeta.shareUrl,
                         contextWindow = modelConfig.contextWindow,
