@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import androidx.compose.foundation.lazy.LazyListState
 import dev.leonardo.ocbeacon.logging.AppLogger
+import kotlinx.coroutines.channels.Channel
 import java.util.WeakHashMap
 
 /**
@@ -50,11 +51,31 @@ internal object PreRenderShiftChannel {
     /** 注入代计数 [已入队, 已落地]：揭示方据此判断位移是否落地（竞态门）。 */
     private val generations = WeakHashMap<LazyListState, LongArray>()
 
+    /**
+     * 每列表「待排空」信号（#412）：CONFLATED——多次入队合并为一次唤醒；
+     * 泵空闲时挂起在 [awaitPending]，不再逐帧起帧（Compose 测试因此可 idle）。
+     */
+    private val wakeSignals = WeakHashMap<LazyListState, Channel<Unit>>()
+
+    private fun signalFor(state: LazyListState): Channel<Unit> =
+        wakeSignals.getOrPut(state) { Channel(Channel.CONFLATED) }
+
     /** measure 块内调用：入队本遍补偿增量（正=内容生长视窗下移，负=收缩上移）。 */
     fun enqueue(state: LazyListState, deltaPx: Float) {
         val acc = pending.getOrPut(state) { floatArrayOf(0f) }
         acc[0] += deltaPx
         generations.getOrPut(state) { longArrayOf(0L, 0L) }[0]++
+        signalFor(state).trySend(Unit)
+    }
+
+    /**
+     * #412：挂起直至该列表存在未排空增量。CONFLATED 通道保证唤醒不丢——
+     * 入队时通道空则排队、非空则本就挂着一个待消费唤醒；泵被唤醒后经一次
+     * 帧边界（withFrameNanos）再 drain，时序与常驻泵逐帧一致（入队帧 k →
+     * 帧 k+1 回调相排空 → 遍首应用）。虚醒（drain 见 0 早退）无害，回挂即可。
+     */
+    suspend fun awaitPending(state: LazyListState) {
+        signalFor(state).receive()
     }
 
     /**

@@ -1148,8 +1148,12 @@ fun ChatMessageList(
             // 回调相（Choreographer 动画相）早于当帧 measure 遍历——排空注入的
             // 待定位置在本帧 measure 遍首应用：注入与应用严格隔帧配对，与旧
             // scrollToBeConsumed 通道视觉时序逐帧一致（机制见 PreRenderShiftChannel）。
+            // #412：泵改为「待排空信号驱动」——空闲挂起在 awaitPending，仅当本
+            // 列表有未排空增量时才起帧（原 while(true) 每帧必起 → Compose 测试
+            // idling 永不空闲）。时序不变：入队帧 k → 帧 k+1 回调相排空 → 遍首应用。
             LaunchedEffect(listState) {
                 while (true) {
+                    PreRenderShiftChannel.awaitPending(listState)
                     withFrameNanos { }
                     PreRenderShiftChannel.drain(listState)
                 }
@@ -1941,7 +1945,9 @@ fun ChatMessageList(
                         start = SpacingTokens.MD.dp,
                         top = SpacingTokens.SM.dp,
                         end = SpacingTokens.MD.dp,
-                        bottom = SpacingTokens.SM.dp
+                        // #413：贴底时末条消息尾部动作（ⓘ/复制）为右下任务 FAB 预留
+                        // 高度（FAB 56dp + 底距 + 呼吸），否则被压住点不到。
+                        bottom = SpacingTokens.SM.dp + 76.dp
                     ),
                     reverseLayout = true,
                     // 2026-08-20 分片：移除 spacedBy（chunk item 间不能有间隙——
