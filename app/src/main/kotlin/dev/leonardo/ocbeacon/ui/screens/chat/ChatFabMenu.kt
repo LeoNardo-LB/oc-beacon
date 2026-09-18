@@ -250,6 +250,13 @@ internal fun ChatFabMenu(
      * 默认全量（预览/测试兼容）；ChatScreen 按 ServerCapabilities 传入。
      */
     entries: List<ChatToolbarEntry> = ChatToolbarEntry.entries.toList(),
+    /**
+     * 底部追加 slot（2026-09-18 用户裁决：滚动到底部 FAB 并入右下 FAB 组——菜单
+     * button 下方成列「组成一个整体」）。内容渲染在 toggle button 之后、共享本
+     * 容器的贴边拖动（整列联动）与展开溢出几何（collapsedNodeHeightPx 实测
+     * 自适应加高的折叠列）；显隐动画由调用方 AnimatedVisibility 驱动。
+     */
+    bottomSlot: (@Composable () -> Unit)? = null,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val slideState = rememberFabEdgeSlideState()
@@ -445,6 +452,10 @@ internal fun ChatFabMenu(
                     fabIcon()
                 }
             }
+
+            // 整体尾部 slot（2026-09-18）：菜单 button 下方的滚动到底部 FAB——
+            // 与 button 同列同右对齐，随整列贴边拖动联动（#192/#194 D5 容器机制）。
+            bottomSlot?.invoke()
         }
     }
 }
@@ -546,37 +557,27 @@ private fun FabMenuEntry(
 }
 
 /**
- * 滚动到底部 FAB：底部左侧（与右下菜单 FAB 镜像，start 16dp=菜单内部横向 padding），
- * 与菜单 FAB 完全同规格：48dp（2026-08-23 用户「稍微再大一些」44→48dp）/圆角 16dp/
+ * 滚动到底部 FAB（2026-09-18 用户裁决：并入右下 FAB 组，菜单 FAB 下方成列）：
+ * 与菜单 FAB 完全同规格——48dp（2026-08-23 用户「稍微再大一些」44→48dp）/圆角 16dp/
  * secondaryContainer/1dp outline 描边/24dp 图标 onSecondaryContainer tint。
+ *
+ * 组件只承载按钮本体：显隐由调用方 AnimatedVisibility 驱动（动态推上/回落），
+ * 贴边拖动由容器（ChatFabMenu 的 fabEdgeVerticalSlide）统一承担——整列联动。
  *
  * 一致性关键（第二十一轮实测修复）：普通 FloatingActionButton 内部强制
  * LocalMinimumInteractiveComponentSize(48dp) 最小触达，44dp 会被顶到 48dp——
  * 与 Toggle FAB（不吃该机制）差 4dp。此处 provision 0dp 关闭强制
  * （FloatingActionButtonMenuItem 源码同款手法），双圆严格同径。
- * isAtBottom 的 .value 读取限制在本函数小作用域（B-F5 重组隔离沿袭）。
- *
- * #192 v6：贴边上下滑动（fabEdgeVerticalSlide）。
- * #194 D5：共用修好上限的滑动（容器实测高收界），位移与菜单 FAB 各自独立。
  */
 @Composable
 internal fun ChatScrollBottomFab(
-    isAtBottomState: State<Boolean>,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (isAtBottomState.value) return // 在底部时不显示
-    val slideState = rememberFabEdgeSlideState()
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
         FloatingActionButton(
             onClick = onClick,
-            // 16dp 底距 = 菜单内部按钮下距（FabMenuButtonPaddingBottom），双 FAB 同基线
             modifier = modifier
-                .fabEdgeVerticalSlide(state = slideState)
-                // 2026-08-29 用户裁决「双 FAB 均贴边无边距」：去 start=16dp——该值
-                // 镜像的菜单按钮内部横距已随 08-27 稳定 API 复刻（按钮钉底贴边）
-                // 消失，保留即左右不对称（左 16dp/右 0，真机截图实证）。
-                .padding(bottom = SpacingTokens.LG.dp)
                 .size(48.dp)
                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
             containerColor = MaterialTheme.colorScheme.secondaryContainer,

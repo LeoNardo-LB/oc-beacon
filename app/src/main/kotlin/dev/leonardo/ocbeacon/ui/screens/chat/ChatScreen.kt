@@ -1036,19 +1036,13 @@ fun ChatScreen(
               // ChatFabMenu 四入口 + ModalBottomSheet（StackedSheet/TodoSheet/
               // AgentSheet/ShellSheet，见下方 toolbarSheet 分发）承接；更早的模态
               // PendingTodoSheet 亦已退役。）
-              // ⬇ 滚动到底部（第二十一轮移左）：底部左侧与右下菜单 FAB 镜像；
-              // 声明在 ChatFabMenu 之前——菜单展开时被外点收起层盖住（点它先收菜单）
               // 右下角 FAB Menu：单 FAB 收纳四入口（角标=总数），展开官方交错菜单
-              //（堆积/TODO/智能体/Shell）；键盘弹起时被键盘自然盖住
+              //（堆积/TODO/智能体/Shell）；键盘弹起时被键盘自然盖住。
+              // ⬇ 滚动到底部 FAB（2026-09-18 用户裁决）：第二十一轮的左下镜像位
+              // 退役——并入右下 FAB 组，菜单 button 下方成列「组成一个整体」
+              //（整列贴边拖动联动；离开底部时带动画滑入并把菜单 FAB 推上，
+              // 回底滑出回落——平时菜单 FAB 贴底基线与旧版完全一致）。
               if (!isTerminalMode) {
-                  ChatScrollBottomFab(
-                      isAtBottomState = scrollController.isAtBottomState,
-                      // 即时吸附（旧 FAB 同语义）——不走 forceScrollTick 路径：
-                      // 那是「发送后等新消息增长再滚」的执行器，点 ⬇ 无新消息时
-                      // 要等 5s 增长超时才滚（真机日志实锤 grew=-1 后才滚）
-                      onClick = { coroutineScope.launch { listState.snapToBottom() } },
-                      modifier = Modifier.align(Alignment.BottomStart),
-                  )
                   ChatFabMenu(
                       todoPendingCount = sessionTodos.count { it.status == "pending" || it.status == "in_progress" },
                       agentRunningCount = taskUi.runningSubagentCount,
@@ -1067,9 +1061,32 @@ fun ChatScreen(
                               runCatching { ChatToolbarEntry.valueOf(action.actionId) }.getOrNull()
                           },
                       // 2026-08-29 基线对齐：菜单 08-27 稳定 API 复刻把按钮钉底（内部
-                      // 底距移除）后，与 ⬇ FAB 的 padding(bottom=16dp) 失配 16dp——
-                      // 实测图标中心差 48px。此处补对称底距恢复「双 FAB 同基线」。
+                      // 底距移除）后补的对称底距（16dp）——⬇ FAB 并入后由整列共享。
                       modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = SpacingTokens.LG.dp),
+                      // ⬇ 滚动到底部（2026-09-18 并入 FAB 组）：离开底部滑入（动态
+                      // 推上）/回底滑出（回落）；即时吸附（旧 FAB 同语义）——不走
+                      // forceScrollTick 路径：那是「发送后等新消息增长再滚」的执行器，
+                      // 点 ⬇ 无新消息时要等 5s 增长超时才滚（真机日志实锤 grew=-1 后才滚）
+                      bottomSlot = {
+                          androidx.compose.animation.AnimatedVisibility(
+                              visible = !scrollController.isAtBottomState.value,
+                              enter = androidx.compose.animation.expandVertically() +
+                                  androidx.compose.animation.fadeIn(),
+                              exit = androidx.compose.animation.shrinkVertically() +
+                                  androidx.compose.animation.fadeOut(),
+                          ) {
+                              androidx.compose.foundation.layout.Column(
+                                  horizontalAlignment = Alignment.End,
+                              ) {
+                                  androidx.compose.foundation.layout.Spacer(
+                                      Modifier.height(SpacingTokens.LG.dp),
+                                  )
+                                  ChatScrollBottomFab(
+                                      onClick = { coroutineScope.launch { listState.snapToBottom() } },
+                                  )
+                              }
+                          }
+                      },
                   )
 
                   // 走查 #2：会话运行错误持久卡浮层已移除——改为转录内错误行
