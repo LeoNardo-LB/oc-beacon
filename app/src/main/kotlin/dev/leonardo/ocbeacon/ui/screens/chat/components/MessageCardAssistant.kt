@@ -202,176 +202,30 @@ internal fun MessageCardAssistant(
     var qEntered by rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     LaunchedEffect(Unit) { qEntered = true }
 
-    // 统一统计栏 —— 消息气泡页脚（流式/完成是同一事物的两种状态，2026-08-07 合并）。
-    // 流式：显示实时耗时（ticker 每秒刷新）；完成：显示固定时长 + 复制按钮。
-    // 显示条件：流式必有；完成态有统计内容（时长/模型/agent）或仅需复制按钮时显示。
-    val durationMs = renderableTurn.durationMs
-    // #310②：反馈动作位仅已完结消息且服务器门控通过（onRateMessage 非 null）——
-    // 流式 turn 脚部恒为耗时 ticker，不受反馈图标影响（SSE 高度补偿铁律）。
-    // 2026-09-12 扁平化：台账摘要收进尾部统计栏（原挂在气泡外的台账行/产出行）
-    val ledger = turnLedgerSummary(renderableTurn, turnNumber?.value ?: 0)
-    val toolCallCount = ledger.toolCallCount
-    // 尾部字段与动作可用性由行模型 seam 单源决定（spec Testing Decisions：
-    // 信息架构断言落在纯函数，不在 Composable 内联）
-    val tailModel = messageRowTail(
-        turn = renderableTurn,
-        ledger = ledger,
-        turnNumber = turnNumber,
-        userMessage = null,
-        caps = caps ?: RowCapabilities.NONE,
-        isStreaming = isStreaming,
-        hasCopy = copyText != null && onCopy != null,
-        hasRevert = false,
-        hasJump = onForkFromTurn != null,
-        hasFeedbackSheetItem = onRateMessage != null,
-        hasDeleteSheetItem = onDeleteMessage != null,
-        hasMarkdownCopySheetItem = copyText != null,
-        providerId = assistantMsg?.providerId,
-    )
-    val showStatsBar = tailModel.visible
-    var showDetailDialog by remember { mutableStateOf(false) }
-    val moreClipboard = LocalClipboard.current
-    val moreScope = rememberCoroutineScope()
-    // US#14：最新轮尾部常显；历史轮默认收起、点击摘要展开（产出文件行随之显隐）。
-    // 派生式：仅显式点击落 override；否则随 isTurnLast 变化（旧最新轮自动收起）。
-    var tailExpandedOverride by remember { mutableStateOf<Boolean?>(null) }
-    val tailExpanded = tailExpandedOverride ?: isTurnLast
-
-    val statusBadge = statusBadgeFor(
-        isStreaming = isStreaming,
-        finish = assistantMsg?.finish,
-        hasError = assistantMsg?.error != null,
-    )
     MessageBubble(
             alignEnd = false,
             containerColor = Color.Transparent,
             flat = true,
             tailExtra = {
-                // SSE 铁律：产出行仅在轮完结后挂载（turnProducedFiles 无完结门控，
-                // 流式中途写类工具完成即非空 → 流式脚部高度突变）
-                if (tailExpanded && renderableTurn.allStepsCompleted && tailModel.producedFiles.isNotEmpty()) {
-                    ProducedFilesRow(
-                        files = renderableTurn.deliverableFiles,
-                        onOpenFile = onOpenFile,
-                    )
-                }
+                // #410：尾部单点（主路径与分片/分段共用；产出行流式完结门控在内部）
+                AssistantTurnTail(
+                    renderableTurn = renderableTurn,
+                    assistantMsg = assistantMsg,
+                    isTurnLast = isTurnLast,
+                    isStreaming = isStreaming,
+                    agents = agents,
+                    onAgentClick = onAgentClick,
+                    onCopy = onCopy,
+                    messageFeedback = messageFeedback,
+                    onRateMessage = onRateMessage,
+                    turnNumber = turnNumber,
+                    onForkFromTurn = onForkFromTurn,
+                    onDeleteMessage = onDeleteMessage,
+                    onOpenFile = onOpenFile,
+                    caps = caps,
+                )
             },
-            statsBar = if (showStatsBar) {
-                {
-                    // 耗时显示：流式 = 实时 ticker（独立子 composable，重组只限单个 Text，
-                    // 不触发整个 footer Row——#47：原 100ms ticker 在 footer 级 state，
-                    // 与 48ms flush 叠加 ~30 次/s footer 重组）；完成 = 固定时长。
-                    val startMs = renderableTurn.turnStartMs ?: assistantMsg?.time?.created
 
-                    // ① 状态徽标（v2：从头部迁到尾部信息簇首位；完成态不渲染）
-                    if (statusBadge != null) {
-                        MessageStatusBadgeLabel(statusBadge)
-                    }
-                    // ② 逐消息 agent 标签（v2：OpenCode 逐消息 agent；DSH 恒 null → 走会话级）
-                    val tailAgent = tailModel.agentName
-                    if (!tailAgent.isNullOrBlank()) {
-                        AgentTag(
-                            agent = tailAgent,
-                            tagColor = agentColor(tailAgent, agents),
-                            onClick = onAgentClick?.let { cb -> { cb(tailAgent) } },
-                        )
-                    }
-                    // ③ 提供商图标 + 模型名
-                    val hasProviderOrModel = assistantMsg?.providerId != null || !modelId.isNullOrBlank()
-                    if (hasProviderOrModel) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(3.dp)
-                        ) {
-                            if (assistantMsg?.providerId != null) {
-                                ProviderIcon(
-                                    providerId = assistantMsg.providerId,
-                                    size = 10.dp,
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
-                                )
-                            }
-                            if (!modelId.isNullOrBlank()) {
-                                Text(
-                                    text = modelId,
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                    }
-                    // 2026-08-15 用户要求：移除 Token 占比圆环——无信息量。
-                    // 统计栏仅保留：agent 徽标 / 模型图标+模型名 / 耗时 / 右对齐复制。
-                    // 耗时（流式 = 实时 ticker 子 composable；完成 = 固定）
-                    if (isStreaming && startMs != null) {
-                        StreamingElapsedText(startMs)
-                    } else if (!isStreaming && (durationMs ?: 0L) > 0) {
-                        Text(
-                            text = formatDuration(durationMs!!),
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
-                        )
-                    }
-                    // 步数 · 工具数摘要（US#7）+ US#14 历史轮展开入口
-                    if (renderableTurn.stepCount > 0 || toolCallCount > 0) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = if (!isTurnLast) {
-                                Modifier
-                                    .clip(ShapeTokens.small)
-                                    .clickable(
-                                        onClickLabel = stringResource(
-                                            if (tailExpanded) R.string.chat_turn_ledger_collapse
-                                            else R.string.chat_turn_ledger_expand,
-                                        ),
-                                    ) { tailExpandedOverride = !tailExpanded }
-                            } else {
-                                Modifier
-                            },
-                        ) {
-                            Text(
-                                text = stringResource(
-                                    R.string.chat_msg_tail_summary,
-                                    renderableTurn.stepCount,
-                                    toolCallCount,
-                                ),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
-                            )
-                            if (!isTurnLast) {
-                                androidx.compose.material3.Icon(
-                                    imageVector = if (tailExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(12.dp),
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                                )
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.weight(1f))
-                    // 复制常显（US#9；仅完成态——流式高度补偿不受脚部变化影响）
-                    if (copyText != null && onCopy != null) {
-                        CopyButton(
-                            text = copyText,
-                            modifier = Modifier.size(14.dp),
-                            onCopied = onCopy
-                        )
-                    }
-                    // ⑦ 「详情」入口（v2：取代「更多」溢出菜单；每条角色消息常驻）
-                    androidx.compose.material3.Icon(
-                        imageVector = Icons.Outlined.Info,
-                        contentDescription = stringResource(R.string.a11y_message_detail),
-                        modifier = Modifier
-                            .size(16.dp)
-                            .clickable {
-                                performHaptic(hapticView, hapticOn)
-                                showDetailDialog = true
-                            },
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                    )
-                }
-            } else null,
         ) {
             // 渲染预计算项 —— 组合期间零过滤/零分组。
             for (item in renderableTurn.renderItems) {
@@ -560,37 +414,7 @@ internal fun MessageCardAssistant(
                 }
             }
         }
-
-    // 消息详情弹窗（v2：US#13/#45）
-    if (showDetailDialog) {
-        MessageDetailDialog(
-            input = MessageDetailInput(
-                isUser = false,
-                timeMs = currentMessage.message.time.created,
-                agentName = renderableTurn.agentName,
-                providerId = assistantMsg?.providerId,
-                modelId = renderableTurn.modelId,
-                durationMs = renderableTurn.durationMs,
-                stepCount = renderableTurn.stepCount,
-                toolCallCount = toolCallCount,
-                tokensTotal = ledger.tokensTotal,
-                cost = assistantMsg?.cost,
-            ),
-            feedback = messageFeedback,
-            onRate = onRateMessage,
-            onCopyMarkdownSource = copyText?.let { src ->
-                {
-                    moreScope.launch {
-                        moreClipboard.copyToClipboard("copy", src)
-                        onCopy?.invoke()
-                    }
-                }
-            },
-            onForkFromTurn = onForkFromTurn,
-            onDelete = onDeleteMessage,
-            onDismiss = { showDetailDialog = false },
-        )
-    }
+    // #410：详情弹窗装配随尾部单点（AssistantTurnTail）内移——主路径不再持有。
 }
 
 /**
@@ -727,10 +551,11 @@ internal fun ChunkedAssistantMessage(
     MessageSectionScaffold(
         showTail = chunk.isLast,
         tail = {
-            ChunkStatsBar(
+            AssistantTurnTail(
                 renderableTurn = renderableTurn,
                 assistantMsg = assistantMsg,
                 isTurnLast = isTurnLast,
+                isStreaming = false,
                 agents = agents,
                 onAgentClick = onAgentClick,
                 onCopy = onCopy,
@@ -970,10 +795,11 @@ internal fun SegmentedAssistantMessage(
     MessageSectionScaffold(
         showTail = chunk.isLast,
         tail = {
-            ChunkStatsBar(
+            AssistantTurnTail(
                 renderableTurn = renderableTurn,
                 assistantMsg = assistantMsg,
                 isTurnLast = isTurnLast,
+                isStreaming = false,
                 agents = agents,
                 onAgentClick = onAgentClick,
                 onCopy = onCopy,
@@ -1043,14 +869,21 @@ internal fun SegmentedAssistantMessage(
     }
 }
 
-/** 分片 / 分段场景尾部统计栏（历史消息：isStreaming=false 恒成立）。
- *  v2：与主路径尾部同构（状态徽标 / 逐消息 agent / 模型 / 耗时 / 摘要 / 产出 /
- *  复制 / 「详情」）——两段式尾部只此一份语义。 */
+/**
+ * #410：助手消息尾部统计栏**单点**——主路径与分片 / 分段路径共用一份语义
+ * （此前主路径 statsBar 与 ChunkStatsBar 约 120 行同构，评审 S1）。
+ *
+ * 信息簇：状态徽标（v2 尾部化）→ 逐消息 agent 标签 → provider·模型 → 耗时
+ * （流式实时 ticker / 完成固定）→ 步数·工具摘要（US#14 历史轮展开）；动作簇：
+ * 复制 + 「详情」入口（时间 / 低频动作在 [MessageDetailDialog]）。产出行流式
+ * 完结门控（SSE 铁律）与详情弹窗装配都在本单点内。
+ */
 @Composable
-private fun ChunkStatsBar(
+private fun AssistantTurnTail(
     renderableTurn: RenderableTurn,
     assistantMsg: Message.Assistant?,
     isTurnLast: Boolean,
+    isStreaming: Boolean,
     agents: List<AgentInfo>,
     onAgentClick: ((String) -> Unit)?,
     onCopy: (() -> Unit)?,
@@ -1069,14 +902,13 @@ private fun ChunkStatsBar(
     val durationMs = renderableTurn.durationMs
     val ledger = turnLedgerSummary(renderableTurn, turnNumber?.value ?: 0)
     val toolCallCount = ledger.toolCallCount
-    // 行模型 seam 单源（同主路径）
     val tailModel = messageRowTail(
         turn = renderableTurn,
         ledger = ledger,
         turnNumber = turnNumber,
         userMessage = null,
         caps = caps ?: RowCapabilities.NONE,
-        isStreaming = false,
+        isStreaming = isStreaming,
         hasCopy = copyText != null && onCopy != null,
         hasRevert = false,
         hasJump = onForkFromTurn != null,
@@ -1088,16 +920,17 @@ private fun ChunkStatsBar(
     var showDetailDialog by remember { mutableStateOf(false) }
     val moreClipboard = LocalClipboard.current
     val moreScope = rememberCoroutineScope()
-    // 历史（分片 / 分段）turn 恒非流式；中断 / 出错仍要标（US#5）
+    // US#14：最新轮尾部常显；历史轮默认收起、点击摘要展开（产出文件行随之显隐）。
+    var tailExpandedOverride by remember { mutableStateOf<Boolean?>(null) }
+    val tailExpanded = tailExpandedOverride ?: isTurnLast
     val statusBadge = statusBadgeFor(
-        isStreaming = false,
+        isStreaming = isStreaming,
         finish = assistantMsg?.finish,
         hasError = assistantMsg?.error != null,
     )
-    // US#14：最新轮尾部常显；历史轮默认收起、点击摘要展开（产出文件行随之显隐）。
-    // 派生式：仅显式点击落 override；否则随 isTurnLast 变化（旧最新轮自动收起）。
-    var tailExpandedOverride by remember { mutableStateOf<Boolean?>(null) }
-    val tailExpanded = tailExpandedOverride ?: isTurnLast
+    // 耗时：流式 = 实时 ticker（独立子 composable，重组只限单个 Text，#47）；
+    // 完成 = 固定时长。
+    val startMs = renderableTurn.turnStartMs ?: assistantMsg?.time?.created
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -1108,9 +941,11 @@ private fun ChunkStatsBar(
             horizontalArrangement = Arrangement.spacedBy(SpacingTokens.SM.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // ① 状态徽标（v2：从头部迁到尾部信息簇首位；完成态不渲染）
             if (statusBadge != null) {
                 MessageStatusBadgeLabel(statusBadge)
             }
+            // ② 逐消息 agent 标签（v2：OpenCode 逐消息 agent；DSH 恒 null → 走会话级）
             val tailAgent = tailModel.agentName
             if (!tailAgent.isNullOrBlank()) {
                 AgentTag(
@@ -1119,17 +954,18 @@ private fun ChunkStatsBar(
                     onClick = onAgentClick?.let { cb -> { cb(tailAgent) } },
                 )
             }
+            // ③ 提供商图标 + 模型名
             val hasProviderOrModel = assistantMsg?.providerId != null || !modelId.isNullOrBlank()
             if (hasProviderOrModel) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     if (assistantMsg?.providerId != null) {
                         ProviderIcon(
                             providerId = assistantMsg.providerId,
                             size = 10.dp,
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                         )
                     }
                     if (!modelId.isNullOrBlank()) {
@@ -1138,20 +974,23 @@ private fun ChunkStatsBar(
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
             }
-            if ((durationMs ?: 0L) > 0) {
+            // ④ 耗时（流式 = 实时 ticker 子 composable；完成 = 固定）
+            if (isStreaming && startMs != null) {
+                StreamingElapsedText(startMs)
+            } else if (!isStreaming && (durationMs ?: 0L) > 0) {
                 Text(
                     text = formatDuration(durationMs!!),
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                 )
             }
+            // ⑤ 步数 · 工具数摘要（US#7）+ US#14 历史轮展开入口
             if (renderableTurn.stepCount > 0 || toolCallCount > 0) {
-                // US#14：历史轮点击摘要展开（产出文件行随之显隐）
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = if (!isTurnLast) {
@@ -1174,7 +1013,7 @@ private fun ChunkStatsBar(
                             toolCallCount,
                         ),
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
                     )
                     if (!isTurnLast) {
                         androidx.compose.material3.Icon(
@@ -1187,9 +1026,15 @@ private fun ChunkStatsBar(
                 }
             }
             Spacer(modifier = Modifier.weight(1f))
+            // ⑥ 复制常显（US#9）
             if (copyText != null && onCopy != null) {
-                CopyButton(text = copyText, modifier = Modifier.size(14.dp), onCopied = onCopy)
+                CopyButton(
+                    text = copyText,
+                    modifier = Modifier.size(14.dp),
+                    onCopied = onCopy
+                )
             }
+            // ⑦ 「详情」入口（v2：取代「更多」溢出菜单；每条角色消息常驻）
             androidx.compose.material3.Icon(
                 imageVector = Icons.Outlined.Info,
                 contentDescription = stringResource(R.string.a11y_message_detail),
@@ -1202,11 +1047,16 @@ private fun ChunkStatsBar(
                 tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
             )
         }
+        // 产出行：SSE 铁律——仅在轮完结后挂载（流式中途写类工具完成即非空 → 脚部高度突变）
         if (tailExpanded && renderableTurn.allStepsCompleted && tailModel.producedFiles.isNotEmpty()) {
-            ProducedFilesRow(files = tailModel.producedFiles, onOpenFile = onOpenFile)
+            ProducedFilesRow(
+                files = renderableTurn.deliverableFiles,
+                onOpenFile = onOpenFile,
+            )
         }
     }
 
+    // 消息详情弹窗（v2：US#13/#45）
     if (showDetailDialog) {
         MessageDetailDialog(
             input = MessageDetailInput(
