@@ -31,6 +31,30 @@ class ContextDetailDelegateTest {
     )
 
     @Test
+    fun `dsh per-turn timing fills ttft and decode speed`() {
+        val state = build(
+            listOf(
+                userMsg("u1"),
+                ChatMessage(
+                    message = Message.Assistant(
+                        id = "a1",
+                        sessionId = "s1",
+                        time = TimeInfo(created = 10L, completed = 60_000L),
+                        parentId = "",
+                        ttftMs = 800L,
+                        decodeMs = 20_000L,
+                        decodeTokens = 300L,
+                    ),
+                    parts = emptyList(),
+                ),
+            ),
+        )
+        val row = buildTurnDetailRows(state.turnDetailInputs, fullCaps).single()
+        assertEquals(800L, row.ttftMs)
+        assertEquals(15.0, row.tokensPerSecond!!, 0.001)
+    }
+
+    @Test
     fun `dsh session populates subagent token total and active duration`() {
         val state = ContextDetailDelegate.buildContextDetailState(
             messages = emptyList(),

@@ -550,6 +550,10 @@ internal object MessageMergeEngine {
             tokens = incoming.tokens ?: existing.tokens,
             finish = incoming.finish ?: existing.finish,
             turnNumber = incoming.turnNumber ?: existing.turnNumber,
+            // #411：逐轮 timing 同 turnNumber 保真（incoming 缺席时保留既有派生值）
+            ttftMs = incoming.ttftMs ?: existing.ttftMs,
+            decodeMs = incoming.decodeMs ?: existing.decodeMs,
+            decodeTokens = incoming.decodeTokens ?: existing.decodeTokens,
             time = incoming.time.copy(
                 created = minOf(existing.time.created, incoming.time.created),
                 completed = incoming.time.completed ?: existing.time.completed

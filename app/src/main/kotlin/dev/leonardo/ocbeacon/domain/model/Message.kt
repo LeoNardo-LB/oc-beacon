@@ -114,6 +114,16 @@ sealed class Message {
          * 序号兜底。会话内稳定、分页不漂移。
          */
         val turnNumber: Long? = null,
+        /**
+         * #411：DSH 逐轮 timing（客户端派生：step/start → 首 token（isTokenDelta
+         * 规则）→ assistant/message 结算）。null = 缺席（无 stream / 无 step/start /
+         * OpenCode 面）——UI「宁缺勿谎」整项隐藏。
+         */
+        val ttftMs: Long? = null,
+        /** 首 token → 消息整装到达的解码墙钟时长（ms）。 */
+        val decodeMs: Long? = null,
+        /** 与 [decodeMs] 同步采集的 provider 输出 token 数。 */
+        val decodeTokens: Long? = null,
     ) : Message() {
         @Serializable
         data class PathInfo(

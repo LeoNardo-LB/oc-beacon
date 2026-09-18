@@ -169,6 +169,14 @@ class ContextDetailDelegate(
                 val cost = costs
                     .takeIf { list -> list.any { it != null } }
                     ?.sumOf { it ?: 0.0 }
+                // (#411) DSH 逐轮 timing：TTFT 取轮内首个已派生步（首 token 对用户
+                // 可感）；解码速度 = ΣdecodeTokens / ΣdecodeMs（>0 才有值，宁缺勿谎）。
+                val ttftMs = assistants.firstNotNullOfOrNull { it.second.ttftMs }
+                val decodeMsSum = assistants.sumOf { it.second.decodeMs ?: 0L }
+                val decodeTokensSum = assistants.sumOf { it.second.decodeTokens ?: 0L }
+                val tokensPerSecond =
+                    if (decodeMsSum > 0 && decodeTokensSum > 0) decodeTokensSum * 1000.0 / decodeMsSum
+                    else null
                 out.add(
                     TurnDetailInput(
                         serverTurn = first.turnNumber,
@@ -180,7 +188,8 @@ class ContextDetailDelegate(
                         cost = cost,
                         modelId = first.modelId,
                         providerId = first.providerId,
-                        // TTFT / tokens·s 当前无逐轮源（US#32）→ 保持 null，UI 整项隐藏
+                        ttftMs = ttftMs,
+                        tokensPerSecond = tokensPerSecond,
                     )
                 )
             }

@@ -76,6 +76,37 @@ object DshEventMapper {
     /** 实况流式宿主消息 id（assistant/chunk 族）。 */
     fun streamingMessageId(turn: Long, step: Long): String = "dsh-t" + turn + "s" + step
 
+    /**
+     * #411：在途 step 起始时刻（key = "sid:turn:step"）。step/start 落位、
+     * assistant/message 结算（读后删）；turn/end 清该会话条目（取消步不残留）。
+     * 上界保护：>128 条整体清空（防御性，正常在途步个位数）。
+     */
+    private val stepStartTimes = HashMap<String, Long>()
+
+    private fun stepKey(sessionId: String, turn: Long, step: Long) = "$sessionId:$turn:$step"
+
+    /**
+     * 首 token 时刻（dsh-llm `isTokenDelta` 规则的 app 侧复刻，权威 =
+     * dsh-llm/lib/types/assistant-stream.js:185-195）：text-delta / reasoning-delta
+     * 非空文本、tool-call-delta 非空 argumentsDelta 或带 name 算 token；
+     * block / usage / finish 不算。流记录形如 {type:"chunk", time, chunk{type,…}}；
+     * 无合格成员 → null。
+     */
+    private fun firstTokenTime(stream: JsonArray?): Long? {
+        for (element in stream ?: return null) {
+            val entry = element as? JsonObject ?: continue
+            val chunk = entry.obj("chunk") ?: continue
+            val isToken = when (chunk.str("type")) {
+                "text-delta", "reasoning-delta" -> !chunk.str("text").isNullOrEmpty()
+                "tool-call-delta" ->
+                    !chunk.str("argumentsDelta").isNullOrEmpty() || chunk.containsKey("name")
+                else -> false
+            }
+            if (isToken) return entry.long("time")
+        }
+        return null
+    }
+
     /** 工具卡宿主消息 id（tool/call 创建、tool/result 汇合）。 */
     fun toolHostMessageId(callId: String): String = "dsh-call-" + callId
 
@@ -627,9 +658,18 @@ object DshEventMapper {
             "tool/call" -> mapToolCall(sessionId, time, data)
             "tool/result" -> mapToolResult(sessionId, time, data)
             "assistant/chunk" -> mapChunk(sessionId, time, data)
-            // turn/step start → busy（重复 busy 的节流/FSM 去重留给 #276 编排层）
-            "turn/start", "step/start" ->
+            // turn/step start → busy（重复 busy 的节流/FSM 去重留给 #276 编排层）。
+            // #411：step/start 另记起始时刻（逐轮 TTFT 派生；权威语义 =
+            // dsh-session-stats openStep 折叠——step/start 开步、assistant/message 结算）。
+            "turn/start", "step/start" -> {
+                val turnNo = data.long("turn")
+                val stepNo = data.long("step")
+                if (turnNo != null && stepNo != null) {
+                    if (stepStartTimes.size > 128) stepStartTimes.clear()
+                    stepStartTimes[stepKey(sessionId, turnNo, stepNo)] = time
+                }
                 listOf(DshMappedEvent.Sse(SseEvent.SessionStatus(sessionId, SessionStatus.Busy)))
+            }
             // #309 批1⑤：llm/retry（dsh-llm-retry :100-122 载荷 {retryId,turn,step,
             // retry(次数),maxRetries?,delayMs,failure{message,code?}}）→
             // SessionStatus.Retry（next=事件时刻+delayMs；RetryBanner 全链现成）；
@@ -658,6 +698,8 @@ object DshEventMapper {
             // SessionError（D1③ 转录内错误行+sendMessage 清卡链现成）；max-tokens →
             // TurnMaxTokens（通知卡带继续钮）；此前 reason 整体丢弃。
             "turn/end" -> {
+                // #411：轮结束清该会话在途步起始时刻（取消步不结算、不残留）
+                stepStartTimes.keys.removeAll { it.startsWith("$sessionId:") }
                 val idle = DshMappedEvent.Sse(SseEvent.SessionIdle(sessionId, time.takeIf { it > 0 }))
                 val reason = data.obj("reason")
                 when (reason?.str("kind")) {
@@ -1116,6 +1158,18 @@ object DshEventMapper {
         // (2026-09-12 消息层扁平化 (e)) usage 全桶：input/output/total/reasoning/
         // cache(read/write) 一次读齐——此前只读 input/output，reasoning/cache 结构性丢失。
         val tokens = usageTokens(data.obj("usage"))
+        // (#411) 逐轮 timing 派生：ttft = 首 token − step/start；decode = 整装到达 −
+        // 首 token；decodeTokens = usage 输出桶（provider 上报才有）。缺 step/start
+        // 或无合格首 token → 对应项 null（UI 整项隐藏，宁缺勿谎）。
+        val firstToken = firstTokenTime(data.arr("stream"))
+        val stepStart = if (turn != null && step != null) {
+            stepStartTimes.remove(stepKey(sessionId, turn, step))
+        } else null
+        val ttftMs = if (firstToken != null && stepStart != null) {
+            (firstToken - stepStart).takeIf { it > 0 }
+        } else null
+        val decodeMs = firstToken?.let { first -> (time - first).takeIf { it > 0 } }
+        val decodeTokens = tokens?.output?.toLong()?.takeIf { it > 0 }
         events += DshMappedEvent.Sse(
             SseEvent.MessageUpdated(
                 Message.Assistant(
@@ -1127,6 +1181,9 @@ object DshEventMapper {
                     providerId = providerId,
                     // US#28：服务器轮次号（会话内绝对；客户端锚点序号仅兜底）
                     turnNumber = data.long("turn"),
+                    ttftMs = ttftMs,
+                    decodeMs = decodeMs,
+                    decodeTokens = decodeTokens,
                     tokens = tokens,
                     // DSH interrupted 前缀标记（§1.5）→ finish 语义对位；缺席为 null
                     finish = if (data.bool("interrupted") == true) "interrupted" else null,
