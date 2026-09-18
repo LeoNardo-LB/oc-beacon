@@ -51,4 +51,20 @@ class SlashCommandGateTest {
         assertFalse(SlashCommandGate.blocksImages("/ spaced escape", 1))
         assertFalse(SlashCommandGate.blocksImages("/", 1))
     }
+
+    /** #417 根修：面板门控语义——命令形态即显示（空命令名 = 全量）。 */
+    @Test
+    fun `panelQueryOf shows panel for bare slash`() {
+        assertEquals("", SlashCommandGate.panelQueryOf("/"))
+        assertEquals("new", SlashCommandGate.panelQueryOf("/new"))
+        assertEquals("new", SlashCommandGate.panelQueryOf("/new test arg"))
+    }
+
+    @Test
+    fun `panelQueryOf hides panel for non-command and escape forms`() {
+        assertNull(SlashCommandGate.panelQueryOf("hello"))
+        assertNull(SlashCommandGate.panelQueryOf("/ spaced escape"))
+        assertNull(SlashCommandGate.panelQueryOf(""))
+        assertNull(SlashCommandGate.panelQueryOf("see /review later"))
+    }
 }

@@ -270,7 +270,10 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
     override suspend fun listSessionsIncludingBlank(serverId: String): Result<List<Session>> =
         Result.success(emptyList())
 
-    /** #310⑤/#321：@ 补全候选（此前缺席致本 fake 编译破损——空表 fake）。 */
+    /** #310⑤/#321：@ 补全候选（#417 起可配置——此前恒空表致 mention 集成测试失真）。 */
+    var mentionCandidatesResult: Result<List<dev.leonardo.ocbeacon.domain.model.MentionCandidate>> =
+        Result.success(emptyList())
+
     override suspend fun mentionCandidates(
         serverId: String,
         sessionId: String,
@@ -278,7 +281,7 @@ class FakeChatRepository @Inject constructor() : ChatRepository {
         directory: String?,
         quoted: Boolean,
     ): Result<List<dev.leonardo.ocbeacon.domain.model.MentionCandidate>> =
-        Result.success(emptyList())
+        mentionCandidatesResult
 
     // ============ 权限自动批准 ============
 

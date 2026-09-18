@@ -740,6 +740,16 @@ class SseConnectionManager @Inject constructor(
         }
     }
 
+    /**
+     * #417：插桩测试 seam —— 无真连接环境下把服务器标记为 Connected
+     *（[linkState] 三态哨兵的 fastFailIfLinkBlocked 测试前置）。生产代码零调用。
+     */
+    @androidx.annotation.VisibleForTesting
+    fun markLinkConnectedForTest(serverId: String) {
+        _connectingServerIds.update { it - serverId }
+        _connectedServerIds.update { it + serverId }
+    }
+
     private fun updateServerConnected(serverId: String, connected: Boolean) {
         // RS-003 修复：使用 computeIfPresent 进行原子读-改-写。
         // 旧模式（先读 state，再 replace）存在 TOCTOU 窗口，reconnectServer

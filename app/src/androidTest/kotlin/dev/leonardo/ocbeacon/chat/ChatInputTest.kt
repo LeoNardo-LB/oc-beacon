@@ -57,11 +57,13 @@ class ChatInputTest : BaseChatTest() {
 
     @Test
     fun file_mention_search_shows_results() {
-        // 配置 fake 为 @-mention 搜索返回文件路径。
-        // 搜索路径为 ManageAgentUseCase → AgentRepository.searchFiles。
-        fakeAgent.searchFilesResult = Result.success(listOf("src/main.kt", "README.md"))
+        // #417：@ 搜索已统一走 ChatRepository.mentionCandidates（#310⑤/#321）——
+        // 旧 fakeAgent.searchFilesResult 路径已不接 UI（恒空候选 = 本测试失真根因之一）。
+        fakeChat.mentionCandidatesResult = Result.success(
+            listOf(dev.leonardo.ocbeacon.domain.model.MentionCandidate.FileMention("src/main.kt"))
+        )
 
-        renderChatScreen()
+        renderChatScreen(simulateExistingSession = true)
 
         typeInput("@test")
 

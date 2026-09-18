@@ -199,11 +199,11 @@ class ChatMessageRenderingTest : BaseChatTest() {
         renderChatScreen()
 
         // 当消息为空且未在加载时，ChatEmptyState 显示 chat_empty 文案。
-        // #412 附带修复：断言文案过时（EN 源已改为 "Start a session"）——改按
-        // targetContext 资源取值，与 app 渲染同一 locale 解析，不随文案/语言漂移。
-        val emptyHint = androidx.test.platform.app.InstrumentationRegistry
-            .getInstrumentation().targetContext
-            .getString(dev.leonardo.ocbeacon.R.string.chat_empty)
+        // #417 根修：断言从 activity context 取串 —— targetContext（应用包默认配置，
+        // 本机 zh）与插桩 activity 的 Compose 渲染配置（EN）可能不同 locale，
+        // 跨源取串必漂移（实测 DBG-ZH=0 / DBG-EN=1）；activity.getString 与
+        // stringResource 同一配置源，随文案/语言双稳定。
+        val emptyHint = composeRule.activity.getString(dev.leonardo.ocbeacon.R.string.chat_empty)
         composeRule.onNodeWithText(emptyHint).assertIsDisplayed()
     }
 }

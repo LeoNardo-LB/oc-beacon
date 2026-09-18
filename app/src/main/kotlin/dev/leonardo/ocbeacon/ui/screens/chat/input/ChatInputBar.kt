@@ -173,8 +173,11 @@ internal fun ChatInputBar(
     //（/rename testx）打字途中失去可发现性；现以首 token 过滤，面板在参数输入
     // 期间保持在场（"/ "转义形态 commandNameOf 返回 null，行为不变）。
     val commandToken = SlashCommandGate.commandNameOf(text)
-    val showSlashSuggestions = slashCommandsSupported && !isShellMode && commandToken != null
-    val slashQuery = commandToken?.lowercase() ?: ""
+    // #417 根修：面板门控用 panelQueryOf（命令形态即显示——输入「/」出全量面板；
+    // 命令名空白对发送语义是普通消息，对面板语义是未过滤全量，二者分离）。
+    val panelQuery = SlashCommandGate.panelQueryOf(text)
+    val showSlashSuggestions = slashCommandsSupported && !isShellMode && panelQuery != null
+    val slashQuery = panelQuery?.lowercase() ?: ""
     val filteredCommands = if (showSlashSuggestions) {
         allCommands.filter { cmd ->
             slashQuery.isEmpty() || cmd.name.lowercase().contains(slashQuery)

@@ -27,4 +27,16 @@ internal object SlashCommandGate {
      */
     fun blocksImages(text: String, imageCount: Int): Boolean =
         commandNameOf(text) != null && imageCount > 0
+
+    /**
+     * 建议面板门控查询（#417 根修）：命令形态即显示——空命令名 = 未过滤全量
+     * （输入「/」立即出面板，命令可发现性；两参考客户端同行为）；「/ 」转义与
+     * 非命令形态 → null（不显示）。与 [commandNameOf]（发送分流/图片拦截判定，
+     * 命令名空白 = 非命令按普通消息发）语义分离——G2-① 复用后者做面板门控
+     * 曾致输入「/」后面板消失（androidTest slash_command_shows_autocomplete 钉死）。
+     */
+    fun panelQueryOf(text: String): String? {
+        if (!text.startsWith("/") || text.startsWith("/ ")) return null
+        return text.removePrefix("/").substringBefore(' ').trim()
+    }
 }
