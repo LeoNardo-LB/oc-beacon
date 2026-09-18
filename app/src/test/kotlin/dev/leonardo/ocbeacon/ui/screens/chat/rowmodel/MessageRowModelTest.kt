@@ -337,4 +337,21 @@ class MessageRowModelTest {
         val fields = messageDetailFields(MessageDetailInput(isUser = false, timeMs = 1L))
         assertEquals(listOf(MessageDetailField.TIME), fields)
     }
+
+    // ---- 注入卡标签档（v2 追加） -------------------------------------------
+
+    @Test
+    fun `explicit injection kinds keep their dedicated labels`() {
+        assertEquals(InjectionLabelKind.AGENT_INSTRUCTIONS, injectionLabelKindFor("agent-instructions"))
+        assertEquals(InjectionLabelKind.SKILL_CATALOG, injectionLabelKindFor("skill-catalog"))
+        assertEquals(InjectionLabelKind.PLUGIN, injectionLabelKindFor("plugin"))
+    }
+
+    @Test
+    fun `dsh system sentinel and v2 sniffed context fall back to context injection`() {
+        // DSH 无 source.kind 的注入哨兵值为 "system"；V2 <system-reminder> 嗅探值为 "context"
+        assertEquals(InjectionLabelKind.CONTEXT_INJECTION, injectionLabelKindFor("system"))
+        assertEquals(InjectionLabelKind.CONTEXT_INJECTION, injectionLabelKindFor("context"))
+        assertEquals(InjectionLabelKind.CONTEXT_INJECTION, injectionLabelKindFor("unknown-kind"))
+    }
 }

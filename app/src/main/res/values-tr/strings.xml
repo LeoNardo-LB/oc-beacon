@@ -229,7 +229,7 @@
     <string name="chat_produced_files_open">%1$s öğesini aç</string>
     <string name="chat_skill_title">Skill</string>
     <string name="chat_skill_instructions">Talimatlar</string>
-    <string name="chat_event_generic">Olay</string>
+    <string name="chat_event_generic">Bildirim</string>
     <string name="chat_event_locate_task">Görevi bul</string>
     <string name="task_sheet_subagent_completed">Tamamlandı</string>
     <string name="agent_tree_diagnostic_corrupt">Bozuk alt ajan kaydı</string>

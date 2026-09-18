@@ -248,6 +248,29 @@ fun messageDetailFields(input: MessageDetailInput): List<MessageDetailField> {
 }
 
 // ---------------------------------------------------------------------------
+// 系统 / 注入卡标签（v2 追加）
+// ---------------------------------------------------------------------------
+
+/**
+ * 系统 / 上下文注入卡的标签档位（#385 / #403；2026-09-17 v2 追加）。
+ *
+ * 数据驱动：只看消息携带的 `injectionKind`，不按服务器类型分支。
+ * - 显式 kind（DSH `source.kind`）→ 专属档；
+ * - `"system"`（DSH mapper 对无 `source.kind` 的注入写的哨兵）与 `"context"`
+ *   （V2 `<system-reminder>` 嗅探值）→ 上下文注入（不再被 OpenCode 专属的
+ *   「工具目录已变更」遮蔽）；
+ * - `null`（OpenCode V2 `role=system`）→ 调用方回落「工具目录已变更」。
+ */
+enum class InjectionLabelKind { AGENT_INSTRUCTIONS, SKILL_CATALOG, PLUGIN, CONTEXT_INJECTION }
+
+fun injectionLabelKindFor(kind: String?): InjectionLabelKind = when (kind) {
+    "agent-instructions" -> InjectionLabelKind.AGENT_INSTRUCTIONS
+    "skill-catalog" -> InjectionLabelKind.SKILL_CATALOG
+    "plugin" -> InjectionLabelKind.PLUGIN
+    else -> InjectionLabelKind.CONTEXT_INJECTION
+}
+
+// ---------------------------------------------------------------------------
 // 逐轮明细（统计弹窗，US#25-27）
 // ---------------------------------------------------------------------------
 

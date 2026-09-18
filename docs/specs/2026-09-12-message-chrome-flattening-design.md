@@ -228,6 +228,8 @@
 7. 统计栏一开始就展示、有什么显示什么——核对后助手尾部流式期本就在渲染（`visible = isStreaming || …`），用户消息迟到属服务器确认后才有气泡（正常空档），**本次不改发送路径 / 不加乐观插入**。
 8. （追加 2026-09-17）用户消息最大宽度 **90%**（`MessageBubble.maxWidthFraction`，分片路径 `ChunkedUserMessage` 同等收窄）。
 9. （追加 2026-09-17）思考卡圆角：`ReasoningBlock` 原是唯一 `shape = ShapeTokens.none`（0dp）的卡片 → 改 `ShapeTokens.smallMedium`（6dp，对齐工具卡家族）；属 #215 卡片层范围，经用户直接指示提前落地。
+10. （追加 2026-09-17）通知 / 注入卡文案按服务器特性定制：DSH 无 `source.kind` 的注入（mapper 哨兵 `injectionKind = "system"`）→「上下文注入」，不再被 OpenCode 专属的「工具目录已变更」遮蔽；OpenCode V2 `role=system`（`injectionKind == null`）保留「工具目录已变更」。判定收进 rowmodel 纯函数 `injectionLabelKindFor` + 枚举 `InjectionLabelKind`（数据驱动，不按 ServerType 分支）。
+11. （追加 2026-09-17）合成通知兜底标签 `chat_event_generic`：Event → Notification（15 语言）。图标按服务器特性区分、形态分层（DSH 注入更淡）登记为 backlog #415 / #416。
 
 ### v2 落点
 

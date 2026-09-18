@@ -241,7 +241,7 @@
     <string name="chat_produced_files_open">فتح %1$s</string>
     <string name="chat_skill_title">Skill</string>
     <string name="chat_skill_instructions">التعليمات</string>
-    <string name="chat_event_generic">حدث</string>
+    <string name="chat_event_generic">إشعار</string>
     <string name="chat_event_locate_task">تحديد موقع المهمة</string>
     <string name="task_sheet_subagent_completed">مكتمل</string>
     <string name="agent_tree_diagnostic_corrupt">إدخال وكيل فرعي تالف</string>

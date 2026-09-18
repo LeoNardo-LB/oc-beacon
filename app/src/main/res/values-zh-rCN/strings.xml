@@ -231,7 +231,7 @@
     <string name="chat_produced_files_open">打开 %1$s</string>
     <string name="chat_skill_title">Skill</string>
     <string name="chat_skill_instructions">说明</string>
-    <string name="chat_event_generic">事件</string>
+    <string name="chat_event_generic">通知</string>
     <string name="chat_event_locate_task">定位发起任务</string>
     <string name="task_sheet_subagent_completed">已完成</string>
     <string name="agent_tree_diagnostic_corrupt">子智能体条目已损坏</string>

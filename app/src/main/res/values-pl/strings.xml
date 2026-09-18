@@ -235,7 +235,7 @@
     <string name="chat_produced_files_open">Otwórz %1$s</string>
     <string name="chat_skill_title">Skill</string>
     <string name="chat_skill_instructions">Instrukcje</string>
-    <string name="chat_event_generic">Zdarzenie</string>
+    <string name="chat_event_generic">Powiadomienie</string>
     <string name="chat_event_locate_task">Zlokalizuj zadanie</string>
     <string name="task_sheet_subagent_completed">Ukończono</string>
     <string name="agent_tree_diagnostic_corrupt">Uszkodzony wpis subagenta</string>

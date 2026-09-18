@@ -216,7 +216,7 @@
     <string name="chat_produced_files_open">Open %1$s</string>
     <string name="chat_skill_title">Skill</string>
     <string name="chat_skill_instructions">Instructions</string>
-    <string name="chat_event_generic">Event</string>
+    <string name="chat_event_generic">Notification</string>
     <string name="chat_event_locate_task">Locate task</string>
     <string name="task_sheet_subagent_completed">Completed</string>
     <string name="agent_tree_diagnostic_corrupt">Corrupted subagent entry</string>

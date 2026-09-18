@@ -229,7 +229,7 @@
     <string name="chat_produced_files_open">%1$s を開く</string>
     <string name="chat_skill_title">Skill</string>
     <string name="chat_skill_instructions">説明</string>
-    <string name="chat_event_generic">イベント</string>
+    <string name="chat_event_generic">通知</string>
     <string name="chat_event_locate_task">タスクを特定</string>
     <string name="task_sheet_subagent_completed">完了</string>
     <string name="agent_tree_diagnostic_corrupt">破損したサブエージェントエントリ</string>

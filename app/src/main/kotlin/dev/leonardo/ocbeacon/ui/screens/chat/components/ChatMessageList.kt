@@ -91,7 +91,9 @@ import dev.leonardo.ocbeacon.ui.screens.chat.dialog.PermissionCard
 import dev.leonardo.ocbeacon.ui.screens.chat.dialog.QuestionCard
 import dev.leonardo.ocbeacon.ui.screens.chat.components.AlwaysConfirmDialog
 import dev.leonardo.ocbeacon.ui.screens.chat.util.rememberSafeFlingBehavior
+import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.InjectionLabelKind
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.RowCapabilities
+import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.injectionLabelKindFor
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.rowCapabilitiesFor
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.turnNumberFor
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderableTurn
@@ -1675,13 +1677,15 @@ fun ChatMessageList(
                                     // 只退内容 lambda 不影响包装器；早前零间隙修复在此重复加了
                                     // 显式底距 → 叠加双倍。撤销显式底距，通用间距已覆盖。
                                     // #403：system/message 带显式 source.kind（plugin/skill-catalog/…）
-                                    // 时用 kind 派生标签；无 kind（injectionKind="system"）保持历史
-                                    // 「工具目录已变更」语义（该标签早于 #385 注入卡统一，勿丢）。
+                                    // 时用 kind 派生标签；v2 追加：injectionKind="system"（DSH 对无
+                                    // source.kind 的上下文注入写的哨兵）也走注入档「上下文注入」——
+                                    // 不再被 OpenCode 专属的「工具目录已变更」遮蔽；仅 null
+                                    // （OpenCode V2 role=system）保留「工具目录已变更」。
                                     val sysInjectionKind = (chatMessage.message as? Message.User)?.injectionKind
                                     EventCard(
                                         eventKey = chatMessage.message.id,
                                         timeMs = chatMessage.message.time.created,
-                                        label = if (sysInjectionKind != null && sysInjectionKind != "system") {
+                                        label = if (sysInjectionKind != null) {
                                             injectionKindLabel(sysInjectionKind)
                                         } else {
                                             stringResource(R.string.chat_event_tool_catalog_changed)
@@ -2303,17 +2307,17 @@ internal fun extractToolSubagentSessionId(tool: Part.Tool): String? {
 /**
  * #385/#403：注入 kind → 注入折叠卡标签（唯一映射源）。
  *
- * 显式 source.kind（agent-instructions/skill-catalog/plugin）取专属文案；未知/无 kind
- * 回落「上下文注入」。system/message 的 role=="system" 分支在显式 kind 时也复用它，
- * 不再被固定「工具目录已变更」遮蔽。
+ * 档位判定在纯函数 [injectionLabelKindFor]（rowmodel seam，JVM 可测）：显式
+ * source.kind（agent-instructions/skill-catalog/plugin）取专属文案；未知 kind 与
+ * DSH 哨兵 "system" / V2 嗅探值 "context" 一律回落「上下文注入」。
  */
 @Composable
 private fun injectionKindLabel(kind: String): String = stringResource(
-    when (kind) {
-        "agent-instructions" -> R.string.chat_injection_agent_instructions
-        "skill-catalog" -> R.string.chat_injection_skill_catalog
-        "plugin" -> R.string.chat_injection_plugin
-        else -> R.string.chat_injection_context
+    when (injectionLabelKindFor(kind)) {
+        InjectionLabelKind.AGENT_INSTRUCTIONS -> R.string.chat_injection_agent_instructions
+        InjectionLabelKind.SKILL_CATALOG -> R.string.chat_injection_skill_catalog
+        InjectionLabelKind.PLUGIN -> R.string.chat_injection_plugin
+        InjectionLabelKind.CONTEXT_INJECTION -> R.string.chat_injection_context
     }
 )
 

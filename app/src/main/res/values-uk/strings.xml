@@ -235,7 +235,7 @@
     <string name="chat_produced_files_open">Відкрити %1$s</string>
     <string name="chat_skill_title">Skill</string>
     <string name="chat_skill_instructions">Інструкції</string>
-    <string name="chat_event_generic">Подія</string>
+    <string name="chat_event_generic">Сповіщення</string>
     <string name="chat_event_locate_task">Знайти завдання</string>
     <string name="task_sheet_subagent_completed">Завершено</string>
     <string name="agent_tree_diagnostic_corrupt">Пошкоджений запис субагента</string>
