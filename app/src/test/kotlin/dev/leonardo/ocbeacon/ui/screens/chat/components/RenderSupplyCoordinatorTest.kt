@@ -321,12 +321,25 @@ class RenderSupplyCoordinatorTest {
         // 视口挪远（确保出带），让重析后的 plan 走 pending→commit 常规路径之外也有覆盖保障
         env.coordinator.onViewportChanged(0, 0, env.world(20, partFor = grownPart))
         awaitParsedBlocking(env, partId)
-        delay(150) // T11 二阶段重析不走 pending 队列（直接覆盖已提交项）——探针不适用
         env.coordinator.onViewportChanged(0, 0, env.world(20, partFor = grownPart))
-        delay(100)
-
-        val refreshed = env.coordinator.chunkPlans.value.getValue(partId)
-        val newBlocks = refreshed.state.node.children.size
+        // #414：二阶段重析不走 pending 队列（直接覆盖已提交项）——原固定
+        // delay(150)+delay(100) 满载下不足（同批一次失败一次通过，隔离恒绿）。
+        // 改轮询断言前提（awaitPendingEnqueued 同哲学）：确定性收敛，超时才报。
+        val refreshed = runBlocking {
+            kotlinx.coroutines.withTimeoutOrNull(15_000) {
+                var plan = env.coordinator.chunkPlans.value.getValue(partId)
+                while (plan.state.node.children.size <= staleBlocks) {
+                    delay(10)
+                    plan = env.coordinator.chunkPlans.value.getValue(partId)
+                }
+                plan
+            }
+        }
+        org.junit.Assert.assertNotNull(
+            "文本增长后 plan 必须被刷新覆盖（15s 内仍为 stale=$staleBlocks blocks）",
+            refreshed,
+        )
+        val newBlocks = refreshed!!.state.node.children.size
         assertTrue(
             "文本增长后 plan 必须被刷新覆盖（stale=$staleBlocks blocks vs new=$newBlocks）",
             newBlocks > staleBlocks,

@@ -198,7 +198,12 @@ class ChatMessageRenderingTest : BaseChatTest() {
         // 不注入任何消息 —— 默认空状态
         renderChatScreen()
 
-        // 当消息为空且未在加载时，ChatEmptyState 显示此文本
-        composeRule.onNodeWithText("Start a session with OpenCode").assertIsDisplayed()
+        // 当消息为空且未在加载时，ChatEmptyState 显示 chat_empty 文案。
+        // #412 附带修复：断言文案过时（EN 源已改为 "Start a session"）——改按
+        // targetContext 资源取值，与 app 渲染同一 locale 解析，不随文案/语言漂移。
+        val emptyHint = androidx.test.platform.app.InstrumentationRegistry
+            .getInstrumentation().targetContext
+            .getString(dev.leonardo.ocbeacon.R.string.chat_empty)
+        composeRule.onNodeWithText(emptyHint).assertIsDisplayed()
     }
 }
