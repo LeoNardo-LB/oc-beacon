@@ -6,8 +6,9 @@ tags:
   - flattening
 ---
 
-# #387 消息层扁平化 E2E：消息层三段式（头部标签栏 / 正文栏 / 尾部统计栏）、
-# 通知卡同列同宽、统计底部面板。依赖已配置并可连接的服务器 + 至少一个会话。
+# #387 v2（2026-09-17）消息层两段式 E2E：正文栏 + 尾部统计栏（头部角色标签栏已删除）、
+# 尾部「详情」入口（ⓘ）、通知卡同列同宽、统计底部面板。依赖已配置并可连接的服务器 + 至少一个会话。
+# 语言敏感断言一律 optional: true（模拟器默认中文，流程只做强截图取证）。
 - launchApp
 
 - extendedWaitUntil:
@@ -25,29 +26,36 @@ tags:
     optional: true
 - takeScreenshot: flattening_session_list
 
-# 打开第一个会话（列表首行）。会话行文案随标题变化，用 index 点击。
+# 打开第一个会话（列表首行）。会话行文案随标题变化，用坐标点击。
 - tapOn:
     point: "50%,25%"
 - takeScreenshot: flattening_chat_opened
 
-# 三段式：头部角色标签「Agent」「User」应可见
-- extendedWaitUntil:
-    visible: "Agent"
-    timeout: 15000
-    optional: true
-- assertVisible:
+# v2：头部角色标签栏已删除——「Agent」「User」不应再作为消息头部标签出现。
+# （正文本身可能含这些词，故 optional 弱断言仅作记录）
+- assertNotVisible:
     text: "Agent"
     optional: true
-- assertVisible:
+- assertNotVisible:
     text: "User"
     optional: true
-- takeScreenshot: flattening_three_section
+- takeScreenshot: flattening_two_section
+
+# v2：尾部「详情」入口常驻（contentDescription = 消息详情 / Message details）
+- assertVisible:
+    text: ".*(?:消息详情|Message details).*"
+    optional: true
 
 # 尾部统计栏：模型名/耗时/步数摘要（存在即断言，缺数据不阻断）
 - assertVisible:
     text: ".*steps.*"
     optional: true
 - takeScreenshot: flattening_tail
+
+# v2：「从此轮分支」移入详情弹窗——消息流本体不应出现该文字
+- assertNotVisible:
+    text: ".*(?:从此轮分支|Fork from this turn).*"
+    optional: true
 
 # 顶部统计入口（上下文详情）→ 底部面板（批3）
 - tapOn:
