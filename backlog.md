@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#417**（2026-09-18 #416 通知/注入卡形态分层（DSH 注入更淡））。
+**编号**：全局递增，不回收。下一编号：**#418**（2026-09-18 #417 androidTest 残余 4 例失败（输入建）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。**反馈归卡（2026-09-12 用户定规）**：用户对某张卡片的反馈/裁决一律经 `backlog.sh note <N>` 记入**该卡片**明细，**不另开新卡**承载反馈；仅当反馈引出**新的独立缺陷**时才另立卡片，并在两卡明细互相引用（#401→#408 为先例）。
 
@@ -57,10 +57,16 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#412 androidTest 长期不可运行：Compose 常驻帧泵致 idle 超时 + Room 迁移缺失（预存在）** `test` `infra` `dsh`
+- [ ] **#417 androidTest 残余 4 例失败（输入建议/发送路径/空态显示）** `test`
+  - ChatInputTest 斜杠补全与 @-提及 waitUntil 超时（5s 不见 /new、main.kt）；ChatInteractionTest sendMessage_clearsInput 等待 promptAsync 10s 超时；ChatMessageRenderingTest 空态——断言修正为资源取值后暴露真因：测试环境 ChatEmptyState 未显示（«开始会话» 节点不在树/不 displayed）。
+  - 均为泵修前即存在的独立失败（非 #412 范畴）；方向：查 BaseChatTest fakes 与 ChatEmptyState/输入建议渲染门控（agents/modelConfig 加载态）。
+
+- [~] **#412 androidTest 长期不可运行：Compose 常驻帧泵致 idle 超时 + Room 迁移缺失（预存在）** `test` `infra` `dsh`
   - 2026-09-17 修复 Hilt 测试图缺口（build.gradle.kts 补 kspAndroidTest(hilt-compiler)；FakeDomainModule 补 ServerSettingsRepository 绑定 + FakeServerSettingsRepository）后，connectedDevDebugAndroidTest 首次真正运行：113 tests / 25 failures。20 例为 androidx.compose.ui.test ComposeNotIdleException（Idling resource timed out）。
   - 根因：ChatMessageList.kt 常驻 LaunchedEffect { while(true){ withFrameNanos{}; PreRenderShiftChannel.drain(listState) } }（#258 渲染前补偿帧界排空泵）——任何渲染 ChatScreen 的 Compose 测试永不 idle。另：SampleInstrumentedTest 等有 1 例 IllegalStateException（Room 迁移 1→9 缺失）+ 1 例 AssertionError。
   - 修法（需谨慎，属 SSE 铁律域）：给 PreRenderShiftChannel 增加「待排空信号」（Compose MutableState 计数器 + snapshotFlow，或 Channel）使泵仅在有待注入时起帧，空闲时挂起 → 测试可 idle 且不改变帧时序语义；或为测试提供 Local 关闭泵。需真机/模拟器复核流式滚动三铁律不回归。Hilt 部分已修（2026-09-17）。
+  - 开工（2026-09-18）：读泵/迁移测试现场——MigrationTest 仅挂 1_2/2_3/3_4 而库已 v9（打开需全路径 1→9）；帧泵为 LaunchedEffect(listState) while(true){withFrameNanos;drain}。
+  - 修复（2026-09-18）：泵信号化（PreRenderShiftChannel 待排空 Channel + awaitPending，空闲挂起、时序不变）+ MigrationTest 补全 1→9 迁移链。插桩 113→114 例：20 例 ComposeNotIdleException 全灭、Room ISE 灭（25 失败→4）。残余 4 例为独立测试债（另立卡）。
 
 - [~] **#387 V2注入刷新消息渲染为用户气泡文字墙** `chat` `ui` `v2`
   - skill-catalog/上下文刷新类注入（<system-reminder>包裹、无source.kind标记）按普通用户气泡整文渲染，[Ack] 3 会话顶部现存活例（VLM 09-41 复核：calculator 全文蓝色气泡墙，而同位插件配置已是收起小卡）。初判服务端对此类刷新不带 kind，mapper 按普通 user 落库。根因方向：对齐 dsh web 对 system-reminder 注入的识别与收起呈现（内容嗅探或等价机制），修在映射/渲染层单点。证据：/tmp/n2_acklink_top.png n2_ackthree_top.png；演示批 journal 待补
@@ -78,28 +84,34 @@
 
 ## P3 — 观察与低价值改进
 
-- [ ] **#416 通知/注入卡形态分层（DSH 注入更淡）** `chat-ui` `design`
+- [~] **#416 通知/注入卡形态分层（DSH 注入更淡）** `chat-ui` `design`
   - 现状：DSH 上下文注入与 V2 通知共用 EventCard（透明底 + 1dp 描边 + medium 圆角）。
   - 方向：DSH 注入降级为左侧色条/细分隔线形态，V2 通知保持完整卡；牵动 #215 卡片层语言，属 #387 v2 追加的 Q3(c) 分支。,
+  - 修复（2026-09-18）：新组件 InjectionCard（左侧 2.5dp 色条+弱底+smallMedium、不描边，ReasoningBlock 同族）；DSH source.kind 注入与 V2 system-reminder 嗅探注入两处接线；V2 工具目录/通知保持 EventCard。
 
-- [ ] **#415 通知/注入卡图标按服务器特性区分** `chat-ui` `i18n`
+- [~] **#415 通知/注入卡图标按服务器特性区分** `chat-ui` `i18n`
   - 现状：DSH 上下文注入卡与 OpenCode V2 通知卡共用 Icons.Outlined.Info。
   - 方向：DSH 注入用上下文/花括号类图标，V2 通知用铃铛/信息类；属 #387 v2 追加的 Q3(b) 分支，需先定图标映射再动。,
+  - 修复（2026-09-18）：注入卡 Icons.Filled.DataObject；V2 系统通知 Icons.Outlined.Notifications；工具目录卡保留 Info。
 
-- [ ] **#414 RenderSupplyCoordinatorTest T11 单测偶发失败（flake）** `testing`
+- [~] **#414 RenderSupplyCoordinatorTest T11 单测偶发失败（flake）** `testing`
   - 现象：全量单测首轮偶发 RenderSupplyCoordinatorTest > T11_文本增长后重析并覆盖已提交的陈旧plan FAILED；单测隔离重跑与全量重跑均通过。
   - 2026-09-17 #387 v2 追加批次取证（同一批次内一次失败一次通过）。方向：排查协程时序/共享状态，必要时加 awaitIdle；与 UI 改动无关。
+  - 修复（2026-09-18）：T11 固定 delay(150/100) 改 15s 轮询断言前提（chunkPlans 块数>stale 确定性收敛）。
 
-- [ ] **#413 聊天页右下任务 FAB 遮挡列表末条消息尾部动作** `chat-ui`
+- [~] **#413 聊天页右下任务 FAB 遮挡列表末条消息尾部动作** `chat-ui`
   - 输入区右下浮动任务按钮（content-desc 打开任务菜单）压住最后一条用户消息尾部的 ⓘ/复制区域，其余消息无遮挡。
   - 方向：列表 contentPadding 预留 FAB 高度，或 FAB 与列表末项避让；属既有叠加布局问题，非 #387 v2 引入（2026-09-17 模拟器走查发现）。
+  - 修复（2026-09-18）：LazyColumn contentPadding bottom 8→84dp（FAB 56+底距+呼吸）。实测：末条 ⓘ 底边 y≈1019 vs FAB 顶边 y≈1968，彻底分离（此前重叠）。
 
-- [ ] **#411 DSH 逐轮 TTFT / tokens·s 数据源接入（统计弹窗逐轮展开）** `dsh` `ui`
+- [~] **#411 DSH 逐轮 TTFT / tokens·s 数据源接入（统计弹窗逐轮展开）** `dsh` `ui`
   - #387 spec US#26 部分实现：逐轮明细展开体的 TTFT / 解码速度当前恒 null（ContextDetailDelegate 无逐轮源，能力位门控正确隐藏）。dsh web 有 per-turn ttftMs / tokensPerSecond（节点 timing.firstTokenTime/stepStartTime 派生，盘点 §4.2）；app 尚未消费 DSH per-step timing。修法：DSH 事件侧持久化 step timing → TurnDetailInput.ttftMs/tokensPerSecond。
+  - 修复（2026-09-18）：DshEventMapper 记 step/start（turn/end 清）→ assistant/message 按 stream 首 token（isTokenDelta 复刻）派生 ttftMs/decodeMs/decodeTokens 落 Message.Assistant（mergeAssistantMeta 保真）→ ContextDetailDelegate 逐轮聚合 → 弹窗逐轮展开体。单测 4+1 例。实测：缺数据路径（错误轮）正确整项隐藏；数值路径因服务器 Insufficient Balance 未取得活体样本（单测覆盖）。
 
-- [ ] **#410 助手消息尾部统计栏单点抽取（消 AssistantTurnTail 与 ChunkStatsBar 同构）** `refactor` `ui`
+- [~] **#410 助手消息尾部统计栏单点抽取（消 AssistantTurnTail 与 ChunkStatsBar 同构）** `refactor` `ui`
   - #387 双轴评审 S1：主路径尾部（MessageCardAssistant statsBar）与 ChunkStatsBar 约 120 行同构（模型/耗时/轮号/步数工具摘要/tailExpanded 状态机/复制/分支/更多/MoreSheet 装配/ProducedFilesRow 全部成对重复）；turnNumber/onForkFromTurn/onDeleteMessage 三参数贯穿 5 层 composable（Data Clump）。修法：抽单一 AssistantTurnTail，参数打包；ChunkStatsBar 更名。
   - 风险：layout scope（RowScope vs ColumnScope）迁移需模拟器复核流式/分片两态。
+  - 修复（2026-09-18）：删主路径 statsBar 与 ChunkStatsBar（~120 行×2 同构），单点 AssistantTurnTail 三处共用（主路径+分片/分段 isStreaming=false）；尾部簇文本回归实测正常。
 
 ## P4 — 外部前提阻塞
 

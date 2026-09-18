@@ -200,9 +200,9 @@
 - **通知卡家族边界**：归并表见 Implementation Decisions；DSH workflow 降级卡随批2 一并核对是否已走 EventCard 语言。
 - **i18n**：新增文案（第 N 轮 / TTFT / tokens·s / 已中断 / 更多 / 复制 Markdown 源码 等）需按 i18n 工作流补 15 语言并过检查脚本。
 - **与 #215 的关系**：两者相邻但不同层——#215 管卡片容器，本 spec 管消息层容器；实现顺序上本 spec 批2 与 #215 可能触碰同一批文件，需串行。
-- **已知偏离 / 后续卡（2026-09-17 登记；v2 更新）**：
-  - 尾部主路径与 ChunkStatsBar 约 120 行同构未抽单点（backlog P3 卡：助手消息尾部统计栏单点抽取）。
-  - DSH 逐轮 TTFT / tokens·s 无数据源 → 逐轮展开体整项隐藏（US#26 部分；backlog P3 卡：DSH 逐轮 timing 数据源接入）；会话级 TTFT 均值 / 解码速度已由 sessionStats 区补齐（US#24 达成）。
+- **已知偏离 / 后续卡（2026-09-17 登记；2026-09-18 清偿更新）**：
+  - ~~尾部主路径与 ChunkStatsBar 约 120 行同构未抽单点~~ → **已落地（#410，2026-09-18）**：单点 `AssistantTurnTail` 三处共用（主路径 + 分片/分段）。
+  - ~~DSH 逐轮 TTFT / tokens·s 无数据源 → 逐轮展开体整项隐藏~~ → **已落地（#411，2026-09-18）**：step/start + stream 首 token（isTokenDelta 复刻）派生 `ttftMs/decodeMs/decodeTokens` 落 `Message.Assistant`（US#26 达成；缺数据仍整项隐藏，宁缺勿谎）；会话级 TTFT 均值 / 解码速度已由 sessionStats 区补齐（US#24）。
   - v2 起 `MessageMoreSheet` 底部抽屉退役，改为「消息详情」居中弹窗——docs/ui-conventions.md 的 MessageMoreSheet 抽屉例外登记随之撤销。
   - androidTest 的 Hilt 代码生成缺失（kspAndroidTest(hilt-compiler)）+ FakeDomainModule 缺 ServerSettingsRepository 绑定，于本卡收尾修复。
   - androidTest 的 `ComposeNotIdleException`（常驻帧泵 `ChatMessageList.kt` `while(true){withFrameNanos{}}`，#258 遗留）未修，已登记 P2 卡（帧泵空闲信号 / 测试专用 Local）。
@@ -229,7 +229,9 @@
 8. （追加 2026-09-17）用户消息最大宽度 **90%**（`MessageBubble.maxWidthFraction`，分片路径 `ChunkedUserMessage` 同等收窄）。
 9. （追加 2026-09-17）思考卡圆角：`ReasoningBlock` 原是唯一 `shape = ShapeTokens.none`（0dp）的卡片 → 改 `ShapeTokens.smallMedium`（6dp，对齐工具卡家族）；属 #215 卡片层范围，经用户直接指示提前落地。
 10. （追加 2026-09-17）通知 / 注入卡文案按服务器特性定制：DSH 无 `source.kind` 的注入（mapper 哨兵 `injectionKind = "system"`）→「上下文注入」，不再被 OpenCode 专属的「工具目录已变更」遮蔽；OpenCode V2 `role=system`（`injectionKind == null`）保留「工具目录已变更」。判定收进 rowmodel 纯函数 `injectionLabelKindFor` + 枚举 `InjectionLabelKind`（数据驱动，不按 ServerType 分支）。
-11. （追加 2026-09-17）合成通知兜底标签 `chat_event_generic`：Event → Notification（15 语言）。图标按服务器特性区分、形态分层（DSH 注入更淡）登记为 backlog #415 / #416。
+11. （追加 2026-09-17）合成通知兜底标签 `chat_event_generic`：Event → Notification（15 语言）。
+14. （追加 2026-09-18）注入卡**淡形态与图标**（#415 / #416）：新 `InjectionCard`（左侧 2.5dp 色条 + 弱底 + smallMedium、不描边，ReasoningBlock 同族；图标 `DataObject`）承载 DSH `source.kind` 注入与 V2 `<system-reminder>` 嗅探注入；V2 工具目录 / 通知保持完整 EventCard（描边卡），通知图标改铃铛（`Notifications`）。
+15. （追加 2026-09-18）杂项清偿：贴底末条消息尾部动作预留任务 FAB 高度（#413，contentPadding bottom +76dp）；消息层帧泵信号化使 androidTest 可运行（#412，`PreRenderShiftChannel` 待排空信号，空闲挂起、时序不变）。
 12. （追加 2026-09-17）OpenCode V2 `role=system` 按**内容**细分（`systemNoticeKindFor` 纯函数）：文本含工具目录语义（tool catalog / tool definitions）→「工具目录已变更」；其余（日期注入等）→「通知」，且该档补折叠描述行（原文首行 ≤200 字符，折叠态不丢信息）。修正「Today's date is now…」被误标「工具目录已变更」。
 13. （追加 2026-09-17）卡片层描边：工具卡家族（`ToolCardScaffold` 全量 + 直连 `AmoledSurface` 的 `TodoListCard` / `ToolProgressCard` / `FileCard`）与思考卡（`ReasoningBlock`）在普通主题补 **1dp 标准描边**（`CardStandardBorder` = outline · MEDIUM，与 EventCard / MessageBubble 卡片语言一致；AMOLED 仍走 `AmoledDefaultBorder`）。`AmoledSurface` 新增 `normalBorder` 可选参数承载。属 #215 卡片层范围，经用户直接指示提前落地。
 
