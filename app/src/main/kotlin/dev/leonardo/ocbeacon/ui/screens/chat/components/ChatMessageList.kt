@@ -93,7 +93,9 @@ import dev.leonardo.ocbeacon.ui.screens.chat.components.AlwaysConfirmDialog
 import dev.leonardo.ocbeacon.ui.screens.chat.util.rememberSafeFlingBehavior
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.InjectionLabelKind
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.RowCapabilities
+import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.SystemNoticeKind
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.injectionLabelKindFor
+import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.systemNoticeKindFor
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.rowCapabilitiesFor
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.turnNumberFor
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderableTurn
@@ -1682,14 +1684,23 @@ fun ChatMessageList(
                                     // 不再被 OpenCode 专属的「工具目录已变更」遮蔽；仅 null
                                     // （OpenCode V2 role=system）保留「工具目录已变更」。
                                     val sysInjectionKind = (chatMessage.message as? Message.User)?.injectionKind
+                                    // v2 追加：无 kind 的 V2 系统消息按文本细分——工具目录变更 vs 通知
+                                    val sysNoticeKind = if (sysInjectionKind == null) systemNoticeKindFor(sysText) else null
+                                    val sysIsToolCatalog = sysNoticeKind == SystemNoticeKind.TOOL_CATALOG_CHANGED
                                     EventCard(
                                         eventKey = chatMessage.message.id,
                                         timeMs = chatMessage.message.time.created,
                                         label = if (sysInjectionKind != null) {
                                             injectionKindLabel(sysInjectionKind)
-                                        } else {
+                                        } else if (sysIsToolCatalog) {
                                             stringResource(R.string.chat_event_tool_catalog_changed)
+                                        } else {
+                                            stringResource(R.string.chat_event_generic)
                                         },
+                                        // 通知档补一行自解释摘要（折叠态不丢信息；工具目录档正文是 schema，不补）
+                                        description = if (sysInjectionKind == null && !sysIsToolCatalog) {
+                                            sysText.lineSequence().firstOrNull()?.take(200)?.takeIf { it.isNotBlank() }
+                                        } else null,
                                         leadingIcon = Icons.Outlined.Info,
                                         expandedStates = eventCardExpandedStates,
                                         bodyContent = {

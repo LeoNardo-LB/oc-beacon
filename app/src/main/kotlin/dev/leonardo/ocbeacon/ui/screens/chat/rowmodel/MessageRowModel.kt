@@ -270,6 +270,25 @@ fun injectionLabelKindFor(kind: String?): InjectionLabelKind = when (kind) {
     else -> InjectionLabelKind.CONTEXT_INJECTION
 }
 
+/**
+ * OpenCode V2 `role=system`（无 `injectionKind`）的兜底标签档（2026-09-17 v2 追加）。
+ *
+ * V2 的 `role=system` 是大杂烩分支：工具目录变更、日期注入、上下文提醒都走它。
+ * 一律叫「工具目录已变更」会把日期注入等误标——按文本细分：
+ * 含工具目录语义 → 工具目录已变更；其余 → 通知。
+ */
+enum class SystemNoticeKind { TOOL_CATALOG_CHANGED, NOTIFICATION }
+
+private val TOOL_CATALOG_REGEX = Regex("(?i)tool[ _-]?(?:catalog|definitions?)")
+
+/** 系统消息文本 → 兜底标签档（纯函数，JVM 可测；null/空 → 通知）。 */
+fun systemNoticeKindFor(text: String?): SystemNoticeKind =
+    if (text != null && TOOL_CATALOG_REGEX.containsMatchIn(text)) {
+        SystemNoticeKind.TOOL_CATALOG_CHANGED
+    } else {
+        SystemNoticeKind.NOTIFICATION
+    }
+
 // ---------------------------------------------------------------------------
 // 逐轮明细（统计弹窗，US#25-27）
 // ---------------------------------------------------------------------------

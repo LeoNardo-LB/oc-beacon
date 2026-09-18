@@ -354,4 +354,22 @@ class MessageRowModelTest {
         assertEquals(InjectionLabelKind.CONTEXT_INJECTION, injectionLabelKindFor("context"))
         assertEquals(InjectionLabelKind.CONTEXT_INJECTION, injectionLabelKindFor("unknown-kind"))
     }
+
+    @Test
+    fun `v2 system notice text splits tool catalog from other notifications`() {
+        assertEquals(
+            SystemNoticeKind.TOOL_CATALOG_CHANGED,
+            systemNoticeKindFor("Code Mode tool catalog has changed"),
+        )
+        assertEquals(
+            SystemNoticeKind.TOOL_CATALOG_CHANGED,
+            systemNoticeKindFor("Tool definitions updated"),
+        )
+        assertEquals(
+            SystemNoticeKind.NOTIFICATION,
+            systemNoticeKindFor("Today's date is now: Fri Sep 11 2026"),
+        )
+        assertEquals(SystemNoticeKind.NOTIFICATION, systemNoticeKindFor(null))
+        assertEquals(SystemNoticeKind.NOTIFICATION, systemNoticeKindFor(""))
+    }
 }
