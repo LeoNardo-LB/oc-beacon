@@ -57,62 +57,7 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#417 androidTest 残余 4 例失败（输入建议/发送路径/空态显示）** `test`
-  - ChatInputTest 斜杠补全与 @-提及 waitUntil 超时（5s 不见 /new、main.kt）；ChatInteractionTest sendMessage_clearsInput 等待 promptAsync 10s 超时；ChatMessageRenderingTest 空态——断言修正为资源取值后暴露真因：测试环境 ChatEmptyState 未显示（«开始会话» 节点不在树/不 displayed）。
-  - 均为泵修前即存在的独立失败（非 #412 范畴）；方向：查 BaseChatTest fakes 与 ChatEmptyState/输入建议渲染门控（agents/modelConfig 加载态）。
-  - 根因清偿(2026-09-18,四失败四根因): - 斜杠面板回归(产品修复):G2-① 复用 commandNameOf(空命令名→null)做面板门控,输入「/」后面板消失;新增 panelQueryOf 纯函数(命令形态即显示、空命令名=全量),ChatInputBar 换用 + SlashCommandGateTest 2 用例。 - send 静默吞噬:VM serverId 取自 savedStateHandle,插桩无导航=空串,与 BaseChatTest 标记的 TEST_SERVER 键失配 → fastFailIfLinkBlocked 恒拦(无日志);renderChatScreen 无条件注入 serverId extras + SseConnectionManager @VisibleForTesting markLinkConnectedForTest seam。 - 空态断言 locale 源漂移:targetContext(zh)与插桩 activity 的 Compose 渲染配置(EN)不同源(诊断实证 DBG-ZH=0/DBG-EN=1);改 composeRule.activity.getString 同源。 - @mention 失真:生产 #310⑤/#321 已改走 chatRepository.mentionCandidates 而 fake 恒空表 + blank-sessionId 守卫静默跳过;fake mentionCandidatesResult 可配置 + renderChatScreen(simulateExistingSession) 按需注入 sessionId extras(intent extras→SavedStateHandle)。 门禁:插桩 113/113 全绿(0 fail);单测全量 --rerun 0 fail;lint 0 error;assembleDevDebug OK。
-
-- [~] **#412 androidTest 长期不可运行：Compose 常驻帧泵致 idle 超时 + Room 迁移缺失（预存在）** `test` `infra` `dsh`
-  - 2026-09-17 修复 Hilt 测试图缺口（build.gradle.kts 补 kspAndroidTest(hilt-compiler)；FakeDomainModule 补 ServerSettingsRepository 绑定 + FakeServerSettingsRepository）后，connectedDevDebugAndroidTest 首次真正运行：113 tests / 25 failures。20 例为 androidx.compose.ui.test ComposeNotIdleException（Idling resource timed out）。
-  - 根因：ChatMessageList.kt 常驻 LaunchedEffect { while(true){ withFrameNanos{}; PreRenderShiftChannel.drain(listState) } }（#258 渲染前补偿帧界排空泵）——任何渲染 ChatScreen 的 Compose 测试永不 idle。另：SampleInstrumentedTest 等有 1 例 IllegalStateException（Room 迁移 1→9 缺失）+ 1 例 AssertionError。
-  - 修法（需谨慎，属 SSE 铁律域）：给 PreRenderShiftChannel 增加「待排空信号」（Compose MutableState 计数器 + snapshotFlow，或 Channel）使泵仅在有待注入时起帧，空闲时挂起 → 测试可 idle 且不改变帧时序语义；或为测试提供 Local 关闭泵。需真机/模拟器复核流式滚动三铁律不回归。Hilt 部分已修（2026-09-17）。
-  - 开工（2026-09-18）：读泵/迁移测试现场——MigrationTest 仅挂 1_2/2_3/3_4 而库已 v9（打开需全路径 1→9）；帧泵为 LaunchedEffect(listState) while(true){withFrameNanos;drain}。
-  - 修复（2026-09-18）：泵信号化（PreRenderShiftChannel 待排空 Channel + awaitPending，空闲挂起、时序不变）+ MigrationTest 补全 1→9 迁移链。插桩 113→114 例：20 例 ComposeNotIdleException 全灭、Room ISE 灭（25 失败→4）。残余 4 例为独立测试债（另立卡）。
-
-- [~] **#387 V2注入刷新消息渲染为用户气泡文字墙** `chat` `ui` `v2`
-  - skill-catalog/上下文刷新类注入（<system-reminder>包裹、无source.kind标记）按普通用户气泡整文渲染，[Ack] 3 会话顶部现存活例（VLM 09-41 复核：calculator 全文蓝色气泡墙，而同位插件配置已是收起小卡）。初判服务端对此类刷新不带 kind，mapper 按普通 user 落库。根因方向：对齐 dsh web 对 system-reminder 注入的识别与收起呈现（内容嗅探或等价机制），修在映射/渲染层单点。证据：/tmp/n2_acklink_top.png n2_ackthree_top.png；演示批 journal 待补
-  - 2026-09-12 修复（commit 99f6430f）：新增 domain 纯判定 SystemInjection.isPureReminder + 渲染单点嗅探，无 source.kind 的 <system-reminder> 闭合块走既有折叠卡（混合消息不折叠）；新增 SystemInjectionTest；待模拟器复验。
-  - 2026-09-12 模拟器复验 NOT-REPRODUCIBLE：DB 中纯 <system-reminder> 的 user 消息 10 条但 10/10 带 source.kind（DSH 路径已折叠），无 kind 样本 0 条。已落 defensive 渲染层嗅探 + SystemInjection 单测；无 live 样本，请裁决是否关闭/保留观察。
-  - 2026-09-12 V2 宿主侧复验：/api/session/{id}/instructions/entries 对新旧会话均为空；抓 /api/event 90s 新会话无注入帧 → 本环境无 live 样本（与模拟器 DB 扫描结论一致）。defensive 嗅探+SystemInjectionTest 保留；建议按「无 live 复现」关闭或保留观察，待你裁决。
-  - 用户 2026-09-12 裁决：参照 dsh web / opencode web 对 system-reminder（注入/上下文刷新）的识别与收起逻辑，仿照其逻辑重构或开发客户端渲染。
-  - 2026-09-12 按用户裁决调研 dsh web / opencode web 后实现：两端均**不用内容嗅探**——dsh 靠 user/message 的 source.kind（≠user 即折叠为 context 节点，dsh client.js:6048-6066），opencode 靠 text part 的 synthetic 字段（synthetic part 在用户气泡隐藏，message-part.tsx:1198-1200；生产端 reminders.ts:26-48）。我们的 V2 服务器两类字段都不发 → 「字段优先 + 嗅探兜底」是唯一可行路线。本次改动 = 嗅探下沉到映射单点 DshEventMapper.mapUserMessage（无 source.kind 且整条恰为一个闭合 system-reminder 块 → injectionKind=context），实况/通知/未来消费者共用；渲染层对历史 Room 行的同判据（SystemInjection.isPureReminder）兜底保留，新增单测（纯块→context、混合→null）。后续方向（登记在卡内、不另开卡）：① dsh form 结构化展开体；② opencode synthetic 式 part 级混合拆分。局限：本环境无 live 无字段样本，该路径仅单测覆盖。
-  - 用户 2026-09-12 新考虑（本卡保持打开）：是否把 agent 的内容直接输出、不再用 agent 气泡包裹，以及这种形式是否应由 dsh（服务器字段/模型）来驱动。待用户明确指代对象（上下文注入 / 子智能体输出 / assistant 正文）后再定方案。已有调研事实：dsh web 对注入不是裸输出而是折叠成 Context injection/recall 行（标题+来源标签+可展开体，client.js:850-898）；opencode 对 synthetic part 是直接隐藏、工具上下文折叠成 Gathered context 组——两端都不裸输出。
-  - 2026-09-12 后续专题底稿已建：docs/research/2026-09-12-387-followup-discussion.md（已落地最小修复 + dsh/opencode 一手事实 + A/B/C 指代 + 候选方案与验证矩阵）。本卡转「专题讨论待定」，结论出来后按 spec 约定另立 spec/卡。
-  - 2026-09-12 专题结论（6 轮 grilling）：设计定稿并发布为 GitHub Issue #11（标签 ready-for-agent）——消息层改扁平三段式（去气泡外观、保留头部/正文/尾部骨架）；通知层统一为通知卡家族；重指标与逐轮明细收进顶部统计弹窗（改底部可滚动面板）；撤销 UI 层 ×N 合并、改数据层按事件身份键原位更新。spec: docs/specs/2026-09-12-message-chrome-flattening-design.md；字段盘点: docs/research/2026-09-12-message-chrome-field-inventory.md。本卡后续按 #11 跟踪。
-  - - 2026-09-17 按 spec/Issue #11 实施：批1 数据层（DSH 模型路由 + usage 全桶 + agent 漂移清理 + 行模型 seam）与批2 消息层（扁平三段式去容器 + 状态徽标 + 「更多」面板 + 尾部吸收台账/产出 + 间距 16dp + 身份键去重）已提交；批3 统计弹窗实施中。journal: docs/journal/2026-09-17-387.md。
-  - - 2026-09-17 实现完成（批1/批2/批3 + i18n），V1 门禁全绿（compile / 3337 单测 0 fail / androidTest 编译 / assembleDevDebug / lintDevDebug 0 error）；V3 模拟器走查通过（用户消息扁平、assistant 三段式、通知卡同宽、统计底部面板 + 逐轮明细），证据 docs/acceptance/2026-09-17-387/。详见 journal docs/journal/2026-09-17-387.md。局限：Maestro CLI 未安装（V2 flow 未执行）。等用户验收。
-  - - 2026-09-17 用户裁决修订：**用户消息保留原三段式气泡**（否决「去底色」）；扁平化范围收窄为智能体正文。spec/研究底稿/kdoc/Issue #11 已同步。
-
 ## P3 — 观察与低价值改进
-
-- [~] **#416 通知/注入卡形态分层（DSH 注入更淡）** `chat-ui` `design`
-  - 现状：DSH 上下文注入与 V2 通知共用 EventCard（透明底 + 1dp 描边 + medium 圆角）。
-  - 方向：DSH 注入降级为左侧色条/细分隔线形态，V2 通知保持完整卡；牵动 #215 卡片层语言，属 #387 v2 追加的 Q3(c) 分支。,
-  - 修复（2026-09-18）：新组件 InjectionCard（左侧 2.5dp 色条+弱底+smallMedium、不描边，ReasoningBlock 同族）；DSH source.kind 注入与 V2 system-reminder 嗅探注入两处接线；V2 工具目录/通知保持 EventCard。
-
-- [~] **#415 通知/注入卡图标按服务器特性区分** `chat-ui` `i18n`
-  - 现状：DSH 上下文注入卡与 OpenCode V2 通知卡共用 Icons.Outlined.Info。
-  - 方向：DSH 注入用上下文/花括号类图标，V2 通知用铃铛/信息类；属 #387 v2 追加的 Q3(b) 分支，需先定图标映射再动。,
-  - 修复（2026-09-18）：注入卡 Icons.Filled.DataObject；V2 系统通知 Icons.Outlined.Notifications；工具目录卡保留 Info。
-
-- [~] **#414 RenderSupplyCoordinatorTest T11 单测偶发失败（flake）** `testing`
-  - 现象：全量单测首轮偶发 RenderSupplyCoordinatorTest > T11_文本增长后重析并覆盖已提交的陈旧plan FAILED；单测隔离重跑与全量重跑均通过。
-  - 2026-09-17 #387 v2 追加批次取证（同一批次内一次失败一次通过）。方向：排查协程时序/共享状态，必要时加 awaitIdle；与 UI 改动无关。
-  - 修复（2026-09-18）：T11 固定 delay(150/100) 改 15s 轮询断言前提（chunkPlans 块数>stale 确定性收敛）。
-
-- [~] **#413 聊天页右下任务 FAB 遮挡列表末条消息尾部动作** `chat-ui`
-  - 输入区右下浮动任务按钮（content-desc 打开任务菜单）压住最后一条用户消息尾部的 ⓘ/复制区域，其余消息无遮挡。
-  - 方向：列表 contentPadding 预留 FAB 高度，或 FAB 与列表末项避让；属既有叠加布局问题，非 #387 v2 引入（2026-09-17 模拟器走查发现）。
-  - 修复（2026-09-18）：LazyColumn contentPadding bottom 8→84dp（FAB 56+底距+呼吸）。实测：末条 ⓘ 底边 y≈1019 vs FAB 顶边 y≈1968，彻底分离（此前重叠）。
-
-- [~] **#411 DSH 逐轮 TTFT / tokens·s 数据源接入（统计弹窗逐轮展开）** `dsh` `ui`
-  - #387 spec US#26 部分实现：逐轮明细展开体的 TTFT / 解码速度当前恒 null（ContextDetailDelegate 无逐轮源，能力位门控正确隐藏）。dsh web 有 per-turn ttftMs / tokensPerSecond（节点 timing.firstTokenTime/stepStartTime 派生，盘点 §4.2）；app 尚未消费 DSH per-step timing。修法：DSH 事件侧持久化 step timing → TurnDetailInput.ttftMs/tokensPerSecond。
-  - 修复（2026-09-18）：DshEventMapper 记 step/start（turn/end 清）→ assistant/message 按 stream 首 token（isTokenDelta 复刻）派生 ttftMs/decodeMs/decodeTokens 落 Message.Assistant（mergeAssistantMeta 保真）→ ContextDetailDelegate 逐轮聚合 → 弹窗逐轮展开体。单测 4+1 例。实测：缺数据路径（错误轮）正确整项隐藏；数值路径因服务器 Insufficient Balance 未取得活体样本（单测覆盖）。
-
-- [~] **#410 助手消息尾部统计栏单点抽取（消 AssistantTurnTail 与 ChunkStatsBar 同构）** `refactor` `ui`
-  - #387 双轴评审 S1：主路径尾部（MessageCardAssistant statsBar）与 ChunkStatsBar 约 120 行同构（模型/耗时/轮号/步数工具摘要/tailExpanded 状态机/复制/分支/更多/MoreSheet 装配/ProducedFilesRow 全部成对重复）；turnNumber/onForkFromTurn/onDeleteMessage 三参数贯穿 5 层 composable（Data Clump）。修法：抽单一 AssistantTurnTail，参数打包；ChunkStatsBar 更名。
-  - 风险：layout scope（RowScope vs ColumnScope）迁移需模拟器复核流式/分片两态。
-  - 修复（2026-09-18）：删主路径 statsBar 与 ChunkStatsBar（~120 行×2 同构），单点 AssistantTurnTail 三处共用（主路径+分片/分段 isStreaming=false）；尾部簇文本回归实测正常。
 
 ## P4 — 外部前提阻塞
 
