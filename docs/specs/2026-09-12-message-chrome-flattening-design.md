@@ -230,6 +230,8 @@
 9. （追加 2026-09-17）思考卡圆角：`ReasoningBlock` 原是唯一 `shape = ShapeTokens.none`（0dp）的卡片 → 改 `ShapeTokens.smallMedium`（6dp，对齐工具卡家族）；属 #215 卡片层范围，经用户直接指示提前落地。
 10. （追加 2026-09-17）通知 / 注入卡文案按服务器特性定制：DSH 无 `source.kind` 的注入（mapper 哨兵 `injectionKind = "system"`）→「上下文注入」，不再被 OpenCode 专属的「工具目录已变更」遮蔽；OpenCode V2 `role=system`（`injectionKind == null`）保留「工具目录已变更」。判定收进 rowmodel 纯函数 `injectionLabelKindFor` + 枚举 `InjectionLabelKind`（数据驱动，不按 ServerType 分支）。
 11. （追加 2026-09-17）合成通知兜底标签 `chat_event_generic`：Event → Notification（15 语言）。图标按服务器特性区分、形态分层（DSH 注入更淡）登记为 backlog #415 / #416。
+12. （追加 2026-09-17）OpenCode V2 `role=system` 按**内容**细分（`systemNoticeKindFor` 纯函数）：文本含工具目录语义（tool catalog / tool definitions）→「工具目录已变更」；其余（日期注入等）→「通知」，且该档补折叠描述行（原文首行 ≤200 字符，折叠态不丢信息）。修正「Today's date is now…」被误标「工具目录已变更」。
+13. （追加 2026-09-17）卡片层描边：工具卡家族（`ToolCardScaffold` 全量 + 直连 `AmoledSurface` 的 `TodoListCard` / `ToolProgressCard` / `FileCard`）与思考卡（`ReasoningBlock`）在普通主题补 **1dp 标准描边**（`CardStandardBorder` = outline · MEDIUM，与 EventCard / MessageBubble 卡片语言一致；AMOLED 仍走 `AmoledDefaultBorder`）。`AmoledSurface` 新增 `normalBorder` 可选参数承载。属 #215 卡片层范围，经用户直接指示提前落地。
 
 ### v2 落点
 
