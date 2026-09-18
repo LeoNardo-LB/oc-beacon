@@ -249,3 +249,5 @@
 - **V1（代码层）**：compileDevDebugKotlin、testDevDebugUnitTest --rerun、lintDevDebug（0 error）、assembleDevDebug。
 - **V3（模拟器实机走查）**：前台带窗口 AVD + debug intent；验证用户气泡（无头部）/ 助手平面（无头部）/ 尾部徽标 / 逐消息 agent 标签 / 详情弹窗（详情 + 动作）/ 单 agent 会话顶部栏 agent。
 - **i18n**：scripts/i18n-check.sh。
+- **V3（DSH 面，2026-09-18 补测）**：`dsh-pair.sh` 配对后实测——顶部栏标题行**内联会话级 agent**（「智能体 · PTC 模式」）、工具卡 / 思考卡 1dp 描边、用户气泡 90% 右对齐均通过；现存 DSH 会话中无上下文注入卡，「上下文注入」标签由 rowmodel 单测保证（V2 面同类映射已实测）。DSH 思考卡无「· Xs」后缀属 #338 既定行为（整装事件时长未知不伪造）。
+- **Maestro**：本机两条安装路径均失败（DNS 不通 / 本地代理 TLS 握手失败）→ `e2e-message-flattening.yaml` 已更新至 v2 两段式（删头部断言 / 详情入口 / 分支移入弹窗）但未执行，环境受限与 v1 相同。
