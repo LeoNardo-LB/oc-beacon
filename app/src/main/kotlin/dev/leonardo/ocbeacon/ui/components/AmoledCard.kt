@@ -25,6 +25,16 @@ internal val AmoledDefaultBorder: BorderStroke
     )
 
 /**
+ * 卡片层标准描边（普通主题）：1dp outline · [AlphaTokens].MEDIUM——与 EventCard /
+ * MessageBubble 的卡片语言一致。工具卡 / 思考卡在扁平助手正文里需要描边才分得清
+ * （2026-09-17 用户要求）；AMOLED 仍走 [AmoledDefaultBorder]。
+ */
+internal val CardStandardBorder: BorderStroke
+    @Composable get() = BorderStroke(
+        1.dp, MaterialTheme.colorScheme.outline.copy(alpha = AlphaTokens.MEDIUM)
+    )
+
+/**
  * 自动适配 AMOLED 深色模式的 Card。
  * AMOLED：纯黑背景 + 细微边框，无高度。
  * 普通：使用 [normalContainerColor]，无边框。
@@ -101,13 +111,15 @@ fun AmoledSurface(
     normalColor: Color = MaterialTheme.colorScheme.surface,
     normalTonalElevation: Dp = 0.dp,
     shape: Shape = MaterialTheme.shapes.extraSmall,
+    /** 普通主题下的描边；null = 不描边（AMOLED 恒用 [AmoledDefaultBorder]）。 */
+    normalBorder: BorderStroke? = null,
     content: @Composable () -> Unit,
 ) {
     Surface(
         modifier = modifier,
         shape = shape,
         color = if (isAmoledDark) Color.Black else normalColor,
-        border = if (isAmoledDark) AmoledDefaultBorder else null,
+        border = if (isAmoledDark) AmoledDefaultBorder else normalBorder,
         tonalElevation = if (isAmoledDark) 0.dp else normalTonalElevation,
         content = content,
     )

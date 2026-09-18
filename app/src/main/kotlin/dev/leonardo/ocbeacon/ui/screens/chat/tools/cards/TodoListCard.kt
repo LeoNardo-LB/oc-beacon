@@ -42,6 +42,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import dev.leonardo.ocbeacon.ui.components.AmoledSurface
+import dev.leonardo.ocbeacon.ui.components.CardStandardBorder
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
@@ -102,7 +103,8 @@ internal fun TodoListCard(
         isAmoledDark = isAmoled,
         normalColor = MaterialTheme.colorScheme.surface,
         normalTonalElevation = 1.dp,
-        shape = ShapeTokens.smallMedium,
+        // 2026-09-17：卡片层标准描边（普通主题也需要，与扁平正文分离）
+        normalBorder = CardStandardBorder,        shape = ShapeTokens.smallMedium,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(SpacingTokens.SM.dp)) {

@@ -47,6 +47,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.leonardo.ocbeacon.R
+import dev.leonardo.ocbeacon.ui.components.CardStandardBorder
 import dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocbeacon.ui.screens.chat.util.halfScreenHeight
@@ -139,9 +140,10 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
 
     Surface(
         // v2（2026-09-17）：思考卡原先 shape=none（0dp）是唯一无圆角的卡片；
-        // 统一到工具卡家族 smallMedium（6dp）。
+        // 统一到工具卡家族 smallMedium（6dp）；并补 1dp 标准描边（与工具卡同语言）。
         shape = ShapeTokens.smallMedium,
         color = containerColor,
+        border = CardStandardBorder,
         modifier = Modifier.fillMaxWidth()
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {

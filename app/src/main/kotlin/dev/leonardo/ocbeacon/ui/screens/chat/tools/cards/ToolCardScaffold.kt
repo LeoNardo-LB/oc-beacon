@@ -44,6 +44,7 @@ import androidx.compose.ui.res.stringResource
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.util.copyToClipboard
 import dev.leonardo.ocbeacon.ui.components.AmoledSurface
+import dev.leonardo.ocbeacon.ui.components.CardStandardBorder
 import dev.leonardo.ocbeacon.ui.components.indicators.PulsingDotsIndicator
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalHapticFeedbackEnabled
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
@@ -119,7 +120,8 @@ internal fun ToolCardScaffold(
         isAmoledDark = isAmoled,
         normalColor = containerColor,
         shape = ShapeTokens.smallMedium,
-        normalTonalElevation = 1.dp,
+        // 2026-09-17：卡片层标准描边（普通主题也需要，与扁平正文分离）
+        normalBorder = CardStandardBorder,        normalTonalElevation = 1.dp,
         // 2026-08-30 用户裁决：撤销展开补偿（TC-REVEAL 接线退役）
         modifier = modifier.fillMaxWidth()
     ) {
