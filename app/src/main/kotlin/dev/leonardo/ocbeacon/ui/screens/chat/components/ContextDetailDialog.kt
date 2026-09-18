@@ -364,8 +364,21 @@ internal fun ContextDetailDialog(
                             style = MaterialTheme.typography.labelMedium,
                         )
                     }
-                    itemsIndexed(rows, key = { _, row -> turnRowKey(row) }) { index, row ->
-                        TurnDetailEntry(row = row, index = index, rowKey = turnRowKey(row), expanded = expanded)
+                    // #387 验收新缺陷修复（2026-09-18）：DSH 会话 serverTurn 可重复
+                    //（实测 Key "turn-SERVER-1" 冲突 → LazyColumn 闪退）。同 base
+                    // 第 2+ 行加序后缀保证唯一；后缀按行集内出现次序分配，倒序
+                    // 插头不改变既有行后缀（折叠态不错位）。
+                    val turnRowKeys = run {
+                        val seen = HashMap<String, Int>()
+                        rows.map { row ->
+                            val base = turnRowKey(row)
+                            val n = seen.getOrDefault(base, 0)
+                            seen[base] = n + 1
+                            if (n == 0) base else base + "-" + (n + 1)
+                        }
+                    }
+                    itemsIndexed(rows, key = { i, _ -> turnRowKeys[i] }) { index, row ->
+                        TurnDetailEntry(row = row, index = index, rowKey = turnRowKeys[index], expanded = expanded)
                     }
                 }
             }

@@ -30,7 +30,7 @@ import dev.leonardo.ocbeacon.ui.extension.ChatMessageListSlotHost
 import dev.leonardo.ocbeacon.ui.extension.LocalServerUiSlots
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -517,6 +517,22 @@ fun ChatMessageList(
             prevReal = cm
         }
         if (prevReal != null) m[prevReal.message.id] = null  // 会话最后一条：无后继 = turn 尾
+        m
+    }
+
+    // #387 US#34（A3 验收修复，2026-09-18）：「从此轮分支」仅会话末轮可用。
+    // isTurnLast 是 turn 组尾语义（每组 assistant 序列末条都命中）——历史轮
+    // 组尾也拿到分支动作会使非末轮可分叉（spec (d)：非末轮整项隐藏）。
+    // 末轮判据：其后不存在任何真实 assistant 消息（倒序一趟预计算，O(1) 查表）。
+    val hasLaterAssistantByMsgId = remember(rawMessages) {
+        val m = HashMap<String, Boolean>(rawMessages.size)
+        var seenLaterAssistant = false
+        for (i in rawMessages.indices.reversed()) {
+            val cm = rawMessages[i]
+            if (cm.isSynthetic) continue
+            m[cm.message.id] = seenLaterAssistant
+            if (cm.isAssistant) seenLaterAssistant = true
+        }
         m
     }
 
@@ -1271,7 +1287,7 @@ fun ChatMessageList(
                                             chunkTurn.serverTurn,
                                             turnOrdinalByMsgId[msg.message.id],
                                         ),
-                                        onForkFromTurn = if (isTurnLast) ({ forkFromTurn(turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id) }) else null,
+                                        onForkFromTurn = if (isTurnLast && hasLaterAssistantByMsgId[msg.message.id] != true) ({ forkFromTurn(turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id) }) else null,
                                         onDeleteMessage = if (messageDeleteSupported) ({ deleteMessageAction(msg.message.id) }) else null,
                                         caps = rowCaps,
                                     )
@@ -1332,7 +1348,7 @@ fun ChatMessageList(
                                             segTurn.serverTurn,
                                             turnOrdinalByMsgId[msg.message.id],
                                         ),
-                                        onForkFromTurn = if (isTurnLast) ({ forkFromTurn(turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id) }) else null,
+                                        onForkFromTurn = if (isTurnLast && hasLaterAssistantByMsgId[msg.message.id] != true) ({ forkFromTurn(turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id) }) else null,
                                         onDeleteMessage = if (messageDeleteSupported) ({ deleteMessageAction(msg.message.id) }) else null,
                                         caps = rowCaps,
                                     )
@@ -1558,7 +1574,7 @@ fun ChatMessageList(
                                         renderableTurns[displayItemIndex]?.serverTurn,
                                         turnOrdinalByMsgId[msg.message.id],
                                     ),
-                                    onForkFromTurn = if (isTurnLast) ({ forkFromTurn(turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id) }) else null,
+                                    onForkFromTurn = if (isTurnLast && hasLaterAssistantByMsgId[msg.message.id] != true) ({ forkFromTurn(turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id) }) else null,
                                     onDeleteMessage = if (messageDeleteSupported) ({ deleteMessageAction(msg.message.id) }) else null,
                                     caps = rowCaps,
                                 )
@@ -1691,30 +1707,42 @@ fun ChatMessageList(
                                     // v2 追加：无 kind 的 V2 系统消息按文本细分——工具目录变更 vs 通知
                                     val sysNoticeKind = if (sysInjectionKind == null) systemNoticeKindFor(sysText) else null
                                     val sysIsToolCatalog = sysNoticeKind == SystemNoticeKind.TOOL_CATALOG_CHANGED
-                                    EventCard(
-                                        eventKey = chatMessage.message.id,
-                                        timeMs = chatMessage.message.time.created,
-                                        label = if (sysInjectionKind != null) {
-                                            injectionKindLabel(sysInjectionKind)
-                                        } else if (sysIsToolCatalog) {
-                                            stringResource(R.string.chat_event_tool_catalog_changed)
-                                        } else {
-                                            stringResource(R.string.chat_event_generic)
-                                        },
-                                        // 通知档补一行自解释摘要（折叠态不丢信息；工具目录档正文是 schema，不补）
-                                        description = if (sysInjectionKind == null && !sysIsToolCatalog) {
-                                            sysText.lineSequence().firstOrNull()?.take(200)?.takeIf { it.isNotBlank() }
-                                        } else null,
-                                        leadingIcon = Icons.Outlined.Info,
-                                        expandedStates = eventCardExpandedStates,
-                                        bodyContent = {
-                                            Text(
-                                                text = sysText,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
-                                            )
-                                        },
-                                    )
+                                    // #415/#416（2026-09-18 验收清偿）：注入（含 DSH "system" 哨兵）
+                                    // 走 InjectionCard 淡形态（左色条+弱底，无描边，DataObject 图标）——
+                                    // 注入是宿主喂给模型的上下文，不是对用户的通知；纯 V2 通知/工具目录
+                                    // 保持 EventCard 完整卡（1dp 描边）+ 铃铛图标（Notifications）。
+                                    if (sysInjectionKind != null) {
+                                        InjectionCard(
+                                            eventKey = chatMessage.message.id,
+                                            timeMs = chatMessage.message.time.created,
+                                            label = injectionKindLabel(sysInjectionKind),
+                                            bodyText = sysText,
+                                            expandedStates = eventCardExpandedStates,
+                                        )
+                                    } else {
+                                        EventCard(
+                                            eventKey = chatMessage.message.id,
+                                            timeMs = chatMessage.message.time.created,
+                                            label = if (sysIsToolCatalog) {
+                                                stringResource(R.string.chat_event_tool_catalog_changed)
+                                            } else {
+                                                stringResource(R.string.chat_event_generic)
+                                            },
+                                            // 通知档补一行自解释摘要（折叠态不丢信息；工具目录档正文是 schema，不补）
+                                            description = if (!sysIsToolCatalog) {
+                                                sysText.lineSequence().firstOrNull()?.take(200)?.takeIf { it.isNotBlank() }
+                                            } else null,
+                                            leadingIcon = Icons.Outlined.Notifications,
+                                            expandedStates = eventCardExpandedStates,
+                                            bodyContent = {
+                                                Text(
+                                                    text = sysText,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED)
+                                                )
+                                            },
+                                        )
+                                    }
                                     return@Box
                                 }
 
@@ -1758,19 +1786,15 @@ fun ChatMessageList(
                                         .filterIsInstance<Part.Text>()
                                         .joinToString("\n") { it.text }.trim()
                                     if (injectionText.isNotEmpty()) {
-                                        EventCard(
+                                        // #415/#416（2026-09-18 验收清偿）：DSH source.kind 注入与
+                                        // V2 <system-reminder> 嗅探注入统一走 InjectionCard 淡形态
+                                        //（DataObject 图标 + 左色条 + 弱底无描边）。
+                                        InjectionCard(
                                             eventKey = chatMessage.message.id,
                                             timeMs = chatMessage.message.time.created,
                                             label = injectionKindLabel(injectionKind),
-                                            leadingIcon = Icons.Outlined.Info,
+                                            bodyText = injectionText,
                                             expandedStates = eventCardExpandedStates,
-                                            bodyContent = {
-                                                Text(
-                                                    text = injectionText,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = AlphaTokens.MUTED),
-                                                )
-                                            },
                                         )
                                     }
                                     return@Box
