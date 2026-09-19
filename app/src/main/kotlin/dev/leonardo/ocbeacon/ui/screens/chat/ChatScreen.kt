@@ -1,5 +1,6 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -1068,33 +1069,51 @@ fun ChatScreen(
                       // forceScrollTick 路径：那是「发送后等新消息增长再滚」的执行器，
                       // 点 ⬇ 无新消息时要等 5s 增长超时才滚（真机日志实锤 grew=-1 后才滚）
                       bottomSlot = {
-                          androidx.compose.animation.AnimatedVisibility(
-                              visible = !scrollController.isAtBottomState.value,
-                              // fade 不走 fadeIn/fadeOut（2026-09-19）：投影不随绘制层
-                              // alpha 变化——半透明按钮挂全尺寸阴影；reveal 进度自驱动
-                              // 并交给 FAB 的 graphicsLayer（alpha+shadowElevation 同源），
-                              // 阴影随按钮同步展开。
-                              enter = androidx.compose.animation.expandVertically(),
-                              exit = androidx.compose.animation.shrinkVertically(),
+                          // 2026-09-19 终态阴影突跳根修：显隐高度过渡不能走 expand/shrink
+                          // Vertically（裁剪窗口会把动画期的投影全部裁掉，展开完成
+                          // clip 撤除瞬间阴影整体绽放 = 终态突跳）。改为双层结构——
+                          // 外层 animateContentSize 承担高度过渡（推上/回落菜单 FAB，
+                          // 不裁剪内容，动画期按钮越界绘制即天然滑入感）；内层
+                          // AnimatedVisibility 用 slideIn/slideOutVertically 纯位移 +
+                          // fade（位移不裁剪），reveal 进度驱动 FAB 的
+                          // alpha/shadowElevation 同源渐变，投影全程可见且同步。
+                          androidx.compose.foundation.layout.Box(
+                              modifier = Modifier.animateContentSize(
+                                  animationSpec = androidx.compose.animation.core.tween(durationMillis = 220),
+                              ),
                           ) {
-                              val reveal by transition.animateFloat(
-                                  transitionSpec = {
-                                      androidx.compose.animation.core.tween(durationMillis = 220)
-                                  },
-                                  label = "scrollFabReveal",
-                              ) { state ->
-                                  if (state == androidx.compose.animation.EnterExitState.Visible) 1f else 0f
-                              }
-                              androidx.compose.foundation.layout.Column(
-                                  horizontalAlignment = Alignment.End,
+                              androidx.compose.animation.AnimatedVisibility(
+                                  visible = !scrollController.isAtBottomState.value,
+                                  enter = androidx.compose.animation.fadeIn(
+                                      animationSpec = androidx.compose.animation.core.tween(durationMillis = 220),
+                                  ) + androidx.compose.animation.slideInVertically(
+                                      animationSpec = androidx.compose.animation.core.tween(durationMillis = 220),
+                                  ) { fullHeight -> fullHeight },
+                                  exit = androidx.compose.animation.fadeOut(
+                                      animationSpec = androidx.compose.animation.core.tween(durationMillis = 220),
+                                  ) + androidx.compose.animation.slideOutVertically(
+                                      animationSpec = androidx.compose.animation.core.tween(durationMillis = 220),
+                                  ) { fullHeight -> fullHeight },
                               ) {
-                                  androidx.compose.foundation.layout.Spacer(
-                                      Modifier.height(SpacingTokens.LG.dp),
-                                  )
-                                  ChatScrollBottomFab(
-                                      onClick = { coroutineScope.launch { listState.snapToBottom() } },
-                                      revealProgress = reveal,
-                                  )
+                                  val reveal by transition.animateFloat(
+                                      transitionSpec = {
+                                          androidx.compose.animation.core.tween(durationMillis = 220)
+                                      },
+                                      label = "scrollFabReveal",
+                                  ) { state ->
+                                      if (state == androidx.compose.animation.EnterExitState.Visible) 1f else 0f
+                                  }
+                                  androidx.compose.foundation.layout.Column(
+                                      horizontalAlignment = Alignment.End,
+                                  ) {
+                                      androidx.compose.foundation.layout.Spacer(
+                                          Modifier.height(SpacingTokens.LG.dp),
+                                      )
+                                      ChatScrollBottomFab(
+                                          onClick = { coroutineScope.launch { listState.snapToBottom() } },
+                                          revealProgress = reveal,
+                                      )
+                                  }
                               }
                           }
                       },
