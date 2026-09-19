@@ -56,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
@@ -573,11 +574,30 @@ private fun FabMenuEntry(
 internal fun ChatScrollBottomFab(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * 显隐 reveal 进度（0..1，2026-09-19 用户反馈修复）：Compose 投影由 RenderNode
+     * elevation 独立绘制，**不随绘制层 alpha 变化**——fadeIn 半透明按钮会挂全尺寸
+     * 阴影（不同步）。故 FAB 默认 elevation 置 0，由 graphicsLayer 以同一进度驱动
+     * alpha 与 shadowElevation，阴影随按钮同步展开/消隐。默认 1 = 常驻完整态。
+     */
+    revealProgress: Float = 1f,
 ) {
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
         FloatingActionButton(
             onClick = onClick,
+            elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(
+                defaultElevation = 0.dp,
+                pressedElevation = 0.dp,
+                focusedElevation = 0.dp,
+                hoveredElevation = 0.dp,
+            ),
             modifier = modifier
+                .graphicsLayer {
+                    alpha = revealProgress
+                    shape = RoundedCornerShape(16.dp)
+                    clip = false
+                    shadowElevation = 6.dp.toPx() * revealProgress
+                }
                 .size(48.dp)
                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
             containerColor = MaterialTheme.colorScheme.secondaryContainer,

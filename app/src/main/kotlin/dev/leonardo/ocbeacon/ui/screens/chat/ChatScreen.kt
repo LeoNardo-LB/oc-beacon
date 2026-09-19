@@ -1070,11 +1070,21 @@ fun ChatScreen(
                       bottomSlot = {
                           androidx.compose.animation.AnimatedVisibility(
                               visible = !scrollController.isAtBottomState.value,
-                              enter = androidx.compose.animation.expandVertically() +
-                                  androidx.compose.animation.fadeIn(),
-                              exit = androidx.compose.animation.shrinkVertically() +
-                                  androidx.compose.animation.fadeOut(),
+                              // fade 不走 fadeIn/fadeOut（2026-09-19）：投影不随绘制层
+                              // alpha 变化——半透明按钮挂全尺寸阴影；reveal 进度自驱动
+                              // 并交给 FAB 的 graphicsLayer（alpha+shadowElevation 同源），
+                              // 阴影随按钮同步展开。
+                              enter = androidx.compose.animation.expandVertically(),
+                              exit = androidx.compose.animation.shrinkVertically(),
                           ) {
+                              val reveal by transition.animateFloat(
+                                  transitionSpec = {
+                                      androidx.compose.animation.core.tween(durationMillis = 220)
+                                  },
+                                  label = "scrollFabReveal",
+                              ) { state ->
+                                  if (state == androidx.compose.animation.EnterExitState.Visible) 1f else 0f
+                              }
                               androidx.compose.foundation.layout.Column(
                                   horizontalAlignment = Alignment.End,
                               ) {
@@ -1083,6 +1093,7 @@ fun ChatScreen(
                                   )
                                   ChatScrollBottomFab(
                                       onClick = { coroutineScope.launch { listState.snapToBottom() } },
+                                      revealProgress = reveal,
                                   )
                               }
                           }
