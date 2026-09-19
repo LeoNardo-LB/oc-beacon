@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#420**（2026-09-20 #419 user 气泡统计栏外置(扁平化收尾)）。
+**编号**：全局递增，不回收。下一编号：**#421**（2026-09-20 #420 展开思考卡片闪烁跳动）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。**反馈归卡（2026-09-12 用户定规）**：用户对某张卡片的反馈/裁决一律经 `backlog.sh note <N>` 记入**该卡片**明细，**不另开新卡**承载反馈；仅当反馈引出**新的独立缺陷**时才另立卡片，并在两卡明细互相引用（#401→#408 为先例）。
 
@@ -54,6 +54,18 @@
 ## P0 — 主流程阻塞
 
 ## P1 — 核心功能需求
+
+- [ ] **#420 展开思考卡片闪烁跳动** `ui` `chat` `bug`
+  - 症状:展开 ReasoningBlock 时界面闪烁+跳动;diagnosing-bugs 流程进行中(2026-09-20)
+  - 结构:AnimatedVisibility(CardExpandEnter=fadeIn+expandVertically Top)→heightIn(240dp)+verticalScroll+MarkdownContent(small)
+  - 根因(仪器定案):贴底时toggle卡片,item高度变化全额转译为视口位移(实测展开+644px/收起-608px,峰值220px/帧,~170ms);isAtBottom恒真,guard零参与(日志证实);mid-list同理(±444px,2026-08-30守卫注释记载)
+  - 设计(方案A·单一时钟同帧配对):CardExpandReveal包装器替换8处AV——AV只留fadeIn/fadeOut(组合生命周期),尺寸由自有f时钟驱动:帧回调dispatchRawDelta(δ)先行+本帧measure上报f*H,严格同帧配对零滞后(击败#262残余的帧界一帧错位);δ取全导数(f变化+H实时变化如展开中markdown迟到解析)
+  - 竞态矩阵:R1流式并发=toggle降级裸AV(LocalInStreamingTurn,item级补偿独占)+官方dispatchRawDelta主线程串行| R2守卫=累计+δ越100px时autoScroll=false(离底即离开跟随)| R3滚动中=取消时钟snap f| R4跳转导航=isScrollInProgress取消覆盖| R5双toggle=f可逆重定向| R6 FAB中段浮现=良性| R7中途回收=冷组合snap目标+仅转换时动画| R8贴底收起(flow b)=dispatchRawDelta负向不可消费,物理不可约(防尾部空白),文档化| R9反射=零接触,通道零改动
+  - 历史对照:2026-08-30 #262退役因复杂度高而残余跳动(帧界一帧错位+AV边界30px台阶);本设计无subcompose/无状态机层级/无指针吞没,同帧配对根治错位;旧裁决『贴底展开上方上推为终态』由本日新诉求覆盖(最新裁决为准)
+  - 修复验证(真机,commit 29ea9a38):CardExpandReveal 单一时钟同帧配对——Test1 贴底四连击 0跳/0闪(修前±644px),Σδ=737≈H=738 逐帧全额消费 | Test2 mid-list 双击 0跳 | Test3 SSE 流式 680帧 0跳(贴底跟随正常) | Test4 飞行中断 f 0.98 丝滑回摆无崩溃 | Test5 拖动取消 cancel-on-scroll snap f=0.96 | Test7 展开→⬇FAB出现→回底→FAB隐 | 全量单测 BUILD SUCCESSFUL
+  - 收起侧实证:头部带模板跟踪全程 1px(钉死);全局分析器的-904px读数=答案尾部从折叠线下升入视野(物理必然,唯一移动量)——收起语义正确 | t4b tap2 无日志一例未复现(疑 adb 投递竞态),toggle 活性复验正常
+  - 已知边界(文档化):①贴底收起(flow b:⬇回底后再收起)负位移不可消费→上方内容自然吸收(防尾部空白,物理不可约) ②流式turn内卡片降级裸AV(item级COMP-MSG独占) ③展开后⬇FAB出现=离开跟随模式(裁决语义) ④120Hz 下 dispatch 每8-16ms一次,30fps录屏每帧含3-4次(视觉平滑)
+  - 证据:docs/acceptance/2026-09-20-420-evidence/(4段mp4+2截图);[DEBUG-420]日志标签全链路可查
 
 ## P2 — 优化与锦上添花
 
