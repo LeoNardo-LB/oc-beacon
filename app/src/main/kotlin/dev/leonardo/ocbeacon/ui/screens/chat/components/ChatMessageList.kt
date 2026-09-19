@@ -1969,12 +1969,13 @@ fun ChatMessageList(
                         start = SpacingTokens.MD.dp,
                         top = SpacingTokens.SM.dp,
                         end = SpacingTokens.MD.dp,
-                        // #413：贴底时末条消息尾部动作（ⓘ/复制）为右下 FAB 组预留
-                        // 高度（菜单 FAB 48dp + 底距 16dp + 呼吸），否则被压住点不到。
-                        // 2026-09-19 紧凑化（用户反馈「末条距底部空白过大」）：初值 76dp
-                        // 实测留白 23dp（ⓘ 卡底 1876 vs FAB top 1936）→ 收 16dp 留 ~8dp 呼吸；
-                        // ⬇ FAB 只在离底时出现（贴底必隐藏），不占贴底预留。
-                        bottom = SpacingTokens.SM.dp + 60.dp
+                        // 2026-09-19 用户终裁（覆盖 #413 取舍）：「最后一条消息必须停在
+                        // 列表能拉到的最底部」——bottom 预留整段撤除，只留与 top 对称的呼吸
+                        //（SM 8dp）。代价：贴底时右下 FAB 组（48dp+底距 16dp 悬浮层）会
+                        // 压住末条尾部动作行右端（ⓘ 与 FAB 的重叠区触摸归 FAB）；ⓘ 上半
+                        // 与左侧复制钮仍可点。让位交互（贴底时 FAB 滑出等）已登记 backlog
+                        // 另行裁决，不在本次强加。
+                        bottom = SpacingTokens.SM.dp
                     ),
                     reverseLayout = true,
                     // 2026-08-20 分片：移除 spacedBy（chunk item 间不能有间隙——
