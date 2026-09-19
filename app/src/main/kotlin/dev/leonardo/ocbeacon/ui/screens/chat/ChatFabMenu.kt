@@ -574,39 +574,16 @@ private fun FabMenuEntry(
 internal fun ChatScrollBottomFab(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    /**
-     * 显隐 reveal 进度（0..1，2026-09-19 用户反馈修复）：Compose 投影由 RenderNode
-     * elevation 独立绘制，**不随绘制层 alpha 变化**——fadeIn 半透明按钮会挂全尺寸
-     * 阴影（不同步）。动画期间 FAB elevation 置 0，由 graphicsLayer 以同一进度
-     * 驱动 alpha 与 shadowElevation，阴影随按钮同步展开/消隐。
-     * **终态（progress ≥ 1）完全撤掉自定义干预，恢复 FAB 原生 6dp elevation**
-     *（2026-09-19 用户裁决「不要去除下部阴影」）——与菜单 FAB 同款投影。
-     */
-    revealProgress: Float = 1f,
+    // 2026-09-19 三轮用户反馈定案：显隐 = **纯位移动画、无 fade、原生 6dp 阴影
+    // 恒在**——不带 alpha（Compose 投影不随绘制层 alpha 变化：半透明按钮会挂全
+    // 尺寸阴影；而压 elevation + graphicsLayer 渐显的替代在本机实证不绘制，
+    // 终态阴影丢失）。按钮带着自己的原生投影整体滑入/滑出（位移不裁剪，阴影
+    // 全程跟随），终态与菜单 FAB 投影完全同款（像素基准 darken≈10.9 对齐）。
 ) {
-    val settled = revealProgress >= 1f
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
         FloatingActionButton(
             onClick = onClick,
-            elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(
-                defaultElevation = if (settled) 6.dp else 0.dp,
-                pressedElevation = if (settled) 6.dp else 0.dp,
-                focusedElevation = 6.dp,
-                hoveredElevation = 6.dp,
-            ),
             modifier = modifier
-                .then(
-                    if (settled) {
-                        Modifier
-                    } else {
-                        Modifier.graphicsLayer {
-                            alpha = revealProgress
-                            shape = RoundedCornerShape(16.dp)
-                            clip = false
-                            shadowElevation = 6.dp.toPx() * revealProgress
-                        }
-                    },
-                )
                 .size(48.dp)
                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
             containerColor = MaterialTheme.colorScheme.secondaryContainer,
