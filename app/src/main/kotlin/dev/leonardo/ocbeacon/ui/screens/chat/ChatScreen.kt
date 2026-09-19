@@ -1073,11 +1073,7 @@ fun ChatScreen(
                            // Vertically（裁剪窗口会把动画期投影裁掉，展开完成 clip 撤除
                            // 瞬间阴影整体绽放）。外层 animateContentSize 承担高度过渡
                            //（推上/回落菜单 FAB，不裁剪内容）；内层纯位移滑入/滑出：
-                          androidx.compose.foundation.layout.Box(
-                              modifier = Modifier.animateContentSize(
-                                  animationSpec = androidx.compose.animation.core.tween(durationMillis = 220),
-                              ),
-                          ) {
+                          dev.leonardo.ocbeacon.ui.screens.chat.FabSlotHeightReveal(visible = !scrollController.isAtBottomState.value) {
                               androidx.compose.animation.AnimatedVisibility(
                                   visible = !scrollController.isAtBottomState.value,
                                   // 2026-09-19 三轮定案：纯位移、无 fade——投影不随

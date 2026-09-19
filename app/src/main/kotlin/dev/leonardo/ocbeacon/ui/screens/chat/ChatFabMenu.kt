@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -554,6 +555,42 @@ private fun FabMenuEntry(
             }
             Text(label)
         }
+    }
+}
+
+/**
+ * FAB 组尾部高度过渡（2026-09-19 三轮定案）：自写不裁剪版「animateContentSize」
+ * ——实测 animateContentSize 会吞掉子内容（FAB）的 elevation 投影（像素对照
+ * darken 10.87 → 0.04），而 AnimatedVisibility 纯位移不吞。本 helper 用裸 layout
+ * 修饰动画化**报告给父的高度**（菜单 FAB 平滑推上/回落），子内容按完整尺寸
+ * 绘制并越界（不裁剪 → 投影全程跟随），显隐位移由内层 AnimatedVisibility 承担。
+ */
+@Composable
+internal fun FabSlotHeightReveal(
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val fullHeightPx = remember { mutableFloatStateOf(0f) }
+    val progress = remember { Animatable(if (visible) 1f else 0f) }
+    LaunchedEffect(visible) {
+        if (fullHeightPx.floatValue > 0f) {
+            progress.animateTo(if (visible) 1f else 0f, tween(durationMillis = 220))
+        } else {
+            progress.snapTo(if (visible) 1f else 0f)
+        }
+    }
+    Box(
+        modifier = modifier.layout { measurable, constraints ->
+            val placeable = measurable.measure(constraints)
+            if (fullHeightPx.floatValue <= 0f && placeable.height > 0) {
+                fullHeightPx.floatValue = placeable.height.toFloat()
+            }
+            val h = (fullHeightPx.floatValue * progress.value).roundToInt()
+            layout(placeable.width, h) { placeable.placeRelative(0, 0) }
+        },
+    ) {
+        content()
     }
 }
 
