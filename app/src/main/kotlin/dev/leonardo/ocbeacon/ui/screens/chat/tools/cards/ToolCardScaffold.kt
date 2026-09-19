@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import dev.leonardo.ocbeacon.ui.screens.chat.components.CardExpandEnterTransition
+import dev.leonardo.ocbeacon.ui.screens.chat.components.CardExpandReveal
 import dev.leonardo.ocbeacon.ui.screens.chat.components.CardExpandExitTransition
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -226,10 +227,8 @@ internal fun ToolCardScaffold(
             }
 
             // 展开的内容（2026-08-30 用户裁决：统一顶边垂直揭幕，见 CardExpandTransitions.kt）
-            AnimatedVisibility(
+            CardExpandReveal(
                 visible = expanded && hasContent,
-                enter = CardExpandEnterTransition,
-                exit = CardExpandExitTransition,
             ) {
                 expandedContent()
             }

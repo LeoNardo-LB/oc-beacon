@@ -345,11 +345,9 @@ internal fun MessageCardAssistant(
                                 // 2026-08-17（多卡片修复）：锚定 questionAnchorPartId——
                                 // 只在锚 part 后渲染一张（原条件会按 part 数量重复渲染）。
                                 // 2026-08-30 用户裁决：撤销展开补偿，回归 AV 出厂默认
-                                androidx.compose.animation.AnimatedVisibility(
+                                CardExpandReveal(
                                     visible = qEntered && pendingQuestion != null &&
                                         item.group.part.id == effectiveAnchorId,
-                                    enter = CardExpandEnterTransition,
-                                    exit = CardExpandExitTransition,
                                 ) {
                                     val avQuestion = pendingQuestion ?: lastQuestion
                                     if (avQuestion != null &&
@@ -377,10 +375,8 @@ internal fun MessageCardAssistant(
             // tool/part 锚（questionAnchorPartId=null 且无 retained 锚）——气泡尾
             // fallback 槽位：卡渲染在本 turn 内容之后、错误展示之前，与 OpenCode
             // 锚定路径同一 QuestionCard 组件/动画语言（样式统一）；随消息流滚动。
-            androidx.compose.animation.AnimatedVisibility(
+            CardExpandReveal(
                 visible = qEntered && pendingQuestion != null && effectiveAnchorId == null,
-                enter = CardExpandEnterTransition,
-                exit = CardExpandExitTransition,
             ) {
                 val avQuestion = pendingQuestion ?: lastQuestion
                 if (avQuestion != null) {

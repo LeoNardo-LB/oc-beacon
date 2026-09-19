@@ -194,6 +194,8 @@ fun ChatMessageList(
     navigateToChildSession: (String) -> Unit,
     onOpenFile: (filePath: String) -> Unit,
     onForceScrollToBottom: () -> Unit,
+    /** #420:卡片原地展开补偿的「离开跟随」回调(实现:关 autoScroll)。 */
+    onExpandDeparture: () -> Unit = {},
     showQuickNavigate: Boolean,
     onQuickNavigateDismiss: () -> Unit,
     agents: List<dev.leonardo.ocbeacon.domain.model.AgentInfo> = emptyList(),
@@ -2202,14 +2204,26 @@ fun ChatMessageList(
                             }
                         },
                     ) { _, entry ->
-                        val extras = transcriptCardExtras[entry.key]
-                        if (extras == null || extras.isEmpty) {
-                            renderTranscriptEntry(entry)
-                        } else {
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                extras.before.forEach { renderTranscriptCardItem(it, spacingBelow = true) }
+                        // #420:卡片原地揭示补偿的逐 item 上下文(挂 itemsIndexed 层——
+                        // renderTranscriptEntry 内部的早退 return 不受 Provider 包裹影响;
+                        // 流式 turn 降级裸 AV,由 item 级 COMP-MSG 补偿独占,杜绝双重注入)
+                        val entryStreaming = (turnGroups[displayItems[entry.displayIndex].first]
+                            ?: listOf(displayItems[entry.displayIndex].second))
+                            .any { it.message.id == streamingMsgId }
+                        CompositionLocalProvider(
+                            LocalCardExpandListState provides listState,
+                            LocalCardExpandDeparture provides onExpandDeparture,
+                            LocalInStreamingTurn provides entryStreaming,
+                        ) {
+                            val extras = transcriptCardExtras[entry.key]
+                            if (extras == null || extras.isEmpty) {
                                 renderTranscriptEntry(entry)
-                                extras.after.forEach { renderTranscriptCardItem(it, spacingBelow = false) }
+                            } else {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    extras.before.forEach { renderTranscriptCardItem(it, spacingBelow = true) }
+                                    renderTranscriptEntry(entry)
+                                    extras.after.forEach { renderTranscriptCardItem(it, spacingBelow = false) }
+                                }
                             }
                         }
                     }

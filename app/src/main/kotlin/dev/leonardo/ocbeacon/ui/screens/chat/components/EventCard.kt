@@ -181,10 +181,8 @@ internal fun EventCard(
         // 展开态两段式（Q11）：分隔线 → 正文(300dp 上限内滚) → 分隔线 → 动作区
         // 2026-08-30 用户裁决：撤销全部展开补偿改造，回归 AnimatedVisibility
         // 出厂默认动画（spring + fade + 默认揭幕方向）
-        AnimatedVisibility(
+        CardExpandReveal(
             visible = hasBody && expanded,
-            enter = CardExpandEnterTransition,
-            exit = CardExpandExitTransition,
         ) {
             // ★ AnimatedVisibility 内容是 Box 叠放语义（非 Column）——多子级全部
             // 原点重叠：分割线被正文整体盖住（透明 Markdown 时从字底透出、

@@ -1006,6 +1006,8 @@ fun ChatScreen(
                         navigateToChildSession = onNavigateToChildSession,
                         onOpenFile = handleOpenFile,
                         onForceScrollToBottom = { scrollController.forceScrollToBottom() },
+                        // #420:原地展开越过贴底区即离开跟随模式(守卫不拽回)
+                        onExpandDeparture = { scrollController.autoScrollEnabled = false },
                         // 子智能体会话不显示快速定位（show=false 时 onDismiss 不可达，可无条件传）
                         showQuickNavigate = if (isMainSession) showQuickNavigate else false,
                         onQuickNavigateDismiss = { showQuickNavigate = false },

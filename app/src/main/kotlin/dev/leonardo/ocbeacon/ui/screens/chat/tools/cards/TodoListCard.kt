@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import dev.leonardo.ocbeacon.ui.screens.chat.components.CardExpandEnterTransition
+import dev.leonardo.ocbeacon.ui.screens.chat.components.CardExpandReveal
 import dev.leonardo.ocbeacon.ui.screens.chat.components.CardExpandExitTransition
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -154,10 +155,8 @@ internal fun TodoListCard(
             }
 
             // Todo items（2026-08-30 用户裁决：统一顶边垂直揭幕，见 CardExpandTransitions.kt）
-            androidx.compose.animation.AnimatedVisibility(
+            CardExpandReveal(
                 visible = expanded,
-                enter = CardExpandEnterTransition,
-                exit = CardExpandExitTransition,
             ) {
                     Column(
                         modifier = Modifier.padding(top = SpacingTokens.XS.dp),

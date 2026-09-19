@@ -137,10 +137,8 @@ internal fun CollapsibleQuestionPart(question: String) {
                 )
             }
             // 2026-08-30 用户裁决：撤销展开补偿，回归 AV 出厂默认
-            androidx.compose.animation.AnimatedVisibility(
+            CardExpandReveal(
                 visible = expanded,
-                enter = CardExpandEnterTransition,
-                exit = CardExpandExitTransition,
             ) {
                 Column(modifier = Modifier.padding(start = 20.dp, top = SpacingTokens.XS.dp, end = SpacingTokens.XS.dp, bottom = SpacingTokens.XS.dp)) {
                     Text(

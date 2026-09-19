@@ -204,10 +204,8 @@ internal fun MessageBubble(
                 if (contentExpanded == null) {
                     contentBody()
                 } else {
-                    androidx.compose.animation.AnimatedVisibility(
+                    CardExpandReveal(
                         visible = contentExpanded,
-                        enter = CardExpandEnterTransition,
-                        exit = CardExpandExitTransition,
                     ) {
                         contentBody()
                     }

@@ -17,6 +17,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import dev.leonardo.ocbeacon.ui.screens.chat.components.CardExpandEnterTransition
+import dev.leonardo.ocbeacon.ui.screens.chat.components.CardExpandReveal
 import dev.leonardo.ocbeacon.ui.screens.chat.components.CardExpandExitTransition
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -89,10 +90,8 @@ internal fun GlobToolCard(
             }
 
             // Expandable file list（2026-08-30 用户裁决：统一顶边垂直揭幕）
-            AnimatedVisibility(
+            CardExpandReveal(
                 visible = isExpanded,
-                enter = CardExpandEnterTransition,
-                exit = CardExpandExitTransition,
             ) {
                 Surface(
                     shape = ShapeTokens.extraSmall,

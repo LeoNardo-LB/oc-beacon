@@ -168,10 +168,8 @@ internal fun CompactionNoticeCard(
         }
         // 展开体：Markdown 摘要，240dp 限高内滚（对齐思考卡 #2026-08-16 定档）
         if (canExpand) {
-            AnimatedVisibility(
+            CardExpandReveal(
                 visible = expanded,
-                enter = CardExpandEnterTransition,
-                exit = CardExpandExitTransition,
             ) {
                 Box(
                     modifier = Modifier

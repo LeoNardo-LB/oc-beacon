@@ -208,13 +208,10 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                     // #215 批3：chevron IconButton 移除——本体点击=展开唯一入口
                 }
 
-                // 可展开内容（2026-08-30 用户裁决：撤销全部展开补偿改造，回归
-                // AnimatedVisibility 出厂默认动画——spring + fade + 默认揭幕方向）
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = expanded,
-                    enter = CardExpandEnterTransition,
-                    exit = CardExpandExitTransition,
-                ) {
+                // 可展开内容——#420(2026-09-20 用户裁决 A):原地揭示补偿
+                // (单一时钟同帧配对,展开/收起不再把高度变化转译为视口跳动;
+                // 降级路径=出厂 AV,行为与 2026-08-30 终局一致)
+                CardExpandReveal(visible = expanded) {
                         Column {
                         Spacer(modifier = Modifier.height(6.dp))
                         // 2026-08-16（用户反馈调整）：高度上限从半屏收紧为固定值——

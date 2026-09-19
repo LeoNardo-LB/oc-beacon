@@ -113,10 +113,8 @@ internal fun InjectionCard(
                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
                     )
                 }
-                AnimatedVisibility(
+                CardExpandReveal(
                     visible = expanded,
-                    enter = CardExpandEnterTransition,
-                    exit = CardExpandExitTransition,
                 ) {
                     Box(
                         modifier = Modifier
