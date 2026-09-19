@@ -51,6 +51,7 @@ import java.util.Date
  * - 标签栏（非 flat 路径，[showLabelRow]=true）：`[左区 labelLeading?+标签+suffix] [中区 时间] [右区 labelTrailing?]`；
  *   v2 起用户气泡传 showLabelRow=false（角色文字已删），助手正文走 flat。
  * - 统计栏可选（synthetic / 通知卡用；角色消息 v2 走 [MessageSectionScaffold] 尾部）
+ * - 外置尾栏([externalTail],#419):非 flat 路径渲染于卡片之外的附加行(user 气泡统计栏外置用)。
  */
 @Composable
 internal fun MessageBubble(
@@ -89,6 +90,10 @@ internal fun MessageBubble(
     maxWidthFraction: Float? = null,
     /** flat 模式：统计栏之下的附加尾部内容（产出文件行等）。 */
     tailExtra: (@Composable ColumnScope.() -> Unit)? = null,
+    /** #419:非 flat 路径外置尾栏——渲染在卡片之外的外层 Column 尾部
+     *  (user 气泡统计栏外置:插话徽标+撤销+复制+详情)。共享外层 modifier
+     *  (如 jumpAlpha 门控)与 alignEnd 对齐;flat 路径不消费本参数。 */
+    externalTail: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val compact = LocalChatDensity.current == ChatDensity.Compact
@@ -223,6 +228,10 @@ internal fun MessageBubble(
                 }
             }
         }
+
+        // #419:外置尾栏——卡片之外的附加行(user 气泡统计栏外置),
+        // 共享外层 Column 的 modifier(jumpAlpha 门控)与 alignEnd 对齐。
+        externalTail?.invoke()
     }
 }
 

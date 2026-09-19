@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -85,9 +84,6 @@ internal fun MessageCardUser(
     } else {
         null
     }
-    val hapticView = LocalView.current
-    val hapticOn = LocalHapticFeedbackEnabled.current
-
     // 过滤用户消息的可见 parts
     val visibleParts = currentMessage.parts.filter { part ->
         when (part) {
@@ -154,61 +150,20 @@ internal fun MessageCardUser(
         } else {
             Modifier
         },
-        statsBar = {
-            // #395：插话（steer）徽标——发送路径标记，仅插话消息显示
-            if (userMessage?.viaSteer == true) {
-                SteerBadge(modifier = Modifier.padding(end = SpacingTokens.SM.dp))
-            }
-
-            // 弹性空白
-            Spacer(modifier = Modifier.weight(1f))
-
-            // 2026-09-10（用户裁决⑦）：QUEUED 徽章整块移除——排队消息不再上转录
-            //（V2SseMapper delivery=queue 单点拦截），徽章链（FSM 启发式派生）同撤。
-
-            // Undo 按钮（仅主会话，onRevert != null 时显示）
-            if (onRevert != null) {
-                Icon(
-                    Icons.AutoMirrored.Filled.Undo,
-                    contentDescription = stringResource(R.string.chat_revert),
-                    modifier = Modifier
-                        .size(14.dp)
-                        .clickable {
-                            performHaptic(hapticView, hapticOn)
-                            showRevertConfirmation = true
-                        },
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
-                )
-            }
-
-            // Copy 按钮
-            if (onCopyText != null) {
-                Icon(
-                    Icons.Default.ContentCopy,
-                    contentDescription = stringResource(R.string.chat_copy),
-                    modifier = Modifier
-                        .size(14.dp)
-                        .clickable {
-                            performHaptic(hapticView, hapticOn)
-                            onCopyText()
-                        },
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
-                )
-            }
-
-            // 「详情」入口（v2：时间 / 删除都在这里；每条角色消息常驻）
-            Icon(
-                Icons.Outlined.Info,
-                contentDescription = stringResource(R.string.a11y_message_detail),
-                modifier = Modifier
-                    .size(16.dp)
-                    .clickable {
-                        performHaptic(hapticView, hapticOn)
-                        showDetailDialog = true
-                    },
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
+        // #419:统计栏外置(2026-09-18 拷问共识 Q1a/Q2/Q7)——气泡内只剩正文,
+        // [插话徽标][撤销][复制][详情] 整组移到气泡下方,右缘平齐列表缘。
+        externalTail = {
+            UserBubbleExternalActions(
+                viaSteer = userMessage?.viaSteer == true,
+                onUndoClick = if (onRevert != null) {
+                    { showRevertConfirmation = true }
+                } else {
+                    null
+                },
+                onCopyClick = onCopyText,
+                onDetailClick = { showDetailDialog = true },
             )
-        }
+        },
     ) {
         // 内容 parts（文本、推理、补丁等）
         // 2026-08-13：imageFiles/renderableOtherParts/jumpMdState 已提升到
@@ -312,6 +267,92 @@ private fun SteerBadge(modifier: Modifier = Modifier) {
 }
 
 /**
+ * #419:user 气泡统计栏**外置动作行**——主路径与分片末段共用单点。
+ *
+ * 排布(右缘平齐列表缘,向左依次):[详情][复制][撤销][插话徽标];
+ * 气泡下方间隙 4dp(紧凑 2dp)。视觉尺寸不变(图标 14/16dp),命中区扩至
+ * 28dp(拷问共识 Q3/Q6:触达顺带修复)。图标色 onSurface@FAINT——外置后
+ * 配色语义归位(此前在 primaryContainer 底上即已用 onSurface)。
+ */
+@Composable
+private fun UserBubbleExternalActions(
+    viaSteer: Boolean,
+    onUndoClick: (() -> Unit)?,
+    onCopyClick: (() -> Unit)?,
+    onDetailClick: () -> Unit,
+) {
+    val compact = LocalChatDensity.current == ChatDensity.Compact
+    val hapticView = LocalView.current
+    val hapticOn = LocalHapticFeedbackEnabled.current
+    val faintTint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = if (compact) 2.dp else 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp, Alignment.End),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // #395:插话(steer)徽标——发送路径标记,仅插话消息显示
+        if (viaSteer) {
+            SteerBadge()
+        }
+        if (onUndoClick != null) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clickable {
+                        performHaptic(hapticView, hapticOn)
+                        onUndoClick()
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.Undo,
+                    contentDescription = stringResource(R.string.chat_revert),
+                    modifier = Modifier.size(14.dp),
+                    tint = faintTint,
+                )
+            }
+        }
+        if (onCopyClick != null) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clickable {
+                        performHaptic(hapticView, hapticOn)
+                        onCopyClick()
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Default.ContentCopy,
+                    contentDescription = stringResource(R.string.chat_copy),
+                    modifier = Modifier.size(14.dp),
+                    tint = faintTint,
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clickable {
+                    performHaptic(hapticView, hapticOn)
+                    onDetailClick()
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Outlined.Info,
+                contentDescription = stringResource(R.string.a11y_message_detail),
+                modifier = Modifier.size(16.dp),
+                tint = faintTint,
+            )
+        }
+    }
+}
+
+/**
  * 长用户消息分片渲染（2026-08-22 滚动巨帧根治，见 splitUserTextChunks）。
  *
  * v2：分段只保留正文；末段带尾部动作（撤销 + 复制 + 「详情」）——头部标签栏删除。
@@ -339,8 +380,6 @@ internal fun ChunkedUserMessage(
     } else {
         null
     }
-    val hapticView = LocalView.current
-    val hapticOn = LocalHapticFeedbackEnabled.current
     var showRevertConfirmation by remember { mutableStateOf(false) }
     var showDetailDialog by remember { mutableStateOf(false) }
 
@@ -354,86 +393,53 @@ internal fun ChunkedUserMessage(
         else -> RoundedCornerShape(0.dp)
     }
 
-    // v2：用户消息最大宽度 90%（与非分片路径一致）
-    Box(
+    // v2:用户消息最大宽度 90%(与非分片路径一致)
+    // #419:统计栏外置——末段 Surface 只含正文,动作行渲染在气泡之外(下方右对齐)
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        contentAlignment = Alignment.CenterEnd,
+        horizontalAlignment = Alignment.End,
     ) {
-        Surface(
-            color = backgroundColor,
-            shape = shape,
-            border = border,
-            modifier = Modifier.fillMaxWidth(0.9f),
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.CenterEnd,
         ) {
-            Column(
-                modifier = Modifier.padding(
-                    start = horizPad, end = horizPad,
-                    top = if (chunk.isFirst) vertPad else 0.dp,
-                    bottom = if (chunk.isLast) vertPad else 0.dp,
-                ),
+            Surface(
+                color = backgroundColor,
+                shape = shape,
+                border = border,
+                modifier = Modifier.fillMaxWidth(0.9f),
             ) {
-                // v2：头部标签栏整体删除——分段正文直接起始
-                // 分段正文（所有段）——纯 Text（用户消息不渲染 Markdown，官方 TUI 对齐）
-                SelectionContainer {
-                    Text(
-                        text = chunk.plan.segments[chunk.chunkIndex],
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = textColor,
-                    )
-                }
-                // ③ 统计栏（仅末段）——QUEUED 徽章 + 撤销 + 复制
-                if (chunk.isLast) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.padding(top = if (compact) SpacingTokens.XS.dp else 10.dp),
-                    ) {
-                        Spacer(modifier = Modifier.weight(1f))
-                        // #395：插话（steer）徽标
-                        if ((currentMessage.message as? Message.User)?.viaSteer == true) {
-                            SteerBadge()
-                        }
-                        // 2026-09-10（用户裁决⑦）：QUEUED 徽章移除——排队消息不上转录
-                        if (onRevert != null) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.Undo,
-                                contentDescription = stringResource(R.string.chat_revert),
-                                modifier = Modifier
-                                    .size(14.dp)
-                                    .clickable {
-                                        performHaptic(hapticView, hapticOn)
-                                        showRevertConfirmation = true
-                                    },
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                            )
-                        }
-                        if (onCopyText != null) {
-                            Icon(
-                                Icons.Default.ContentCopy,
-                                contentDescription = stringResource(R.string.chat_copy),
-                                modifier = Modifier
-                                    .size(14.dp)
-                                    .clickable {
-                                        performHaptic(hapticView, hapticOn)
-                                        onCopyText()
-                                    },
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
-                            )
-                        }
-                        Icon(
-                            Icons.Outlined.Info,
-                            contentDescription = stringResource(R.string.a11y_message_detail),
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clickable {
-                                    performHaptic(hapticView, hapticOn)
-                                    showDetailDialog = true
-                                },
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.FAINT),
+                Column(
+                    modifier = Modifier.padding(
+                        start = horizPad, end = horizPad,
+                        top = if (chunk.isFirst) vertPad else 0.dp,
+                        bottom = if (chunk.isLast) vertPad else 0.dp,
+                    ),
+                ) {
+                    // v2:头部标签栏整体删除——分段正文直接起始
+                    // 分段正文(所有段)——纯 Text(用户消息不渲染 Markdown,官方 TUI 对齐)
+                    SelectionContainer {
+                        Text(
+                            text = chunk.plan.segments[chunk.chunkIndex],
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = textColor,
                         )
                     }
                 }
             }
+        }
+        // #419:外置动作行(仅末段)——与主路径共用 UserBubbleExternalActions
+        if (chunk.isLast) {
+            UserBubbleExternalActions(
+                viaSteer = (currentMessage.message as? Message.User)?.viaSteer == true,
+                onUndoClick = if (onRevert != null) {
+                    { showRevertConfirmation = true }
+                } else {
+                    null
+                },
+                onCopyClick = onCopyText,
+                onDetailClick = { showDetailDialog = true },
+            )
         }
     }
 
