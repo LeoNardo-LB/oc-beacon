@@ -142,8 +142,8 @@ internal fun MessageCardUser(
         shape = UserBubbleShape,
         // v2：头部标签栏整体删除（时间 / 删除都在「详情」弹窗里）
         showLabelRow = false,
-        // v2：用户消息最大宽度 90%
-        maxWidthFraction = 0.9f,
+        // v2→2026-09-20 用户裁决:wrap 自适应宽度,最大 80%
+        maxWidthFraction = 0.8f,
         timeMs = currentMessage.message.time.created,
         modifier = if (isJumpObserveTarget) {
             Modifier.graphicsLayer { alpha = jumpAlpha }

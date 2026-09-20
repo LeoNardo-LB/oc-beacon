@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -130,7 +131,17 @@ internal fun MessageBubble(
             colors = CardDefaults.cardColors(containerColor = containerColor),
             border = border,
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            modifier = Modifier.fillMaxWidth(maxWidthFraction ?: 1f)
+            // 2026-09-20 用户裁决:非 null = wrap 自适应宽度(按内容收缩),
+            // 上限 maxWidthFraction × 父宽——fillMaxWidth(f) 会强制恒占 f 比例,
+            // 短消息也撑满,观感失衡。wrapContentSize 把约束放宽(loose),
+            // Card 按内容测量,贴 alignEnd 方向放置;null(通知卡)保持占满。
+            modifier = if (maxWidthFraction != null) {
+                Modifier
+                    .fillMaxWidth(maxWidthFraction)
+                    .wrapContentSize(if (alignEnd) Alignment.TopEnd else Alignment.TopStart)
+            } else {
+                Modifier.fillMaxWidth()
+            }
         ) {
             Column(
                 modifier = Modifier
