@@ -57,7 +57,7 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#422 step 自动折叠:turn 内非最后 step 折叠为计数行(DSH 同款时机)** `ui` `chat`
+- [~] **#422 step 自动折叠:turn 内非最后 step 折叠为计数行(DSH 同款时机)** `ui` `chat`
   - 用户裁决(2026-09-20):每 turn 最后 step(最终回答)恒展开,之前 step 自动折叠计数行;流式恒平铺,完结生效
   - 关键发现:StepStart/StepFinish 在 UI 过滤层(RenderableTurn.kt:193 filterRenderableParts)被丢弃——第一步=装配层保留边界标记
   - 方案+调研:docs/research/2026-09-20-code-step-grouping.md;影响面:RenderableTurn/ChunkAssistantItems/折叠组件/i18n(复用统计词);#420:整组单 LazyItem 不拆
