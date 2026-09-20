@@ -194,6 +194,11 @@ fun computeRenderableTurn(
 
     // 单次遍历：过滤 + 分组 + 分隔线 + synthetic 卡片
     val renderItems = mutableListOf<RenderItem>()
+    // #422 二轮:turn 级折叠累积器(全部非最后消息并入一个 StepGroup)
+    var pendingStepMsgId: String? = null
+    val pendingStepGroups = mutableListOf<PartGroup>()
+    var pendingToolCount = 0
+    var pendingTextCount = 0
     for ((msgIndex, msg) in ordered.withIndex()) {
         if (msg.isSynthetic) {
             // synthetic 通知：不渲染其 text parts（原文是 <task> 结构化标签），
@@ -206,25 +211,33 @@ fun computeRenderableTurn(
         }
         val msgParts = filterRenderableParts(msg.parts)
         val groups = groupContextParts(msgParts)
-        // #422:非最后一条消息(=非最后 step)整组折叠;最后消息(最终回答)平铺。
-        // 流式豁免在渲染层(LocalInStreamingTurn)——装配与流式解耦,turn 完结
-        // 后重组装配即自动折叠(DSH 同款时机)。
+        // #422 二轮(用户裁决:整个 turn 收成一个,非每 step 一个):非最后消息
+        // 的内容累积到 turn 级待折叠组,最后消息(最终回答)前统一 flush 为单个
+        // StepGroup;流式豁免在渲染层(LocalInStreamingTurn)——装配与流式解耦,
+        // turn 完结后重组装配即自动折叠(DSH 同款时机)。
         val isLastStep = msgIndex == ordered.lastIndex
-        if (!isLastStep && msgParts.isNotEmpty() && msgParts.size > 1) {
-            renderItems.add(
-                RenderItem.StepGroup(
-                    msgId = msg.message.id,
-                    groups = groups,
-                    toolCount = msgParts.count { it is Part.Tool },
-                    textCount = msgParts.count { it is Part.Text },
-                ),
-            )
+        if (!isLastStep && msgParts.isNotEmpty()) {
+            if (pendingStepMsgId == null) pendingStepMsgId = msg.message.id
+            pendingStepGroups.addAll(groups)
+            pendingToolCount += msgParts.count { it is Part.Tool }
+            pendingTextCount += msgParts.count { it is Part.Text }
         } else {
+            if (pendingStepGroups.isNotEmpty()) {
+                renderItems.add(
+                    RenderItem.StepGroup(
+                        msgId = pendingStepMsgId!!,
+                        groups = pendingStepGroups.toList(),
+                        toolCount = pendingToolCount,
+                        textCount = pendingTextCount,
+                    ),
+                )
+                pendingStepMsgId = null
+                pendingStepGroups.clear()
+                pendingToolCount = 0
+                pendingTextCount = 0
+            }
             for (group in groups) {
                 renderItems.add(RenderItem.GroupedParts(group))
-            }
-            if (!isLastStep && msgParts.isNotEmpty()) {
-                renderItems.add(RenderItem.TurnDivider(msg.message.id))
             }
         }
     }
