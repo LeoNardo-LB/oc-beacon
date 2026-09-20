@@ -164,7 +164,10 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                     // 2026-08-16（用户反馈）：折叠态行高与其他卡片单行一致——
                     // 垂直 padding 8dp → 4dp（对齐 ToolCardScaffold 的
                     // Column padding(SpacingTokens.XS.dp)），总高 ~36dp 与工具卡折叠态等高。
-                    .padding(start = SpacingTokens.MD.dp, end = 10.dp, top = SpacingTokens.XS.dp, bottom = SpacingTokens.XS.dp)
+                    // 2026-09-20 间距统一裁决:垂直 4→2dp——实测卡↔正文空白 63px
+                    // (卡内留白 20px/侧 × 2 + sectionGap 8dp + leading),为正文行间
+                    // 24px 的 2.6 倍;收敛卡内留白 20→14px(与 ToolCardScaffold 同步)。
+                    .padding(start = SpacingTokens.MD.dp, end = 10.dp, top = 2.dp, bottom = 2.dp)
             ) {
                 Row(
                     modifier = Modifier

@@ -126,7 +126,16 @@ internal fun ToolCardScaffold(
         // 2026-08-30 用户裁决：撤销展开补偿（TC-REVEAL 接线退役）
         modifier = modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(SpacingTokens.XS.dp)) {
+        // 2026-09-20 间距统一裁决:垂直 4→2dp(与 ReasoningBlock 同步——卡↔正文
+        // 空白收敛,卡族互相对齐保持)
+        Column(
+            modifier = Modifier.padding(
+                start = SpacingTokens.XS.dp,
+                end = SpacingTokens.XS.dp,
+                top = 2.dp,
+                bottom = 2.dp,
+            ),
+        ) {
             // 标题行
             Row(
                 modifier = Modifier.fillMaxWidth(),
