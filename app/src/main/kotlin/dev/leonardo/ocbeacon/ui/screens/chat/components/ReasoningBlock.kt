@@ -46,6 +46,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.layout
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.components.CardStandardBorder
 import dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent
@@ -144,7 +145,8 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
         shape = ShapeTokens.smallMedium,
         color = containerColor,
         border = CardStandardBorder,
-        modifier = Modifier.fillMaxWidth()
+        // 方案 B(间距统一第三步):占位底部下探——见 occupyBottomGap 文档
+        modifier = Modifier.fillMaxWidth().occupyBottomGap()
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             // 强调色左侧条
@@ -255,6 +257,30 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
         }
     }
 }
+
+/**
+ * 方案 B（2026-09-20 间距统一第三步）：卡片**占位底部收缩** [CARDS_BOTTOM_SHRINK]。
+ *
+ * 实测卡背景↔正文字形 49px(无 emoji 基准) = spacedBy 8dp(24px) + Markdown
+ * 组件首段固有顶部空 ~25px(行高 leading + 库内行为,不可配)——为正文行间
+ * 24px 的 2 倍。本修饰符把卡片占位高度上收 [CARDS_BOTTOM_SHRINK]：
+ * spacedBy 从收缩后的占位底起算 → 下一元素上移 → 视觉间隙收敛到正文
+ * 行间同档。卡片背景绘制溢出占位（Column 不裁剪),溢出区与正文首行
+ * leading 空白重叠、不碰字形。
+ * - #420 安全：收缩量为常量，toggle 间占位 delta == 视觉 delta；
+ * - 上侧间隙不受影响（占位顶=视觉顶）；
+ * - 卡族同步：ToolCardScaffold 同款引用，保持互相对齐。
+ */
+internal fun Modifier.occupyBottomGap(): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    val shrink = CARDS_BOTTOM_SHRINK.roundToPx()
+    layout(placeable.width, (placeable.height - shrink).coerceAtLeast(0)) {
+        placeable.placeRelative(0, 0)
+    }
+}
+
+/** 卡族占位底部收缩量(dp)——首段固有顶部空 25px 的 dp 取整。 */
+internal val CARDS_BOTTOM_SHRINK = 8.dp
 
 private fun formatReasoningDuration(ms: Long): String = when {
     ms < 1000 -> "${ms}ms"

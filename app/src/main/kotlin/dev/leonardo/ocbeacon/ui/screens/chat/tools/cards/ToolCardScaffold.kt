@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import dev.leonardo.ocbeacon.ui.screens.chat.components.CardExpandEnterTransition
+import dev.leonardo.ocbeacon.ui.screens.chat.components.occupyBottomGap
 import dev.leonardo.ocbeacon.ui.screens.chat.components.CardExpandReveal
 import dev.leonardo.ocbeacon.ui.screens.chat.components.CardExpandExitTransition
 import androidx.compose.ui.Alignment
@@ -124,7 +125,8 @@ internal fun ToolCardScaffold(
         // 2026-09-17：卡片层标准描边（普通主题也需要，与扁平正文分离）
         normalBorder = CardStandardBorder,        normalTonalElevation = 1.dp,
         // 2026-08-30 用户裁决：撤销展开补偿（TC-REVEAL 接线退役）
-        modifier = modifier.fillMaxWidth()
+        // 方案 B(间距统一第三步):占位底部下探(与 ReasoningBlock 同步)
+        modifier = modifier.fillMaxWidth().occupyBottomGap()
     ) {
         // 2026-09-20 间距统一裁决:垂直 4→2dp(与 ReasoningBlock 同步——卡↔正文
         // 空白收敛,卡族互相对齐保持)
