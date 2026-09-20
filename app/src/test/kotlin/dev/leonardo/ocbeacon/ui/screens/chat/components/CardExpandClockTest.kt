@@ -70,7 +70,7 @@ class CardExpandClockTest {
         c.primeLedger()
         c.absorb(500f) // 已展开到 500
         // H 增长为 1200 后,目标 0.6 的指令 = 720−500 = 220(增量 120 + 欠账 120 同帧)
-        assertEquals(220, closedLoopCommand(targetRep = 720, prevTargetRep = 500, topErr = 0f))
+        assertEquals(220, closedLoopCommand(targetRep = 720, absorbed = 500))
         c.absorb(220f)
         assertEquals(720, c.absorbedPx)
     }
@@ -90,16 +90,14 @@ class CardExpandClockTest {
         assertEquals(0, c.onMeasure(738))
         assertEquals(738, c.lastMeasuredH)
         // tween 首帧:目标 0.2 → 指令 147(全部增量一次算清,无历史欠账)
-        assertEquals(147, closedLoopCommand(targetRep = 147, prevTargetRep = 0, topErr = 0f))
+        assertEquals(147, closedLoopCommand(targetRep = 147, absorbed = 0))
         var f = 0.2f
-        var prev = 147
         c.absorb(147f)
         while (f < 1f) {
             f += 0.1f
             val target = (f * 738).toInt()
-            val cmd = closedLoopCommand(targetRep = target, prevTargetRep = prev, topErr = 0f)
+            val cmd = closedLoopCommand(targetRep = target, absorbed = c.absorbedPx)
             c.absorb(cmd.toFloat()) // 假设全消费
-            prev = target
         }
         c.absorb((738 - c.absorbedPx).toFloat())
         // 守恒:Σabsorb == 最终账本 == H(欠账不流失)
@@ -181,11 +179,9 @@ class CardExpandClockTest {
         c.onMeasure(800) // settle 末:H1=800
         c.animating = true
         c.primeLedger()
-        var prev = 0
         for (step in 1..10) {
-            val cmd = closedLoopCommand(targetRep = step * 80, prevTargetRep = prev, topErr = 0f)
+            val cmd = closedLoopCommand(targetRep = step * 80, absorbed = c.absorbedPx)
             c.absorb(cmd.toFloat())
-            prev = step * 80
         }
         assertEquals(800, c.absorbedPx)
         // episode 末强制复测:内容迟到增长 800 → 1000(上报乐观=f·H)
@@ -193,7 +189,7 @@ class CardExpandClockTest {
         assertEquals(1000, c.onMeasure(1000))
         assertEquals(1000, c.lastMeasuredH)
         // catch-up:指令以新 H 计算,吸收差值 = 200
-        val catchUp = closedLoopCommand(targetRep = 1000, prevTargetRep = 800, topErr = 0f)
+        val catchUp = closedLoopCommand(targetRep = 1000, absorbed = 800)
         assertEquals(200, catchUp)
         c.absorb(catchUp.toFloat())
         c.animating = false
@@ -289,30 +285,19 @@ class CardExpandClockTest {
 
     // ===== #425 渲染前反馈闭环 =====
 
-    /** 指令 = 缓动增量 + 上帧偏差(死拍全量纠偏,无吸收项=无双计振荡)。 */
+    /** 指令 = 目标 − 已吸收(账本重试式,全程单向)。 */
     @Test
-    fun closedLoopCommandAddsFeedback() {
-        // 目标 500、上帧目标 400、上帧偏上 60 → 指令 100+60=160
-        assertEquals(160, closedLoopCommand(targetRep = 500, prevTargetRep = 400, topErr = 60f))
-        // 偏下(负反馈)同理
-        assertEquals(40, closedLoopCommand(targetRep = 500, prevTargetRep = 400, topErr = -60f))
+    fun closedLoopCommandIsLedgerGap() {
+        assertEquals(100, closedLoopCommand(targetRep = 500, absorbed = 400))
+        assertEquals(-100, closedLoopCommand(targetRep = 400, absorbed = 500))
+        assertEquals(0, closedLoopCommand(targetRep = 500, absorbed = 500))
     }
 
-    /** 单帧指令钳制(锚点翻转阶跃防暴冲)。 */
+    /** 单帧指令钳制(残量集中释放防单帧暴冲)。 */
     @Test
     fun closedLoopCommandClamped() {
-        assertEquals(300, closedLoopCommand(targetRep = 1000, prevTargetRep = 0, topErr = 0f))
-        assertEquals(-300, closedLoopCommand(targetRep = 0, prevTargetRep = 1000, topErr = 0f))
-    }
-
-    /**
-     * 振荡回归(#425 真机 cmd=±154 极限环):(目标−已吸收)+偏差 双计——
-     * 纠偏被下帧吸收项撤销。增量+偏差形式在纠偏落地后指令回到纯增量。
-     */
-    @Test
-    fun closedLoopCommandNoDoubleCountOscillation() {
-        // 上帧纠偏 +160 已落地(偏差清零) → 本帧指令只剩新增量 20
-        assertEquals(20, closedLoopCommand(targetRep = 520, prevTargetRep = 500, topErr = 0f))
+        assertEquals(300, closedLoopCommand(targetRep = 1000, absorbed = 0))
+        assertEquals(-300, closedLoopCommand(targetRep = 0, absorbed = 1000))
     }
 
     /**
@@ -334,15 +319,13 @@ class CardExpandClockTest {
     }
 
     /**
-     * 残量重试路径:帧1指令 100 只消费 40 → 帧2 偏差携带 60,
-     * 指令 = 新增量 150 + 偏差 60 = 210(残量不丢失)。
+     * 残量重试路径:帧1指令 100 只消费 40 → 账本 40;帧2目标 250,
+     * 指令 = 250−40 = 210(增量 150 + 残量 60,不丢失)。
      */
     @Test
-    fun unconsumedCommandRetriedViaTopErr() {
-        // 帧1:增量 100,全偏差 0
-        assertEquals(100, closedLoopCommand(targetRep = 100, prevTargetRep = 0, topErr = 0f))
-        // 帧2:缓动新增量 150(250−100),上帧 60 未消费 → 偏差 +60
-        assertEquals(210, closedLoopCommand(targetRep = 250, prevTargetRep = 100, topErr = 60f))
+    fun unconsumedCommandRetriedViaLedger() {
+        assertEquals(100, closedLoopCommand(targetRep = 100, absorbed = 0))
+        assertEquals(210, closedLoopCommand(targetRep = 250, absorbed = 40))
     }
 
     /**

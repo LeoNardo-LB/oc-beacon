@@ -18,6 +18,10 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -306,6 +310,16 @@ internal fun CardExpandReveal(
     val carriedAnchor = remember { androidx.compose.runtime.mutableStateOf<Float?>(null) }
 
     /**
+     * #425 两阶段展开的**纯绘制揭示分数**(drawWithContent clipRect 高度系数)。
+     * 真机定案:展开方向 LazyList 布局多 pass 不稳定(dispatch 时刻 topY 在
+     * 922↔982↔957 逐 pass 振荡,录屏条带 ±136px)——动画期间布局/滚动参与
+     * 即震荡。故展开=A 阶段一次性布局落位(本分数=0,内容不可见)+B 阶段
+     * 纯绘制揭示(本分数 0→1,零布局零滚动)。收起方向布局稳定(实测逐帧
+     * consumed==d、topY 恒定),保持布局裁剪路径,本分数恒 1。
+     */
+    val drawFraction = remember { androidx.compose.runtime.mutableFloatStateOf(if (visible) 1f else 0f) }
+
+    /**
      * visible 转换 → 手写帧循环驱动(冷组合初值即目标,不动画)。
      *
      * #420 追诊定案:animateTo + snapshotFlow 方案有两处致命竞态——
@@ -337,6 +351,44 @@ internal fun CardExpandReveal(
                     // 完成等「首测后仍有内容驱动重测」在此吸收完,再开缓存
                     // 窗口——否则 tween 全程锁死在过期 H 上。
                     settleUntilContentStable(clock)
+                    // ===== #425 A 阶段:一次性布局落位(内容不可见) =====
+                    // 真机定案:展开方向 LazyList 布局多 pass 不稳定(dispatch 时刻
+                    // topY 逐 pass 振荡 ±60px,录屏条带 ±136px 来回震荡)——动画
+                    // 期间布局/滚动参与即震荡。故:report 一次到全高 + 同帧配对
+                    // 全额位移,残量在稳定窗重试;多 pass 混乱全部发生在内容
+                    // 不可见时。随后 B 阶段纯绘制揭示(零布局零滚动)。
+                    drawFraction.floatValue = 0f
+                    clock.tweening = true
+                    clock.driveTo(1f)
+                    dispatchClosedLoop(listState, clock, departure, 1f, anchorY, revealTopY.floatValue)
+                    // 稳定窗:重试到全额消费(实证:部分消费期间折叠行稳定,跳变
+                    // 全部来自 end-restore 对余额的强行修正)。墙钟硬顶防死边。
+                    val tStab = System.nanoTime()
+                    while (true) {
+                        withFrameNanos { }
+                        val pendingA = closedLoopCommand(clock.lastMeasuredH, clock.absorbedPx)
+                        if (abs(pendingA) < 1) break
+                        if ((System.nanoTime() - tStab) / 1_000_000f > 700f) break
+                        dispatchClosedLoop(listState, clock, departure, 1f, anchorY, revealTopY.floatValue, unclamped = true)
+                    }
+                    clock.tweening = false
+                    // ===== #425 B 阶段:纯绘制揭示(drawFraction 0→1) =====
+                    val tDraw = withFrameNanos { it }
+                    var vtDraw = 0f
+                    while (vtDraw < GEOMETRY_TWEEN_MS) {
+                        val nowD = withFrameNanos { it }
+                        vtDraw = minOf(
+                            ((nowD - tDraw) / 1_000_000f).coerceAtLeast(0f),
+                            vtDraw + MAX_FRAME_STEP_MS,
+                        )
+                        val p = (vtDraw / GEOMETRY_TWEEN_MS).coerceIn(0f, 1f)
+                        drawFraction.floatValue = FastOutSlowInEasing.transform(p)
+                    }
+                    drawFraction.floatValue = 1f
+                } else {
+                    // 收起:布局方向稳定(实测逐帧 consumed==d、topY 恒定),
+                    // 保持布局裁剪路径;绘制窗口全开。
+                    drawFraction.floatValue = 1f
                 }
                 val startF = clock.fraction
                 clock.primeLedger()
@@ -350,27 +402,24 @@ internal fun CardExpandReveal(
                 // (逐帧取证:旧开环展开 −98 平台/收起 −60→−328 阶跃,收起中段
                 // anchor 稳定时 dev=0 证明配对数学本身正确,断点全在损耗侧)。
                 // 收敛:缓动走完且指令≈0(残量排干);墙钟硬顶防真死边。
-                var prevTargetRep = (startF * clock.lastMeasuredH).toInt()
                 while (true) {
                     val now = withFrameNanos { it }
                     val wall = ((now - t0) / 1_000_000f).coerceAtLeast(0f)
                     val easedNow = easedFraction(startF, target, minOf(vt, GEOMETRY_TWEEN_MS.toFloat()))
                     val pending = closedLoopCommand(
                         targetRep = (easedNow * clock.lastMeasuredH).toInt(),
-                        prevTargetRep = prevTargetRep,
-                        topErr = anchorY - revealTopY.floatValue,
+                        absorbed = clock.absorbedPx,
                     )
                     if ((vt >= GEOMETRY_TWEEN_MS && abs(pending) < 1) || wall > EPISODE_HARD_CAP_MS) break
-                    // 从 vt+1ms 起试探满足位移钳制的最大虚拟步(二分回退,基准=缓动差分)
+                    // 从 vt+1ms 起试探满足位移钳制的最大虚拟步(二分回退,基准=待吸收残量)
                     var nextVt = minOf(wall, vt + MAX_FRAME_STEP_MS)
                     while (nextVt - vt > 1f) {
                         val cand = easedFraction(startF, target, nextVt)
-                        val estD = abs((cand * clock.lastMeasuredH).toInt() - prevTargetRep)
+                        val estD = abs(closedLoopCommand((cand * clock.lastMeasuredH).toInt(), clock.absorbedPx))
                         if (estD > MAX_FRAME_DELTA_PX) nextVt -= (nextVt - vt) / 2f else break
                     }
                     vt = maxOf(nextVt, vt + 0.5f) // 至少微进,防死锁
-                    dispatchClosedLoop(listState, clock, departure, easedFraction(startF, target, vt), prevTargetRep, anchorY, revealTopY.floatValue)
-                    prevTargetRep = (clock.fraction * clock.lastMeasuredH).toInt()
+                    dispatchClosedLoop(listState, clock, departure, easedFraction(startF, target, vt), anchorY, revealTopY.floatValue)
                     if (BuildConfig.DEBUG) {
                         AppLogger.d(
                             "CardExpand",
@@ -387,7 +436,7 @@ internal fun CardExpandReveal(
                     }
                 }
                 // 收尾 flush:目标分数 + 反馈(正常已收敛,此处仅兜底)
-                dispatchClosedLoop(listState, clock, departure, target, prevTargetRep, anchorY, revealTopY.floatValue)
+                dispatchClosedLoop(listState, clock, departure, target, anchorY, revealTopY.floatValue)
                 completed = true
             } finally {
                 clock.tweening = false
@@ -407,7 +456,7 @@ internal fun CardExpandReveal(
                                     (clock.lastMeasuredH - clock.lastReportedH) + " H=" + clock.lastMeasuredH,
                             )
                         }
-                        dispatchClosedLoop(listState, clock, departure, clock.fraction, (clock.fraction * clock.lastMeasuredH).toInt(), anchorY, revealTopY.floatValue)
+                        dispatchClosedLoop(listState, clock, departure, clock.fraction, anchorY, revealTopY.floatValue)
                     }
                 } catch (_: CancellationException) {
                     // 取消(snap)路径:落位已由 snap 完成,无需补偿
@@ -452,6 +501,7 @@ internal fun CardExpandReveal(
                     }
                     clock.userScrollCancelled = true
                     clock.snap(if (visible) 1f else 0f)
+                    drawFraction.floatValue = if (visible) 1f else 0f
                 }
             }
     }
@@ -468,7 +518,23 @@ internal fun CardExpandReveal(
         // (实测 flow-b 收起终末 −217px 跳变)。fade 改由分数驱动(前/后 30%),
         // 与几何同起止,杜绝第二时钟。
         if (clock.fraction > 0f) {
-            Box(modifier = Modifier.graphicsLayer { alpha = (clock.fraction / 0.3f).coerceIn(0f, 1f) }) {
+            Box(
+                modifier = Modifier
+                    .graphicsLayer {
+                        alpha = (minOf(clock.fraction, drawFraction.floatValue) / 0.3f).coerceIn(0f, 1f)
+                    }
+                    .drawWithContent {
+                        // #425 B 阶段纯绘制揭示:clipRect 高度系数,只重绘不重排
+                        val w = drawFraction.floatValue
+                        if (w >= 1f) {
+                            this@drawWithContent.drawContent()
+                        } else {
+                            clipRect(right = size.width, bottom = size.height * w) {
+                                this@drawWithContent.drawContent()
+                            }
+                        }
+                    },
+            ) {
                 content()
             }
         }
@@ -503,16 +569,18 @@ private fun easedFraction(startF: Float, target: Float, vt: Float): Float {
 }
 
 /**
- * #425 渲染前反馈指令(纯函数可单测):本帧 dispatch 量 =
- * 缓动增量(targetRep − prevTargetRep) + 上帧实测偏差 topErr(死拍全量纠偏)。
+ * #425 渲染前指令(纯函数可单测):本帧 dispatch 量 = 目标 − 已吸收账本。
  *
- * 振荡教训(真机取证 cmd=±154 无限交替):(目标−已吸收)+偏差 是双计——
- * 吸收账本已含历次纠偏,纠偏又被下帧吸收项撤销 → 极限环。偏差是唯一
- * 积分器:未消费指令天然留在下帧偏差里重试,无需吸收项。
- * 钳制防锚点翻转瞬间的单帧暴冲(实测阶跃 ≤176px,300 上限含余量)。
+ * 两轮真机教训:
+ * 1) (目标−已吸收)+实测偏差 会振荡——实测信号(布局坐标)对滚动位移是瞎的
+ *    且滞后,逐帧纠偏反而成为扰动源(录屏条带追踪:±24-38px 来回震荡,
+ *    logcat topErr 逐帧抖动 2→8→25→45→57);
+ * 2) 纯增量开环(#420 原式)会丢残量——组合滞后期被拒的 δ 永久流失(净漂)。
+ * 本式:未消费残量经「目标−已吸收」在下帧自动重试(不丢失),且全程单向——
+ * 结构性无振荡。钳制防残量集中释放的单帧暴冲。
  */
-internal fun closedLoopCommand(targetRep: Int, prevTargetRep: Int, topErr: Float): Int =
-    (targetRep - prevTargetRep + topErr.toInt()).coerceIn(-MAX_CLOSED_LOOP_DELTA_PX, MAX_CLOSED_LOOP_DELTA_PX)
+internal fun closedLoopCommand(targetRep: Int, absorbed: Int): Int =
+    (targetRep - absorbed).coerceIn(-MAX_CLOSED_LOOP_DELTA_PX, MAX_CLOSED_LOOP_DELTA_PX)
 
 /**
  * #425 单帧配对(吸收驱动):指令含反馈项 → dispatchRawDelta → 账本只记
@@ -524,21 +592,20 @@ private fun dispatchClosedLoop(
     clock: CardExpandClock,
     departure: (() -> Unit)?,
     targetFraction: Float,
-    prevTargetRep: Int,
     anchorY: Float,
     currentTopY: Float,
+    unclamped: Boolean = false,
 ) {
     // 崩溃修复(真机收起末 IllegalState: LayoutNode should be attached):
     // fraction→0 会移除 content,必须先关 placeable 缓存窗口,否则同一帧
     // 布局仍会放置已离树的缓存 placeable。
     if (targetFraction <= 0.001f) clock.tweening = false
     clock.driveTo(targetFraction)
-    val topErr = anchorY - currentTopY
-    val d = closedLoopCommand(
+    val cmd = closedLoopCommand(
         targetRep = (targetFraction * clock.lastMeasuredH).toInt(),
-        prevTargetRep = prevTargetRep,
-        topErr = topErr,
-    ).toFloat()
+        absorbed = clock.absorbedPx,
+    )
+    val d = (if (unclamped) cmd else cmd.coerceIn(-MAX_CLOSED_LOOP_DELTA_PX, MAX_CLOSED_LOOP_DELTA_PX)).toFloat()
     if (d == 0f) return
     val consumed = runCatching { listState.dispatchRawDelta(d) }.getOrDefault(0f)
     clock.absorb(consumed)
@@ -547,7 +614,8 @@ private fun dispatchClosedLoop(
         AppLogger.d(
             "CardExpand",
             "[DEBUG-425] cmd d=" + d.toInt() + " consumed=" + consumed.toInt() +
-                " topErr=" + topErr.toInt() + " absorbed=" + clock.absorbedPx + " rep=" + clock.lastReportedH + " H=" + clock.lastMeasuredH,
+                " topY=" + currentTopY.toInt() + "/" + anchorY.toInt() +
+                " absorbed=" + clock.absorbedPx + " rep=" + clock.lastReportedH + " H=" + clock.lastMeasuredH,
         )
     }
     if (abs(d - consumed) > 0.5f) {
