@@ -20,6 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Measurable
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.MeasureResult
 import androidx.compose.ui.layout.MeasureScope
 import androidx.compose.ui.layout.Placeable
@@ -216,9 +218,13 @@ internal class CardExpandClock(initialFraction: Float) {
         if (fraction < WARMUP_FRACTION) fraction = WARMUP_FRACTION
     }
 
+    /** #424:本集内用户滚动取消(cancel-on-scroll 置位)——episode 末闭环位置恢复须跳过。 */
+    var userScrollCancelled = false
+
     fun beginEpisode() {
         episodeDisplacement = 0f
         departureFired = false
+        userScrollCancelled = false
     }
 
     fun recordDisplacement(d: Float) {
@@ -264,6 +270,10 @@ internal fun CardExpandReveal(
 
     val clock = remember { CardExpandClock(initialFraction = if (visible) 1f else 0f) }
 
+    // #424 闭环位置恢复:reveal 盒顶缘(=折叠行底缘)窗口坐标实测 Y。episode 末
+    // 以实测对账修正开环 δ 账本累积的视口漂移(边缘残量/锚点翻转会计误差)。
+    val revealTopY = remember { androidx.compose.runtime.mutableFloatStateOf(Float.NaN) }
+
     /**
      * visible 转换 → 手写帧循环驱动(冷组合初值即目标,不动画)。
      *
@@ -283,6 +293,10 @@ internal fun CardExpandReveal(
             clock.animating = true
             clock.beginEpisode()
             val episodeStart = System.nanoTime()
+            // #424:本集起点锚(展开/收起各自以自身起点为基准,不跨集记忆——
+            // 用户在展开态阅读期间滚动后,收起钉住的是当前所在位置,不回拽)。
+            val anchorY = revealTopY.floatValue
+            var completed = false
             try {
                 if (target > 0f) {
                     // #420 预热:content 入树开始首测(ε·H<1px 零视觉)。注意
@@ -314,6 +328,7 @@ internal fun CardExpandReveal(
                     dispatch(listState, clock, departure, easedFraction(startF, target, vt))
                 }
                 dispatch(listState, clock, departure, target) // 收尾 flush:残余 ≤ 钳制值
+                completed = true
             } finally {
                 clock.tweening = false
                 // #422 episode 末强制真测:epoch 写使节点 measure 失效,且
@@ -337,6 +352,21 @@ internal fun CardExpandReveal(
                 } catch (_: CancellationException) {
                     // 取消(snap)路径:落位已由 snap 完成,无需补偿
                 }
+                // #424 闭环位置恢复:正常完成(反向 toggle 重启/用户滚动取消不修)时,
+                // 实测 reveal 顶缘与本集起点的偏差并单次修正 dispatch 回起点。
+                if (completed) {
+                    val err = episodeEndCorrection(anchorY, revealTopY.floatValue, clock.userScrollCancelled)
+                    if (err != null && err != 0f) {
+                        val consumed = runCatching { listState.dispatchRawDelta(err) }.getOrDefault(0f)
+                        clock.recordDisplacement(consumed)
+                        if (BuildConfig.DEBUG) {
+                            AppLogger.d(
+                                "CardExpand",
+                                "[DEBUG-424] end-restore err=" + err.toInt() + " consumed=" + consumed.toInt(),
+                            )
+                        }
+                    }
+                }
                 if (BuildConfig.DEBUG) {
                     AppLogger.d(
                         "CardExpand",
@@ -357,6 +387,7 @@ internal fun CardExpandReveal(
                     if (BuildConfig.DEBUG) {
                         AppLogger.d("CardExpand", "[DEBUG-420] cancel-on-scroll snap f=" + "%.3f".format(clock.fraction))
                     }
+                    clock.userScrollCancelled = true
                     clock.snap(if (visible) 1f else 0f)
                 }
             }
@@ -366,6 +397,7 @@ internal fun CardExpandReveal(
         modifier = modifier
             .clipToBounds()
             .cardExpandGeometry(clock)
+            .onGloballyPositioned { revealTopY.floatValue = it.positionInRoot().y }
     ) {
         // #420 追诊:content 组合生命周期归几何时钟统一拥有(fraction>0 即组合)。
         // 原方案 AV fadeOut(300ms) 与几何 tween(240ms) 两时钟分离——掉帧时
@@ -378,6 +410,27 @@ internal fun CardExpandReveal(
             }
         }
     }
+}
+
+/**
+ * #424 闭环位置恢复判定(纯函数可单测):episode 末把 reveal 盒顶缘(=折叠行
+ * 底缘)拉回本集起点所需的位移 δ;不可恢复(用户滚动取消/坐标缺失)返回
+ * null,偏差 <1px 返回 0(免无意义 dispatch)。
+ *
+ * 背景:开环 δ 配对账本只记「指令」不记「实际消费」——列表边缘 residual、
+ * LazyList 锚点翻转的会计误差都会累积为视口净漂移(真机实测小组一个
+ * 展开+收起循环净漂 −366px:展开末 −98(边缘残量) + 收起过程 −268)。
+ * 闭环以实测位置对账,episode 末单次修正回起点。
+ */
+internal fun episodeEndCorrection(
+    anchorY: Float,
+    currentY: Float,
+    userScrollCancelled: Boolean,
+): Float? {
+    if (userScrollCancelled) return null
+    if (anchorY.isNaN() || currentY.isNaN()) return null
+    val err = anchorY - currentY
+    return if (abs(err) >= 1f) err else 0f
 }
 
 /** 虚拟时刻 vt(ms) 对应的缓动分数。 */
