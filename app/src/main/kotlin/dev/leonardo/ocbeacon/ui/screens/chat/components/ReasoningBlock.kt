@@ -51,6 +51,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.text.style.TextOverflow
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.components.CardStandardBorder
 import dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent
@@ -133,24 +134,26 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
         )
         alpha
     }
+    // 2026-09-20 摘要二轮(用户反馈:展示最后一句的尾部而非开头;流式莫名跳动):
+    // - 摘要=最后一行的**尾部**窗口(takeLast)——推理结论在末尾,流式跟随生成端;
+    // - 跳动根因=时长嵌在左侧标签内,每秒变宽把摘要/右侧整体推移 → 时长拆到
+    //   行尾**固定区**(SpaceBetween 右槽),标签用无参文案,左锚(图标+标签)
+    //   与右锚(时长)恒定,中间摘要窗口滑动属信息流预期。
     val headerLabel = when {
-        isStreaming -> stringResource(R.string.chat_thinking_in_progress, formatReasoningDuration(elapsedMs.longValue))
-        // #338：时长未知（durationMs 零/负且无本地冻结样本——DSH 整装事件
-        // start=end 同信封族）→ 无时长变体，不显示伪造 0ms（#263 round2 哲学收口）。
-        isComplete -> displayDurationMs
-            ?.let { stringResource(R.string.chat_thinking_complete, formatReasoningDuration(it)) }
-            ?: stringResource(R.string.chat_thinking_complete_unknown)
-        else -> stringResource(R.string.chat_status_thinking)
+        isStreaming -> stringResource(R.string.chat_status_thinking)
+        // #338 语义沿用:label 恒无时长(时长在行尾独立区),未知时不显示尾部
+        else -> stringResource(R.string.chat_thinking_complete_unknown)
     }
-    // 2026-09-20 单行形态(DSH 对齐):标题行拼内容摘要——流式=最新一行(实时
-    // 反映生成进度),完成态=首行(DSH「思考 · 摘要…」同构)。文本层截断由
-    // 标题 maxLines=1+ellipsis 承担;remember(text) 每 token 批更新重算,成本
-    // 为单次 lines() 切分。
-    val summaryLine = remember(text, isStreaming) {
+    val durationText = if (isStreaming) {
+        formatReasoningDuration(elapsedMs.longValue)
+    } else {
+        // #338：时长未知（displayDurationMs 零/负且无本地冻结样本——DSH 整装
+        // 事件 start=end 同信封族）不显示伪造 0ms。
+        displayDurationMs?.let { formatReasoningDuration(it) }
+    }
+    val summaryLine = remember(text) {
         if (text.isBlank()) null else {
-            val lines = text.lines().filter { it.isNotBlank() }
-            (if (isStreaming) lines.lastOrNull() else lines.firstOrNull())
-                ?.trim()?.take(60)
+            text.lines().lastOrNull { it.isNotBlank() }?.trim()?.takeLast(60)
         }
     }
     val headerText = if (summaryLine != null) headerLabel + " · " + summaryLine else headerLabel
@@ -210,6 +213,8 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                             style = MaterialTheme.typography.labelMedium,
                             color = textColor.copy(alpha = AlphaTokens.MUTED),
                             maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
                         )
                         // 2026-08-16（用户反馈）：流式占位进度圈并入标题行内——
                         // 原实现单独占一行使折叠态高度翻倍，超出其他卡片单行高度。
@@ -221,6 +226,16 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                                 color = accentColor.copy(alpha = AlphaTokens.MUTED)
                             )
                         }
+                    }
+                    // 2026-09-20 摘要二轮:时长=行尾固定区(SpaceBetween 右槽)——
+                    // 不随摘要/时长自身宽度变化推移左区,消除流式横向跳动
+                    if (durationText != null) {
+                        Text(
+                            text = durationText,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = textColor.copy(alpha = AlphaTokens.FAINT),
+                            maxLines = 1,
+                        )
                     }
                     // #215 批3：chevron IconButton 移除——本体点击=展开唯一入口
                 }
