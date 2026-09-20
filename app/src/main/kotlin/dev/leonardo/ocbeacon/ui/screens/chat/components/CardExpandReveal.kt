@@ -90,6 +90,15 @@ private const val MAX_FRAME_DELTA_PX = 100
 /** 虚拟时钟单帧最大时间步(ms)——防大时间窗整体放过。 */
 private const val MAX_FRAME_STEP_MS = 20f
 
+/**
+ * #425 反馈闭环单帧指令钳制(px):锚点翻转实测阶跃 ≤176px,上限 300
+ * 保证纠偏一帧到位又不暴冲;缓动分量另受 [MAX_FRAME_DELTA_PX] 钳制。
+ */
+private const val MAX_CLOSED_LOOP_DELTA_PX = 300
+
+/** #425 episode 墙钟硬顶(ms):缓动 240ms + 反馈排干余量;真死边(物理不可约)到此为止。 */
+private const val EPISODE_HARD_CAP_MS = 1800f
+
 /** 展开预热分数:ε·H<1px(trunc=0)零视觉,仅驱动 content 入树首测。 */
 private const val WARMUP_FRACTION = 0.001f
 
@@ -127,15 +136,18 @@ internal class CardExpandClock(initialFraction: Float) {
         private set
 
     /**
-     * 上一帧「已指令」高度(px)——advance 与 onMeasure 双写:
-     * advance 写入指令目标,onMeasure 写入实际揭示(舍入)。连续 advance
-     * 不经 measure 时账本连续(取消/回摆路径不双计)。
+     * 上一帧「已落地」高度(px)——#424 起双态账本:
+     * - episode 中(动画相):由 [absorb] 独占写入——只前进 dispatchRawDelta
+     *   实际消费的部分(吸收驱动;未消费残量留在下帧指令里自然重试,不再丢失);
+     * - 稳定态:跟随内容实测 (fraction×H)。
+     * 真机教训([DEBUG-425] 逐帧取证):指令账本会把组合滞后残量与 LazyList
+     * 锚点翻转误差全部漏成视口漂移(展开循环实测 −98 平台/收起 −60→−328 阶跃)。
      */
     var lastReportedH = 0
         private set
 
-    /** 账本是否已有起点(首测对齐后由 advance/snap 独占写入)。 */
-    private var ledgerInitialized = false
+    /** 吸收账本浮点原子(逐帧取整误差 telescoping ≤1px,不做独立量化器)。 */
+    private var absorbedF = 0f
 
     /** 动画进行中(冷启动 snap 与取消 snap 不 dispatch)。 */
     var animating = false
@@ -185,37 +197,51 @@ internal class CardExpandClock(initialFraction: Float) {
     }
 
     /**
-     * measure 相调用:记账并返回上报高度。
+     * measure 相调用:记账实测高度并返回上报高度 (fraction×realH)。
      *
-     * #420 追诊定案:**不写 [lastReportedH]**——指令账本只归 advance 所有。
-     * 原「洗账」(lastReportedH=report)会把 content 渐进组合(0→18→738)与
-     * 迟到增长的揭示增量默默吞掉 → 永久欠账(实测展开上推 8px,长文本
-     * 首测跨 100-300ms 时可达 f·738≈200-380px,概率性取决于文本复杂度
-     * 与帧相位)。去洗账后,H 跳变帧的 report−lastReported 欠账由下一帧
-     * advance 的 δ telescoping 自动补齐(欠账存活 ≤1 帧)。
+     * #425 教训(死锁):上报高度若做成「实际消费」的奴隶,列表端无增长
+     * 空间 → dispatchRawDelta 恒消费 0 → 揭示永不出现(真机 cmd d>0
+     * consumed=0 连续 218 帧)。上报必须乐观跟随 fraction(位移先行、
+     * 揭示配对的 #420 原契约);**指令基准**才用吸收账本 [absorbedPx]——
+     * 未消费残量经「目标−已吸收」在下帧指令里自动重试,不再丢失。
      */
     fun onMeasure(realH: Int): Int {
         lastMeasuredH = realH
         val report = (fraction * realH).toInt()
-        // 首测对齐:账本尚无指令历史(冷组合,含 R7 滑回直接展开态)时以实测
-        // 起账——否则后续首帧 δ 相对 0 暴冲(冷展开态收起 +H·f1)。
-        if (!ledgerInitialized) {
-            lastReportedH = report
-            ledgerInitialized = true
-        }
+        lastReportedH = report
         return report
     }
 
-    /** 取消/冷启动:snap 目标分数(不产生位移;账本同步指令值防后续 δ 暴冲)。 */
+    /** episode 开相:吸收账本以当前位移起账(展开 0 / 收起 H)。 */
+    fun primeLedger() {
+        absorbedF = (fraction * lastMeasuredH)
+    }
+
+    /** 动画相:账本只累计实际消费的位移(未消费部分由下帧指令重试)。 */
+    fun absorb(delta: Float) {
+        absorbedF += delta
+    }
+
+    /** 吸收账本整型视图(指令基准/日志/单测)。 */
+    val absorbedPx: Int
+        get() = absorbedF.toInt()
+
+    /** 取消/冷启动:snap 目标分数(不产生位移;账本同步防后续 δ 暴冲)。 */
     fun snap(target: Float) {
         fraction = target
         lastReportedH = (target * lastMeasuredH).toInt()
+        absorbedF = lastReportedH.toFloat()
         animating = false
     }
 
     /** 展开预热:ε·H<1px 零视觉,仅驱动 content 入树开始首测。 */
     fun warmup() {
         if (fraction < WARMUP_FRACTION) fraction = WARMUP_FRACTION
+    }
+
+    /** #425:动画相推进分数(与位移指令同帧写入——单帧配对的一部分)。 */
+    fun driveTo(newFraction: Float) {
+        fraction = newFraction
     }
 
     /** #424:本集内用户滚动取消(cancel-on-scroll 置位)——episode 末闭环位置恢复须跳过。 */
@@ -274,6 +300,11 @@ internal fun CardExpandReveal(
     // 以实测对账修正开环 δ 账本累积的视口漂移(边缘残量/锚点翻转会计误差)。
     val revealTopY = remember { androidx.compose.runtime.mutableFloatStateOf(Float.NaN) }
 
+    // #425 连点竞态:反向 toggle 取消上一集时携带其锚点——否则新集以「漂后
+    // 位置」起锚,逐集链式泄漏(真机 24 连点净漂 −73px)。正常完成/用户滚动
+    // 取消则清空(下次以当下位置重新起锚)。
+    val carriedAnchor = remember { androidx.compose.runtime.mutableStateOf<Float?>(null) }
+
     /**
      * visible 转换 → 手写帧循环驱动(冷组合初值即目标,不动画)。
      *
@@ -293,9 +324,8 @@ internal fun CardExpandReveal(
             clock.animating = true
             clock.beginEpisode()
             val episodeStart = System.nanoTime()
-            // #424:本集起点锚(展开/收起各自以自身起点为基准,不跨集记忆——
-            // 用户在展开态阅读期间滚动后,收起钉住的是当前所在位置,不回拽)。
-            val anchorY = revealTopY.floatValue
+            // #425:本集起点锚 = 携带锚(重定向链)或当下实测位置。
+            val anchorY = carriedAnchor.value ?: revealTopY.floatValue
             var completed = false
             try {
                 if (target > 0f) {
@@ -309,25 +339,55 @@ internal fun CardExpandReveal(
                     settleUntilContentStable(clock)
                 }
                 val startF = clock.fraction
+                clock.primeLedger()
                 // #422 缓存窗口开启:tween 期间节点复用 settle 末的 placeable,
-                // 逐帧只重算 report(f·H),子树零重测(表格重测风暴根治点)。
+                // 逐帧只重算 report,子树零重测(表格重测风暴根治点)。
                 clock.tweening = true
                 val t0 = withFrameNanos { it }
                 var vt = 0f // 虚拟时钟(ms):墙钟追赶 + 单帧位移钳制
-                while (vt < GEOMETRY_TWEEN_MS) {
+                // #425 渲染前反馈闭环:每帧指令 = 缓动增量 + 上帧实测偏差(死拍),
+                // 账本只记实际吸收——组合滞后残量与锚点翻转误差不再漏成漂移
+                // (逐帧取证:旧开环展开 −98 平台/收起 −60→−328 阶跃,收起中段
+                // anchor 稳定时 dev=0 证明配对数学本身正确,断点全在损耗侧)。
+                // 收敛:缓动走完且指令≈0(残量排干);墙钟硬顶防真死边。
+                var prevTargetRep = (startF * clock.lastMeasuredH).toInt()
+                while (true) {
                     val now = withFrameNanos { it }
                     val wall = ((now - t0) / 1_000_000f).coerceAtLeast(0f)
-                    // 从 vt+1ms 起试探满足位移钳制的最大虚拟步(二分回退)
+                    val easedNow = easedFraction(startF, target, minOf(vt, GEOMETRY_TWEEN_MS.toFloat()))
+                    val pending = closedLoopCommand(
+                        targetRep = (easedNow * clock.lastMeasuredH).toInt(),
+                        prevTargetRep = prevTargetRep,
+                        topErr = anchorY - revealTopY.floatValue,
+                    )
+                    if ((vt >= GEOMETRY_TWEEN_MS && abs(pending) < 1) || wall > EPISODE_HARD_CAP_MS) break
+                    // 从 vt+1ms 起试探满足位移钳制的最大虚拟步(二分回退,基准=缓动差分)
                     var nextVt = minOf(wall, vt + MAX_FRAME_STEP_MS)
                     while (nextVt - vt > 1f) {
                         val cand = easedFraction(startF, target, nextVt)
-                        val estD = abs((cand * clock.lastMeasuredH).toInt() - clock.lastReportedH)
+                        val estD = abs((cand * clock.lastMeasuredH).toInt() - prevTargetRep)
                         if (estD > MAX_FRAME_DELTA_PX) nextVt -= (nextVt - vt) / 2f else break
                     }
                     vt = maxOf(nextVt, vt + 0.5f) // 至少微进,防死锁
-                    dispatch(listState, clock, departure, easedFraction(startF, target, vt))
+                    dispatchClosedLoop(listState, clock, departure, easedFraction(startF, target, vt), prevTargetRep, anchorY, revealTopY.floatValue)
+                    prevTargetRep = (clock.fraction * clock.lastMeasuredH).toInt()
+                    if (BuildConfig.DEBUG) {
+                        AppLogger.d(
+                            "CardExpand",
+                            "[DEBUG-425] frame vt=" + vt.toInt() +
+                                " f=" + "%.3f".format(clock.fraction) +
+                                " rep=" + clock.lastReportedH +
+                                " abs=" + clock.absorbedPx +
+                                " H=" + clock.lastMeasuredH +
+                                " topY=" + revealTopY.floatValue.toInt() +
+                                " anchor=" + anchorY.toInt() +
+                                " fii=" + listState.firstVisibleItemIndex +
+                                " fiso=" + listState.firstVisibleItemScrollOffset,
+                        )
+                    }
                 }
-                dispatch(listState, clock, departure, target) // 收尾 flush:残余 ≤ 钳制值
+                // 收尾 flush:目标分数 + 反馈(正常已收敛,此处仅兜底)
+                dispatchClosedLoop(listState, clock, departure, target, prevTargetRep, anchorY, revealTopY.floatValue)
                 completed = true
             } finally {
                 clock.tweening = false
@@ -347,7 +407,7 @@ internal fun CardExpandReveal(
                                     (clock.lastMeasuredH - clock.lastReportedH) + " H=" + clock.lastMeasuredH,
                             )
                         }
-                        dispatch(listState, clock, departure, clock.fraction)
+                        dispatchClosedLoop(listState, clock, departure, clock.fraction, (clock.fraction * clock.lastMeasuredH).toInt(), anchorY, revealTopY.floatValue)
                     }
                 } catch (_: CancellationException) {
                     // 取消(snap)路径:落位已由 snap 完成,无需补偿
@@ -374,6 +434,9 @@ internal fun CardExpandReveal(
                             " totalMs=" + ((System.nanoTime() - episodeStart) / 1_000_000f).toInt(),
                     )
                 }
+                // #425 锚点携带:重定向取消(未正常完成且非用户滚动)→ 携带原锚,
+                // 新集首帧反馈即归位;否则清空。
+                carriedAnchor.value = if (completed || clock.userScrollCancelled) null else anchorY
                 clock.animating = false
             }
         }
@@ -440,38 +503,59 @@ private fun easedFraction(startF: Float, target: Float, vt: Float): Float {
 }
 
 /**
- * 单帧位移配对:advance(整型账本 δ) → dispatchRawDelta → 写 fraction(本帧
- * measure 据此上报揭示高度)。residual(贴底负向不可消费)留痕;累计位移越
- * [DEPARTURE_THRESHOLD_PX] 触发离开跟随回调。
+ * #425 渲染前反馈指令(纯函数可单测):本帧 dispatch 量 =
+ * 缓动增量(targetRep − prevTargetRep) + 上帧实测偏差 topErr(死拍全量纠偏)。
+ *
+ * 振荡教训(真机取证 cmd=±154 无限交替):(目标−已吸收)+偏差 是双计——
+ * 吸收账本已含历次纠偏,纠偏又被下帧吸收项撤销 → 极限环。偏差是唯一
+ * 积分器:未消费指令天然留在下帧偏差里重试,无需吸收项。
+ * 钳制防锚点翻转瞬间的单帧暴冲(实测阶跃 ≤176px,300 上限含余量)。
  */
-private fun dispatch(
+internal fun closedLoopCommand(targetRep: Int, prevTargetRep: Int, topErr: Float): Int =
+    (targetRep - prevTargetRep + topErr.toInt()).coerceIn(-MAX_CLOSED_LOOP_DELTA_PX, MAX_CLOSED_LOOP_DELTA_PX)
+
+/**
+ * #425 单帧配对(吸收驱动):指令含反馈项 → dispatchRawDelta → 账本只记
+ * consumed → 揭示高度=账本。上帧误差在本帧渲染前算进指令——折叠行按
+ * 构造钉住;未消费部分留在「目标−账本」差值里,下帧自动重试(不丢失)。
+ */
+private fun dispatchClosedLoop(
     listState: LazyListState,
     clock: CardExpandClock,
     departure: (() -> Unit)?,
-    newFraction: Float,
+    targetFraction: Float,
+    prevTargetRep: Int,
+    anchorY: Float,
+    currentTopY: Float,
 ) {
-    val d = clock.advance(newFraction)
-    if (d != 0f) {
-        val consumed = runCatching { listState.dispatchRawDelta(d) }.getOrDefault(0f)
-        clock.recordDisplacement(consumed)
-        if (BuildConfig.DEBUG) {
-            AppLogger.d(
-                "CardExpand",
-                "[DEBUG-420] dispatch d=" + d.toInt() + " consumed=" + consumed.toInt() +
-                    " f=" + "%.3f".format(newFraction) + " H=" + clock.lastMeasuredH,
-            )
-        }
-        if (abs(d - consumed) > 0.5f) {
-            AppLogger.w(
-                "CardExpand",
-                "[DEBUG-420] residual=" + (d - consumed).toInt() +
-                    " (list edge; above-content absorbs)",
-            )
-        }
-        if (!clock.departureFired && abs(clock.episodeDisplacement) > DEPARTURE_THRESHOLD_PX) {
-            clock.departureFired = true
-            departure?.invoke()
-        }
+    // 崩溃修复(真机收起末 IllegalState: LayoutNode should be attached):
+    // fraction→0 会移除 content,必须先关 placeable 缓存窗口,否则同一帧
+    // 布局仍会放置已离树的缓存 placeable。
+    if (targetFraction <= 0.001f) clock.tweening = false
+    clock.driveTo(targetFraction)
+    val topErr = anchorY - currentTopY
+    val d = closedLoopCommand(
+        targetRep = (targetFraction * clock.lastMeasuredH).toInt(),
+        prevTargetRep = prevTargetRep,
+        topErr = topErr,
+    ).toFloat()
+    if (d == 0f) return
+    val consumed = runCatching { listState.dispatchRawDelta(d) }.getOrDefault(0f)
+    clock.absorb(consumed)
+    clock.recordDisplacement(consumed)
+    if (BuildConfig.DEBUG) {
+        AppLogger.d(
+            "CardExpand",
+            "[DEBUG-425] cmd d=" + d.toInt() + " consumed=" + consumed.toInt() +
+                " topErr=" + topErr.toInt() + " absorbed=" + clock.absorbedPx + " rep=" + clock.lastReportedH + " H=" + clock.lastMeasuredH,
+        )
+    }
+    if (abs(d - consumed) > 0.5f) {
+        AppLogger.w("CardExpand", "[DEBUG-425] residual=" + (d - consumed).toInt() + " (retry next frame)")
+    }
+    if (!clock.departureFired && abs(clock.episodeDisplacement) > DEPARTURE_THRESHOLD_PX) {
+        clock.departureFired = true
+        departure?.invoke()
     }
 }
 
@@ -564,7 +648,9 @@ private class CardExpandGeometryNode(
         }
 
         val width = constraints.maxWidth
-        val cacheable = clock.tweening && constraints.hasBoundedWidth &&
+        // 崩溃守卫:fraction<=0 时 content 已/将离树——缓存 placeable 指向
+        // 已分离 LayoutNode,放置即崩;一律真测。
+        val cacheable = clock.tweening && clock.fraction > 0f && constraints.hasBoundedWidth &&
             cachedWidth == width && cachedMeasurable === measurable
         val cached = cachedPlaceable
         val placeable = if (cacheable && cached != null) {

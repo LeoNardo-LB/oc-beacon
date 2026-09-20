@@ -58,48 +58,52 @@ class CardExpandClockTest {
         assertEquals(-1000f, dispatched, 0.5f)
     }
 
+    /**
+     * #425 语义重写:飞行中 H 增长(1000→1200)由「目标重算」自然覆盖——
+     * 指令 targetRep−账本 含增长欠量,不再依赖跨帧洗账。
+     */
     @Test
     fun totalDerivativeCoversMidFlightGrowth() {
         val c = clock(expanded = false)
         c.onMeasure(1000)
-        assertEquals(500f, c.advance(0.5f), 0.5f)
-        assertEquals(500, c.onMeasure(1000))
-        // 本帧 advance 用旧 H(1000)——增长 1000→1200 尚未被 measure 发现
-        assertEquals(0.6f * 1000 - 500, c.advance(0.6f), 0.5f)
-        // onMeasure 不洗账(指令账本归 advance 独有):报告 720,账本仍 600,欠账 120
-        assertEquals((0.6f * 1200).toInt(), c.onMeasure(1200))
-        // 下一帧 advance 的 δ telescoping 自动补齐欠账(240 = 增量 120 + 欠账 120)
-        assertEquals((0.7f * 1200).toInt() - 600f, c.advance(0.7f), 0.5f)
+        c.animating = true
+        c.primeLedger()
+        c.absorb(500f) // 已展开到 500
+        // H 增长为 1200 后,目标 0.6 的指令 = 720−500 = 220(增量 120 + 欠账 120 同帧)
+        assertEquals(220, closedLoopCommand(targetRep = 720, prevTargetRep = 500, topErr = 0f))
+        c.absorb(220f)
+        assertEquals(720, c.absorbedPx)
     }
 
     /**
-     * #420 追诊回归:content 渐进组合竞态(0→18→738 两步首测)的欠账必须在
-     * H 就绪后的下一帧全额补 dispatch——否则永久上推 f_done·H px
-     * (实测短文本 8px,长文本首测跨 100-300ms 时 200-380px,概率性)。
+     * #425 语义重写:渐进组合竞态(0→18→738 两步首测)在吸收账本下按构造
+     * 免疫——settle 期间 onMeasure 只更新 H(上报账本),tween 指令以就绪
+     * 后的 H 一次性计算,首测跨帧不再产生「永久上推」欠账。
      */
     @Test
     fun progressiveCompositionDebtCompensatedNextFrame() {
         val c = clock(expanded = false)
-        // 帧1:content 未组合(H=0)——advance δ=0 静默
-        assertEquals(0f, c.advance(0.05f), 0.5f)
-        // 帧1 measure:渐进组合第一步只测到 18px,report≈1(0.05·18)
-        c.onMeasure(18)
-        // 帧2 advance 仍用旧 H(18):δ=trunc(0.1·18)−0=1
-        assertEquals(1f, c.advance(0.1f), 0.5f)
-        // 帧2 measure:首测完成 H=738,report=73,账本仍 1 → 欠账 72(未洗账)
-        assertEquals(73, c.onMeasure(738))
-        // 帧3 advance:δ=trunc(0.2·738)−1=146(增量 73 + 欠账 72 全额补齐)
-        assertEquals(146f, c.advance(0.2f), 0.5f)
-        // 守恒:此后揭示到 738 时,Σdispatch == 738(欠账不流失)
-        var dispatched = 146f + 1f
+        c.animating = true
+        c.primeLedger()
+        // settle 期渐进首测:H 18 → 738,账本不动(上报恒 0,零视觉)
+        assertEquals(0, c.onMeasure(18))
+        assertEquals(0, c.onMeasure(738))
+        assertEquals(738, c.lastMeasuredH)
+        // tween 首帧:目标 0.2 → 指令 147(全部增量一次算清,无历史欠账)
+        assertEquals(147, closedLoopCommand(targetRep = 147, prevTargetRep = 0, topErr = 0f))
         var f = 0.2f
+        var prev = 147
+        c.absorb(147f)
         while (f < 1f) {
             f += 0.1f
-            dispatched += c.advance(f)
-            c.onMeasure(738)
+            val target = (f * 738).toInt()
+            val cmd = closedLoopCommand(targetRep = target, prevTargetRep = prev, topErr = 0f)
+            c.absorb(cmd.toFloat()) // 假设全消费
+            prev = target
         }
-        dispatched += c.advance(1f)
-        assertEquals(738f, dispatched, 0.5f)
+        c.absorb((738 - c.absorbedPx).toFloat())
+        // 守恒:Σabsorb == 最终账本 == H(欠账不流失)
+        assertEquals(738, c.absorbedPx)
     }
 
     @Test
@@ -167,30 +171,34 @@ class CardExpandClockTest {
     }
 
     /**
-     * #422 迟到增量守恒:settle 末 H1 → tween 至 1 → episode 末强制复测发现
-     * H2(内容迟到增长)→ 追加一次 advance(f) 的 δ 补偿。不变量:
-     * Σδ(tween) + δ(catch-up) == H2(最终上报),无净漂移。
+     * #425 语义重写:迟到增量守恒——tween 末账本 800,episode 末复测发现
+     * H2=1000;catch-up 指令(目标−账本+反馈)吸收 200,随后稳定态上报 H2。
+     * 不变量:Σabsorb == H2,无净漂移。
      */
     @Test
     fun lateGrowthCatchUpConservation() {
         val c = clock(expanded = false)
         c.onMeasure(800) // settle 末:H1=800
-        var dispatched = 0f
+        c.animating = true
+        c.primeLedger()
+        var prev = 0
         for (step in 1..10) {
-            val f = step / 10f
-            dispatched += c.advance(f)
-            c.onMeasure(800) // tween 期间缓存:H 不变
+            val cmd = closedLoopCommand(targetRep = step * 80, prevTargetRep = prev, topErr = 0f)
+            c.absorb(cmd.toFloat())
+            prev = step * 80
         }
-        assertEquals(800, c.lastReportedH)
-        // episode 末强制复测:内容迟到增长 800 → 1000
-        val reportedAfterGrowth = c.onMeasure(1000)
-        assertEquals(1000, reportedAfterGrowth)
-        // catch-up:advance(1f) 以新 H 计算目标 → δ = 200
-        val catchUp = c.advance(c.fraction)
-        dispatched += catchUp
-        assertEquals(200f, catchUp)
-        assertEquals(1000f, dispatched, 0.5f)
-        assertEquals(1000, (c.fraction * c.lastMeasuredH).toInt())
+        assertEquals(800, c.absorbedPx)
+        // episode 末强制复测:内容迟到增长 800 → 1000(上报乐观=f·H)
+        c.driveTo(1f)
+        assertEquals(1000, c.onMeasure(1000))
+        assertEquals(1000, c.lastMeasuredH)
+        // catch-up:指令以新 H 计算,吸收差值 = 200
+        val catchUp = closedLoopCommand(targetRep = 1000, prevTargetRep = 800, topErr = 0f)
+        assertEquals(200, catchUp)
+        c.absorb(catchUp.toFloat())
+        c.animating = false
+        c.driveTo(1f)
+        assertEquals(1000, c.onMeasure(1000))
     }
 
     /**
@@ -243,5 +251,113 @@ class CardExpandClockTest {
     fun endCorrectionSkippedWhenCoordinatesMissing() {
         assertNull(episodeEndCorrection(Float.NaN, 500f, userScrollCancelled = false))
         assertNull(episodeEndCorrection(934f, Float.NaN, userScrollCancelled = false))
+    }
+
+    /**
+     * #424 连点竞态:反向 toggle 中途重定向(tween 未完即回摆再展开)——
+     * 账本 telescoping 不变量 Σδ == 终report − 初report 必须成立,
+     * 否则连点后视口累积漂移。
+     */
+    @Test
+    fun reverseToggleLedgerTelescoping() {
+        val c = clock(expanded = false)
+        c.onMeasure(1000)
+        var dispatched = 0f
+        dispatched += c.advance(0.5f)   // 展开一半
+        c.onMeasure(1000)
+        dispatched += c.advance(0.2f)   // 中途回摆(连点反向)
+        c.onMeasure(1000)
+        dispatched += c.advance(0.8f)   // 再次展开
+        c.onMeasure(1000)
+        dispatched += c.advance(0.0f)   // 又收起
+        c.onMeasure(1000)
+        dispatched += c.advance(1.0f)   // 终态展开
+        c.onMeasure(1000)
+        assertEquals(1000f, dispatched, 0.5f)
+        assertEquals(1000, (c.fraction * c.lastMeasuredH).toInt())
+    }
+
+    /** #424 连点竞态:滚动取消标志按 episode 重置,不跨集泄漏。 */
+    @Test
+    fun userScrollCancelFlagResetsPerEpisode() {
+        val c = clock(expanded = false)
+        c.beginEpisode()
+        c.userScrollCancelled = true
+        c.beginEpisode()
+        assertEquals(false, c.userScrollCancelled)
+    }
+
+    // ===== #425 渲染前反馈闭环 =====
+
+    /** 指令 = 缓动增量 + 上帧偏差(死拍全量纠偏,无吸收项=无双计振荡)。 */
+    @Test
+    fun closedLoopCommandAddsFeedback() {
+        // 目标 500、上帧目标 400、上帧偏上 60 → 指令 100+60=160
+        assertEquals(160, closedLoopCommand(targetRep = 500, prevTargetRep = 400, topErr = 60f))
+        // 偏下(负反馈)同理
+        assertEquals(40, closedLoopCommand(targetRep = 500, prevTargetRep = 400, topErr = -60f))
+    }
+
+    /** 单帧指令钳制(锚点翻转阶跃防暴冲)。 */
+    @Test
+    fun closedLoopCommandClamped() {
+        assertEquals(300, closedLoopCommand(targetRep = 1000, prevTargetRep = 0, topErr = 0f))
+        assertEquals(-300, closedLoopCommand(targetRep = 0, prevTargetRep = 1000, topErr = 0f))
+    }
+
+    /**
+     * 振荡回归(#425 真机 cmd=±154 极限环):(目标−已吸收)+偏差 双计——
+     * 纠偏被下帧吸收项撤销。增量+偏差形式在纠偏落地后指令回到纯增量。
+     */
+    @Test
+    fun closedLoopCommandNoDoubleCountOscillation() {
+        // 上帧纠偏 +160 已落地(偏差清零) → 本帧指令只剩新增量 20
+        assertEquals(20, closedLoopCommand(targetRep = 520, prevTargetRep = 500, topErr = 0f))
+    }
+
+    /**
+     * 吸收账本(观测用):部分消费不丢失——未消费残量经下帧 topErr 重试;
+     * 账本累计 == Σconsumed。
+     */
+    @Test
+    fun absorbLedgerTracksConsumedOnly() {
+        val c = clock(expanded = false)
+        c.onMeasure(1000)
+        c.animating = true
+        c.primeLedger()
+        c.absorb(40f)
+        assertEquals(40, c.absorbedPx)
+        c.absorb(210f)
+        assertEquals(250, c.absorbedPx)
+        c.absorb(-100f)
+        assertEquals(150, c.absorbedPx)
+    }
+
+    /**
+     * 残量重试路径:帧1指令 100 只消费 40 → 帧2 偏差携带 60,
+     * 指令 = 新增量 150 + 偏差 60 = 210(残量不丢失)。
+     */
+    @Test
+    fun unconsumedCommandRetriedViaTopErr() {
+        // 帧1:增量 100,全偏差 0
+        assertEquals(100, closedLoopCommand(targetRep = 100, prevTargetRep = 0, topErr = 0f))
+        // 帧2:缓动新增量 150(250−100),上帧 60 未消费 → 偏差 +60
+        assertEquals(210, closedLoopCommand(targetRep = 250, prevTargetRep = 100, topErr = 60f))
+    }
+
+    /**
+     * #425 死锁回归:上报恒为 f·H(乐观),与吸收账本解耦——上报若跟随
+     * 消费,列表无增长空间,dispatch 恒消费 0(真机 218 帧 consumed=0)。
+     */
+    @Test
+    fun onMeasureAlwaysReportsFractionHeight() {
+        val c = clock(expanded = false)
+        c.animating = true
+        c.primeLedger()
+        c.absorb(123f) // 吸收落后
+        c.driveTo(0.5f)
+        // 上报仍是 f·H = 500(乐观,列表空间由此生长)
+        assertEquals(500, c.onMeasure(1000))
+        assertEquals(123, c.absorbedPx)
     }
 }
