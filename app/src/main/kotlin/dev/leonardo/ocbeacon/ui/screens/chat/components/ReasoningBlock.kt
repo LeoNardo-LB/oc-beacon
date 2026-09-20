@@ -174,13 +174,10 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        // 2026-09-20 方案 A(间距统一第二步):折叠态单行胶囊瘦身——
-                        // 标题行占位 47px(15.7dp)→36px(12dp),卡背景 59→48px,
-                        // 对齐 ChatGPT「Thought for Xs」单行标签模式(卡不享受
-                        // 间距加成,存在感来自色块而非高度);裸 clickable 无
-                        // minimumInteractiveSize 强制,36px 触达可接受(标题行
-                        // 全宽,横向触达面积充足)。
-                        .height(12.dp)
+                        // 2026-09-20 方案A回退(用户裁决:还是正常卡片就行)——
+                        // 强制 height(12dp) 单行胶囊只瘦了思考卡,工具卡未同步,
+                        // 卡族折叠态高度失配=「不协调」来源,且违背 2026-08-16
+                        // 「折叠行高与工具卡一致」裁决。恢复自然行高。
                         .clickable { performHaptic(hapticView, hapticOn); onToggleExpand() },
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
