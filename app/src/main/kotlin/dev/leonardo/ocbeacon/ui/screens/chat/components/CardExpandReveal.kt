@@ -17,12 +17,18 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.layout
+import androidx.compose.ui.node.LayoutModifierNode
+import androidx.compose.ui.layout.Measurable
+import androidx.compose.ui.layout.MeasureResult
+import androidx.compose.ui.layout.MeasureScope
+import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.unit.Constraints
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.logging.AppLogger
+import kotlinx.coroutines.CancellationException
 import kotlin.math.abs
 
 /**
@@ -86,6 +92,19 @@ private const val MAX_FRAME_STEP_MS = 20f
 private const val WARMUP_FRACTION = 0.001f
 
 /**
+ * #422:settle 判稳帧数——连续 N 帧节点 measure 计数不增即认为内容驱动
+ * 的重测已静止。表格 containerWidth(onSizeChanged 回写)两拍收敛、async
+ * markdown 解析完成等均属此类;2 帧 @120Hz ≈ 17ms,静默内容零感知。
+ */
+private const val SETTLE_STABLE_FRAMES = 2
+
+/**
+ * #422:settle 墙钟上限(ms)。防内容持续抖动导致展开无限等待;超时即带
+ * 当前 H 进入 tween,迟到增量由 episode 末强制复测 + 残差补偿兜底。
+ */
+private const val MAX_SETTLE_MS = 600f
+
+/**
  * 纯时钟状态(可单测):fraction 驱动 + 上报高度记账 + δ 计算。
  *
  * 帧内契约:动画相 [advance] → dispatchRawDelta(δ);measure 相 [onMeasure]
@@ -114,6 +133,28 @@ internal class CardExpandClock(initialFraction: Float) {
 
     /** 动画进行中(冷启动 snap 与取消 snap 不 dispatch)。 */
     var animating = false
+
+    /**
+     * #422:几何 tween 进行中——placeable 缓存的唯一生效窗口。
+     * settle/稳定态恒 false(真测,内容失效得以传播);窗口外的任何 measure
+     * 都不得复用缓存 placeable(过期 H = 展开只有一小截 + 结束跳变)。
+     */
+    var tweening = false
+
+    /**
+     * #422:节点 measure 计数(plain,非快照——settle 检测在帧回调里轮询,
+     * 不需要失效语义)。settle 阶段以「连续 N 帧计数不增」判定内容驱动
+     * 的重测已静止(表格 containerWidth 两拍收敛、asyncParse 完成等)。
+     */
+    var measureCount = 0
+        private set
+
+    /**
+     * #422:episode 末强制复测信号(快照写)。节点 measure 读它建立订阅,
+     * 写入即失效——保证缓存窗口关闭后至少一次真测,迟到内容增量落地。
+     */
+    var remeasureEpoch by androidx.compose.runtime.mutableIntStateOf(0)
+        private set
 
     /** 本集累计已位移(px,带符号)。 */
     var episodeDisplacement = 0f
@@ -179,6 +220,16 @@ internal class CardExpandClock(initialFraction: Float) {
     fun recordDisplacement(d: Float) {
         episodeDisplacement += d
     }
+
+    /** #422:节点 measure 相调用(settle 计数)。 */
+    fun recordMeasure() {
+        measureCount++
+    }
+
+    /** #422:episode 末调用——强制下一次 measure 走真测路径。 */
+    fun requestRemeasure() {
+        remeasureEpoch++
+    }
 }
 
 /**
@@ -227,13 +278,22 @@ internal fun CardExpandReveal(
         if (abs(clock.fraction - target) > 0.001f) {
             clock.animating = true
             clock.beginEpisode()
+            val episodeStart = System.nanoTime()
             try {
-                if (target > 0f && clock.lastMeasuredH == 0) {
-                    // #420 预热:content 入树开始首测(ε·H<1px 零视觉);长文本
-                    // 首测跨帧部分由账本欠账机制兜底(下帧 δ 补齐)
+                if (target > 0f) {
+                    // #420 预热:content 入树开始首测(ε·H<1px 零视觉)。注意
+                    // lastMeasuredH==0 判定已移除:collapse 末 content 离树后的
+                    // 重入(reverse toggle/回收复用)同样需要 settle。
                     clock.warmup()
+                    // #422 内容沉降:表格 containerWidth 两拍收敛、asyncParse
+                    // 完成等「首测后仍有内容驱动重测」在此吸收完,再开缓存
+                    // 窗口——否则 tween 全程锁死在过期 H 上。
+                    settleUntilContentStable(clock)
                 }
                 val startF = clock.fraction
+                // #422 缓存窗口开启:tween 期间节点复用 settle 末的 placeable,
+                // 逐帧只重算 report(f·H),子树零重测(表格重测风暴根治点)。
+                clock.tweening = true
                 val t0 = withFrameNanos { it }
                 var vt = 0f // 虚拟时钟(ms):墙钟追赶 + 单帧位移钳制
                 while (vt < GEOMETRY_TWEEN_MS) {
@@ -251,6 +311,35 @@ internal fun CardExpandReveal(
                 }
                 dispatch(listState, clock, departure, target) // 收尾 flush:残余 ≤ 钳制值
             } finally {
+                clock.tweening = false
+                // #422 episode 末强制真测:epoch 写使节点 measure 失效,且
+                // tweening=false → 缓存旁路——迟到内容增量在此落地为新 H。
+                clock.requestRemeasure()
+                try {
+                    withFrameNanos { }
+                    withFrameNanos { } // 复测于上一帧 layout 已跑,此处读数可靠
+                    // 迟到增量补偿:残差走与 tween 帧同一 δ 配对(账本 telescoping),
+                    // 上报(report=f·H_new)与位移同帧——不引入 #262 类错位。
+                    if (clock.fraction > 0f && clock.lastMeasuredH != clock.lastReportedH) {
+                        if (BuildConfig.DEBUG) {
+                            AppLogger.d(
+                                "CardExpand",
+                                "[DEBUG-422] late-growth catch-up d=" +
+                                    (clock.lastMeasuredH - clock.lastReportedH) + " H=" + clock.lastMeasuredH,
+                            )
+                        }
+                        dispatch(listState, clock, departure, clock.fraction)
+                    }
+                } catch (_: CancellationException) {
+                    // 取消(snap)路径:落位已由 snap 完成,无需补偿
+                }
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(
+                        "CardExpand",
+                        "[DEBUG-422] episode done f=" + "%.3f".format(clock.fraction) +
+                            " totalMs=" + ((System.nanoTime() - episodeStart) / 1_000_000f).toInt(),
+                    )
+                }
                 clock.animating = false
             }
         }
@@ -329,11 +418,132 @@ private fun dispatch(
     }
 }
 
-/** 几何上报:无界测量 → 上报 f·H(未揭示部分被外层 clip 裁掉,永不放置)。 */
-private fun Modifier.cardExpandGeometry(clock: CardExpandClock): Modifier = layout { measurable, constraints ->
-    val placeable = measurable.measure(constraints.copy(maxHeight = Constraints.Infinity))
-    val report = clock.onMeasure(placeable.height)
-    layout(placeable.width, report) {
-        placeable.placeRelative(0, 0)
+/**
+ * #422 内容沉降:展开 tween 前等待「内容驱动的重测」静止。
+ *
+ * 为什么必须:placeable 缓存只在 tween 窗口生效,而首测往往不是终测——
+ * 表格 containerWidth 经 onSizeChanged 回写后第二拍才收敛、async markdown
+ * 解析完成后内容突增。若带过期 H 进入缓存窗口,tween 全程锁死在旧高度
+ * (展开只有一小截),残差全部堆到 episode 末一次性跳变(原叠压 bug 的
+ * 同族根因)。判定:连续 [SETTLE_STABLE_FRAMES] 帧 [CardExpandClock.measureCount]
+ * 不增;上限 [MAX_SETTLE_MS] 防无限等。
+ */
+private suspend fun settleUntilContentStable(clock: CardExpandClock) {
+    val t0 = withFrameNanos { it }
+    var lastCount = clock.measureCount
+    var stableFrames = 0
+    while (stableFrames < SETTLE_STABLE_FRAMES) {
+        val now = withFrameNanos { it }
+        if ((now - t0) / 1_000_000f >= MAX_SETTLE_MS) break
+        val c = clock.measureCount
+        if (c > 0 && c == lastCount) {
+            stableFrames++
+        } else {
+            stableFrames = 0
+            lastCount = c
+        }
+    }
+    if (BuildConfig.DEBUG) {
+        AppLogger.d(
+            "CardExpand",
+            "[DEBUG-422] settle done frames=" + stableFrames +
+                " measures=" + clock.measureCount + " H=" + clock.lastMeasuredH,
+        )
     }
 }
+
+/**
+ * #422 几何上报节点:无界测量 → 上报 f·H(未揭示部分被外层 clip 裁掉)。
+ *
+ * **性能根因修复**:lambda 版 `Modifier.layout` 每帧 fraction 写都重测整棵
+ * 子树;含表格时 SimpleMarkdownTable 的 SubcomposeLayout final 遍必跑
+ * (subcompose + 全单元格 measure),15 帧 × 数百 ms = 用户实测「点击后
+ * 10s+ 才展开」+ 行高未放置即曝光的叠压。
+ *
+ * **机制**:tween 窗口内(clock.tweening)复用 settle 末真测的 placeable,
+ * 每帧只重算 report = f·cachedH(LazyList 滚动位移动画同款「测一次、放
+ * 多次」先例)。窗口外(冷组合/settle/稳定态)恒真测,内容失效得以正常
+ * 传播。窗口内子树若失效(asyncParse 迟到等罕见竞态),视觉停留在旧帧
+ * ≤240ms,由 episode 末 epoch 强制复测修复——不崩溃、不丢失。
+ *
+ * 缓存失效条件(任一不满足即真测):
+ * 1. `clock.tweening == false`;
+ * 2. 宽度约束有界且与缓存一致(旋转/折叠屏);
+ * 3. measurable 同一实例(content 离树重入后为不同 LayoutNode);
+ * 4. 缓存非空。
+ */
+private class CardExpandGeometryNode(
+    var clock: CardExpandClock,
+) : Modifier.Node(), LayoutModifierNode {
+
+    private var cachedPlaceable: Placeable? = null
+    private var cachedMeasurable: Measurable? = null
+    private var cachedWidth: Int = Int.MIN_VALUE
+    private var cachedAtEpoch = -1
+
+    override fun onDetach() {
+        super.onDetach()
+        invalidateCache()
+    }
+
+    private fun invalidateCache() {
+        cachedPlaceable = null
+        cachedMeasurable = null
+        cachedWidth = Int.MIN_VALUE
+        cachedAtEpoch = -1
+    }
+
+    override fun MeasureScope.measure(
+        measurable: Measurable,
+        constraints: Constraints,
+    ): MeasureResult {
+        clock.recordMeasure()
+        // 快照读(承重):epoch 写失效本 measure(episode 末强制复测);且 epoch
+        // 变化即清缓存——双保险,即使 tweening 异常为 true 也走真测。
+        val epoch = clock.remeasureEpoch
+        if (epoch != cachedAtEpoch) {
+            invalidateCache()
+            cachedAtEpoch = epoch
+        }
+
+        val width = constraints.maxWidth
+        val cacheable = clock.tweening && constraints.hasBoundedWidth &&
+            cachedWidth == width && cachedMeasurable === measurable
+        val cached = cachedPlaceable
+        val placeable = if (cacheable && cached != null) {
+            cached
+        } else {
+            measurable.measure(constraints.copy(maxHeight = Constraints.Infinity)).also {
+                cachedPlaceable = it
+                cachedMeasurable = measurable
+                cachedWidth = width
+            }
+        }
+        val report = clock.onMeasure(placeable.height)
+        return layout(placeable.width, report) {
+            placeable.placeRelative(0, 0)
+        }
+    }
+}
+
+/**
+ * #422:Element 包装——clock 以身份相等 remember 期内稳定,节点与缓存
+ * 跨重组存活(lambda 版每帧新建 element 正是缓存无法附着的原因)。
+ */
+private class CardExpandGeometryElement(
+    private val clock: CardExpandClock,
+) : ModifierNodeElement<CardExpandGeometryNode>() {
+    override fun create(): CardExpandGeometryNode = CardExpandGeometryNode(clock)
+
+    override fun update(node: CardExpandGeometryNode) {
+        node.clock = clock
+    }
+
+    override fun equals(other: Any?): Boolean =
+        other is CardExpandGeometryElement && other.clock === clock
+
+    override fun hashCode(): Int = System.identityHashCode(clock)
+}
+
+private fun Modifier.cardExpandGeometry(clock: CardExpandClock): Modifier =
+    this.then(CardExpandGeometryElement(clock))

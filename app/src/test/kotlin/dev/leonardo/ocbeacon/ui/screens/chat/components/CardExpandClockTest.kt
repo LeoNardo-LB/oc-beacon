@@ -138,4 +138,76 @@ class CardExpandClockTest {
         c.beginEpisode()
         assertEquals(0f, c.episodeDisplacement, 0.5f)
     }
+
+    // ------------------------------------------------------------------
+    // #422:tween 缓存窗口 + settle 计数 + episode 末复测语义
+    // ------------------------------------------------------------------
+
+    @Test
+    fun tweeningDefaultsFalse() {
+        assertEquals(false, clock().tweening)
+    }
+
+    @Test
+    fun measureCountIncrementsPerRecord() {
+        val c = clock()
+        assertEquals(0, c.measureCount)
+        c.recordMeasure()
+        c.recordMeasure()
+        assertEquals(2, c.measureCount)
+    }
+
+    @Test
+    fun remeasureEpochBumpsOnRequest() {
+        val c = clock()
+        val before = c.remeasureEpoch
+        c.requestRemeasure()
+        assertEquals(before + 1, c.remeasureEpoch)
+    }
+
+    /**
+     * #422 迟到增量守恒:settle 末 H1 → tween 至 1 → episode 末强制复测发现
+     * H2(内容迟到增长)→ 追加一次 advance(f) 的 δ 补偿。不变量:
+     * Σδ(tween) + δ(catch-up) == H2(最终上报),无净漂移。
+     */
+    @Test
+    fun lateGrowthCatchUpConservation() {
+        val c = clock(expanded = false)
+        c.onMeasure(800) // settle 末:H1=800
+        var dispatched = 0f
+        for (step in 1..10) {
+            val f = step / 10f
+            dispatched += c.advance(f)
+            c.onMeasure(800) // tween 期间缓存:H 不变
+        }
+        assertEquals(800, c.lastReportedH)
+        // episode 末强制复测:内容迟到增长 800 → 1000
+        val reportedAfterGrowth = c.onMeasure(1000)
+        assertEquals(1000, reportedAfterGrowth)
+        // catch-up:advance(1f) 以新 H 计算目标 → δ = 200
+        val catchUp = c.advance(c.fraction)
+        dispatched += catchUp
+        assertEquals(200f, catchUp)
+        assertEquals(1000f, dispatched, 0.5f)
+        assertEquals(1000, (c.fraction * c.lastMeasuredH).toInt())
+    }
+
+    /**
+     * #422 catch-up 门控语义:collapse(f=0)时内容高度变化不产生补偿位移
+     * (content 已离树,report 恒 0)。
+     */
+    @Test
+    fun lateGrowthNoCatchUpWhenCollapsed() {
+        val c = clock(expanded = true)
+        c.onMeasure(800)
+        for (step in 9 downTo 0) {
+            c.advance(step / 10f)
+            c.onMeasure(800)
+        }
+        assertEquals(0f, c.fraction)
+        // 离树后空测:H=0 → lastMeasuredH=0
+        c.onMeasure(0)
+        // f=0 → advance 目标恒 0,无位移
+        assertEquals(0f, c.advance(c.fraction))
+    }
 }
