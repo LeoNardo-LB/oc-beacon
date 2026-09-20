@@ -1483,8 +1483,9 @@ fun ChatMessageList(
                                 }
                             }
                             is ChatEntry.StepGroupBody -> {
-                                // 内容分片(独立 LazyItem):视口外零组合——巨型组
-                                // 首开只组可见条目,434 帧冻结根治点。淡入 220ms。
+                                // 内容分片(独立 LazyItem):视口外零组合。注意:切片按
+                                // part 边界——单个巨型 text part(如 60 行表格)仍会整条
+                                // 测量(#422 三层根因,见 backlog note),待 AST 级切片。
                                 val bodyTurn = renderableTurns.getOrNull(entry.displayIndex)
                                 if (bodyTurn != null) {
                                     var bodyShown by androidx.compose.runtime.saveable.rememberSaveable(entry.key) {
