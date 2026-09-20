@@ -1189,18 +1189,27 @@ private fun StepGroupCard(
             )
         }
         CardExpandReveal(visible = expanded) {
-            ChunkAssistantItems(
-                items = step.groups.map { RenderItem.GroupedParts(it) },
-                textColor = textColor,
-                isAmoled = isAmoled,
-                onViewSubSession = onViewSubSession,
-                onOpenFile = onOpenFile,
-                onLocateTask = onLocateTask,
-                eventExpandedStates = eventExpandedStates,
-                renderableTurn = renderableTurn,
-                compact = compact,
-                readinessRegistry = readinessRegistry,
-            )
+            // #422 二轮修复:ChunkAssistantItems 是裸 for(设计为在父 Column 内
+            // 调用)——直接放进 Reveal 的 Box 会使各 part 堆叠在 (0,0) 互相叠压
+            // (实测:表格/读取卡/标题三层重叠)。包裹同 SegmentedAssistantMessage
+            // 的 Column(XS 间距)保持视觉一致。
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
+            ) {
+                ChunkAssistantItems(
+                    items = step.groups.map { RenderItem.GroupedParts(it) },
+                    textColor = textColor,
+                    isAmoled = isAmoled,
+                    onViewSubSession = onViewSubSession,
+                    onOpenFile = onOpenFile,
+                    onLocateTask = onLocateTask,
+                    eventExpandedStates = eventExpandedStates,
+                    renderableTurn = renderableTurn,
+                    compact = compact,
+                    readinessRegistry = readinessRegistry,
+                )
+            }
         }
     }
 }

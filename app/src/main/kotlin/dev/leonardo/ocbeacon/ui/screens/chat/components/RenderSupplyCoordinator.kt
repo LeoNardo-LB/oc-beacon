@@ -318,6 +318,7 @@ internal class RenderSupplyCoordinator(
             //（末段带统计栏显得完整，极具迷惑性）
             val streamingNow = world.streamingMsgId
             if (streamingNow != null && turnMsgs.any { it.message.id == streamingNow }) continue
+            val multiMsgTurn = turnMsgs.size > 1
             for (cm in turnMsgs) {
                 // #258 Stage B：本 turn 的段分片状态（旧 MdChunkPlan 装配抑制——双计划互斥）。
                 val turnKeyNow = "t_" + (turnMsgs.firstOrNull()?.message?.id ?: cm.message.id)
@@ -356,7 +357,10 @@ internal class RenderSupplyCoordinator(
                                 // 巨型 part 解析完成即计算块级分片计划（主线程
                                 // 回调）——后续该 turn 进入视口时按计划发射
                                 // N 个 chunk item（见 buildChatEntries）。
-                                if (textForParse.length >= CHUNK_MIN_CHARS) {
+                                // #422:多消息 turn(非末消息内容在 StepGroup 折叠体内)
+                                // 不入 MdChunkPlan——分片条目绕过 turn renderable 平铺
+                                // part(折叠失效+内容双渲染);巨型末消息交 Stage B 分段。
+                                if (textForParse.length >= CHUNK_MIN_CHARS && !multiMsgTurn) {
                                     computeChunkPlan(key, st, CHUNK_MIN_CHARS, CHUNK_TARGET_CHARS)
                                         ?.let { plan ->
                                             if (BuildConfig.DEBUG) {

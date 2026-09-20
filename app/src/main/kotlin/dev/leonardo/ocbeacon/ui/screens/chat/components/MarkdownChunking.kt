@@ -309,7 +309,13 @@ internal fun buildChatEntries(
             (turnGroups[displayIdx] ?: listOf(msg)).any { it.message.id == streamingMsgId }
         val plan = if (!msg.isUser && !isStreamingTurn && turnKey !in recentStreamedTurnKeys) {
             val turnMsgs = turnGroups[rawIndex] ?: listOf(msg)
-            turnMsgs.firstNotNullOfOrNull { cm ->
+            // #422:多消息 turn(含 StepGroup 折叠组)不走 MdChunkPlan 分片——
+            // Chunk 条目按 part 直渲染,绕过 turn renderable(折叠组行与末消息
+            // 内容双丢失,巨型中间消息平铺)。防御性抑制(协调器侧已不产);
+            // 巨型末消息由 Stage B 分段接管(SG 保持独立 item)。
+            if (turnMsgs.size > 1) {
+                null
+            } else turnMsgs.firstNotNullOfOrNull { cm ->
                 cm.parts.firstOrNull { it is Part.Text && it.id in chunkPlans }?.let { chunkPlans[it.id] }
             }
         } else null
