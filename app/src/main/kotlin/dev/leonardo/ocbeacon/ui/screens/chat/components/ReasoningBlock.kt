@@ -28,6 +28,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -132,7 +133,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
         )
         alpha
     }
-    val headerText = when {
+    val headerLabel = when {
         isStreaming -> stringResource(R.string.chat_thinking_in_progress, formatReasoningDuration(elapsedMs.longValue))
         // #338：时长未知（durationMs 零/负且无本地冻结样本——DSH 整装事件
         // start=end 同信封族）→ 无时长变体，不显示伪造 0ms（#263 round2 哲学收口）。
@@ -141,6 +142,18 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
             ?: stringResource(R.string.chat_thinking_complete_unknown)
         else -> stringResource(R.string.chat_status_thinking)
     }
+    // 2026-09-20 单行形态(DSH 对齐):标题行拼内容摘要——流式=最新一行(实时
+    // 反映生成进度),完成态=首行(DSH「思考 · 摘要…」同构)。文本层截断由
+    // 标题 maxLines=1+ellipsis 承担;remember(text) 每 token 批更新重算,成本
+    // 为单次 lines() 切分。
+    val summaryLine = remember(text, isStreaming) {
+        if (text.isBlank()) null else {
+            val lines = text.lines().filter { it.isNotBlank() }
+            (if (isStreaming) lines.lastOrNull() else lines.firstOrNull())
+                ?.trim()?.take(60)
+        }
+    }
+    val headerText = if (summaryLine != null) headerLabel + " · " + summaryLine else headerLabel
 
     Surface(
         // 2026-09-20 单行形态裁决(全面 DSH 化):思考卡去容器——透明底/无描边,
@@ -183,15 +196,13 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.weight(1f),
                     ) {
-                        // 动画脉冲圆点（仅在思考时显示）
-                        Box(
-                            modifier = Modifier
-                                .size(5.dp)
-                                .drawBehind {
-                                    drawCircle(
-                                        color = accentColor.copy(alpha = pulseAlpha)
-                                    )
-                                }
+                        // 2026-09-20 单行形态(DSH 对齐):缠绕球形图标替代脉冲圆点——
+                        // 流式时 alpha 脉冲(复用 pulseAlpha),完成态静态弱化
+                        Icon(
+                            imageVector = Icons.Default.AllInclusive,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = accentColor.copy(alpha = pulseAlpha),
                         )
                         Spacer(modifier = Modifier.width(5.dp))
                         Text(
