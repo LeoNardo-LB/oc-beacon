@@ -55,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
@@ -98,10 +99,14 @@ import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.injectionLabelKindFor
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.systemNoticeKindFor
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.rowCapabilitiesFor
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.turnNumberFor
+import dev.leonardo.ocbeacon.ui.theme.ChatDensity
+import dev.leonardo.ocbeacon.ui.theme.LocalChatDensity
+import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderItem
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderableTurn
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.computeRenderableTurn
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.turnOrdinalByAnchorId
 import dev.leonardo.ocbeacon.ui.screens.chat.util.JumpTarget
+import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalToolExpandedStates
 import dev.leonardo.ocbeacon.ui.screens.chat.util.computeTurnGroups
 import dev.leonardo.ocbeacon.ui.screens.chat.util.extractJumpTargets
 import dev.leonardo.ocbeacon.ui.screens.chat.util.findCurrentAnchorTimestamp
@@ -439,6 +444,35 @@ fun ChatMessageList(
         result
     }
 
+    // ===== #422 历史懒加载:展开态大折叠组 → 拆条目发射 =====
+    // 派生自 toolExpandedStates 快照(toggle 写 StateFlow → 新 Map 实例 →
+    // 本 remember 重算 → chatEntries 重建)。只收集「已展开 && 权重达阈值」
+    // 的组;小组不动(保留 CardExpandReveal 平滑揭示)。
+    val toolExpandedStatesSnapshot = LocalToolExpandedStates.current
+    val expandedLargeStepGroups = remember(
+        renderableTurns, turnGroups, displayItems, toolExpandedStatesSnapshot,
+    ) {
+        if (toolExpandedStatesSnapshot.isEmpty()) {
+            emptyMap()
+        } else {
+            val out = mutableMapOf<String, dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderItem.StepGroup>()
+            displayItems.forEachIndexed { di, (rawIdx, msg) ->
+                if (!msg.isAssistant) return@forEachIndexed
+                val sg = renderableTurns.getOrNull(di)?.renderItems
+                    ?.firstOrNull { it is dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderItem.StepGroup }
+                    as? dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderItem.StepGroup
+                    ?: return@forEachIndexed
+                if (toolExpandedStatesSnapshot["step_" + sg.msgId] == true &&
+                    turnItemWeight(sg) >= LARGE_STEP_GROUP_WEIGHT
+                ) {
+                    val tk = "t_" + (turnGroups[rawIdx]?.firstOrNull()?.message?.id ?: msg.message.id)
+                    out[tk] = sg
+                }
+            }
+            out
+        }
+    }
+
     // 以 streamingMsgId 作为 key，流式 turn 变化（新消息
     // 或完成）时状态重置。这比 heightMap + 会话级清除更简单、更正确。
     val compensateState = remember(streamingMsgId) { CompensateState() }
@@ -706,7 +740,7 @@ fun ChatMessageList(
     // ===== 2026-08-20 fling 巨帧根治：分片发射表（消息区 entries）=====
     // entries = displayItems 经 chunkPlans 展开（巨型 turn → N 个 chunk item）。
     // 双向索引是 LazyColumn index ↔ displayItems index 的单一真相源。
-    val chatEntries = remember(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans) {
+    val chatEntries = remember(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans, expandedLargeStepGroups) {
         dev.leonardo.ocbeacon.debug.RaceProbe.probe {
             "ENTRIES rebuild n=" + displayItems.size +
                 " chunkPlans=" + chunkPlans.size +
@@ -714,7 +748,7 @@ fun ChatMessageList(
                 " streaming=" + (streamingMsgId != null) +
                 " recentN=" + recentStreamedTurnKeys.size
         }
-        buildChatEntries(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans)
+        buildChatEntries(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans, expandedLargeStepGroups = expandedLargeStepGroups)
     }
     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
         androidx.compose.runtime.LaunchedEffect(displayItems) {
@@ -1431,6 +1465,59 @@ fun ChatMessageList(
                                     }
                                 }
                             }
+                            // ===== #422 历史懒加载:大组展开态的拆分条目 =====
+                            is ChatEntry.StepGroupHead -> {
+                                // 折叠行头(气泡顶部):共享 StepGroupFoldRow(点击收起)
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clipToBounds()
+                                        .padding(bottom = SpacingTokens.XS.dp)
+                                ) {
+                                    StepGroupFoldRow(step = entry.step)
+                                }
+                            }
+                            is ChatEntry.StepGroupBody -> {
+                                // 内容分片(独立 LazyItem):视口外零组合——巨型组
+                                // 首开只组可见条目,434 帧冻结根治点。淡入 220ms。
+                                val bodyTurn = renderableTurns.getOrNull(entry.displayIndex)
+                                if (bodyTurn != null) {
+                                    var bodyShown by androidx.compose.runtime.saveable.rememberSaveable(entry.key) {
+                                        androidx.compose.runtime.mutableStateOf(false)
+                                    }
+                                    androidx.compose.runtime.LaunchedEffect(entry.key) { bodyShown = true }
+                                    val bodyAlpha by androidx.compose.animation.core.animateFloatAsState(
+                                        targetValue = if (bodyShown) 1f else 0f,
+                                        animationSpec = androidx.compose.animation.core.tween(220),
+                                        label = "sgBodyFade",
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clipToBounds()
+                                            .padding(bottom = SpacingTokens.XS.dp)
+                                            .graphicsLayer { alpha = bodyAlpha }
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
+                                        ) {
+                                            ChunkAssistantItems(
+                                                items = entry.groups.map { RenderItem.GroupedParts(it) },
+                                                textColor = MaterialTheme.colorScheme.onSurface,
+                                                isAmoled = isAmoled,
+                                                onViewSubSession = navigateToChildSession,
+                                                onOpenFile = onOpenFile,
+                                                onLocateTask = onLocateTask,
+                                                eventExpandedStates = eventCardExpandedStates,
+                                                renderableTurn = bodyTurn,
+                                                compact = LocalChatDensity.current == ChatDensity.Compact,
+                                                readinessRegistry = LocalRenderReadiness.current,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                             is ChatEntry.Turn -> {
                         val displayItemIndex = entry.displayIndex
                         val (rawIndex, msg) = displayItems[entry.displayIndex]
@@ -1560,6 +1647,9 @@ fun ChatMessageList(
                                 Column {
                                 MessageCard(
                                     role = MessageCardRole.ASSISTANT,
+                                    // #422 历史懒加载:大组展开态下本 Turn 是拆分尾片,
+                                    // StepGroup 条目由 Head/Body 独立 LazyItem 承担
+                                    skipStepGroupItem = entry.skipStepGroupItem,
                                     renderableTurn = renderableTurns[displayItemIndex],
                                     currentMessage = msg,
                                     onViewSubSession = navigateToChildSession,
@@ -2271,6 +2361,8 @@ fun ChatMessageList(
                                 is ChatEntry.Chunk -> "assistant_chunk"
                                 is ChatEntry.TurnChunk -> "assistant_segment"
                                 is ChatEntry.UserChunk -> "user_chunk"
+                                is ChatEntry.StepGroupHead -> "assistant_sg_head"
+                                is ChatEntry.StepGroupBody -> "assistant_sg_body"
                                 is ChatEntry.Turn ->
                                     if (displayItems[entry.displayIndex].second.isUser) "user" else "assistant"
                             }

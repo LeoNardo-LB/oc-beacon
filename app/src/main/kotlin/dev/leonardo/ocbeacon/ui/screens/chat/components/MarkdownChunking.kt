@@ -4,6 +4,7 @@ import com.mikepenz.markdown.model.State
 import dev.leonardo.ocbeacon.domain.model.Message
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
+import dev.leonardo.ocbeacon.ui.screens.chat.tools.PartGroup
 
 /**
  * 超长 assistant 消息的块级分片（2026-08-20 fling 巨帧根治）。
@@ -178,6 +179,29 @@ internal sealed interface ChatEntry {
     data class Turn(
         override val displayIndex: Int,
         override val key: String,
+        /** #422 历史懒加载:大组拆条目发射时,尾片跳过 StepGroup 渲染
+         * (折叠行由 [StepGroupHead] 条目承担,内容由 [StepGroupBody] 承担)。 */
+        val skipStepGroupItem: Boolean = false,
+    ) : ChatEntry
+
+    /**
+     * #422 历史懒加载:大组展开态的折叠行头(key "t_<turnId>#sgh",气泡顶部)。
+     * 仅与 [Turn] 尾片 + 若干 [StepGroupBody] 组成同 turn 的条目族。
+     */
+    data class StepGroupHead(
+        override val displayIndex: Int,
+        override val key: String,
+        val step: dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderItem.StepGroup,
+    ) : ChatEntry
+
+    /**
+     * #422 历史懒加载:大组展开体的 groups 分片(key "t_<turnId>#sgb<i>")。
+     * 独立 LazyItem → 视口外零组合,巨型组首开只组可见条目。
+     */
+    data class StepGroupBody(
+        override val displayIndex: Int,
+        override val key: String,
+        val groups: List<PartGroup>,
     ) : ChatEntry
 
     /** 已完结长消息的 Markdown 分片。 */
@@ -244,6 +268,32 @@ internal data class ChatEntries(
 internal fun List<ChatMessage>.isMultiMessageTurn(): Boolean = size > 1
 
 /**
+ * #422 历史懒加载阈值:StepGroup 权重(字符当量,见 turnItemWeight)达此值的
+ * 展开体改走条目化发射。≈3 屏正文——实测 20k px 组单 LazyItem 一帧组合
+ * = 434 帧跳帧(3.6s 冻结);条目化后首开只组视口内条目。小于阈值的组保留
+ * CardExpandReveal 平滑揭示动画(小卡展开本就 <100ms)。
+ */
+const val LARGE_STEP_GROUP_WEIGHT = 6000
+
+/** 大组展开体单条目权重预算(≈1 屏)。 */
+const val STEP_GROUP_BODY_TARGET_WEIGHT = 2200
+
+/** 大组展开体切片:按权重贪心聚合 groups 为若干条目(纯函数,可单测)。 */
+internal fun sliceStepGroupBodies(groups: List<PartGroup>): List<List<PartGroup>> {
+    val out = mutableListOf<MutableList<PartGroup>>()
+    var acc = 0
+    for (g in groups) {
+        if (out.isEmpty() || acc >= STEP_GROUP_BODY_TARGET_WEIGHT) {
+            out += mutableListOf<PartGroup>()
+            acc = 0
+        }
+        out.last() += g
+        acc += turnItemWeight(dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderItem.GroupedParts(g))
+    }
+    return out
+}
+
+/**
  * 构建分片发射表。分片条件（全部满足）：
  * - assistant turn；- 非流式（streamingMsgId 不在 turn 内）；
  * - 不在 recentStreamedTurnKeys（流式刚结束的 turn 延迟分片——避免视口内
@@ -264,6 +314,9 @@ internal fun buildChatEntries(
     chunkPlans: Map<String, MdChunkPlan>,
     recentStreamedTurnKeys: Set<String>,
     segmentPlans: Map<String, TurnSegmentPlan> = emptyMap(),
+    /** #422 历史懒加载:turnKey → 展开态大 StepGroup(见 LARGE_STEP_GROUP_WEIGHT)。
+     *  命中的 turn 拆条目发射(尾 Turn + StepGroupBody×N + StepGroupHead)。 */
+    expandedLargeStepGroups: Map<String, dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderItem.StepGroup> = emptyMap(),
 ): ChatEntries {
     val entries = mutableListOf<ChatEntry>()
     val displayEntryStart = IntArray(displayItems.size)
@@ -315,6 +368,24 @@ internal fun buildChatEntries(
         // turn 巨帧回归。改为 turn 粒度：仅流式 turn 不分片，其余照常。
         val isStreamingTurn = streamingMsgId != null &&
             (turnGroups[displayIdx] ?: listOf(msg)).any { it.message.id == streamingMsgId }
+        // #422 历史懒加载:大组展开态拆条目(先于一切旧分片路径——MdChunkPlan 对
+        // 多消息轮次已抑制,segPlan 让位)。发射序 = 视觉自底向上(reverseLayout
+        // 索引 0 在屏幕底部,同 #246 逆文档序先例):尾 Turn(末消息+统计栏)先入列,
+        // 内容分片逆序,折叠行头最后(视觉顶部)。displayEntryStart 钉回头部——
+        // 跳转落点 = 折叠行,语义与其他路径的"首片含标签栏"一致。
+        val splitStepGroup =
+            if (!msg.isUser && !isStreamingTurn) expandedLargeStepGroups[turnKey] else null
+        if (splitStepGroup != null) {
+            entries += ChatEntry.Turn(displayIdx, turnKey, skipStepGroupItem = true)
+            // 键序号=文档序,发射逆序(底部=文档最旧片)——同 #246 chunk 键语义
+            val bodies = sliceStepGroupBodies(splitStepGroup.groups)
+            for (bi in bodies.indices.reversed()) {
+                entries += ChatEntry.StepGroupBody(displayIdx, turnKey + "#sgb" + bi, bodies[bi])
+            }
+            entries += ChatEntry.StepGroupHead(displayIdx, turnKey + "#sgh", splitStepGroup)
+            displayEntryStart[displayIdx] = entries.size - 1
+            continue
+        }
         val plan = if (!msg.isUser && !isStreamingTurn && turnKey !in recentStreamedTurnKeys) {
             val turnMsgs = turnGroups[rawIndex] ?: listOf(msg)
             // #422:多消息轮次(含 StepGroup 折叠组)不走 MdChunkPlan 分片——

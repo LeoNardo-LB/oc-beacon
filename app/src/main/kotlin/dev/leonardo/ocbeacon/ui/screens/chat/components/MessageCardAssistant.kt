@@ -134,6 +134,9 @@ internal fun MessageCardAssistant(
     onDeleteMessage: (() -> Unit)? = null,
     /** 2026-09-12 扁平化：行模型能力位（尾部字段/动作门控单源）。 */
     caps: RowCapabilities? = null,
+    /** #422 历史懒加载:大组拆条目发射时尾片置 true——StepGroup 条目整体
+     *  跳过(折叠行由 ChatEntry.StepGroupHead 条目渲染,内容由 Body 条目)。 */
+    skipStepGroupItem: Boolean = false,
 ) {
     // D2-L22：原 if(isAmoled) 两分支相同（死条件）——直接取 onSurface
     val textColor = MaterialTheme.colorScheme.onSurface
@@ -374,9 +377,12 @@ internal fun MessageCardAssistant(
                     }
 
                     // #422:step 折叠组——流式 turn 恒平铺(跟随生成,DSH 同款时机);
-                    // 非流式走 StepGroupCard 折叠(最终回答=最后消息恒平铺,装配层保证)
+                    // 非流式走 StepGroupCard 折叠(最终回答=最后消息恒平铺,装配层保证);
+                    // 历史懒加载拆条目时本 item 由 Head/Body 条目承担,此处整体跳过
                     is RenderItem.StepGroup -> key(item.msgId) {
-                        if (isStreaming) {
+                        if (skipStepGroupItem) {
+                            // 大组展开态:内容已拆为独立 LazyItem(见 buildChatEntries)
+                        } else if (isStreaming) {
                             item.groups.forEach { g ->
                                 val sp = (g as? PartGroup.Single)?.part
                                 if (sp != null) {
@@ -678,7 +684,7 @@ internal fun ChunkedAssistantMessage(
 /** 分片场景的 renderItems 渲染（复制自 MessageCardAssistant 主循环的精简版：
  *  无 pendingQuestion / 无 question 锚定——历史已完结 turn 不含待处理提问）。 */
 @Composable
-private fun ChunkAssistantItems(
+internal fun ChunkAssistantItems(
     items: List<RenderItem>,
     textColor: Color,
     isAmoled: Boolean,
@@ -1141,9 +1147,51 @@ private fun AssistantTurnTail(
 
 
 /**
+ * #422 折叠组计数行(共享组件):Layers 图标 + 「N 步 · M 个工具」,点击 toggle
+ * 展开态。StepGroupCard(小组动画路径)与 ChatEntry.StepGroupHead 条目
+ * (大组懒加载路径)共用——同一交互入口。
+ */
+@Composable
+internal fun StepGroupFoldRow(
+    step: RenderItem.StepGroup,
+    modifier: Modifier = Modifier,
+) {
+    val toolExpandedStates = LocalToolExpandedStates.current
+    val onToggleToolExpanded = LocalOnToggleToolExpanded.current
+    val hapticView = LocalView.current
+    val hapticOn = LocalHapticFeedbackEnabled.current
+    val stateKey = "step_" + step.msgId
+    val expanded = toolExpandedStates[stateKey] ?: false
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable {
+                performHaptic(hapticView, hapticOn)
+                onToggleToolExpanded(stateKey, !expanded)
+            },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Default.Layers,
+            contentDescription = stringResource(if (expanded) R.string.a11y_icon_collapse else R.string.a11y_icon_expand),
+            modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+        )
+        Text(
+            text = stringResource(R.string.chat_msg_tail_summary, step.textCount.coerceAtLeast(1), step.toolCount),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+            maxLines = 1,
+        )
+    }
+}
+
+/**
  * #422 step 折叠组卡：计数行(复用 chat_msg_tail_summary「N steps · M tools」)
  * + CardExpandReveal 展开体(递归调 ChunkAssistantItems 渲染 groups)。
  * 展开态复用工具展开表(key 前缀 step_ 与 part id 不冲突)。
+ * 大组(≥ LARGE_STEP_GROUP_WEIGHT)由条目化路径接管,不走本卡。
  */
 @Composable
 private fun StepGroupCard(
@@ -1159,35 +1207,10 @@ private fun StepGroupCard(
     readinessRegistry: RenderReadinessRegistry,
 ) {
     val toolExpandedStates = LocalToolExpandedStates.current
-    val onToggleToolExpanded = LocalOnToggleToolExpanded.current
-    val hapticView = LocalView.current
-    val hapticOn = LocalHapticFeedbackEnabled.current
     val stateKey = "step_" + step.msgId
     val expanded = toolExpandedStates[stateKey] ?: false
     Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    performHaptic(hapticView, hapticOn)
-                    onToggleToolExpanded(stateKey, !expanded)
-                },
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Default.Layers,
-                contentDescription = stringResource(if (expanded) R.string.a11y_icon_collapse else R.string.a11y_icon_expand),
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
-            )
-            Text(
-                text = stringResource(R.string.chat_msg_tail_summary, step.textCount.coerceAtLeast(1), step.toolCount),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
-                maxLines = 1,
-            )
-        }
+        StepGroupFoldRow(step = step)
         CardExpandReveal(visible = expanded) {
             // #422 二轮修复:ChunkAssistantItems 是裸 for(设计为在父 Column 内
             // 调用)——直接放进 Reveal 的 Box 会使各 part 堆叠在 (0,0) 互相叠压

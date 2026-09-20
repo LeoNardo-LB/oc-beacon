@@ -50,6 +50,8 @@ internal fun MessageCard(
     onDeleteMessage: (() -> Unit)? = null,
     /** 2026-09-12 扁平化：行模型能力位（尾部字段/动作门控单源）。 */
     caps: dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.RowCapabilities? = null,
+    /** #422 历史懒加载:大组拆条目时尾片跳过 StepGroup 渲染。 */
+    skipStepGroupItem: Boolean = false,
 ) {
     when (role) {
         MessageCardRole.USER -> MessageCardUser(
@@ -88,6 +90,7 @@ internal fun MessageCard(
             onForkFromTurn = onForkFromTurn,
             onDeleteMessage = onDeleteMessage,
             caps = caps,
+            skipStepGroupItem = skipStepGroupItem,
         )
     }
 }
