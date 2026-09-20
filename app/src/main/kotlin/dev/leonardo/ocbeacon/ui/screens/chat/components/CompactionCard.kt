@@ -92,7 +92,8 @@ internal fun CompactionNoticeCard(
     MessageBubble(
         alignEnd = false,
         containerColor = Color.Transparent,
-        border = BorderStroke(1.dp, borderColor),
+        // 2026-09-20 单行形态裁决(Q1 ok):压缩卡去容器,同 EventCard 语言
+        border = null,
         shape = ShapeTokens.medium,
         label = title,
         timeMs = displayTime,

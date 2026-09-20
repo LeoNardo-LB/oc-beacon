@@ -27,6 +27,9 @@ import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import dev.leonardo.ocbeacon.ui.screens.chat.components.CardExpandEnterTransition
 import dev.leonardo.ocbeacon.ui.screens.chat.components.occupyBottomGap
 import dev.leonardo.ocbeacon.ui.screens.chat.components.CardExpandReveal
@@ -120,12 +123,16 @@ internal fun ToolCardScaffold(
 
     AmoledSurface(
         isAmoledDark = isAmoled,
-        normalColor = containerColor,
+        // 2026-09-20 单行形态裁决(用户:全面 DSH 化,问题/权限/通知类除外)——
+        // 工具卡去容器:透明底/无描边/零 elevation,标题行「图标+类型·摘要」
+        // 平铺于消息流(DSH web 实证:行式日志流;opencode session-ui 同构)。
+        // 16 卡经本 scaffold 一次收口;状态色由 iconTint/title 语义承担。
+        normalColor = Color.Transparent,
         shape = ShapeTokens.smallMedium,
-        // 2026-09-17：卡片层标准描边（普通主题也需要，与扁平正文分离）
-        normalBorder = CardStandardBorder,        normalTonalElevation = 1.dp,
+        normalBorder = null,
+        normalTonalElevation = 0.dp,
         // 2026-08-30 用户裁决：撤销展开补偿（TC-REVEAL 接线退役）
-        // 方案 B(间距统一第三步):占位底部下探(与 ReasoningBlock 同步)
+        // 方案 B(间距统一第三步):占位底部收缩(与 ReasoningBlock 同步)
         modifier = modifier.fillMaxWidth().occupyBottomGap()
     ) {
         // 2026-09-20 间距统一裁决:垂直 4→2dp(与 ReasoningBlock 同步——卡↔正文
@@ -241,7 +248,23 @@ internal fun ToolCardScaffold(
             CardExpandReveal(
                 visible = expanded && hasContent,
             ) {
-                expandedContent()
+                // 2026-09-20 单行形态:展开区左竖线层级(Roo 式 border-l,零背景)——
+                // 修饰必须在 Reveal content 内部(#420 硬地板教训:外层固定
+                // padding 会成为末帧塌陷的落地硬面)。竖线随 fraction 同步揭示。
+                val guideColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
+                Box(
+                    modifier = Modifier
+                        .padding(start = SpacingTokens.SM.dp)
+                        .drawBehind {
+                            drawRect(
+                                color = guideColor,
+                                topLeft = Offset(1.dp.toPx(), 0f),
+                                size = Size(2.dp.toPx(), size.height),
+                            )
+                        },
+                ) {
+                    expandedContent()
+                }
             }
         }
     }

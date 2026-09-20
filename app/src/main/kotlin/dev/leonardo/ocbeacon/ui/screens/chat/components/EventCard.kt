@@ -123,7 +123,9 @@ internal fun EventCard(
     MessageBubble(
         alignEnd = false,
         containerColor = Color.Transparent,
-        border = BorderStroke(1.dp, borderColor),
+        // 2026-09-20 单行形态裁决(Q1 ok):事件卡去容器——标签行(图标+类型+时间)
+        // 即单行本体,失败语义由 iconTint/文本色承担(DSH 式行级着色,无红底红框)
+        border = null,
         shape = ShapeTokens.medium,
         label = label,
         labelLeading = leadingContent ?: {

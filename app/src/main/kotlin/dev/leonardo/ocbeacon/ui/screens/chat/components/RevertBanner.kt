@@ -30,6 +30,7 @@ import dev.leonardo.ocbeacon.ui.theme.LocalAmoledMode
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
+import androidx.compose.ui.graphics.Color
 
 /**
  * Banner shown when messages have been reverted.
@@ -42,7 +43,8 @@ internal fun RevertBanner(onRedo: () -> Unit) {
     val isAmoled = LocalAmoledMode.current
     Surface(
         shape = ShapeTokens.medium,
-        color = if (isAmoled) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = AlphaTokens.MEDIUM),
+        // 2026-09-20 单行形态(Q2 ok):撤销横幅去底色
+        color = Color.Transparent,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = SpacingTokens.SM.dp, vertical = SpacingTokens.XS.dp)

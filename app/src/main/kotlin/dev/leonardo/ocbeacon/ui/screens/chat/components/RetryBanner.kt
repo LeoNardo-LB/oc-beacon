@@ -29,6 +29,7 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import kotlinx.coroutines.delay
+import androidx.compose.ui.graphics.Color
 
 @Composable
 internal fun RetryBanner(retry: SessionStatus.Retry) {
@@ -47,7 +48,8 @@ internal fun RetryBanner(retry: SessionStatus.Retry) {
         }
     }
     Surface(
-        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = AlphaTokens.FAINT),
+        // 2026-09-20 单行形态(Q2 ok):重试横幅去底色,错误文案语义保留
+        color = Color.Transparent,
         shape = ShapeTokens.medium,
         modifier = Modifier
             .fillMaxWidth()

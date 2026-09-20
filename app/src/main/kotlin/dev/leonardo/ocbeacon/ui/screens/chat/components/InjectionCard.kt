@@ -35,6 +35,7 @@ import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import dev.leonardo.ocbeacon.util.DateFormatters
+import androidx.compose.ui.graphics.Color
 
 /**
  * #416（2026-09-18）：上下文注入卡的**淡形态**——与完整事件卡（[EventCard]：
@@ -59,22 +60,16 @@ internal fun InjectionCard(
 
     Surface(
         shape = ShapeTokens.smallMedium,
-        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = AlphaTokens.MEDIUM),
+        // 2026-09-20 单行形态裁决(Q1 ok):注入卡去容器(#416 淡形态进一步收敛)
+        color = Color.Transparent,
         modifier = modifier.fillMaxWidth(),
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            // 左侧强调色条（与 ReasoningBlock 同语言；Box 高度由内容列撑起）
-            Box(
-                modifier = Modifier
-                    .width(2.5.dp)
-                    .fillMaxHeight()
-                    .background(accent)
-            )
-            Column(
+        // 2026-09-20 单行形态:色条移除(与 ReasoningBlock 同步——DSH 无此元素)
+        Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
-                        start = SpacingTokens.MD.dp,
+                        start = SpacingTokens.XS.dp,
                         end = 10.dp,
                         top = SpacingTokens.XS.dp,
                         bottom = SpacingTokens.XS.dp,
@@ -132,6 +127,5 @@ internal fun InjectionCard(
                     }
                 }
             }
-        }
     }
 }

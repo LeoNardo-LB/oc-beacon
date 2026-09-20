@@ -43,6 +43,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -140,24 +143,16 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
     }
 
     Surface(
-        // v2（2026-09-17）：思考卡原先 shape=none（0dp）是唯一无圆角的卡片；
-        // 统一到工具卡家族 smallMedium（6dp）；并补 1dp 标准描边（与工具卡同语言）。
+        // 2026-09-20 单行形态裁决(全面 DSH 化):思考卡去容器——透明底/无描边,
+        // 「脉冲点+思考·摘要」平铺消息流(DSH web 实证:灰度弱化单行,无边框
+        // 底色);2.5dp 强调色条同步移除(DSH 无此元素,脉冲点已承担流式指示)。
         shape = ShapeTokens.smallMedium,
-        color = containerColor,
-        border = CardStandardBorder,
-        // 方案 B(间距统一第三步):占位底部下探——见 occupyBottomGap 文档
+        color = Color.Transparent,
+        border = null,
+        // 方案 B(间距统一第三步):占位底部收缩——见 occupyBottomGap 文档
         modifier = Modifier.fillMaxWidth().occupyBottomGap()
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            // 强调色左侧条
-            Box(
-                modifier = Modifier
-                    .width(2.5.dp)
-                    .fillMaxHeight()
-                    .background(accentColor)
-            )
-
-            Column(
+        Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     // #215 批3（推翻 2026-08-16 卡片职责分离规范，用户授权）：
@@ -169,7 +164,9 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                     // 2026-09-20 间距统一裁决:垂直 4→2dp——实测卡↔正文空白 63px
                     // (卡内留白 20px/侧 × 2 + sectionGap 8dp + leading),为正文行间
                     // 24px 的 2.6 倍;收敛卡内留白 20→14px(与 ToolCardScaffold 同步)。
-                    .padding(start = SpacingTokens.MD.dp, end = 10.dp, top = 2.dp, bottom = 2.dp)
+                    // 2026-09-20 单行形态:水平 padding 对齐工具卡 scaffold(XS)——
+                    // 原 MD(12) 是给 2.5dp 色条让位的档位,色条已移除。
+                    .padding(start = SpacingTokens.XS.dp, end = 10.dp, top = 2.dp, bottom = 2.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -221,6 +218,20 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                 // (单一时钟同帧配对,展开/收起不再把高度变化转译为视口跳动;
                 // 降级路径=出厂 AV,行为与 2026-08-30 终局一致)
                 CardExpandReveal(visible = expanded) {
+                    // 2026-09-20 单行形态:展开区左竖线(Roo 式,与工具卡同语言;
+                    // 修饰在 Reveal content 内部——#420 硬地板教训)
+                    val guideColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
+                    Box(
+                        modifier = Modifier
+                            .padding(start = SpacingTokens.SM.dp)
+                            .drawBehind {
+                                drawRect(
+                                    color = guideColor,
+                                    topLeft = Offset(1.dp.toPx(), 0f),
+                                    size = Size(2.dp.toPx(), size.height),
+                                )
+                            },
+                    ) {
                         Column {
                         Spacer(modifier = Modifier.height(6.dp))
                         // 2026-08-16（用户反馈调整）：高度上限从半屏收紧为固定值——

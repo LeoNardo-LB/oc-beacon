@@ -23,6 +23,7 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
+import androidx.compose.ui.graphics.Color
 
 /**
  * #309 批1⑤：输出达上限通知卡（Web turn-max-tokens 通知节点对位）。
@@ -37,7 +38,8 @@ internal fun TurnMaxTokensCard(
     onContinue: () -> Unit,
 ) {
     Surface(
-        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = AlphaTokens.FAINT),
+        // 2026-09-20 单行形态(Q2 ok):达上限卡去底色
+        color = Color.Transparent,
         shape = ShapeTokens.medium,
         modifier = Modifier.fillMaxWidth(),
     ) {
