@@ -318,7 +318,7 @@ internal class RenderSupplyCoordinator(
             //（末段带统计栏显得完整，极具迷惑性）
             val streamingNow = world.streamingMsgId
             if (streamingNow != null && turnMsgs.any { it.message.id == streamingNow }) continue
-            val multiMsgTurn = turnMsgs.size > 1
+            val multiMsgTurn = turnMsgs.isMultiMessageTurn()
             for (cm in turnMsgs) {
                 // #258 Stage B：本 turn 的段分片状态（旧 MdChunkPlan 装配抑制——双计划互斥）。
                 val turnKeyNow = "t_" + (turnMsgs.firstOrNull()?.message?.id ?: cm.message.id)

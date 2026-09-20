@@ -236,6 +236,14 @@ internal data class ChatEntries(
 )
 
 /**
+ * #422:多消息轮次(turn 内 ≥2 条 assistant 消息)判定——其非末消息内容在
+ * StepGroup 折叠体内渲染,不得走 MdChunkPlan part 级分片(Chunk 条目绕过
+ * turn renderable,折叠组行与末消息内容双丢失)。产侧(协调器)与装配侧
+ * (buildChatEntries)共用本谓词,防单边漂移。
+ */
+internal fun List<ChatMessage>.isMultiMessageTurn(): Boolean = size > 1
+
+/**
  * 构建分片发射表。分片条件（全部满足）：
  * - assistant turn；- 非流式（streamingMsgId 不在 turn 内）；
  * - 不在 recentStreamedTurnKeys（流式刚结束的 turn 延迟分片——避免视口内
@@ -309,11 +317,11 @@ internal fun buildChatEntries(
             (turnGroups[displayIdx] ?: listOf(msg)).any { it.message.id == streamingMsgId }
         val plan = if (!msg.isUser && !isStreamingTurn && turnKey !in recentStreamedTurnKeys) {
             val turnMsgs = turnGroups[rawIndex] ?: listOf(msg)
-            // #422:多消息 turn(含 StepGroup 折叠组)不走 MdChunkPlan 分片——
+            // #422:多消息轮次(含 StepGroup 折叠组)不走 MdChunkPlan 分片——
             // Chunk 条目按 part 直渲染,绕过 turn renderable(折叠组行与末消息
             // 内容双丢失,巨型中间消息平铺)。防御性抑制(协调器侧已不产);
             // 巨型末消息由 Stage B 分段接管(SG 保持独立 item)。
-            if (turnMsgs.size > 1) {
+            if (turnMsgs.isMultiMessageTurn()) {
                 null
             } else turnMsgs.firstNotNullOfOrNull { cm ->
                 cm.parts.firstOrNull { it is Part.Text && it.id in chunkPlans }?.let { chunkPlans[it.id] }

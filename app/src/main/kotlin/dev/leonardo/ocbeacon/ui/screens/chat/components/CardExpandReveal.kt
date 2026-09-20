@@ -17,14 +17,14 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.node.LayoutModifierNode
 import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.MeasureResult
 import androidx.compose.ui.layout.MeasureScope
 import androidx.compose.ui.layout.Placeable
+import androidx.compose.ui.node.LayoutModifierNode
+import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.unit.Constraints
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.logging.AppLogger
@@ -110,6 +110,10 @@ private const val MAX_SETTLE_MS = 600f
  * 帧内契约:动画相 [advance] → dispatchRawDelta(δ);measure 相 [onMeasure]
  * → 上报 f·H。两相读写的账本字段:[lastReportedH](上一帧上报)与
  * [lastMeasuredH](最近一次实侧高)。
+ *
+ * #422 增补:另承载几何缓存窗口状态——[tweening](placeable 复用唯一生效
+ * 窗口)、[measureCount](settle 判稳计数)与 [remeasureEpoch](episode 末
+ * 强制复测信号)。
  */
 internal class CardExpandClock(initialFraction: Float) {
     /** 揭示分数(0=折叠,1=全展开)。mutableStateOf:measure 读它建订阅。 */
