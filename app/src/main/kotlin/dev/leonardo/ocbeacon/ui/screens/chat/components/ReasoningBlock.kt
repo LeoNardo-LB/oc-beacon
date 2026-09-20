@@ -184,10 +184,9 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                     // 原 MD(12) 是给 2.5dp 色条让位的档位,色条已移除。
                     .padding(start = SpacingTokens.XS.dp, end = 10.dp, top = 2.dp, bottom = 2.dp)
             ) {
-                // 2026-09-20 用户裁决:展开后标题行整体让位(收起时才显示)——反相
-                // 双 Reveal:标题行/正文各自时钟,同帧反向 dispatch 高度变化
-                // 可加(#420 契约 per-instance,零额外适配)。
-                CardExpandReveal(visible = !expanded) {
+                // 2026-09-20 用户裁决修正:标题行(图标+标签)常驻,展开时仅摘要
+                // 部分(· xxxx)隐藏——正文竖线区出现在下方;摘要显隐同行内无高度
+                // 变化,零补偿需求;收起入口回归标题行本体点击。
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -213,13 +212,22 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                         )
                         Spacer(modifier = Modifier.width(5.dp))
                         Text(
-                            text = headerText,
+                            text = headerLabel,
                             style = MaterialTheme.typography.labelMedium,
                             color = textColor.copy(alpha = AlphaTokens.MUTED),
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false),
                         )
+                        // 摘要:收起态显示(· 最新内容),展开态让位给正文
+                        if (!expanded && summaryLine != null) {
+                            Text(
+                                text = " · " + summaryLine,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = textColor.copy(alpha = AlphaTokens.FAINT),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false),
+                            )
+                        }
                         // 2026-08-16（用户反馈）：流式占位进度圈并入标题行内——
                         // 原实现单独占一行使折叠态高度翻倍，超出其他卡片单行高度。
                         if (isStreaming && text.isBlank()) {
@@ -243,13 +251,10 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                     }
                     // #215 批3：chevron IconButton 移除——本体点击=展开唯一入口
                 }
-                } // 反相 Reveal(标题行)闭合
 
                 // 可展开内容——#420(2026-09-20 用户裁决 A):原地揭示补偿
                 // (单一时钟同帧配对,展开/收起不再把高度变化转译为视口跳动;
                 // 降级路径=出厂 AV,行为与 2026-08-30 终局一致)
-                // 2026-09-20 用户裁决:展开态标题行让位——正文区承接 tap 收起
-                // (短按=收起;SelectionContainer 长按选择优先,不冲突)
                 CardExpandReveal(visible = expanded) {
                     // 2026-09-20 单行形态:展开区左竖线(Roo 式,与工具卡同语言;
                     // 修饰在 Reveal content 内部——#420 硬地板教训)
@@ -267,9 +272,7 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                                 )
                             }
                             // 2026-09-20 用户反馈修:竖线→内容缩进(原内容贴线粘连)
-                            .padding(start = SpacingTokens.SM.dp)
-                            // 展开态正文区 tap 收起(标题行已让位)
-                            .clickable { performHaptic(hapticView, hapticOn); onToggleExpand() },
+                            .padding(start = SpacingTokens.SM.dp),
                     ) {
                         Column {
                         Spacer(modifier = Modifier.height(6.dp))
