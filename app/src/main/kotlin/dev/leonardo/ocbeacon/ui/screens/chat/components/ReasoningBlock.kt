@@ -256,7 +256,9 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                                     topLeft = Offset(1.dp.toPx(), 0f),
                                     size = Size(2.dp.toPx(), size.height),
                                 )
-                            },
+                            }
+                            // 2026-09-20 用户反馈修:竖线→内容缩进(原内容贴线粘连)
+                            .padding(start = SpacingTokens.SM.dp),
                     ) {
                         Column {
                         Spacer(modifier = Modifier.height(6.dp))

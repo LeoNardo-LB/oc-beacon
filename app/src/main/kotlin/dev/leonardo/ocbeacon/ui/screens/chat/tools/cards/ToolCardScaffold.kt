@@ -254,14 +254,19 @@ internal fun ToolCardScaffold(
                 val guideColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                 Box(
                     modifier = Modifier
+                        // 行整体左缩进(竖线锚位)
                         .padding(start = SpacingTokens.SM.dp)
+                        // 竖线画在 Box 左缘(x=1dp 处,2dp 宽)
                         .drawBehind {
                             drawRect(
                                 color = guideColor,
                                 topLeft = Offset(1.dp.toPx(), 0f),
                                 size = Size(2.dp.toPx(), size.height),
                             )
-                        },
+                        }
+                        // 2026-09-20 用户反馈修:竖线→内容之间补缩进——原实现内容
+                        // 紧贴竖线(视觉粘连);Roo border-l 语义=竖线后留白(pl-4)
+                        .padding(start = SpacingTokens.SM.dp),
                 ) {
                     expandedContent()
                 }
