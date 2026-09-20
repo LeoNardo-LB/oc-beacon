@@ -184,6 +184,10 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                     // 原 MD(12) 是给 2.5dp 色条让位的档位,色条已移除。
                     .padding(start = SpacingTokens.XS.dp, end = 10.dp, top = 2.dp, bottom = 2.dp)
             ) {
+                // 2026-09-20 用户裁决:展开后标题行整体让位(收起时才显示)——反相
+                // 双 Reveal:标题行/正文各自时钟,同帧反向 dispatch 高度变化
+                // 可加(#420 契约 per-instance,零额外适配)。
+                CardExpandReveal(visible = !expanded) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -239,17 +243,22 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                     }
                     // #215 批3：chevron IconButton 移除——本体点击=展开唯一入口
                 }
+                } // 反相 Reveal(标题行)闭合
 
                 // 可展开内容——#420(2026-09-20 用户裁决 A):原地揭示补偿
                 // (单一时钟同帧配对,展开/收起不再把高度变化转译为视口跳动;
                 // 降级路径=出厂 AV,行为与 2026-08-30 终局一致)
+                // 2026-09-20 用户裁决:展开态标题行让位——正文区承接 tap 收起
+                // (短按=收起;SelectionContainer 长按选择优先,不冲突)
                 CardExpandReveal(visible = expanded) {
                     // 2026-09-20 单行形态:展开区左竖线(Roo 式,与工具卡同语言;
                     // 修饰在 Reveal content 内部——#420 硬地板教训)
                     val guideColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                     Box(
                         modifier = Modifier
-                            .padding(start = SpacingTokens.SM.dp)
+                            // 2026-09-20 用户裁决:竖线对齐图标中心(14dp 图标中心 11dp,
+                            // 与工具卡 16dp 图标中心 12dp 取近值统一 11dp 锚位)
+                            .padding(start = 11.dp)
                             .drawBehind {
                                 drawRect(
                                     color = guideColor,
@@ -258,7 +267,9 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                                 )
                             }
                             // 2026-09-20 用户反馈修:竖线→内容缩进(原内容贴线粘连)
-                            .padding(start = SpacingTokens.SM.dp),
+                            .padding(start = SpacingTokens.SM.dp)
+                            // 展开态正文区 tap 收起(标题行已让位)
+                            .clickable { performHaptic(hapticView, hapticOn); onToggleExpand() },
                     ) {
                         Column {
                         Spacer(modifier = Modifier.height(6.dp))

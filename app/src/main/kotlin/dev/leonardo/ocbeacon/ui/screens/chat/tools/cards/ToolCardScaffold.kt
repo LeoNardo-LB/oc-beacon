@@ -254,8 +254,9 @@ internal fun ToolCardScaffold(
                 val guideColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                 Box(
                     modifier = Modifier
-                        // 行整体左缩进(竖线锚位)
-                        .padding(start = SpacingTokens.SM.dp)
+                        // 2026-09-20 用户裁决:竖线对齐标题行图标中心(4dp padding+16dp
+                        // 图标 → 中心 12dp;线宽 2dp → 锚位 11dp)——竖线自图标垂下
+                        .padding(start = 11.dp)
                         // 竖线画在 Box 左缘(x=1dp 处,2dp 宽)
                         .drawBehind {
                             drawRect(

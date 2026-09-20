@@ -82,6 +82,20 @@ sealed class RenderItem {
      */
     @Immutable
     data class RepeatingTool(val part: Part.Tool, val count: Int) : RenderItem()
+
+    /**
+     * #422 step 自动折叠（2026-09-20 用户裁决）：turn 内**非最后一条**
+     * assistant 消息（V2/DSH step.finish 落一条消息 → 消息边界=step 边界）
+     * 的整组渲染项——默认折叠为计数行（复用 chat_msg_tail_summary），
+     * 点击展开；流式 turn 渲染层恒平铺（跟随生成，DSH 同款时机）。
+     */
+    @Immutable
+    data class StepGroup(
+        val msgId: String,
+        val groups: List<PartGroup>,
+        val toolCount: Int,
+        val textCount: Int,
+    ) : RenderItem()
 }
 
 /**
@@ -192,11 +206,26 @@ fun computeRenderableTurn(
         }
         val msgParts = filterRenderableParts(msg.parts)
         val groups = groupContextParts(msgParts)
-        for (group in groups) {
-            renderItems.add(RenderItem.GroupedParts(group))
-        }
-        if (msgIndex < ordered.lastIndex && msgParts.isNotEmpty()) {
-            renderItems.add(RenderItem.TurnDivider(msg.message.id))
+        // #422:非最后一条消息(=非最后 step)整组折叠;最后消息(最终回答)平铺。
+        // 流式豁免在渲染层(LocalInStreamingTurn)——装配与流式解耦,turn 完结
+        // 后重组装配即自动折叠(DSH 同款时机)。
+        val isLastStep = msgIndex == ordered.lastIndex
+        if (!isLastStep && msgParts.isNotEmpty() && msgParts.size > 1) {
+            renderItems.add(
+                RenderItem.StepGroup(
+                    msgId = msg.message.id,
+                    groups = groups,
+                    toolCount = msgParts.count { it is Part.Tool },
+                    textCount = msgParts.count { it is Part.Text },
+                ),
+            )
+        } else {
+            for (group in groups) {
+                renderItems.add(RenderItem.GroupedParts(group))
+            }
+            if (!isLastStep && msgParts.isNotEmpty()) {
+                renderItems.add(RenderItem.TurnDivider(msg.message.id))
+            }
         }
     }
 

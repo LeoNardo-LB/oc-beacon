@@ -81,6 +81,10 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import dev.leonardo.ocbeacon.util.copyToClipboard
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalOnToggleToolExpanded
+import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalToolExpandedStates
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material3.Icon
 
 /**
  * 智能体消息（v2 两段式：正文 + 尾部统计栏）——扁平，无气泡容器、无头部标签栏。
@@ -366,6 +370,41 @@ internal fun MessageCardAssistant(
                                     }
                                 }
                             }
+                        }
+                    }
+
+                    // #422:step 折叠组——流式 turn 恒平铺(跟随生成,DSH 同款时机);
+                    // 非流式走 StepGroupCard 折叠(最终回答=最后消息恒平铺,装配层保证)
+                    is RenderItem.StepGroup -> key(item.msgId) {
+                        if (isStreaming) {
+                            item.groups.forEach { g ->
+                                val sp = (g as? PartGroup.Single)?.part
+                                if (sp != null) {
+                                    key(sp.id) {
+                                        PartContent(
+                                            part = sp,
+                                            textColor = textColor,
+                                            isUser = false,
+                                            onViewSubSession = onViewSubSession,
+                                            onOpenFile = onOpenFile,
+                                            asyncParse = false,
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            StepGroupCard(
+                                step = item,
+                                textColor = textColor,
+                                isAmoled = isAmoled,
+                                onViewSubSession = onViewSubSession,
+                                onOpenFile = onOpenFile,
+                                onLocateTask = onLocateTask,
+                                eventExpandedStates = eventExpandedStates,
+                                renderableTurn = renderableTurn,
+                                compact = compact,
+                                readinessRegistry = readinessRegistry,
+                            )
                         }
                     }
                 }
@@ -734,6 +773,22 @@ private fun ChunkAssistantItems(
                     )
                 }
             }
+            // #422:step 折叠组——递归复用本函数渲染 groups(不无限递归:StepGroup
+            // 在此解开为 GroupedParts 序列);分片 turn 恒非流式,无流式豁免
+            is RenderItem.StepGroup -> key(item.msgId) {
+                StepGroupCard(
+                    step = item,
+                    textColor = textColor,
+                    isAmoled = isAmoled,
+                    onViewSubSession = onViewSubSession,
+                    onOpenFile = onOpenFile,
+                    onLocateTask = onLocateTask,
+                    eventExpandedStates = eventExpandedStates,
+                    renderableTurn = renderableTurn,
+                    compact = compact,
+                    readinessRegistry = readinessRegistry,
+                )
+            }
         }
     }
 }
@@ -1081,5 +1136,71 @@ private fun AssistantTurnTail(
             onDelete = onDeleteMessage,
             onDismiss = { showDetailDialog = false },
         )
+    }
+}
+
+
+/**
+ * #422 step 折叠组卡：计数行(复用 chat_msg_tail_summary「N steps · M tools」)
+ * + CardExpandReveal 展开体(递归调 ChunkAssistantItems 渲染 groups)。
+ * 展开态复用工具展开表(key 前缀 step_ 与 part id 不冲突)。
+ */
+@Composable
+private fun StepGroupCard(
+    step: RenderItem.StepGroup,
+    textColor: Color,
+    isAmoled: Boolean,
+    onViewSubSession: ((String) -> Unit)?,
+    onOpenFile: ((String) -> Unit)?,
+    onLocateTask: ((String) -> Unit)?,
+    eventExpandedStates: MutableMap<String, Boolean>,
+    renderableTurn: RenderableTurn,
+    compact: Boolean,
+    readinessRegistry: RenderReadinessRegistry,
+) {
+    val toolExpandedStates = LocalToolExpandedStates.current
+    val onToggleToolExpanded = LocalOnToggleToolExpanded.current
+    val hapticView = LocalView.current
+    val hapticOn = LocalHapticFeedbackEnabled.current
+    val stateKey = "step_" + step.msgId
+    val expanded = toolExpandedStates[stateKey] ?: false
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    performHaptic(hapticView, hapticOn)
+                    onToggleToolExpanded(stateKey, !expanded)
+                },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Layers,
+                contentDescription = stringResource(if (expanded) R.string.a11y_icon_collapse else R.string.a11y_icon_expand),
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+            )
+            Text(
+                text = stringResource(R.string.chat_msg_tail_summary, step.textCount.coerceAtLeast(1), step.toolCount),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+                maxLines = 1,
+            )
+        }
+        CardExpandReveal(visible = expanded) {
+            ChunkAssistantItems(
+                items = step.groups.map { RenderItem.GroupedParts(it) },
+                textColor = textColor,
+                isAmoled = isAmoled,
+                onViewSubSession = onViewSubSession,
+                onOpenFile = onOpenFile,
+                onLocateTask = onLocateTask,
+                eventExpandedStates = eventExpandedStates,
+                renderableTurn = renderableTurn,
+                compact = compact,
+                readinessRegistry = readinessRegistry,
+            )
+        }
     }
 }
