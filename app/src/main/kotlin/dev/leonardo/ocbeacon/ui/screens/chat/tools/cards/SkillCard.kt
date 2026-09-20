@@ -103,7 +103,7 @@ private fun SkillToolCardContent(
     ) {
         // 指令折叠卡：说明头 + 全文滚动区（默认收起由 isExpanded 控制）
         Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+            color = dev.leonardo.ocbeacon.ui.screens.chat.util.toolOutputContainerColor(),
             shape = ShapeTokens.smallMedium,
             modifier = Modifier.fillMaxWidth(),
         ) {

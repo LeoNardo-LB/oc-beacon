@@ -27,6 +27,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.components.CardExpandReveal
 import dev.leonardo.ocbeacon.ui.screens.chat.components.CardExpandExitTransition
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import dev.leonardo.ocbeacon.ui.screens.chat.components.occupyBottomGap
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -98,17 +99,17 @@ internal fun TodoListCard(
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
 
-    // #215 批3：容器统一收尾——手写 Surface+border 模式（批1 已对齐圆角）收敛到
-    // AmoledSurface（surface + tonal 1dp + smallMedium 6dp，AMOLED 纯黑+边框），与全家同源
+    // 2026-09-20 #421 单行形态收编(补卡族遗漏)+#421B 输出块语义:
+    // 去容器(透明/无描边/零 elevation)对齐 16 卡 scaffold 语言;占位收缩同步;
+    // todo 列表(机器产出)=数据块,列表区底色走 toolOutputContainerColor 薄纱档
     AmoledSurface(
         isAmoledDark = isAmoled,
-        normalColor = MaterialTheme.colorScheme.surface,
-        normalTonalElevation = 1.dp,
-        // 2026-09-17：卡片层标准描边（普通主题也需要，与扁平正文分离）
-        normalBorder = CardStandardBorder,        shape = ShapeTokens.smallMedium,
-        modifier = Modifier.fillMaxWidth()
+        normalColor = Color.Transparent,
+        normalTonalElevation = 0.dp,
+        normalBorder = null,        shape = ShapeTokens.smallMedium,
+        modifier = Modifier.fillMaxWidth().occupyBottomGap()
     ) {
-        Column(modifier = Modifier.padding(SpacingTokens.SM.dp)) {
+        Column(modifier = Modifier.padding(start = SpacingTokens.XS.dp, end = SpacingTokens.XS.dp, top = 2.dp, bottom = 2.dp)) {
             // Header row
             Row(
                 modifier = Modifier

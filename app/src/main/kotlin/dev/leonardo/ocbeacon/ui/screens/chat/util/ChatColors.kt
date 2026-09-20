@@ -18,13 +18,15 @@ import dev.leonardo.ocbeacon.ui.theme.LocalAmoledMode
 @Composable
 internal fun isAmoledTheme(): Boolean = LocalAmoledMode.current
 
+/**
+ * 工具输出块统一底色（#421 方案 B·用户裁决 2026-09-20）：
+ * 机器输出（命令结果/文件预览等）=「数据块」语义——极淡薄纱底
+ * （surfaceContainer@FAINT 0.35）区分于叙述正文流；行头仍无背景。
+ * 共享收口：Shell/Bash/Read/Write/Edit/WebFetch 输出区一处调档全跟随。
+ */
 @Composable
 internal fun toolOutputContainerColor(): Color {
-    return if (isSystemInDarkTheme()) {
-        MaterialTheme.colorScheme.secondaryContainer
-    } else {
-        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = AlphaTokens.AMOLED)
-    }
+    return MaterialTheme.colorScheme.surfaceContainer.copy(alpha = AlphaTokens.FAINT)
 }
 
 /**
