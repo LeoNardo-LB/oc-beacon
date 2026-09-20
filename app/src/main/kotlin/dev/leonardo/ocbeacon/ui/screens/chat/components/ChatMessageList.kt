@@ -143,6 +143,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 // #227：压缩尾部兜底分割线的展开表键随认领策略外移
 // CompactionDividerPolicy.TAIL_EXPANSION_KEY（C4）。
 
+/** #422 历史懒加载:大组分片淡入时长(ms)——直出+淡入档(介于 AppMotion SHORT/MEDIUM)。 */
+private const val SG_BODY_FADE_MS = 220
+
 private val BACKGROUND_SYNTHETIC_MARKERS = listOf(
     "User requested that active blocking work be moved to the background",
     "active blocking work be moved to the background",
@@ -462,7 +465,9 @@ fun ChatMessageList(
                     ?.firstOrNull { it is dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderItem.StepGroup }
                     as? dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderItem.StepGroup
                     ?: return@forEachIndexed
-                if (toolExpandedStatesSnapshot["step_" + sg.msgId] == true &&
+                // 注:流式豁免由 buildChatEntries 单点门控(!isStreamingTurn,有单测
+                // 兜底)——此处仅做候选收集,两处 gate 语义见 isMultiMessageTurn 先例
+                if (toolExpandedStatesSnapshot[stepGroupStateKey(sg.msgId)] == true &&
                     turnItemWeight(sg) >= LARGE_STEP_GROUP_WEIGHT
                 ) {
                     val tk = "t_" + (turnGroups[rawIdx]?.firstOrNull()?.message?.id ?: msg.message.id)
@@ -1485,10 +1490,12 @@ fun ChatMessageList(
                                     var bodyShown by androidx.compose.runtime.saveable.rememberSaveable(entry.key) {
                                         androidx.compose.runtime.mutableStateOf(false)
                                     }
-                                    androidx.compose.runtime.LaunchedEffect(entry.key) { bodyShown = true }
+                                    LaunchedEffect(entry.key) { bodyShown = true }
                                     val bodyAlpha by androidx.compose.animation.core.animateFloatAsState(
                                         targetValue = if (bodyShown) 1f else 0f,
-                                        animationSpec = androidx.compose.animation.core.tween(220),
+                                        // 淡入时长:介于 AppMotion.SHORT(150) 与 MEDIUM(300) 之间,
+                                        // 大组分片直出的视觉过渡档(用户裁决「直出+淡入」)
+                                        animationSpec = androidx.compose.animation.core.tween(SG_BODY_FADE_MS),
                                         label = "sgBodyFade",
                                     )
                                     Box(

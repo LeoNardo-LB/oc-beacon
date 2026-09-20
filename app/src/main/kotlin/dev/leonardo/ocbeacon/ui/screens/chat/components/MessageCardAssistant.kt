@@ -1147,6 +1147,12 @@ private fun AssistantTurnTail(
 
 
 /**
+ * #422 折叠组展开表 key(单一真相源):「step_」前缀与 part id 不冲突
+ * (MessageCardAssistant/ChatMessageList 三消费方共用,防手拼漂移断链)。
+ */
+internal fun stepGroupStateKey(msgId: String): String = "step_" + msgId
+
+/**
  * #422 折叠组计数行(共享组件):Layers 图标 + 「N 步 · M 个工具」,点击 toggle
  * 展开态。StepGroupCard(小组动画路径)与 ChatEntry.StepGroupHead 条目
  * (大组懒加载路径)共用——同一交互入口。
@@ -1160,7 +1166,7 @@ internal fun StepGroupFoldRow(
     val onToggleToolExpanded = LocalOnToggleToolExpanded.current
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
-    val stateKey = "step_" + step.msgId
+    val stateKey = stepGroupStateKey(step.msgId)
     val expanded = toolExpandedStates[stateKey] ?: false
     Row(
         modifier = modifier
@@ -1207,7 +1213,7 @@ private fun StepGroupCard(
     readinessRegistry: RenderReadinessRegistry,
 ) {
     val toolExpandedStates = LocalToolExpandedStates.current
-    val stateKey = "step_" + step.msgId
+    val stateKey = stepGroupStateKey(step.msgId)
     val expanded = toolExpandedStates[stateKey] ?: false
     Column(modifier = Modifier.fillMaxWidth()) {
         StepGroupFoldRow(step = step)
