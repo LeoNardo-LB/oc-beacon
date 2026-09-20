@@ -82,6 +82,9 @@ private const val MAX_FRAME_DELTA_PX = 100
 /** 虚拟时钟单帧最大时间步(ms)——防大时间窗整体放过。 */
 private const val MAX_FRAME_STEP_MS = 20f
 
+/** 展开预热分数:ε·H<1px(trunc=0)零视觉,仅驱动 content 入树首测。 */
+private const val WARMUP_FRACTION = 0.001f
+
 /**
  * 纯时钟状态(可单测):fraction 驱动 + 上报高度记账 + δ 计算。
  *
@@ -105,6 +108,9 @@ internal class CardExpandClock(initialFraction: Float) {
      */
     var lastReportedH = 0
         private set
+
+    /** 账本是否已有起点(首测对齐后由 advance/snap 独占写入)。 */
+    private var ledgerInitialized = false
 
     /** 动画进行中(冷启动 snap 与取消 snap 不 dispatch)。 */
     var animating = false
@@ -131,18 +137,38 @@ internal class CardExpandClock(initialFraction: Float) {
         return delta
     }
 
-    /** measure 相调用:记账并返回上报高度。 */
+    /**
+     * measure 相调用:记账并返回上报高度。
+     *
+     * #420 追诊定案:**不写 [lastReportedH]**——指令账本只归 advance 所有。
+     * 原「洗账」(lastReportedH=report)会把 content 渐进组合(0→18→738)与
+     * 迟到增长的揭示增量默默吞掉 → 永久欠账(实测展开上推 8px,长文本
+     * 首测跨 100-300ms 时可达 f·738≈200-380px,概率性取决于文本复杂度
+     * 与帧相位)。去洗账后,H 跳变帧的 report−lastReported 欠账由下一帧
+     * advance 的 δ telescoping 自动补齐(欠账存活 ≤1 帧)。
+     */
     fun onMeasure(realH: Int): Int {
         lastMeasuredH = realH
         val report = (fraction * realH).toInt()
-        lastReportedH = report
+        // 首测对齐:账本尚无指令历史(冷组合,含 R7 滑回直接展开态)时以实测
+        // 起账——否则后续首帧 δ 相对 0 暴冲(冷展开态收起 +H·f1)。
+        if (!ledgerInitialized) {
+            lastReportedH = report
+            ledgerInitialized = true
+        }
         return report
     }
 
-    /** 取消/冷启动:snap 目标分数(不产生位移)。 */
+    /** 取消/冷启动:snap 目标分数(不产生位移;账本同步指令值防后续 δ 暴冲)。 */
     fun snap(target: Float) {
         fraction = target
+        lastReportedH = (target * lastMeasuredH).toInt()
         animating = false
+    }
+
+    /** 展开预热:ε·H<1px 零视觉,仅驱动 content 入树开始首测。 */
+    fun warmup() {
+        if (fraction < WARMUP_FRACTION) fraction = WARMUP_FRACTION
     }
 
     fun beginEpisode() {
@@ -202,6 +228,11 @@ internal fun CardExpandReveal(
             clock.animating = true
             clock.beginEpisode()
             try {
+                if (target > 0f && clock.lastMeasuredH == 0) {
+                    // #420 预热:content 入树开始首测(ε·H<1px 零视觉);长文本
+                    // 首测跨帧部分由账本欠账机制兜底(下帧 δ 补齐)
+                    clock.warmup()
+                }
                 val startF = clock.fraction
                 val t0 = withFrameNanos { it }
                 var vt = 0f // 虚拟时钟(ms):墙钟追赶 + 单帧位移钳制

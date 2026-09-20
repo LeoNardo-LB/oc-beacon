@@ -65,9 +65,40 @@ class CardExpandClockTest {
         assertEquals(500, c.onMeasure(1000))
         // 本帧 advance 用旧 H(1000)——增长 1000→1200 尚未被 measure 发现
         assertEquals(0.6f * 1000 - 500, c.advance(0.6f), 0.5f)
+        // onMeasure 不洗账(指令账本归 advance 独有):报告 720,账本仍 600,欠账 120
         assertEquals((0.6f * 1200).toInt(), c.onMeasure(1200))
-        // 下一帧 advance 吸收增长分量(一帧滞后)
-        assertEquals(0.7f * 1200 - (0.6f * 1200).toInt(), c.advance(0.7f), 0.5f)
+        // 下一帧 advance 的 δ telescoping 自动补齐欠账(240 = 增量 120 + 欠账 120)
+        assertEquals((0.7f * 1200).toInt() - 600f, c.advance(0.7f), 0.5f)
+    }
+
+    /**
+     * #420 追诊回归:content 渐进组合竞态(0→18→738 两步首测)的欠账必须在
+     * H 就绪后的下一帧全额补 dispatch——否则永久上推 f_done·H px
+     * (实测短文本 8px,长文本首测跨 100-300ms 时 200-380px,概率性)。
+     */
+    @Test
+    fun progressiveCompositionDebtCompensatedNextFrame() {
+        val c = clock(expanded = false)
+        // 帧1:content 未组合(H=0)——advance δ=0 静默
+        assertEquals(0f, c.advance(0.05f), 0.5f)
+        // 帧1 measure:渐进组合第一步只测到 18px,report≈1(0.05·18)
+        c.onMeasure(18)
+        // 帧2 advance 仍用旧 H(18):δ=trunc(0.1·18)−0=1
+        assertEquals(1f, c.advance(0.1f), 0.5f)
+        // 帧2 measure:首测完成 H=738,report=73,账本仍 1 → 欠账 72(未洗账)
+        assertEquals(73, c.onMeasure(738))
+        // 帧3 advance:δ=trunc(0.2·738)−1=146(增量 73 + 欠账 72 全额补齐)
+        assertEquals(146f, c.advance(0.2f), 0.5f)
+        // 守恒:此后揭示到 738 时,Σdispatch == 738(欠账不流失)
+        var dispatched = 146f + 1f
+        var f = 0.2f
+        while (f < 1f) {
+            f += 0.1f
+            dispatched += c.advance(f)
+            c.onMeasure(738)
+        }
+        dispatched += c.advance(1f)
+        assertEquals(738f, dispatched, 0.5f)
     }
 
     @Test
@@ -90,6 +121,8 @@ class CardExpandClockTest {
         c.snap(1f)
         assertEquals(1f, c.fraction, 0.001f)
         assertEquals(false, c.animating)
+        // snap 自写账本(指令值)——防去洗账后后续 δ 暴冲
+        assertEquals(500, c.lastReportedH)
         // snap 后下一次 measure 全量揭示(取消时内容即时就位,位移由用户手势吸收)
         assertEquals(500, c.onMeasure(500))
     }
