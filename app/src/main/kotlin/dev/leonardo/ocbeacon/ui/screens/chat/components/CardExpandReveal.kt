@@ -1,7 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.components
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -15,8 +15,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Constraints
 import dev.leonardo.ocbeacon.BuildConfig
@@ -70,6 +72,17 @@ private const val GEOMETRY_TWEEN_MS = 240
 private const val FADE_TWEEN_MS = 300
 
 /**
+ * #420 追诊:单帧位移钳制(px)。贴底收起时视口上缘暴露更旧 items,
+ * LazyList 组合新 item 的成本可掉帧 100-160ms → withFrameNanos 跳帧 →
+ * 墙钟驱动的 tween 单步 δ 暴涨(实测 −250px/帧,观感即「跳变」)。
+ * 虚拟时钟以本钳制限速:掉帧时动画自适应拉长而非单步暴涨。
+ */
+private const val MAX_FRAME_DELTA_PX = 100
+
+/** 虚拟时钟单帧最大时间步(ms)——防大时间窗整体放过。 */
+private const val MAX_FRAME_STEP_MS = 20f
+
+/**
  * 纯时钟状态(可单测):fraction 驱动 + 上报高度记账 + δ 计算。
  *
  * 帧内契约:动画相 [advance] → dispatchRawDelta(δ);measure 相 [onMeasure]
@@ -102,11 +115,18 @@ internal class CardExpandClock(initialFraction: Float) {
 
     var departureFired = false
 
-    /** 动画相调用:推进 fraction,返回本帧应位移的 δ(全导数)。 */
+    /**
+     * 动画相调用:推进 fraction,返回本帧应位移的 δ。
+     *
+     * #420 追诊定案:δ 必须与布局上报共用同一整型量化器——
+     * [(fraction × H).toInt()]——否则 float δ 经滚动侧独立取整,
+     * 每帧泄漏 ~0.5px 子像素(实测一展开/收起循环净漂 −26px)。
+     * 本方法与 [onMeasure] 的 report 公式严格一致 → 整数守恒。
+     */
     fun advance(newFraction: Float): Float {
-        val target = newFraction * lastMeasuredH
-        val delta = target - lastReportedH
-        lastReportedH = target.toInt()
+        val target = (newFraction * lastMeasuredH).toInt()
+        val delta = (target - lastReportedH).toFloat()
+        lastReportedH = target
         fraction = newFraction
         return delta
     }
@@ -162,62 +182,58 @@ internal fun CardExpandReveal(
     }
 
     val clock = remember { CardExpandClock(initialFraction = if (visible) 1f else 0f) }
-    val fraction = remember { Animatable(if (visible) 1f else 0f) }
 
-    // visible 转换 → 驱动时钟(冷组合初值即目标,不动画)
-    LaunchedEffect(visible) {
+    /**
+     * visible 转换 → 手写帧循环驱动(冷组合初值即目标,不动画)。
+     *
+     * #420 追诊定案:animateTo + snapshotFlow 方案有两处致命竞态——
+     * ① snapshotFlow 是 conflated:主线程拥塞时中间值合并(实测一帧
+     *   δ=−260、164ms 空白、8 次稀疏 dispatch);
+     * ② animateTo 的 finally 先关 animating,尾帧 δ 被守卫吞掉 →
+     *   动画结束帧高度无补偿塌陷(实测 ~265px 跳变)。
+     * 手写循环把「advance → dispatch → 写 fraction(本帧 measure 上报)」
+     * 三步强绑在同一帧回调内,循环正常结束点显式 flush 精确落位。
+     * 协程取消(用户滚动 snap / 快速反向 toggle 重启)由 LaunchedEffect
+     * 语义天然覆盖——新循环自 clock.fraction 当前值续走(R5 回摆保留)。
+     */
+    LaunchedEffect(visible, listState) {
         val target = if (visible) 1f else 0f
-        if (abs(fraction.value - target) > 0.001f) {
+        if (abs(clock.fraction - target) > 0.001f) {
             clock.animating = true
             clock.beginEpisode()
             try {
-                fraction.animateTo(target, tween(GEOMETRY_TWEEN_MS))
+                val startF = clock.fraction
+                val t0 = withFrameNanos { it }
+                var vt = 0f // 虚拟时钟(ms):墙钟追赶 + 单帧位移钳制
+                while (vt < GEOMETRY_TWEEN_MS) {
+                    val now = withFrameNanos { it }
+                    val wall = ((now - t0) / 1_000_000f).coerceAtLeast(0f)
+                    // 从 vt+1ms 起试探满足位移钳制的最大虚拟步(二分回退)
+                    var nextVt = minOf(wall, vt + MAX_FRAME_STEP_MS)
+                    while (nextVt - vt > 1f) {
+                        val cand = easedFraction(startF, target, nextVt)
+                        val estD = abs((cand * clock.lastMeasuredH).toInt() - clock.lastReportedH)
+                        if (estD > MAX_FRAME_DELTA_PX) nextVt -= (nextVt - vt) / 2f else break
+                    }
+                    vt = maxOf(nextVt, vt + 0.5f) // 至少微进,防死锁
+                    dispatch(listState, clock, departure, easedFraction(startF, target, vt))
+                }
+                dispatch(listState, clock, departure, target) // 收尾 flush:残余 ≤ 钳制值
             } finally {
                 clock.animating = false
             }
         }
     }
 
-    // 时钟相:每帧位移先行(δ = 全导数),再由 measure 揭示配对
-    LaunchedEffect(fraction, listState) {
-        snapshotFlow { fraction.value }
-            .collect { newF ->
-                if (!clock.animating) return@collect
-                val d = clock.advance(newF)
-                if (abs(d) < 0.5f) return@collect
-                val consumed = runCatching { listState.dispatchRawDelta(d) }.getOrDefault(0f)
-                clock.recordDisplacement(consumed)
-                if (BuildConfig.DEBUG) {
-                    AppLogger.d(
-                        "CardExpand",
-                        "[DEBUG-420] dispatch d=" + d.toInt() + " consumed=" + consumed.toInt() +
-                            " f=" + "%.2f".format(newF) + " H=" + clock.lastMeasuredH
-                    )
-                }
-                if (abs(d - consumed) > 0.5f) {
-                    AppLogger.w(
-                        "CardExpand",
-                        "[DEBUG-420] residual=" + (d - consumed).toInt() +
-                            " (list edge; above-content absorbs)"
-                    )
-                }
-                if (!clock.departureFired && clock.episodeDisplacement > DEPARTURE_THRESHOLD_PX) {
-                    clock.departureFired = true
-                    departure?.invoke()
-                }
-            }
-    }
-
-    // 用户滚动 → 立即取消(阅读位置优先权铁律)
-    LaunchedEffect(fraction, listState, visible) {
+    // 用户滚动 → 立即取消(阅读位置优先权铁律):snap 即取消动画协程 + 直接落位
+    LaunchedEffect(listState) {
         snapshotFlow { listState.isScrollInProgress }
             .collect { scrolling ->
                 if (scrolling && clock.animating) {
                     if (BuildConfig.DEBUG) {
-                        AppLogger.d("CardExpand", "[DEBUG-420] cancel-on-scroll snap f=" + fraction.value)
+                        AppLogger.d("CardExpand", "[DEBUG-420] cancel-on-scroll snap f=" + "%.3f".format(clock.fraction))
                     }
                     clock.snap(if (visible) 1f else 0f)
-                    fraction.snapTo(if (visible) 1f else 0f)
                 }
             }
     }
@@ -227,12 +243,57 @@ internal fun CardExpandReveal(
             .clipToBounds()
             .cardExpandGeometry(clock)
     ) {
-        AnimatedVisibility(
-            visible = visible,
-            enter = fadeIn(tween(FADE_TWEEN_MS)),
-            exit = fadeOut(tween(FADE_TWEEN_MS)),
-        ) {
-            content()
+        // #420 追诊:content 组合生命周期归几何时钟统一拥有(fraction>0 即组合)。
+        // 原方案 AV fadeOut(300ms) 与几何 tween(240ms) 两时钟分离——掉帧时
+        // 几何未走完而 AV 已把 content 移出组合 → H 突塌 f·738px 无补偿
+        // (实测 flow-b 收起终末 −217px 跳变)。fade 改由分数驱动(前/后 30%),
+        // 与几何同起止,杜绝第二时钟。
+        if (clock.fraction > 0f) {
+            Box(modifier = Modifier.graphicsLayer { alpha = (clock.fraction / 0.3f).coerceIn(0f, 1f) }) {
+                content()
+            }
+        }
+    }
+}
+
+/** 虚拟时刻 vt(ms) 对应的缓动分数。 */
+private fun easedFraction(startF: Float, target: Float, vt: Float): Float {
+    val p = (vt / GEOMETRY_TWEEN_MS.toFloat()).coerceIn(0f, 1f)
+    return startF + (target - startF) * FastOutSlowInEasing.transform(p)
+}
+
+/**
+ * 单帧位移配对:advance(整型账本 δ) → dispatchRawDelta → 写 fraction(本帧
+ * measure 据此上报揭示高度)。residual(贴底负向不可消费)留痕;累计位移越
+ * [DEPARTURE_THRESHOLD_PX] 触发离开跟随回调。
+ */
+private fun dispatch(
+    listState: LazyListState,
+    clock: CardExpandClock,
+    departure: (() -> Unit)?,
+    newFraction: Float,
+) {
+    val d = clock.advance(newFraction)
+    if (d != 0f) {
+        val consumed = runCatching { listState.dispatchRawDelta(d) }.getOrDefault(0f)
+        clock.recordDisplacement(consumed)
+        if (BuildConfig.DEBUG) {
+            AppLogger.d(
+                "CardExpand",
+                "[DEBUG-420] dispatch d=" + d.toInt() + " consumed=" + consumed.toInt() +
+                    " f=" + "%.3f".format(newFraction) + " H=" + clock.lastMeasuredH,
+            )
+        }
+        if (abs(d - consumed) > 0.5f) {
+            AppLogger.w(
+                "CardExpand",
+                "[DEBUG-420] residual=" + (d - consumed).toInt() +
+                    " (list edge; above-content absorbs)",
+            )
+        }
+        if (!clock.departureFired && abs(clock.episodeDisplacement) > DEPARTURE_THRESHOLD_PX) {
+            clock.departureFired = true
+            departure?.invoke()
         }
     }
 }
