@@ -87,6 +87,9 @@ val LocalCopyFeedback = androidx.compose.runtime.staticCompositionLocalOf<(() ->
  *   AMOLED 下仍为纯黑 + 边框。用于任务类卡片的状态底色语义
  *  （发起=蓝 / 完成=绿 / 失败=红，2026-08-11 用户要求）。
  */
+/** 标题行前导图标尺寸(dp)——竖线锚位由此派生(见展开区 Box)。 */
+private val LEADING_ICON_SIZE = 16.dp
+
 @Composable
 internal fun ToolCardScaffold(
     icon: ImageVector,
@@ -254,9 +257,10 @@ internal fun ToolCardScaffold(
                 val guideColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                 Box(
                     modifier = Modifier
-                        // 2026-09-20 用户裁决:竖线对齐标题行图标中心(4dp padding+16dp
-                        // 图标 → 中心 12dp;线宽 2dp → 锚位 11dp)——竖线自图标垂下
-                        .padding(start = 11.dp)
+                        // 2026-09-20 居中修正:竖线与图标同在 Column 内容区(同一起点
+                        // x=0),图标中心=LEADING_ICON_SIZE/2=8dp;线宽 2dp → 锚位
+                        // =中心−1dp=7dp。公式化绑定:图标尺寸变更自动跟随。
+                        .padding(start = LEADING_ICON_SIZE / 2 - 1.dp)
                         // 竖线画在 Box 左缘(x=1dp 处,2dp 宽)
                         .drawBehind {
                             drawRect(

@@ -261,9 +261,9 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                     val guideColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                     Box(
                         modifier = Modifier
-                            // 2026-09-20 用户裁决:竖线对齐图标中心(14dp 图标中心 11dp,
-                            // 与工具卡 16dp 图标中心 12dp 取近值统一 11dp 锚位)
-                            .padding(start = 11.dp)
+                            // 2026-09-20 居中修正:图标与竖线同一起点(内容区 x=0),
+                            // 14dp 图标中心 7dp;线宽 2dp → 锚位 6dp。公式化绑定。
+                            .padding(start = 14.dp / 2 - 1.dp)
                             .drawBehind {
                                 drawRect(
                                     color = guideColor,
