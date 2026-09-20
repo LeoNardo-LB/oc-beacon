@@ -146,6 +146,9 @@ private val BACKGROUND_SYNTHETIC_MARKERS = listOf(
 
 /** 判断 synthetic 消息文本是否为服务器「转后台」合成通知（供分割线渲染分支与单测使用）。
  * 大小写不敏感——服务器模板可能调整大小写/时态，任一变体命中即视为转后台合成通知。 */
+/** #420 B 类:itemsIndexed 之前恒驻声明的 banner item 数(见 bannerCount 注释)。 */
+private const val BANNER_ALWAYS_COUNT = 7
+
 internal fun isBackgroundMoveSynthetic(text: String): Boolean =
     BACKGROUND_SYNTHETIC_MARKERS.any { text.contains(it, ignoreCase = true) }
 
@@ -170,6 +173,33 @@ internal fun sessionErrorRowItems(errors: List<String>): List<Pair<String, Strin
  * （流式判定沿 isStreamingMsg 旧名）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * #420 B 类补齐：列表底缘条件 item 的「原地揭示」包装。
+ *
+ * reverseLayout 中先声明的 item 视觉在最底=锚定区——banner 的增删会
+ * 全额转译为视口位移（贴底尤甚）。本包装让 banner item **恒驻声明**，
+ * 出现/消失条件下沉到内容层经 [CardExpandReveal] 同帧位移配对（贴底
+ * 视口钉死）；流式 turn 活跃时降级裸 AV（item 级 COMP 补偿独占，
+ * 杜绝双重注入）。注意 [streamingActive] 应反映「当前是否有流式
+ * turn」，与消息 item 的逐 item 判定同源。
+ */
+@Composable
+private fun BannerReveal(
+    listState: LazyListState,
+    onExpandDeparture: () -> Unit,
+    streamingActive: Boolean,
+    visible: Boolean,
+    content: @Composable () -> Unit,
+) {
+    CompositionLocalProvider(
+        LocalCardExpandListState provides listState,
+        LocalCardExpandDeparture provides onExpandDeparture,
+        LocalInStreamingTurn provides streamingActive,
+    ) {
+        CardExpandReveal(visible = visible) { content() }
+    }
+}
+
 @Composable
 fun ChatMessageList(
     listState: LazyListState,
@@ -594,8 +624,14 @@ fun ChatMessageList(
 
     // LazyColumn 中 itemsIndexed 之前渲染的非消息项数量。
     // C4-C：压缩项由 CompactionDividerPolicy.bannerTerms 派生（与尾部兜底 item
-    // 认领同源，消除独立手算双写）；其余 6 项（revert/retry/tool/step/question/
-    // perm）仍必须与下面的条件 `item { ... }` 块保持一致（见横幅渲染）。
+    // 认领同源，消除独立手算双写）。
+    // #420 B 类改造（2026-09-20）：revert/retry/turn_max_tokens/tool_progress/
+    // step_progress/question_pending/perm_pending 七项**恒驻声明**（出现/消失
+    // 条件下沉内容层经 CardExpandReveal 原地揭示）——本计数恒为 7，不再随
+    // 条件增减。注意旧实现 turn_max_tokens 从未计入（显示时跳转 index 偏 1
+    // 的潜伏 bug）与 revert 的 revertSupported 不判定（同源隐患），恒驻化
+    // 一并根治。dsh_job/错误行仍条件声明（动态 key 无法恒驻）——保持原
+    // 「不计」行为不变。compaction_banner 仍条件声明（自有 COMP-CMP 补偿）。
     val compactionBanners = remember(
         currentCompaction, displayItemMessageIds, v1CompactionSummaryInList, compactionEntries,
     ) {
@@ -604,22 +640,9 @@ fun ChatMessageList(
             suppressByTranscriptCompaction = compactionEntries.isNotEmpty(),
         )
     }
-    val bannerCount = remember(
-        sessionMeta.revert,
-        compactionBanners,
-        sessionMeta.sessionStatus,
-        activeTools,
-        currentStep,
-        unembeddedQuestions,
-        interaction.pendingPermissions,
-    ) {
-        (if (sessionMeta.revert != null) 1 else 0) +
-        (if (compactionBanners.streamClaimed) 1 else 0) +
-        (if (sessionMeta.sessionStatus is SessionStatus.Retry) 1 else 0) +
-        (if (activeTools.isNotEmpty()) 1 else 0) +
-        (if (currentStep != null) 1 else 0) +
-        (if (unembeddedQuestions.isNotEmpty()) 1 else 0) +
-        (if (interaction.pendingPermissions.isNotEmpty()) 1 else 0)
+    val bannerCount = remember(compactionBanners) {
+        BANNER_ALWAYS_COUNT +
+        (if (compactionBanners.streamClaimed) 1 else 0)
     }
 
     // #222（贴底尾部横幅 reveal）：调研定音（docs/research/2026-08-25-card-height-
@@ -632,16 +655,11 @@ fun ChatMessageList(
     // 修复 = reveal 而非补偿：bannerCount 驱动显式锚底（msgCount effect 同款
     // requestScrollToItem(0) 语义——显式滚动决策，零反射零测量注入）。门控用
     // autoScroll（在底意图）而非 isAtBottom——后者被插入本身翻假会自我闭锁。
-    val revealBannerCount = remember(
-        sessionMeta.sessionStatus,
-        activeTools,
-        currentStep,
-        compactionBanners,
-    ) {
-        (if (sessionMeta.sessionStatus is SessionStatus.Retry) 1 else 0) +
-            (if (activeTools.isNotEmpty()) 1 else 0) +
-            (if (currentStep != null) 1 else 0) +
-            (if (compactionBanners.tailFallback) 1 else 0)
+    // #420 B 类改造后:retry/tool/step 三项恒驻声明+CardExpandReveal 原地
+    // 揭示(出现/消失经同帧补偿,不再抬锚),本 effect 的钉底锚定退役三项,
+    // 仅保留未恒驻的压缩尾部兜底(compaction_banner 仍条件插入)。
+    val revealBannerCount = remember(compactionBanners) {
+        (if (compactionBanners.tailFallback) 1 else 0)
     }
     LaunchedEffect(revealBannerCount) {
         if (dev.leonardo.ocbeacon.BuildConfig.DEBUG && revealBannerCount > 0) {
@@ -2020,9 +2038,15 @@ fun ChatMessageList(
                     }
 
                     // Revert 横幅（#276：DSH 无 revert 域——revert 态永不为真，
-                    // 能力位兜底门控）
-                    if (revertSupported && sessionMeta.revert != null) {
-                        item(key = "revert_banner") {
+                    // 能力位兜底门控）——#420 B 类:恒驻声明+原地揭示(撤销发生在
+                    // turn 间隙=非流式,CardExpandReveal 激活;流式时降级裸 AV)
+                    item(key = "revert_banner") {
+                        BannerReveal(
+                            listState = listState,
+                            onExpandDeparture = onExpandDeparture,
+                            streamingActive = streamingMsgId != null,
+                            visible = revertSupported && sessionMeta.revert != null,
+                        ) {
                             Box(modifier = Modifier.padding(bottom = messageSpacing)) {
                             RevertBanner(onRedo = {
                                 viewModel.redoMessage { ok ->
@@ -2073,12 +2097,19 @@ fun ChatMessageList(
                         }
                     }
 
-                    // Retry 横幅 —— 会话处于 Retry 状态时显示
+                    // Retry 横幅 —— 会话处于 Retry 状态时显示（#420 B 类恒驻+原地揭示）
                     val retryStatus = sessionMeta.sessionStatus
-                    if (retryStatus is SessionStatus.Retry) {
-                        item(key = "retry_banner") {
+                    item(key = "retry_banner") {
+                        BannerReveal(
+                            listState = listState,
+                            onExpandDeparture = onExpandDeparture,
+                            streamingActive = streamingMsgId != null,
+                            visible = retryStatus is SessionStatus.Retry,
+                        ) {
                             Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                            RetryBanner(retryStatus)
+                            if (retryStatus is SessionStatus.Retry) {
+                                RetryBanner(retryStatus)
+                            }
                             }
                         }
                     }
@@ -2086,8 +2117,14 @@ fun ChatMessageList(
                     // #309 批1⑤：max-tokens 通知卡（Web turn-max-tokens 对位）——
                     // 本轮输出达上限被截断；继续=再发一条 "continue" prompt（无专用
                     // 端点，Web 同款语义）；新一轮 turn/start（Busy）自动清卡。
-                    if (turnMaxTokens != null) {
-                        item(key = "turn_max_tokens") {
+                    item(key = "turn_max_tokens") {
+                        // #420 B 类恒驻+原地揭示:turn 截断通知出现于 turn 终态(非流式)
+                        BannerReveal(
+                            listState = listState,
+                            onExpandDeparture = onExpandDeparture,
+                            streamingActive = streamingMsgId != null,
+                            visible = turnMaxTokens != null,
+                        ) {
                             Box(modifier = Modifier.padding(bottom = messageSpacing)) {
                                 TurnMaxTokensCard(
                                     onContinue = { viewModel.sendMessage("continue") },
@@ -2108,9 +2145,17 @@ fun ChatMessageList(
                         }
                     }
 
-                    // 工具进度卡片（带漂移补偿）
-                    if (activeTools.isNotEmpty()) {
-                        item(key = "tool_progress") {
+                    // 工具进度卡片（带漂移补偿）——#420 B 类恒驻+原地揭示:
+                    // 出现于流式 turn 内→BannerReveal 降级裸 AV(冷组合直显,
+                    // COMP-TOOL 管流式增长,互不打架);turn 结束消失→非流式
+                    // CardExpandReveal 激活→原地收起+同帧补偿(旧实现裸移除跳变)
+                    item(key = "tool_progress") {
+                        BannerReveal(
+                            listState = listState,
+                            onExpandDeparture = onExpandDeparture,
+                            streamingActive = streamingMsgId != null,
+                            visible = activeTools.isNotEmpty(),
+                        ) {
                             Box(modifier = Modifier.padding(bottom = messageSpacing)) {
                             Column(
                                 modifier = Modifier
@@ -2129,57 +2174,84 @@ fun ChatMessageList(
                             }
                             }
                         }
-                    } else {
+                    }
+                    if (activeTools.isEmpty()) {
                         // 无活跃工具时重置
                         toolReveal.reset()
                     }
 
-                    // 步骤进度指示器
-                    if (currentStep != null) {
-                        item(key = "step_progress") {
+                    // 步骤进度指示器（#420 B 类恒驻+原地揭示,消失路径同上）
+                    item(key = "step_progress") {
+                        BannerReveal(
+                            listState = listState,
+                            onExpandDeparture = onExpandDeparture,
+                            streamingActive = streamingMsgId != null,
+                            visible = currentStep != null,
+                        ) {
                             Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                            StepProgressIndicator(stepInfo = currentStep)
+                            if (currentStep != null) {
+                                StepProgressIndicator(stepInfo = currentStep)
+                            }
                             }
                         }
                     }
 
                     // 待处理问题（未嵌入消息气泡的保底显示）——一次显示一个（最旧优先）
-                    unembeddedQuestions.firstOrNull()?.let { question ->
-                        item(key = "question_${question.id}") {
-                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                            QuestionCard(
-                                question = question,
-                                positionLabel = if (unembeddedQuestions.size > 1) "1/${unembeddedQuestions.size}" else null,
-                                // 2026-08-30 同嵌入路径：提交/忽略不强制拉底
-                                onSubmit = { answers ->
-                                    viewModel.replyToQuestion(question.id, answers)
-                                },
-                                onReject = {
-                                    viewModel.rejectQuestion(question.id)
-                                },
-                                answersStore = viewModel.questionAnswerStore,
-                            )
+                    // #420 B 类恒驻+原地揭示:key 固定(question id 不再作 key——恒驻
+                    // 复用同一 item),到达/离开经 CardExpandReveal;turn 后下发的
+                    // 问题(非流式)由此激活补偿,流式内到达降级裸 AV
+                    item(key = "question_pending") {
+                        val question = unembeddedQuestions.firstOrNull()
+                        BannerReveal(
+                            listState = listState,
+                            onExpandDeparture = onExpandDeparture,
+                            streamingActive = streamingMsgId != null,
+                            visible = question != null,
+                        ) {
+                            if (question != null) {
+                                Box(modifier = Modifier.padding(bottom = messageSpacing)) {
+                                QuestionCard(
+                                    question = question,
+                                    positionLabel = if (unembeddedQuestions.size > 1) "1/${unembeddedQuestions.size}" else null,
+                                    // 2026-08-30 同嵌入路径：提交/忽略不强制拉底
+                                    onSubmit = { answers ->
+                                        viewModel.replyToQuestion(question.id, answers)
+                                    },
+                                    onReject = {
+                                        viewModel.rejectQuestion(question.id)
+                                    },
+                                    answersStore = viewModel.questionAnswerStore,
+                                )
+                                }
                             }
                         }
                     }
 
-                    // 待处理权限 —— 一次显示一个（最旧优先）
-                    interaction.pendingPermissions.firstOrNull()?.let { permission ->
-                        item(key = "perm_${permission.id}") {
-                            Box(modifier = Modifier.padding(bottom = messageSpacing)) {
-                            PermissionCard(
-                                permission = permission,
-                                positionLabel = if (interaction.pendingPermissions.size > 1) "1/${interaction.pendingPermissions.size}" else null,
-                                onOnce = {
-                                    viewModel.replyToPermission(permission.id, "once", permission.sessionId)
-                                    onForceScrollToBottom()
-                                },
-                                onAlways = { showAlwaysDialog = permission },
-                                onReject = {
-                                    viewModel.replyToPermission(permission.id, "reject", permission.sessionId)
-                                    onForceScrollToBottom()
+                    // 待处理权限 —— 一次显示一个（最旧优先）——#420 B 类同上
+                    item(key = "perm_pending") {
+                        val permission = interaction.pendingPermissions.firstOrNull()
+                        BannerReveal(
+                            listState = listState,
+                            onExpandDeparture = onExpandDeparture,
+                            streamingActive = streamingMsgId != null,
+                            visible = permission != null,
+                        ) {
+                            if (permission != null) {
+                                Box(modifier = Modifier.padding(bottom = messageSpacing)) {
+                                PermissionCard(
+                                    permission = permission,
+                                    positionLabel = if (interaction.pendingPermissions.size > 1) "1/${interaction.pendingPermissions.size}" else null,
+                                    onOnce = {
+                                        viewModel.replyToPermission(permission.id, "once", permission.sessionId)
+                                        onForceScrollToBottom()
+                                    },
+                                    onAlways = { showAlwaysDialog = permission },
+                                    onReject = {
+                                        viewModel.replyToPermission(permission.id, "reject", permission.sessionId)
+                                        onForceScrollToBottom()
+                                    }
+                                )
                                 }
-                            )
                             }
                         }
                     }
