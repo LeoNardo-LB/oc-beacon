@@ -346,7 +346,11 @@ internal fun CardExpandReveal(
     fun drainPhaseA(cause: String) {
         var tries = 0
         while (tries < 8) {
-            val pending = clock.lastMeasuredH - clock.absorbedPx
+            // 配对基准=已上报高度(f·H,布局已落地部分)而非实侧全高:两路径统一——
+            // A 阶段(f=1)二者相等;小卡逐帧路径 f<1 时只配对本帧已落地增量。
+            // 若用全高,逐帧路径首拍会在布局未增长时全额配对(实测:fraction=0.004
+            // 即 dispatch 146px)→ 无配对滚动 → LazyList 锚点乱斗 ±H 震荡。
+            val pending = clock.lastReportedH - clock.absorbedPx
             if (abs(pending) < 1) {
                 phaseADrain.value = false
                 return
@@ -444,7 +448,7 @@ internal fun CardExpandReveal(
                         }
                         clock.tweening = false
                         skipClosedLoopTail = true
-                    } else
+                    } else {
                     // ===== #425 A 阶段:一次性布局落位(内容不可见) =====
                     // 真机定案:展开方向 LazyList 布局多 pass 不稳定(dispatch 时刻
                     // topY 逐 pass 振荡 ±60px,录屏条带 ±136px 来回震荡)——动画
@@ -478,6 +482,7 @@ internal fun CardExpandReveal(
                         drawFraction.floatValue = FastOutSlowInEasing.transform(p)
                     }
                     drawFraction.floatValue = 1f
+                    }
                 } else {
                     // 收起:布局方向稳定(实测逐帧 consumed==d、topY 恒定),
                     // 保持布局裁剪路径;绘制窗口全开。

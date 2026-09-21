@@ -755,6 +755,36 @@ fun ChatMessageList(
         }
         buildChatEntries(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans, expandedLargeStepGroups = expandedLargeStepGroups)
     }
+
+    // ===== #430 大组硬切换锚定 =====
+    // 权重≥6000 的组展开走 Head/Body 条目化硬切换(无 CardExpandReveal 配对)——
+    // 视口锚在尾 Turn,组内容(实测 20k px)自上方涌入,折叠行飞出屏幕=用户主诉
+    // 「过程展开之后内容往上顶」。展开落地后把折叠行(StepGroupHead)钉回视口
+    // 上部:内容在折叠行之下展开,符合「打开一个区块」的阅读方向(与 #422 已知
+    // 缺口「大组无锚定」对应,L3 AST 切片前的体验修复)。
+    val pendingAnchorHeadKey = remember { mutableStateOf<String?>(null) }
+    val seenLargeKeys = remember { mutableStateOf(setOf<String>()) }
+    LaunchedEffect(expandedLargeStepGroups) {
+        val fresh = expandedLargeStepGroups.keys - seenLargeKeys.value
+        seenLargeKeys.value = expandedLargeStepGroups.keys.toSet()
+        if (fresh.isNotEmpty()) pendingAnchorHeadKey.value = fresh.first() + "#sgh"
+    }
+    LaunchedEffect(pendingAnchorHeadKey.value, chatEntries) {
+        val headKey = pendingAnchorHeadKey.value ?: return@LaunchedEffect
+        val headIndex = chatEntries.entries.indexOfFirst { it.key == headKey }
+        if (headIndex < 0) return@LaunchedEffect
+        // 一帧让新条目表生效(锚定按索引定位,不依赖重内容组合完成)。
+        androidx.compose.runtime.withFrameNanos { }
+        val vp = listState.layoutInfo.viewportSize.height
+        if (vp > 0) {
+            // 反向布局:scrollToItem(head, off) 的 off=Head 底缘以下预留像素。
+            // 目标=折叠行落在视口上部 ~12% 处,其下展开内容。
+            val targetYFromTop = (vp * 0.12f).toInt()
+            val headH = 46 // 折叠行+内边距(px 近似;偏差由上部余量吸收)
+            listState.scrollToItem(headIndex, (vp - targetYFromTop - headH).coerceAtLeast(0))
+        }
+        pendingAnchorHeadKey.value = null
+    }
     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
         androidx.compose.runtime.LaunchedEffect(displayItems) {
             val tail = displayItems.lastOrNull()?.second?.message
