@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -489,6 +490,10 @@ internal fun CardExpandReveal(
             } finally {
                 clock.tweening = false
                 phaseADrain.value = false
+                // #426 追修复(不变量):任何退出路径上,布局占位(fraction>0)必须
+                // 配可见内容——纯绘制分数只在 A→B 正常走完时才回到 1;取消/
+                // 异常/竞态在此兜底,杜绝「占位不显示」的空白卡死态。
+                drawFraction.floatValue = if (clock.fraction > 0.001f) 1f else 0f
                 // #422 episode 末强制真测:epoch 写使节点 measure 失效,且
                 // tweening=false → 缓存旁路——迟到内容增量在此落地为新 H。
                 clock.requestRemeasure()
@@ -540,6 +545,11 @@ internal fun CardExpandReveal(
         }
     }
 
+    // #426 追修复:cancel 处理器必须读**当下** visible——LaunchedEffect(listState)
+    // 不随 visible 重启,闭包捕获停留在首次组合时的值(实测:收起期首次组合的
+    // 实例在展开后滚动,snap(0f) 把 fraction 打到 0 → 内容离树,收尾循环又拉回 1
+    // → 终态「布局占位 + drawFraction=0 内容隐形」= 折叠行下大面积空白卡死)。
+    val currentVisible by rememberUpdatedState(visible)
     // 用户滚动 → 立即取消(阅读位置优先权铁律):snap 即取消动画协程 + 直接落位
     LaunchedEffect(listState) {
         snapshotFlow { listState.isScrollInProgress }
@@ -549,8 +559,8 @@ internal fun CardExpandReveal(
                         AppLogger.d("CardExpand", "[DEBUG-420] cancel-on-scroll snap f=" + "%.3f".format(clock.fraction))
                     }
                     clock.userScrollCancelled = true
-                    clock.snap(if (visible) 1f else 0f)
-                    drawFraction.floatValue = if (visible) 1f else 0f
+                    clock.snap(if (currentVisible) 1f else 0f)
+                    drawFraction.floatValue = if (currentVisible) 1f else 0f
                 }
             }
     }
