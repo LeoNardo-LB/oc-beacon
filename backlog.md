@@ -108,6 +108,7 @@
   - - 3) 修复:①rememberUpdatedState(visible) 读当下值;②finally 不变量「fraction>0 ⇒ drawFraction=1」兜底一切退出路径。
   - - 4) 击杀链复现验证(修复后):展开→淡入中 fling→cancel-on-scroll 命中(snap f=1.000)→post-cancel 帧恒 rep=2852/H=2852(旧版此处归 0)→滚回 T1 内容完整可见(7.6s 行+18 行表格标题俱在),无任何空白。
   - - 5) 教训:长生命周期 effect 闭包捕获可变参数必须 rememberUpdatedState;「占位必显示」应为组件级不变量(纯绘制分数只能由正常动画路径收敛,退出路径须强制归位)。
+  - 七轮收口（release 首装冒烟，2026-09-21）：用户要求换 release 版体验（debug 卡顿）。跨签名切换（pinnedDebug→release.jks）卸载重装 devRelease 后，adb tap 在折叠行上 8/8 无效 → 一度误判"release 上 toggle 失效"。插桩版复测 6/6 全对（click→toggle→episode 展开 f=1.000 620ms/收起 f=0.000 385ms，同帧配对 2852/2852 在 release 同样成立），还原重建干净版复测：tap1 miss、tap2 正常。真相：(a) 已知 tap flakiness（折叠行触摸目标窄）在 release 依旧 ~50%，非回归；(b) 自制检测器 isexp.py 被 6px sliver 命中 fold934 正则 → 永远报 NOT_EXPANDED，放大成幻影 bug——sliver 陷阱复发，检测器必须用"展开内容标志行 presence + 折叠行全高"双条件；(c) strip 跟踪器在 miss tap 的整行按压高亮/收起过渡态上会产出 d≈11 弱匹配的假位移（-116px/-84px 假 RED），判定必须加 d 阈值（<5 才可信）并以组上方参考条带为验收主判据。release 像素级验证：上方参考条带全程 +0px 零 UNMATCHED（收起+展开双 episode 213 帧）。
 
 - [~] **#421 消息流全量单行形态(DSH化):思考/工具/通知卡去容器** `ui` `chat`
   - 已实施完成(commit 5022b81a..7851eee2):ToolCardScaffold 透明收口16卡/ReasoningBlock去容器去色条+∞图标+尾部摘要/展开左竖线/通知四类+三横幅透明化;豁免:统计栏/问题/权限/错误行
