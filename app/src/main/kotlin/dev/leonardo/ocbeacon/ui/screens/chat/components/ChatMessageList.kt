@@ -41,6 +41,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -68,6 +69,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.Clipboard
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
@@ -679,6 +681,15 @@ fun ChatMessageList(
             currentCompaction, displayItemMessageIds, v1CompactionSummaryInList,
             suppressByTranscriptCompaction = compactionEntries.isNotEmpty(),
         )
+    }
+
+    // #423 批次二:FLUSH 相宿主挂接——整个组合窗绘制前的单点 OnPreDraw,
+    // 卡片引擎经 PreRenderCoordinator 注册排干任务(spec §2 帧管线 FLUSH 相,
+    // K1)。列表根即聊天视口配对的仲裁单点;组合销毁严格摘除。
+    val flushHostView = LocalView.current
+    DisposableEffect(flushHostView) {
+        PreRenderCoordinator.attachFlushHost(flushHostView)
+        onDispose { PreRenderCoordinator.detachFlushHost(flushHostView) }
     }
     val bannerCount = remember(compactionBanners) {
         BANNER_ALWAYS_COUNT +

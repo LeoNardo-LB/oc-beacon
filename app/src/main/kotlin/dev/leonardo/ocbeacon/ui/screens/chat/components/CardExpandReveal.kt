@@ -35,8 +35,10 @@ import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.unit.Constraints
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.logging.AppLogger
+import dev.leonardo.ocbeacon.ui.screens.chat.scroll.PreDrawFlushTask
 import dev.leonardo.ocbeacon.ui.screens.chat.scroll.PreRenderCoordinator
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
 import kotlin.math.abs
 
 /**
@@ -335,6 +337,12 @@ internal fun CardExpandReveal(
     val phaseADrain = remember { androidx.compose.runtime.mutableStateOf(false) }
 
     /**
+     * #423 观测:episode 序号(每集递增;PLACED/DRAW/排干日志共用,帧级对账用)。
+     * 仅 DEBUG 且仅动画窗口输出——常态滚动零行,杜绝日志膨胀。
+     */
+    val episodeSeq = remember { androidx.compose.runtime.mutableIntStateOf(0) }
+
+    /**
      * #426 同帧配对排干:增长落地当帧(布局完成、draw 之前)补发配对位移。
      *
      * 真机定案([DEBUG-425] 逐帧取证 + 录屏条带):动画相首帧 dispatch 在增长
@@ -405,6 +413,7 @@ internal fun CardExpandReveal(
         PreRenderCoordinator.withEpisode {
         val target = if (visible) 1f else 0f
         if (abs(clock.fraction - target) > 0.001f) {
+            episodeSeq.intValue = episodeSeq.intValue + 1
             clock.animating = true
             clock.beginEpisode()
             val episodeStart = System.nanoTime()
@@ -437,10 +446,30 @@ internal fun CardExpandReveal(
                     drawFraction.floatValue = 0f
                     clock.tweening = true
                     clock.driveTo(1f)
-                    // #426:动画相不再 dispatch(增长落地前必 consumed=0,实测
-                    // 无效且掩盖根因)。配对位移由 drainPhaseA 在增长落地当帧
-                    // (布局回调)补发;此处仅置位 + 逐帧兜底确认排干。
                     phaseADrain.value = true
+                    // #423 批次二根修(帧级证据 PRD/07):配对与增长**同遍合并**——
+                    // driveTo(写 fraction→失效测量)与本 dispatch 同 tick,两次失效
+                    // 合并进同一 layout pass:增长落地的那一遍即已配对,「已落地/
+                    // 未配对」中间态(实测 802ms 窗口,topY 逸出 1903)从构造上消失。
+                    // #426「增长前 dispatch 无效(consumed=0)」的实测是 settle 期
+                    // stab 路径(H 未定);此处 settle 已毕,H 已知且同遍有落点。
+                    // 残量(边缘不可全消费)由 FLUSH 拒绘(≤2/帧)+stab 兜底闭环。
+                    val prePair = (clock.lastMeasuredH - clock.absorbedPx).toFloat()
+                    if (abs(prePair) >= 1f) {
+                        val consumed = runCatching { listState.dispatchRawDelta(prePair) }.getOrDefault(0f)
+                        clock.absorb(consumed)
+                        clock.recordDisplacement(consumed)
+                        if (BuildConfig.DEBUG) {
+                            AppLogger.d(
+                                "CardExpand",
+                                "[DEBUG-423] pre-pair d=" + prePair.toInt() + " consumed=" + consumed.toInt() + " H=" + clock.lastMeasuredH,
+                            )
+                        }
+                        if (!clock.departureFired && abs(clock.episodeDisplacement) > DEPARTURE_THRESHOLD_PX) {
+                            clock.departureFired = true
+                            departure?.invoke()
+                        }
+                    }
                     val tStab = System.nanoTime()
                     while (phaseADrain.value) {
                         withFrameNanos { }
@@ -599,13 +628,54 @@ internal fun CardExpandReveal(
             }
     }
 
+    // #423 批次二:Phase A 排干迁至 FLUSH 相(单点 OnPreDraw,spec §2/K1)。
+    // 旧路径(placed 回调排干)的失效机理:放置后回调里 dispatchRawDelta 的
+    // 失效重排来不及在本帧 draw 前生效 → 「增长已落地/配对未完成」中间态上屏
+    // 一帧——07 基线红环4(+198px 瞬态,用户否决的「闪现一下」)即此。
+    // FLUSH 相在整窗绘制**前**排干:残差未闭→拒绘(false)请求本帧重排,
+    // 中间态从构造上不可能上屏;拒绘自限 ≤2 次/帧(spec §8,防无限重排)。
+    // 降级:无 FLUSH 宿主(预览/单测/宿主未挂)→ 回退 placed+stab 路径。
+    LaunchedEffect(phaseADrain.value) {
+        if (!phaseADrain.value || !PreRenderCoordinator.isFlushHostAttached) return@LaunchedEffect
+        var refusals = 0
+        val task = PreDrawFlushTask {
+            drainPhaseA("flush")
+            val closed = abs(clock.lastReportedH - clock.absorbedPx) < 1
+            if (closed || ++refusals >= 2) {
+                refusals = 0
+                true // 闭合放行;两次拒绘后放行(残量下帧重试,禁无限重排)
+            } else {
+                false
+            }
+        }
+        PreRenderCoordinator.registerFlushTask(task)
+        try {
+            snapshotFlow { phaseADrain.value }.first { !it }
+        } finally {
+            PreRenderCoordinator.unregisterFlushTask(task)
+        }
+    }
+
     Box(
         modifier = modifier
             .clipToBounds()
             .cardExpandGeometry(clock)
             .onGloballyPositioned {
                 revealTopY.floatValue = it.positionInRoot().y
-                if (phaseADrain.value) drainPhaseA("placed")
+                if (BuildConfig.DEBUG && clock.animating) {
+                    AppLogger.d(
+                        "PRD",
+                        "E" + episodeSeq.intValue + " PLACED t=" + System.nanoTime() +
+                            " topY=" + revealTopY.floatValue.toInt() +
+                            " rep=" + clock.lastReportedH + " abs=" + clock.absorbedPx +
+                            " f=" + "%.3f".format(clock.fraction) +
+                            " fii=" + listState.firstVisibleItemIndex +
+                            " fiso=" + listState.firstVisibleItemScrollOffset,
+                    )
+                }
+                // 批次二:FLUSH 宿主在场时排干由 pre-draw 单点执行(placed 触发
+                // 的重排来不及同帧 draw 前生效=瞬态根源);降级路径才走此触发。
+                if (phaseADrain.value && !PreRenderCoordinator.isFlushHostAttached) drainPhaseA("placed")
             }
     ) {
         // #420 追诊:content 组合生命周期归几何时钟统一拥有(fraction>0 即组合)。
@@ -622,6 +692,17 @@ internal fun CardExpandReveal(
                     .drawWithContent {
                         // #425 B 阶段纯绘制揭示:clipRect 高度系数,只重绘不重排
                         val w = drawFraction.floatValue
+                        if (BuildConfig.DEBUG && clock.animating) {
+                            AppLogger.d(
+                                "PRD",
+                                "E" + episodeSeq.intValue + " DRAW t=" + System.nanoTime() +
+                                    " drawF=" + "%.3f".format(w) +
+                                    " boxH=" + size.height +
+                                    " clipPx=" + (size.height * w).toInt() +
+                                    " residual=" + (clock.lastReportedH - clock.absorbedPx) +
+                                    " topY=" + revealTopY.floatValue.toInt(),
+                            )
+                        }
                         if (w >= 1f) {
                             this@drawWithContent.drawContent()
                         } else {
