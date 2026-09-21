@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -217,16 +218,25 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                             color = textColor.copy(alpha = AlphaTokens.MUTED),
                             maxLines = 1,
                         )
-                        // 摘要:收起态显示(· 最新内容),展开态让位给正文
-                        if (!expanded && summaryLine != null) {
-                            Text(
-                                text = " · " + summaryLine,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = textColor.copy(alpha = AlphaTokens.FAINT),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
+                        // 摘要:收起态显示(· 最新内容),展开态让位给正文。
+                        // #430:原 `!expanded` 一帧瞬消=顿挫第一拍(高度未动、文字
+                        // 先没)——改交叉淡化与 Reveal 揭示同拍;行内元素显隐
+                        // 无高度变化,零补偿需求(2026-09-20 裁决仍成立)。
+                        if (summaryLine != null) {
+                            AnimatedVisibility(
+                                visible = !expanded,
+                                enter = fadeIn(tween(AppMotion.SHORT)),
+                                exit = fadeOut(tween(AppMotion.SHORT)),
                                 modifier = Modifier.weight(1f, fill = false),
-                            )
+                            ) {
+                                Text(
+                                    text = " · " + summaryLine,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = textColor.copy(alpha = AlphaTokens.FAINT),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                         // 2026-08-16（用户反馈）：流式占位进度圈并入标题行内——
                         // 原实现单独占一行使折叠态高度翻倍，超出其他卡片单行高度。

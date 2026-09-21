@@ -1488,6 +1488,31 @@ fun ChatMessageList(
                                 // 测量(#422 三层根因,见 backlog note),待 AST 级切片。
                                 val bodyTurn = renderableTurns.getOrNull(entry.displayIndex)
                                 if (bodyTurn != null) {
+                                    // #430 loading 首帧占位:巨型单体 part(实测 60 行表格
+                                    // h=20226px)首组合冻结主线程 598ms,期间 alpha=0 内容
+                                    // 在组合、屏幕无任何反馈=用户主诉「加载/延迟高」。
+                                    // 重组合延后一帧:首帧先画轻量占位(冻结期间可见),
+                                    // 下一帧再组合重内容——加载态即时可见,内容照常淡入。
+                                    var heavyComposed by androidx.compose.runtime.saveable.rememberSaveable(entry.key) {
+                                        androidx.compose.runtime.mutableStateOf(false)
+                                    }
+                                    LaunchedEffect(entry.key) {
+                                        androidx.compose.runtime.withFrameNanos { }
+                                        heavyComposed = true
+                                    }
+                                    if (!heavyComposed) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = SpacingTokens.XL.dp),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(20.dp),
+                                                strokeWidth = 2.dp,
+                                            )
+                                        }
+                                    } else {
                                     var bodyShown by androidx.compose.runtime.saveable.rememberSaveable(entry.key) {
                                         androidx.compose.runtime.mutableStateOf(false)
                                     }
@@ -1523,6 +1548,7 @@ fun ChatMessageList(
                                                 readinessRegistry = LocalRenderReadiness.current,
                                             )
                                         }
+                                    }
                                     }
                                 }
                             }

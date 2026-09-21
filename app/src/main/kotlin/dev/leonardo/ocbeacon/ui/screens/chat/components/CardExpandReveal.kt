@@ -108,6 +108,14 @@ private const val EPISODE_HARD_CAP_MS = 1800f
 private const val WARMUP_FRACTION = 0.001f
 
 /**
+ * #430 小卡逐帧揭示高度上限(px):≤此实测高度的展开走「逐帧几何 tween +
+ * 同帧配对 + alpha 随 fraction 淡入」;超过(大组)保留 #425 两阶段(A 一次性
+ * 落位+B 纯绘制)。取 600:思考卡 146 / 一般工具卡 ≤400 均覆盖;#425 振荡
+ * 战场(2852 大组)留在两阶段。settle 超时未测得(0)也走两阶段兜底。
+ */
+private const val SMALL_CARD_REVEAL_MAX_H = 600
+
+/**
  * #422:settle 判稳帧数——连续 N 帧节点 measure 计数不增即认为内容驱动
  * 的重测已静止。表格 containerWidth(onSizeChanged 回写)两拍收敛、async
  * markdown 解析完成等均属此类;2 帧 @120Hz ≈ 17ms,静默内容零感知。
@@ -391,6 +399,8 @@ internal fun CardExpandReveal(
             // #425:本集起点锚 = 携带锚(重定向链)或当下实测位置。
             val anchorY = carriedAnchor.value ?: revealTopY.floatValue
             var completed = false
+            // #430:小卡逐帧路径已收敛(absorbed==report),闭环尾循环零指令纯空转——跳过
+            var skipClosedLoopTail = false
             try {
                 if (target > 0f) {
                     // #420 预热:content 入树开始首测(ε·H<1px 零视觉)。注意
@@ -401,6 +411,40 @@ internal fun CardExpandReveal(
                     // 完成等「首测后仍有内容驱动重测」在此吸收完,再开缓存
                     // 窗口——否则 tween 全程锁死在过期 H 上。
                     settleUntilContentStable(clock)
+                    if (clock.lastMeasuredH in 1..SMALL_CARD_REVEAL_MAX_H) {
+                        // ===== #430 小卡逐帧揭示:几何与淡入同拍,逐帧渲染前配对 =====
+                        // 两阶段(一次性落位+纯绘制)是大组震荡的根治术,但在小卡上
+                        // 呈三拍顿挫(真机逐帧取证):高度一帧到位时内容不可见 →
+                        // 下方内容先刚性下移、留 ~H 空白一拍 → 内容瞬现——用户观感
+                        // 「闪一下,像补偿」。小卡改逐帧几何 tween:每帧写 fraction
+                        // → 本帧布局按 f·H 增高 → onGloballyPositioned(放置后、
+                        // 绘制前)同帧配对位移(增量版 drain);alpha=fraction
+                        // 前 30% 同拍淡入。每帧增量 ≤ H·Δf(小卡 <25px)。
+                        drawFraction.floatValue = 1f
+                        clock.tweening = true
+                        phaseADrain.value = true
+                        val startFSmall = clock.fraction
+                        val t0s = withFrameNanos { it }
+                        var vtSmall = 0f
+                        while (vtSmall < GEOMETRY_TWEEN_MS) {
+                            val nowS = withFrameNanos { it }
+                            vtSmall = minOf(
+                                ((nowS - t0s) / 1_000_000f).coerceAtLeast(0f),
+                                vtSmall + MAX_FRAME_STEP_MS,
+                            )
+                            clock.driveTo(easedFraction(startFSmall, 1f, vtSmall))
+                        }
+                        clock.driveTo(1f)
+                        // 收尾排干:末帧增量落地的配对回补
+                        val tStabS = System.nanoTime()
+                        while (phaseADrain.value) {
+                            withFrameNanos { }
+                            if ((System.nanoTime() - tStabS) / 1_000_000f > 300f) break
+                            if (phaseADrain.value) drainPhaseA("stab")
+                        }
+                        clock.tweening = false
+                        skipClosedLoopTail = true
+                    } else
                     // ===== #425 A 阶段:一次性布局落位(内容不可见) =====
                     // 真机定案:展开方向 LazyList 布局多 pass 不稳定(dispatch 时刻
                     // topY 逐 pass 振荡 ±60px,录屏条带 ±136px 来回震荡)——动画
@@ -444,6 +488,7 @@ internal fun CardExpandReveal(
                 // #422 缓存窗口开启:tween 期间节点复用 settle 末的 placeable,
                 // 逐帧只重算 report,子树零重测(表格重测风暴根治点)。
                 clock.tweening = true
+                if (!skipClosedLoopTail) {
                 val t0 = withFrameNanos { it }
                 var vt = 0f // 虚拟时钟(ms):墙钟追赶 + 单帧位移钳制
                 // #425 渲染前反馈闭环:每帧指令 = 缓动增量 + 上帧实测偏差(死拍),
@@ -483,6 +528,7 @@ internal fun CardExpandReveal(
                                 " fiso=" + listState.firstVisibleItemScrollOffset,
                         )
                     }
+                }
                 }
                 // 收尾 flush:目标分数 + 反馈(正常已收敛,此处仅兜底)
                 dispatchClosedLoop(listState, clock, departure, target, anchorY, revealTopY.floatValue)

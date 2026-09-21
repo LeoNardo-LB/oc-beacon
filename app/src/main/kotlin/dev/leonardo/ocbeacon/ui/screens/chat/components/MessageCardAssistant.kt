@@ -1173,7 +1173,11 @@ internal fun StepGroupFoldRow(
             .fillMaxWidth()
             .clickable {
                 performHaptic(hapticView, hapticOn)
-                onToggleToolExpanded(stateKey, !expanded)
+                // 第二参=「未被 toggle 过时的默认态」(委托语义 !(map[id] ?: default)),
+                // 非期望下一态。传 !expanded 会让收起态首点写入 false = 静默无效
+                // (真机取证:click 日志在、toggle 写入 false、无 SGBODY/episode,
+                // 每组每冷启首点必哑——用户观感「点了没反应/加载慢」)。
+                onToggleToolExpanded(stateKey, expanded)
             },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
