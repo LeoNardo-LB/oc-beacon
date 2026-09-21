@@ -62,6 +62,7 @@
   - → docs/research/pre-render-coordinator/00-synthesis.md
   - 实施开工(2026-09-22):P0 完成——八环仪器固化 scripts/prerender+基线留档 07(红环4 RED:展开落地+198px 瞬态=用户否决闪现,帧级证据);Phase0 完成(26a94b3f 反射探针可测缝+BOM 冒烟单测 3/3 绿,当前 BOM 2026.08.00 未装箱巧合仍成立);Phase1a 视口租约接线中(withEpisode+A3/A4/A5/A6/A9 让位,新增 8 单测全绿;fb3478f6 P0)
   - 批次一完成(2026-09-22):Phase1a 视口租约已合入(f6a4a314)——episode 全程持租约,A3/A4/A5/A6/A9 五点让位,单测 +8 全绿,全量套件绿,真机同场景零回归(红环1 GREEN 保持/账本数学逐帧一致)。+198px 展开落地瞬态已在 07 基线留档,属 Phase1 主体(引擎迁入)消灭对象。待用户 D4 手感验收。journal: docs/journal/2026-09-22-423-prerendercoordinator.md
+  - 双轴评审收口:Standards 阻断项(MSGEFFECT 复查漏租约)已修复合入;Spec 轴三范围判定忠实。评审建议登记:reanchorWhenSettledOffBottom 六参谓词束 Data Clumps——Phase1 主体引擎迁入时随协调器统一收编,不单独重构。红环2 补跑 GREEN(FLICKER none)。D4 手感验收待用户。
 
 ## P2 — 优化与锦上添花
 
