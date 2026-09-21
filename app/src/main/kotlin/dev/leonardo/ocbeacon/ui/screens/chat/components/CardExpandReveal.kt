@@ -119,6 +119,10 @@ private const val WARMUP_FRACTION = 0.001f
  */
 private const val PHASE_B_JUMP_START = 0.3f
 
+/** #423 批次四d:hold 呼吸阀——连续拒绘上限(真机证实坐标回调在拒绘遍历中照常
+ * 派发,无死锁;阀值仅兜底「贴底残量物理不可约」类永不收敛场景)。 */
+private const val HOLD_VENT_FRAMES = 30
+
 /**
  * #422:settle 判稳帧数——连续 N 帧节点 measure 计数不增即认为内容驱动
  * 的重测已静止。表格 containerWidth(onSizeChanged 回写)两拍收敛、async
@@ -264,6 +268,13 @@ internal class CardExpandClock(initialFraction: Float) {
     /** #424:本集内用户滚动取消(cancel-on-scroll 置位)——episode 末闭环位置恢复须跳过。 */
     var userScrollCancelled = false
 
+    /**
+     * #423 批次四b:本集几何目标分数(plain)。FLUSH 修正器的灭钉门控——
+     * 坐标静止计数稳定前,分数必须已到位(settle/warmup 期报告恒 ε,不得灭钉;
+     * 否则 driveTo 增长到来时修正器已离场 = 顶开帧直接上屏)。
+     */
+    var pinTargetFraction = Float.NaN
+
     fun beginEpisode() {
         episodeDisplacement = 0f
         departureFired = false
@@ -356,6 +367,29 @@ internal fun CardExpandReveal(
     val episodeSeq = remember { androidx.compose.runtime.mutableIntStateOf(0) }
 
     /**
+     * #423 批次四c:修正防双发守卫(放置回调派发点与 FLUSH 实测阶段共享)。
+     * 坐标回调与 pre-draw 读数各滞后一拍(真机两轮取证),两处都可能对同一
+     * 新鲜坐标开火——只允许「坐标自上次派发后刷新过」的第一见者开火。
+     */
+    val guardCur = remember { androidx.compose.runtime.mutableFloatStateOf(Float.NaN) }
+
+    /**
+     * #423 批次四e:坐标同源戳——坐标回调写入 revealTopY 时记录当时 lastReportedH。
+     * 坐标回调为绘制驱动(真机三轮定案),增长帧 pre-draw 读到的坐标必属旧布局;
+     * 旧坐标恰等于钉锚时构成「假确认」(v3.1 最后一帧漏点)。确认必须要求
+     * coordStamp == 当前 rep(坐标与本帧报告同源=坐标属于当前布局)。
+     */
+    val coordStamp = remember { androidx.compose.runtime.mutableIntStateOf(-1) }
+
+    /**
+     * #423 批次四e:账本共享账——Δreport 配对的全局会计。放置回调(pin-placed)、
+     * 账本(pin-ledger)、实测(pin-flush)三处 dispatch 的 consumed 全部入账,
+     * errLedger = (rep − 基线) − 已派发。防 e6 实证的两路对同一位移双发。
+     */
+    val pinLedgerBase = remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    val pinDispatchedTotal = remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+
+    /**
      * #426 同帧配对排干:增长落地当帧(布局完成、draw 之前)补发配对位移。
      *
      * 真机定案([DEBUG-425] 逐帧取证 + 录屏条带):动画相首帧 dispatch 在增长
@@ -431,6 +465,10 @@ internal fun CardExpandReveal(
             episodeSeq.intValue = episodeSeq.intValue + 1
             clock.animating = true
             clock.beginEpisode()
+            clock.pinTargetFraction = target
+            // 批次四e:账本重开——基线=当下报告,派发清零(续跑集重锚同理)
+            pinLedgerBase.floatValue = clock.lastReportedH.toFloat()
+            pinDispatchedTotal.floatValue = 0f
             val episodeStart = System.nanoTime()
             // #425:本集起点锚 = 携带锚(重定向链)或当下实测位置;续跑集沿用 saveable 钉锚。
             val anchorY = if (needsEpisode) (carriedAnchor.value ?: revealTopY.floatValue) else pinAnchor.floatValue
@@ -626,36 +664,92 @@ internal fun CardExpandReveal(
     // 降级:无 FLUSH 宿主(预览/单测)→ 不置 pinPending,零滚动参与。
     LaunchedEffect(pinPending.value) {
         if (!pinPending.value || !PreRenderCoordinator.isFlushHostAttached) return@LaunchedEffect
-        var refusals = 0
         var stableFlushes = 0
-        var lastMeasuredCur = Float.NaN // #425 振荡教训:仅测量刷新后才允许下次 dispatch
+        // 批次四d:钉位确认(hold)——分数已到目标但未经「新鲜坐标核销」确认前,
+        // 恒拒绘:LEAP/塌陷帧构造性不上屏,屏面冻结在增长前帧,重组卡顿不可见。
+        // 真机三轮定案:坐标回调与 pre-draw 读数各滞后一拍,「修好再画」不可达;
+        // 账本(Δreport)读数同样滞后且与实测双发——唯一可靠契约是「确认前不画」。
+        // 确认的唯一证据 = 新鲜坐标(|err|<1);陈旧/静止坐标不得确认(批次四c 教训:
+        // 等值陈旧坐标被当确认 → hold 提前放行 → LEAP 帧上屏)。
+        var confirmedSinceTarget = false
+        var holdRefusals = 0 // 呼吸阀:连续拒绘上限(防回调若为绘制驱动时的死锁)
+        // 泵帧:dispatch 后的下一帧放行——该帧已是修正后布局(dispatch 同步滚动),
+        // 绘制即驱动坐标回调盖同源戳,下一 pre-draw 即可确认。破解「确认依赖回调、
+        // 回调依赖绘制、hold 拒绘制」的死锁环(批次四e)。
+        var pumpPending = false
+        // 批次四f:确认时的报告读数——迟到增长(rep 变更)即刻作废确认,重进确认环
+        var repAtConfirm = -1
         val tStart = System.nanoTime()
         val task = PreDrawFlushTask {
             val tgt = pinAnchor.floatValue
             var allow = true
-            when {
-                // 批次四:用户滚动优先权铁律——用户已接管时不与手指互搏,立即自灭
-                clock.userScrollCancelled -> stableFlushes = 3
+            // 批次四f 定案(三轮取证的最终拼图):增长 measure 在 pre-draw 之后、
+            // draw 之前执行——pre-draw 读到的 rep 必属旧布局(账本在增长帧永不可
+            // 见增长);而 fraction 是 driveTo 同步内存写,pre-draw 时已到位。
+            // 「分数已到 ∧ 报告未追」= 增长正在本帧落地 → 恰是必须拒绘的帧。
+            // 故:hold 只认分数到位(报告未追的错位帧更须拒);确认认
+            // 分数到位 ∧ 报告已追上 ∧ 坐标同源戳——三层防假确认。
+            val fractionAtTarget = abs(clock.fraction - clock.pinTargetFraction) < 0.001f
+            val reportCaughtUp = clock.lastReportedH == (clock.fraction * clock.lastMeasuredH).toInt()
+            val geometryAtTargetNow = fractionAtTarget && reportCaughtUp
+            if (confirmedSinceTarget && clock.lastReportedH != repAtConfirm) {
+                confirmedSinceTarget = false // 迟到增长:确认作废,重进确认环
+            }
+            if (BuildConfig.DEBUG) {
+                AppLogger.d(
+                    "CardExpand",
+                    "[DEBUG-423] flush-entry rep=" + clock.lastReportedH +
+                        " f=" + "%.3f".format(clock.fraction) +
+                        " topY=" + revealTopY.floatValue.toInt() +
+                        " guard=" + guardCur.floatValue.toInt() +
+                        " conf=" + confirmedSinceTarget + " geo=" + geometryAtTargetNow,
+                )
+            }
+            if (clock.userScrollCancelled) {
+                // 用户滚动优先权铁律——用户已接管,立即自灭不与手指互搏
+                pinPending.value = false
+            } else when {
                 tgt.isNaN() -> stableFlushes = 3 // 无锚,放弃
-                revealTopY.floatValue.isNaN() -> { /* 未放置,等下一 pre-draw */ }
-                revealTopY.floatValue == lastMeasuredCur -> {
-                    // 测量未刷新(上次 dispatch 的重排未落地)——只拒绘促重测,严禁重复开火
-                    // (实测同帧双重 +2000 → 过冲 ±684 来回振荡,#425 同族)。
-                    // 批次四取证注:onPlaced 上线后,本分支应仅见于 dispatch 后同帧重排窗;
-                    // 若在增长落地帧命中(读陈旧值放行 = 顶开帧上屏),说明回调仍迟到。
-                    allow = ++refusals < 2
-                    if (!allow) refusals = 0
-                    if (BuildConfig.DEBUG) {
-                        AppLogger.d("CardExpand", "[DEBUG-423] pin-flush STALE refusals=" + refusals)
+                // ===== 账本阶段:rep 于 measure 相写,pre-draw 必新鲜——增长落地帧
+                // 即时全额修正(坐标回调绘制驱动,等坐标必晚一帧=v3.1 漏点)。
+                // 共享会计:三路 dispatch 全部入账,杜绝 e6 实证的双发。=====
+                (clock.lastReportedH - pinLedgerBase.floatValue).let { abs(it - pinDispatchedTotal.floatValue) >= 1f } -> {
+                    val errLedger = (clock.lastReportedH - pinLedgerBase.floatValue) - pinDispatchedTotal.floatValue
+                    val consumed = runCatching { listState.dispatchRawDelta(errLedger) }.getOrDefault(0f)
+                    pinDispatchedTotal.floatValue += errLedger
+                    clock.recordDisplacement(consumed)
+                    if (!clock.departureFired && abs(clock.episodeDisplacement) > DEPARTURE_THRESHOLD_PX) {
+                        clock.departureFired = true
+                        departure?.invoke()
                     }
+                    stableFlushes = 0
+                    if (BuildConfig.DEBUG) {
+                        AppLogger.d(
+                            "CardExpand",
+                            "[DEBUG-423] pin-ledger d=" + errLedger.toInt() + " consumed=" + consumed.toInt() +
+                                " rep=" + clock.lastReportedH,
+                        )
+                    }
+                    allow = false // 拒绘一拍:修正后的重排落地再画(该帧必为已修正态)
+                    pumpPending = true
+                }
+                revealTopY.floatValue.isNaN() -> { /* 未放置,等下一 pre-draw */ }
+                // ===== 实测阶段:新鲜坐标核销残差 + 唯一确认来源 =====
+                revealTopY.floatValue == guardCur.floatValue -> {
+                    // 坐标静止(放置回调已开火待重排)——计稳定但不确认:
+                    // 陈旧等值 ≠ 钉稳证据(批次四c 教训);只认 guardCur(dispatch
+                    // 前值)——修正后「回到原位」同值坐标是新鲜证据(批次四d 教训)。
+                    stableFlushes++
                 }
                 else -> {
                     val cur = revealTopY.floatValue
-                    lastMeasuredCur = cur
                     val err = tgt - cur
-                    if (abs(err) >= 1f) {
-                        // 测量锚定下单发全额(实测 err 是地面真值;分段上限反而多拍)
+                    val sameEpoch = coordStamp.intValue == clock.lastReportedH
+                    if (abs(err) >= 1f && cur != guardCur.floatValue) {
+                        // 坐标新鲜才开火(陈旧重复开火 = ±684 振荡,#425 同族)
+                        guardCur.floatValue = cur
                         val consumed = runCatching { listState.dispatchRawDelta(err) }.getOrDefault(0f)
+                        pinDispatchedTotal.floatValue += consumed
                         clock.recordDisplacement(consumed)
                         if (!clock.departureFired && abs(clock.episodeDisplacement) > DEPARTURE_THRESHOLD_PX) {
                             clock.departureFired = true
@@ -669,23 +763,48 @@ internal fun CardExpandReveal(
                                     " cur=" + cur.toInt() + "/" + tgt.toInt(),
                             )
                         }
-                        allow = ++refusals < 2
-                        if (!allow) refusals = 0
+                        allow = false
+                        pumpPending = true
+                    } else if (abs(err) < 1f && sameEpoch && reportCaughtUp) {
+                        // 新鲜 + 无残差 + 坐标同源 + 报告已追上——钉稳确认
+                        confirmedSinceTarget = true
+                        repAtConfirm = clock.lastReportedH
+                        holdRefusals = 0
+                        stableFlushes++
                     } else {
-                        refusals = 0
+                        // err<1 但坐标属旧布局(不同源)——等待坐标刷新,不确认
                         stableFlushes++
                     }
                 }
             }
-            if (stableFlushes >= 3 || (System.nanoTime() - tStart) / 1_000_000f > 1500f) {
+            // 灭钉门控:稳定×3 且几何分数到位(settle 期报告恒 ε,不得灭钉)且
+            // 已经确认;超时 1.5s 兜底(亦解 hold)。confirmed=false 的超时退场
+            // 意味着钉位失败——episode 末 end-restore 兜底修正。
+            if ((stableFlushes >= 3 && geometryAtTargetNow && (confirmedSinceTarget || tgt.isNaN())) ||
+                (System.nanoTime() - tStart) / 1_000_000f > 1500f
+            ) {
                 if (BuildConfig.DEBUG) {
                     AppLogger.d(
                         "CardExpand",
                         "[DEBUG-423] pin done stable=" + stableFlushes +
-                            " ms=" + ((System.nanoTime() - tStart) / 1_000_000f).toInt(),
+                            " ms=" + ((System.nanoTime() - tStart) / 1_000_000f).toInt() +
+                            " confirmed=" + confirmedSinceTarget,
                     )
                 }
                 pinPending.value = false
+            }
+            // hold:分数到位但未确认钉稳 → 拒绘(屏面冻结在增长前帧);呼吸阀:
+            // 连续 HOLD_VENT_FRAMES 次拒绘后放行一帧(若坐标回调为绘制驱动,
+            // 该帧驱动回调刷新——至多一帧错误态闪现,远优于恒顶开)。
+            if (fractionAtTarget && !confirmedSinceTarget && pinPending.value) {
+                if (pumpPending) {
+                    pumpPending = false // 泵帧放行:修正后布局上屏,驱动回调盖戳
+                } else if (holdRefusals < HOLD_VENT_FRAMES) {
+                    allow = false
+                    holdRefusals++
+                } else {
+                    holdRefusals = 0
+                }
             }
             allow
         }
@@ -708,9 +827,36 @@ internal fun CardExpandReveal(
                 // 小修正同样晚 44ms)。onPlaced 在放置相派发(先于 pre-draw),FLUSH 相
                 // 读到的即本帧地面真值。onGloballyPositioned 保留(兜底 + PLACED 日志)。
                 revealTopY.floatValue = it.positionInRoot().y
+                coordStamp.intValue = clock.lastReportedH
             }
             .onGloballyPositioned {
                 revealTopY.floatValue = it.positionInRoot().y
+                coordStamp.intValue = clock.lastReportedH
+                // #423 批次四c:放置回调即时修正——坐标回调虽晚于 measure,但早于
+                // 下一 pre-draw(真机:LEAP 帧 .377 回调/.380 绘制,而 pre-draw 读数
+                // 滞后到 .887)。回调到达即 dispatch,把修正提前整整一个卡顿窗;
+                // guardCur 保证与 FLUSH 实测阶段不双发(同一坐标只许一个开火)。
+                if (pinPending.value && clock.animating && !clock.userScrollCancelled) {
+                    val cur2 = revealTopY.floatValue
+                    val tgt2 = pinAnchor.floatValue
+                    if (!tgt2.isNaN() && !cur2.isNaN() && abs(tgt2 - cur2) >= 1f && cur2 != guardCur.floatValue) {
+                        guardCur.floatValue = cur2
+                        val consumed2 = runCatching { listState.dispatchRawDelta(tgt2 - cur2) }.getOrDefault(0f)
+                        pinDispatchedTotal.floatValue += consumed2
+                        clock.recordDisplacement(consumed2)
+                        if (!clock.departureFired && abs(clock.episodeDisplacement) > DEPARTURE_THRESHOLD_PX) {
+                            clock.departureFired = true
+                            departure?.invoke()
+                        }
+                        if (BuildConfig.DEBUG) {
+                            AppLogger.d(
+                                "CardExpand",
+                                "[DEBUG-423] pin-placed err=" + (tgt2 - cur2).toInt() +
+                                    " consumed=" + consumed2.toInt() + " cur=" + cur2.toInt() + "/" + tgt2.toInt(),
+                            )
+                        }
+                    }
+                }
                 if (BuildConfig.DEBUG && clock.animating) {
                     AppLogger.d(
                         "PRD",
