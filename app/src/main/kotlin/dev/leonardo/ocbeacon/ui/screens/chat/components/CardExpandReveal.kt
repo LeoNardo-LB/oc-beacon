@@ -108,12 +108,12 @@ private const val EPISODE_HARD_CAP_MS = 1800f
 private const val WARMUP_FRACTION = 0.001f
 
 /**
- * #430 小卡逐帧揭示高度上限(px):≤此实测高度的展开走「逐帧几何 tween +
- * 同帧配对 + alpha 随 fraction 淡入」;超过(大组)保留 #425 两阶段(A 一次性
- * 落位+B 纯绘制)。取 600:思考卡 146 / 一般工具卡 ≤400 均覆盖;#425 振荡
- * 战场(2852 大组)留在两阶段。settle 超时未测得(0)也走两阶段兜底。
+ * #431 B 阶段跳跃起始:Phase A 落地帧排干完成时 drawFraction 直接跳到此值
+ * (同帧 pre-draw),B 阶段从此值续坡至 1。消除「高度一帧到位+内容不可见」
+ * 的空白拍(小卡四拍顿挫的残余根因);0.3=alpha 满值阈值,首批内容即满
+ * 透明度、顶部 30% 裁切可见。
  */
-private const val SMALL_CARD_REVEAL_MAX_H = 600
+private const val PHASE_B_JUMP_START = 0.3f
 
 /**
  * #422:settle 判稳帧数——连续 N 帧节点 measure 计数不增即认为内容驱动
@@ -352,6 +352,9 @@ internal fun CardExpandReveal(
             // 即 dispatch 146px)→ 无配对滚动 → LazyList 锚点乱斗 ±H 震荡。
             val pending = clock.lastReportedH - clock.absorbedPx
             if (abs(pending) < 1) {
+                // #431:配对完成的落地帧(pre-draw)跳跃起始 B 阶段——高度与首批
+                // 内容同帧出现,空白拍从构造上消失。maxOf 防倒放(收起向无 drain)。
+                drawFraction.floatValue = maxOf(drawFraction.floatValue, PHASE_B_JUMP_START)
                 phaseADrain.value = false
                 return
             }
@@ -403,8 +406,8 @@ internal fun CardExpandReveal(
             // #425:本集起点锚 = 携带锚(重定向链)或当下实测位置。
             val anchorY = carriedAnchor.value ?: revealTopY.floatValue
             var completed = false
-            // #430:小卡逐帧路径已收敛(absorbed==report),闭环尾循环零指令纯空转——跳过
-            var skipClosedLoopTail = false
+            // #431:展开向 Phase A 已同帧全额配对,闭环尾循环零指令纯空转——跳过
+            val skipClosedLoopTail = target > 0f
             try {
                 if (target > 0f) {
                     // #420 预热:content 入树开始首测(ε·H<1px 零视觉)。注意
@@ -415,46 +418,17 @@ internal fun CardExpandReveal(
                     // 完成等「首测后仍有内容驱动重测」在此吸收完,再开缓存
                     // 窗口——否则 tween 全程锁死在过期 H 上。
                     settleUntilContentStable(clock)
-                    if (clock.lastMeasuredH in 1..SMALL_CARD_REVEAL_MAX_H) {
-                        // ===== #430 小卡逐帧揭示:几何与淡入同拍,逐帧渲染前配对 =====
-                        // 两阶段(一次性落位+纯绘制)是大组震荡的根治术,但在小卡上
-                        // 呈三拍顿挫(真机逐帧取证):高度一帧到位时内容不可见 →
-                        // 下方内容先刚性下移、留 ~H 空白一拍 → 内容瞬现——用户观感
-                        // 「闪一下,像补偿」。小卡改逐帧几何 tween:每帧写 fraction
-                        // → 本帧布局按 f·H 增高 → onGloballyPositioned(放置后、
-                        // 绘制前)同帧配对位移(增量版 drain);alpha=fraction
-                        // 前 30% 同拍淡入。每帧增量 ≤ H·Δf(小卡 <25px)。
-                        drawFraction.floatValue = 1f
-                        clock.tweening = true
-                        phaseADrain.value = true
-                        val startFSmall = clock.fraction
-                        val t0s = withFrameNanos { it }
-                        var vtSmall = 0f
-                        while (vtSmall < GEOMETRY_TWEEN_MS) {
-                            val nowS = withFrameNanos { it }
-                            vtSmall = minOf(
-                                ((nowS - t0s) / 1_000_000f).coerceAtLeast(0f),
-                                vtSmall + MAX_FRAME_STEP_MS,
-                            )
-                            clock.driveTo(easedFraction(startFSmall, 1f, vtSmall))
-                        }
-                        clock.driveTo(1f)
-                        // 收尾排干:末帧增量落地的配对回补
-                        val tStabS = System.nanoTime()
-                        while (phaseADrain.value) {
-                            withFrameNanos { }
-                            if ((System.nanoTime() - tStabS) / 1_000_000f > 300f) break
-                            if (phaseADrain.value) drainPhaseA("stab")
-                        }
-                        clock.tweening = false
-                        skipClosedLoopTail = true
-                    } else {
-                    // ===== #425 A 阶段:一次性布局落位(内容不可见) =====
+                    // ===== #425 A 阶段:一次性布局落位 + 同帧全额配对 =====
                     // 真机定案:展开方向 LazyList 布局多 pass 不稳定(dispatch 时刻
                     // topY 逐 pass 振荡 ±60px,录屏条带 ±136px 来回震荡)——动画
                     // 期间布局/滚动参与即震荡。故:report 一次到全高 + 同帧配对
                     // 全额位移,残量在稳定窗重试;多 pass 混乱全部发生在内容
                     // 不可见时。随后 B 阶段纯绘制揭示(零布局零滚动)。
+                    // #431 教训:小卡逐帧配对路径已撤——首拍 pending<1 即解除
+                    // drain 武装,后续每帧增长全部无配对(图标条实测卡片被推
+                    // -194px,episode 末 end-restore 一次性跳回=「位置漂移+回跳」,
+                    // 违反卡片视口位置不变量)。小卡空白拍改由 B 阶段跳跃起始
+                    // 消除(见 PHASE_B_JUMP_START),不再走逐帧几何。
                     drawFraction.floatValue = 0f
                     clock.tweening = true
                     clock.driveTo(1f)
@@ -469,7 +443,10 @@ internal fun CardExpandReveal(
                         if (phaseADrain.value) drainPhaseA("stab")
                     }
                     clock.tweening = false
-                    // ===== #425 B 阶段:纯绘制揭示(drawFraction 0→1) =====
+                    // ===== #425 B 阶段:纯绘制揭示(drawFraction JUMP→1) =====
+                    // #431:B 不再从 0 起坡——A 落地帧排干完成时已跳跃起始
+                    // (drainPhaseA 内,同帧 pre-draw),消除「高度到位但内容
+                    // 不可见」的空白拍(小卡四拍顿挫的残余根因)。
                     val tDraw = withFrameNanos { it }
                     var vtDraw = 0f
                     while (vtDraw < GEOMETRY_TWEEN_MS) {
@@ -479,10 +456,10 @@ internal fun CardExpandReveal(
                             vtDraw + MAX_FRAME_STEP_MS,
                         )
                         val p = (vtDraw / GEOMETRY_TWEEN_MS).coerceIn(0f, 1f)
-                        drawFraction.floatValue = FastOutSlowInEasing.transform(p)
+                        drawFraction.floatValue = PHASE_B_JUMP_START +
+                            (1f - PHASE_B_JUMP_START) * FastOutSlowInEasing.transform(p)
                     }
                     drawFraction.floatValue = 1f
-                    }
                 } else {
                     // 收起:布局方向稳定(实测逐帧 consumed==d、topY 恒定),
                     // 保持布局裁剪路径;绘制窗口全开。
