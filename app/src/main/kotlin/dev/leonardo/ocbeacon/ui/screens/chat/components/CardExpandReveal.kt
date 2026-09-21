@@ -320,6 +320,55 @@ internal fun CardExpandReveal(
     val drawFraction = remember { androidx.compose.runtime.mutableFloatStateOf(if (visible) 1f else 0f) }
 
     /**
+     * #426 A 阶段排干标志:置位期间布局回调(onGloballyPositioned)补发配对位移。
+     */
+    val phaseADrain = remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    /**
+     * #426 同帧配对排干:增长落地当帧(布局完成、draw 之前)补发配对位移。
+     *
+     * 真机定案([DEBUG-425] 逐帧取证 + 录屏条带):动画相首帧 dispatch 在增长
+     * 落地前无法消费——布局里尚无对应空间,consumed=0 → 增长落地帧成为
+     * 「内容上顶」闪跳帧(上方内容 -H 持续 1-2 帧后归零),下一帧重试才复位。
+     * 本钩子改在 onGloballyPositioned(放置完成、同帧 draw 前)触发:此时本帧
+     * 布局已含增长 → dispatchRawDelta 有空间可消费 → 消费即失效重排(仍在本
+     * 帧 draw 前)→ 同帧净位移为零,瞬态从构造上消失。
+     */
+    fun drainPhaseA(cause: String) {
+        var tries = 0
+        while (tries < 8) {
+            val pending = clock.lastMeasuredH - clock.absorbedPx
+            if (abs(pending) < 1) {
+                phaseADrain.value = false
+                return
+            }
+            val consumed = try {
+                listState.dispatchRawDelta(pending.toFloat())
+            } catch (t: Throwable) {
+                if (BuildConfig.DEBUG) AppLogger.e("CardExpand", "[DEBUG-426] dispatch threw", t)
+                0f
+            }
+            clock.absorb(consumed)
+            clock.recordDisplacement(consumed)
+            if (BuildConfig.DEBUG) {
+                AppLogger.d(
+                    "CardExpand",
+                    "[DEBUG-426] " + cause + " pending=" + pending + " consumed=" + consumed.toInt() +
+                        " topY=" + revealTopY.floatValue.toInt() + " H=" + clock.lastMeasuredH +
+                        " abs=" + clock.absorbedPx + " fii=" + listState.firstVisibleItemIndex +
+                        " fiso=" + listState.firstVisibleItemScrollOffset,
+                )
+            }
+            if (!clock.departureFired && abs(clock.episodeDisplacement) > DEPARTURE_THRESHOLD_PX) {
+                clock.departureFired = true
+                departure?.invoke()
+            }
+            if (abs(consumed) < 0.5f) return // 本帧已消费不动,等下一次布局回调
+            tries++
+        }
+    }
+
+    /**
      * visible 转换 → 手写帧循环驱动(冷组合初值即目标,不动画)。
      *
      * #420 追诊定案:animateTo + snapshotFlow 方案有两处致命竞态——
@@ -360,16 +409,15 @@ internal fun CardExpandReveal(
                     drawFraction.floatValue = 0f
                     clock.tweening = true
                     clock.driveTo(1f)
-                    dispatchClosedLoop(listState, clock, departure, 1f, anchorY, revealTopY.floatValue)
-                    // 稳定窗:重试到全额消费(实证:部分消费期间折叠行稳定,跳变
-                    // 全部来自 end-restore 对余额的强行修正)。墙钟硬顶防死边。
+                    // #426:动画相不再 dispatch(增长落地前必 consumed=0,实测
+                    // 无效且掩盖根因)。配对位移由 drainPhaseA 在增长落地当帧
+                    // (布局回调)补发;此处仅置位 + 逐帧兜底确认排干。
+                    phaseADrain.value = true
                     val tStab = System.nanoTime()
-                    while (true) {
+                    while (phaseADrain.value) {
                         withFrameNanos { }
-                        val pendingA = closedLoopCommand(clock.lastMeasuredH, clock.absorbedPx)
-                        if (abs(pendingA) < 1) break
                         if ((System.nanoTime() - tStab) / 1_000_000f > 700f) break
-                        dispatchClosedLoop(listState, clock, departure, 1f, anchorY, revealTopY.floatValue, unclamped = true)
+                        if (phaseADrain.value) drainPhaseA("stab")
                     }
                     clock.tweening = false
                     // ===== #425 B 阶段:纯绘制揭示(drawFraction 0→1) =====
@@ -440,6 +488,7 @@ internal fun CardExpandReveal(
                 completed = true
             } finally {
                 clock.tweening = false
+                phaseADrain.value = false
                 // #422 episode 末强制真测:epoch 写使节点 measure 失效,且
                 // tweening=false → 缓存旁路——迟到内容增量在此落地为新 H。
                 clock.requestRemeasure()
@@ -510,7 +559,10 @@ internal fun CardExpandReveal(
         modifier = modifier
             .clipToBounds()
             .cardExpandGeometry(clock)
-            .onGloballyPositioned { revealTopY.floatValue = it.positionInRoot().y }
+            .onGloballyPositioned {
+                revealTopY.floatValue = it.positionInRoot().y
+                if (phaseADrain.value) drainPhaseA("placed")
+            }
     ) {
         // #420 追诊:content 组合生命周期归几何时钟统一拥有(fraction>0 即组合)。
         // 原方案 AV fadeOut(300ms) 与几何 tween(240ms) 两时钟分离——掉帧时
