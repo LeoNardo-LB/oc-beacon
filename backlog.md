@@ -102,6 +102,12 @@
   - - 终局架构:展开=A 阶段一次性布局落位(内容不可见,稳定窗全额重试)+B 阶段纯绘制揭示(drawWithContent clipRect,零布局零滚动);收起=原逐帧路径;指令=目标−已吸收账本
   - - 验证:展开/收起终态 934 精确;5 循环+12 连点守恒;零 end-restore;无崩溃。余量:展开 A 阶段一次 ~130px 单向瞬时沉降(无往复);备选=DSH 式硬切无动画(结构完美,待用户裁决)
   - - 工具教训:uiautomator dump 对被裁节点报可见高度(6px 假象);positionInRoot 对滚动 draw-offset 盲——测量指标必须与像素级录屏条带交叉验证;screenrecord 变帧率使帧号≠墙钟
+  - 六轮收口(2026-09-21 午后,空白卡死追修):
+  - - 1) 用户报「为啥会这样」:折叠行下方 ~1200px 空白、内容全消。取证:fraction=1(布局占位2852)+drawFraction=0(内容隐形)的卡死态;恢复实验(再点一次)内容即回,H 恒在。
+  - - 2) 根因:cancel-on-scroll 处理器(LaunchedEffect(listState),不随 visible 重启)闭包捕获**过期 visible**——收起期首次组合的实例在展开后遇用户滚动,snap(0f) 把 fraction 打 0(内容离树、H=0),收尾 vt 循环又把 fraction 拉回 1,终态「占位+隐形」。日志铁证:cancel 后 rep/abs/H 全 0。
+  - - 3) 修复:①rememberUpdatedState(visible) 读当下值;②finally 不变量「fraction>0 ⇒ drawFraction=1」兜底一切退出路径。
+  - - 4) 击杀链复现验证(修复后):展开→淡入中 fling→cancel-on-scroll 命中(snap f=1.000)→post-cancel 帧恒 rep=2852/H=2852(旧版此处归 0)→滚回 T1 内容完整可见(7.6s 行+18 行表格标题俱在),无任何空白。
+  - - 5) 教训:长生命周期 effect 闭包捕获可变参数必须 rememberUpdatedState;「占位必显示」应为组件级不变量(纯绘制分数只能由正常动画路径收敛,退出路径须强制归位)。
 
 - [~] **#421 消息流全量单行形态(DSH化):思考/工具/通知卡去容器** `ui` `chat`
   - 已实施完成(commit 5022b81a..7851eee2):ToolCardScaffold 透明收口16卡/ReasoningBlock去容器去色条+∞图标+尾部摘要/展开左竖线/通知四类+三横幅透明化;豁免:统计栏/问题/权限/错误行
