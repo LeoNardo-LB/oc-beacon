@@ -382,6 +382,10 @@ internal fun buildChatEntries(
             for (bi in bodies.indices.reversed()) {
                 entries += ChatEntry.StepGroupBody(displayIdx, turnKey + "#sgb" + bi, bodies[bi])
             }
+            // #423 批次三:组尾收起行——大组内容可达数屏高,头部折叠行在视觉顶部
+            // (reverseLayout 发射最后),用户读到底部无处收起。尾部再发一条同款
+            // 折叠行(点击收起),复用 StepGroupHead 渲染分支,零新组件。
+            entries += ChatEntry.StepGroupHead(displayIdx, turnKey + "#sgt", splitStepGroup)
             entries += ChatEntry.StepGroupHead(displayIdx, turnKey + "#sgh", splitStepGroup)
             displayEntryStart[displayIdx] = entries.size - 1
             continue

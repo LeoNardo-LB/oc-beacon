@@ -1058,7 +1058,16 @@ private fun AssistantTurnTail(
                                     if (tailExpanded) R.string.chat_turn_ledger_collapse
                                     else R.string.chat_turn_ledger_expand,
                                 ),
-                            ) { tailExpandedOverride = !tailExpanded }
+                            ) {
+                                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                    dev.leonardo.ocbeacon.logging.AppLogger.d(
+                                        "SGB",
+                                        "TAILCLICK turn=" + turnNumber + " tailExpanded=" + tailExpanded +
+                                            " steps=" + renderableTurn.stepCount + " tools=" + toolCallCount,
+                                    )
+                                }
+                                tailExpandedOverride = !tailExpanded
+                            }
                     } else {
                         Modifier
                     },
@@ -1172,6 +1181,13 @@ internal fun StepGroupFoldRow(
         modifier = modifier
             .fillMaxWidth()
             .clickable {
+                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                    dev.leonardo.ocbeacon.logging.AppLogger.d(
+                        "SGB",
+                        "CLICK key=" + stateKey.takeLast(12) + " expanded=" + expanded +
+                            " steps=" + step.textCount + " tools=" + step.toolCount,
+                    )
+                }
                 performHaptic(hapticView, hapticOn)
                 // 第二参=「未被 toggle 过时的默认态」(委托语义 !(map[id] ?: default)),
                 // 非期望下一态。传 !expanded 会让收起态首点写入 false = 静默无效
@@ -1230,6 +1246,19 @@ private fun StepGroupCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
             ) {
+                // #423 批次三:重内容首帧占位(#430 模式移植)——工具文档组首组合
+                // 实测冻结主线程 623ms(用户「展开卡一下」);延迟一帧组合重内容,
+                // 冻结窗内先见轻占位行(有反馈≠死机)。收起离树→重展开重新延迟。
+                var heavyComposed by androidx.compose.runtime.remember(step.msgId) {
+                    androidx.compose.runtime.mutableStateOf(false)
+                }
+                androidx.compose.runtime.LaunchedEffect(step.msgId) {
+                    androidx.compose.runtime.withFrameNanos { }
+                    heavyComposed = true
+                }
+                if (!heavyComposed) {
+                    Spacer(modifier = Modifier.fillMaxWidth().height(24.dp))
+                } else {
                 ChunkAssistantItems(
                     items = step.groups.map { RenderItem.GroupedParts(it) },
                     textColor = textColor,
@@ -1242,6 +1271,9 @@ private fun StepGroupCard(
                     compact = compact,
                     readinessRegistry = readinessRegistry,
                 )
+                // #423 批次三:组尾收起行——多屏内容不必滚回顶部折叠行才能收起
+                StepGroupFoldRow(step = step)
+                }
             }
         }
     }

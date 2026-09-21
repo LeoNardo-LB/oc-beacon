@@ -71,9 +71,9 @@ class StepGroupLazySplitTest {
             expandedLargeStepGroups = mapOf("t_m_last" to sg),
         )
         val kinds = chat.entries.map { it::class.simpleName }
-        // 自底向上:尾 Turn → 3 个 Body(逆序) → Head;随后是更旧的 user 条目
+        // 自底向上:尾 Turn → 3 个 Body(逆序) → 尾收起行(#sgt) → Head;随后是更旧的 user 条目
         assertEquals(
-            listOf("Turn", "StepGroupBody", "StepGroupBody", "StepGroupBody", "StepGroupHead", "Turn"),
+            listOf("Turn", "StepGroupBody", "StepGroupBody", "StepGroupBody", "StepGroupHead", "StepGroupHead", "Turn"),
             kinds,
         )
         val tail = chat.entries[0] as ChatEntry.Turn
@@ -88,7 +88,10 @@ class StepGroupLazySplitTest {
         // 分片内容:逆序对应文档 groups
         val firstBody = chat.entries[1] as ChatEntry.StepGroupBody
         assertEquals(listOf(sg.groups[2]), firstBody.groups)
-        // Head 是本 turn 最后入列条目(其后是更旧的 user 条目);displayEntryStart 钉在 Head
+        // #423 批次三:倒数第 2=尾收起行(#sgt),最后=Head(其后是更旧的 user 条目);
+        // displayEntryStart 仍钉在 Head(跳转落点=顶部折叠行)
+        val tailRow = chat.entries[chat.entries.size - 3] as ChatEntry.StepGroupHead
+        assertEquals("t_m_last#sgt", tailRow.key)
         val head = chat.entries[chat.entries.size - 2] as ChatEntry.StepGroupHead
         assertEquals("t_m_last#sgh", head.key)
         assertEquals(chat.entries.size - 2, chat.displayEntryStart[0])

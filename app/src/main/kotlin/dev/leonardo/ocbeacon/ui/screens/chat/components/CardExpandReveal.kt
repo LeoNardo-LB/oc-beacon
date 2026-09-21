@@ -337,6 +337,18 @@ internal fun CardExpandReveal(
     val phaseADrain = remember { androidx.compose.runtime.mutableStateOf(false) }
 
     /**
+     * #423 批次三:实测钉位状态(rememberSaveable——LEAP 触发 item 回收时,episode
+     * 协程随组合销毁被取消,钉位须由重组合后的新集续跑)。pinAnchor=本集折叠行
+     * 目标屏位;pinPending=true 表示钉位闭环未收敛。
+     */
+    val pinPending = androidx.compose.runtime.saveable.rememberSaveable {
+        androidx.compose.runtime.mutableStateOf(false)
+    }
+    val pinAnchor = androidx.compose.runtime.saveable.rememberSaveable {
+        androidx.compose.runtime.mutableFloatStateOf(Float.NaN)
+    }
+
+    /**
      * #423 观测:episode 序号(每集递增;PLACED/DRAW/排干日志共用,帧级对账用)。
      * 仅 DEBUG 且仅动画窗口输出——常态滚动零行,杜绝日志膨胀。
      */
@@ -412,18 +424,26 @@ internal fun CardExpandReveal(
         // 快速反向 toggle 取消旧集 → finally 必释放;新集立即重持(计数语义)。
         PreRenderCoordinator.withEpisode {
         val target = if (visible) 1f else 0f
-        if (abs(clock.fraction - target) > 0.001f) {
+        // #423 批次三:入口扩展——钉位未收敛(跨回收续跑)也进集,即使 fraction 已达。
+        val needsEpisode = abs(clock.fraction - target) > 0.001f
+        if (target <= 0f) pinPending.value = false
+        if (needsEpisode || (target > 0f && pinPending.value)) {
             episodeSeq.intValue = episodeSeq.intValue + 1
             clock.animating = true
             clock.beginEpisode()
             val episodeStart = System.nanoTime()
-            // #425:本集起点锚 = 携带锚(重定向链)或当下实测位置。
-            val anchorY = carriedAnchor.value ?: revealTopY.floatValue
+            // #425:本集起点锚 = 携带锚(重定向链)或当下实测位置;续跑集沿用 saveable 钉锚。
+            val anchorY = if (needsEpisode) (carriedAnchor.value ?: revealTopY.floatValue) else pinAnchor.floatValue
+            if (needsEpisode && target > 0f) {
+                pinAnchor.floatValue = anchorY
+                pinPending.value = true
+            }
             var completed = false
             // #431:展开向 Phase A 已同帧全额配对,闭环尾循环零指令纯空转——跳过
-            val skipClosedLoopTail = target > 0f
+            // #423 批次三:续跑集(回收后钉位续)不重跑 settle/A/B 相。
+            val skipClosedLoopTail = target > 0f || !needsEpisode
             try {
-                if (target > 0f) {
+                if (target > 0f && needsEpisode) {
                     // #420 预热:content 入树开始首测(ε·H<1px 零视觉)。注意
                     // lastMeasuredH==0 判定已移除:collapse 末 content 离树后的
                     // 重入(reverse toggle/回收复用)同样需要 settle。
@@ -446,36 +466,22 @@ internal fun CardExpandReveal(
                     drawFraction.floatValue = 0f
                     clock.tweening = true
                     clock.driveTo(1f)
-                    phaseADrain.value = true
-                    // #423 批次二根修(帧级证据 PRD/07):配对与增长**同遍合并**——
-                    // driveTo(写 fraction→失效测量)与本 dispatch 同 tick,两次失效
-                    // 合并进同一 layout pass:增长落地的那一遍即已配对,「已落地/
-                    // 未配对」中间态(实测 802ms 窗口,topY 逸出 1903)从构造上消失。
-                    // #426「增长前 dispatch 无效(consumed=0)」的实测是 settle 期
-                    // stab 路径(H 未定);此处 settle 已毕,H 已知且同遍有落点。
-                    // 残量(边缘不可全消费)由 FLUSH 拒绘(≤2/帧)+stab 兜底闭环。
-                    val prePair = (clock.lastMeasuredH - clock.absorbedPx).toFloat()
-                    if (abs(prePair) >= 1f) {
-                        val consumed = runCatching { listState.dispatchRawDelta(prePair) }.getOrDefault(0f)
-                        clock.absorb(consumed)
-                        clock.recordDisplacement(consumed)
-                        if (BuildConfig.DEBUG) {
-                            AppLogger.d(
-                                "CardExpand",
-                                "[DEBUG-423] pre-pair d=" + prePair.toInt() + " consumed=" + consumed.toInt() + " H=" + clock.lastMeasuredH,
-                            )
-                        }
-                        if (!clock.departureFired && abs(clock.episodeDisplacement) > DEPARTURE_THRESHOLD_PX) {
-                            clock.departureFired = true
-                            departure?.invoke()
-                        }
-                    }
-                    val tStab = System.nanoTime()
-                    while (phaseADrain.value) {
+                    // ===== #423 批次三(终):实测钉位替代预测配对 =====
+                    // 批次二的 pre-pair(预测 +H 同遍合并)对贴近锚的小卡(思考卡
+                    // H=146)成立;大 H(4688)跨多 item 的 dispatch=LEAP,触发
+                    // ①#430 反向布局重锚语义雷区(视口甩到无关区域,预测量与
+                    // 折叠行实际位移不符)②item 回收→episode 协程
+                    // LeftCompositionCancellationException 取消,修正循环来不及跑。
+                    // 终局:预测配对退役;增长先落地,FLUSH 相(pre-draw)以实测
+                    // err=钉锚−折叠行屏位 分段修正(±2000/帧,拒绘≤2/帧压住中间
+                    // 态),收敛后面包揭示。无 LEAP→无回收→循环活着。
+                    pinAnchor.floatValue = anchorY
+                    pinPending.value = PreRenderCoordinator.isFlushHostAttached
+                    val tPin2 = System.nanoTime()
+                    while (pinPending.value && (System.nanoTime() - tPin2) / 1_000_000f < 1500f) {
                         withFrameNanos { }
-                        if ((System.nanoTime() - tStab) / 1_000_000f > 700f) break
-                        if (phaseADrain.value) drainPhaseA("stab")
                     }
+                    pinPending.value = false
                     clock.tweening = false
                     // ===== #425 B 阶段:纯绘制揭示(drawFraction JUMP→1) =====
                     // #431:B 不再从 0 起坡——A 落地帧排干完成时已跳跃起始
@@ -498,6 +504,54 @@ internal fun CardExpandReveal(
                     // 收起:布局方向稳定(实测逐帧 consumed==d、topY 恒定),
                     // 保持布局裁剪路径;绘制窗口全开。
                     drawFraction.floatValue = 1f
+                }
+                // ===== #423 批次三:实测钉位闭环(展开向,含迟到增长) =====
+                // 真机取证(2026-09-22 用户报告):大 H(4688px)的 pre-pair 预测配对
+                // 跨多 item LEAP= #430 语义雷区(视口甩到无关区域),且 LEAP 可触发
+                // item 回收取消 episode。改为测量反馈:err=钉锚−折叠行实测屏位,
+                // 分段校正(±2000/帧)至 |err|<1,收敛 3 帧早退,800ms 墙钟上限;
+                // 迟到增长(表格 containerWidth 两拍收敛)在收敛判据下自然续配。
+                // 钉位状态 saveable——回收后新集续跑(入口 needsEpisode=false 分支)。
+                if (target > 0f) {
+                    var pinStable = 0
+                    val tPin = System.nanoTime()
+                    while (pinStable < 3 && (System.nanoTime() - tPin) / 1_000_000f < 800f) {
+                        withFrameNanos { }
+                        val cur = revealTopY.floatValue
+                        val tgt = pinAnchor.floatValue
+                        if (tgt.isNaN()) {
+                            pinStable = 3 // 防御:无锚可钉,放弃本窗
+                            break
+                        }
+                        if (cur.isNaN()) {
+                            pinStable = 0 // 续跑集首帧未放置——等待放置,不计稳定不放弃
+                            continue
+                        }
+                        val err = tgt - cur
+                        if (abs(err) >= 1f) {
+                            val d = err.coerceIn(-2000f, 2000f)
+                            val consumed = runCatching { listState.dispatchRawDelta(d) }.getOrDefault(0f)
+                            clock.recordDisplacement(consumed)
+                            if (!clock.departureFired && abs(clock.episodeDisplacement) > DEPARTURE_THRESHOLD_PX) {
+                                clock.departureFired = true
+                                departure?.invoke()
+                            }
+                            pinStable = 0
+                            if (BuildConfig.DEBUG) {
+                                AppLogger.d(
+                                    "CardExpand",
+                                    "[DEBUG-423] pin err=" + err.toInt() + " d=" + d.toInt() +
+                                        " consumed=" + consumed.toInt() + " cur=" + cur.toInt() + "/" + tgt.toInt(),
+                                )
+                            }
+                        } else {
+                            pinStable++
+                        }
+                    }
+                    pinPending.value = false
+                    if (BuildConfig.DEBUG) {
+                        AppLogger.d("CardExpand", "[DEBUG-423] pin done stable=" + pinStable)
+                    }
                 }
                 val startF = clock.fraction
                 clock.primeLedger()
@@ -549,6 +603,17 @@ internal fun CardExpandReveal(
                 // 收尾 flush:目标分数 + 反馈(正常已收敛,此处仅兜底)
                 dispatchClosedLoop(listState, clock, departure, target, anchorY, revealTopY.floatValue)
                 completed = true
+            } catch (t: Throwable) {
+                // #423 批次三诊断:区分取消/异常(真机大组集 54ms 早退未明因)
+                if (BuildConfig.DEBUG) {
+                    AppLogger.e(
+                        "CardExpand",
+                        "[DEBUG-423] episode exit-" + (if (t is CancellationException) "CANCELLED" else "THREW") +
+                            " f=" + "%.3f".format(clock.fraction) + " pinPending=" + pinPending.value,
+                        t,
+                    )
+                }
+                throw t
             } finally {
                 clock.tweening = false
                 phaseADrain.value = false
@@ -596,7 +661,8 @@ internal fun CardExpandReveal(
                     AppLogger.d(
                         "CardExpand",
                         "[DEBUG-422] episode done f=" + "%.3f".format(clock.fraction) +
-                            " totalMs=" + ((System.nanoTime() - episodeStart) / 1_000_000f).toInt(),
+                            " totalMs=" + ((System.nanoTime() - episodeStart) / 1_000_000f).toInt() +
+                            " completed=" + completed + " pinPending=" + pinPending.value,
                     )
                 }
                 // #425 锚点携带:重定向取消(未正常完成且非用户滚动)→ 携带原锚,
@@ -628,29 +694,72 @@ internal fun CardExpandReveal(
             }
     }
 
-    // #423 批次二:Phase A 排干迁至 FLUSH 相(单点 OnPreDraw,spec §2/K1)。
-    // 旧路径(placed 回调排干)的失效机理:放置后回调里 dispatchRawDelta 的
-    // 失效重排来不及在本帧 draw 前生效 → 「增长已落地/配对未完成」中间态上屏
-    // 一帧——07 基线红环4(+198px 瞬态,用户否决的「闪现一下」)即此。
-    // FLUSH 相在整窗绘制**前**排干:残差未闭→拒绘(false)请求本帧重排,
-    // 中间态从构造上不可能上屏;拒绘自限 ≤2 次/帧(spec §8,防无限重排)。
-    // 降级:无 FLUSH 宿主(预览/单测/宿主未挂)→ 回退 placed+stab 路径。
-    LaunchedEffect(phaseADrain.value) {
-        if (!phaseADrain.value || !PreRenderCoordinator.isFlushHostAttached) return@LaunchedEffect
+    // #423 批次三(终):FLUSH 相实测钉位修正器——增长落地帧在 draw 前测量
+    // err=钉锚−折叠行屏位,分段 dispatch(±2000/帧)修正,残差未闭拒绘(≤2/帧);
+    // 收敛(连续 3 次|err|<1)或超时(1.5s)清 pinPending 自灭。中间态从不上屏;
+    // 无预测 LEAP→无 item 回收→修正循环全程存活(预测配对退役原因见展开分支)。
+    // 降级:无 FLUSH 宿主(预览/单测)→ 不置 pinPending,零滚动参与。
+    LaunchedEffect(pinPending.value) {
+        if (!pinPending.value || !PreRenderCoordinator.isFlushHostAttached) return@LaunchedEffect
         var refusals = 0
+        var stableFlushes = 0
+        var lastMeasuredCur = Float.NaN // #425 振荡教训:仅测量刷新后才允许下次 dispatch
+        val tStart = System.nanoTime()
         val task = PreDrawFlushTask {
-            drainPhaseA("flush")
-            val closed = abs(clock.lastReportedH - clock.absorbedPx) < 1
-            if (closed || ++refusals >= 2) {
-                refusals = 0
-                true // 闭合放行;两次拒绘后放行(残量下帧重试,禁无限重排)
-            } else {
-                false
+            val tgt = pinAnchor.floatValue
+            var allow = true
+            when {
+                tgt.isNaN() -> stableFlushes = 3 // 无锚,放弃
+                revealTopY.floatValue.isNaN() -> { /* 未放置,等下一 pre-draw */ }
+                revealTopY.floatValue == lastMeasuredCur -> {
+                    // 测量未刷新(上次 dispatch 的重排未落地)——只拒绘促重测,严禁重复开火
+                    // (实测同帧双重 +2000 → 过冲 ±684 来回振荡,#425 同族)
+                    allow = ++refusals < 2
+                    if (!allow) refusals = 0
+                }
+                else -> {
+                    val cur = revealTopY.floatValue
+                    lastMeasuredCur = cur
+                    val err = tgt - cur
+                    if (abs(err) >= 1f) {
+                        // 测量锚定下单发全额(实测 err 是地面真值;分段上限反而多拍)
+                        val consumed = runCatching { listState.dispatchRawDelta(err) }.getOrDefault(0f)
+                        clock.recordDisplacement(consumed)
+                        if (!clock.departureFired && abs(clock.episodeDisplacement) > DEPARTURE_THRESHOLD_PX) {
+                            clock.departureFired = true
+                            departure?.invoke()
+                        }
+                        stableFlushes = 0
+                        if (BuildConfig.DEBUG) {
+                            AppLogger.d(
+                                "CardExpand",
+                                "[DEBUG-423] pin-flush err=" + err.toInt() + " consumed=" + consumed.toInt() +
+                                    " cur=" + cur.toInt() + "/" + tgt.toInt(),
+                            )
+                        }
+                        allow = ++refusals < 2
+                        if (!allow) refusals = 0
+                    } else {
+                        refusals = 0
+                        stableFlushes++
+                    }
+                }
             }
+            if (stableFlushes >= 3 || (System.nanoTime() - tStart) / 1_000_000f > 1500f) {
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(
+                        "CardExpand",
+                        "[DEBUG-423] pin done stable=" + stableFlushes +
+                            " ms=" + ((System.nanoTime() - tStart) / 1_000_000f).toInt(),
+                    )
+                }
+                pinPending.value = false
+            }
+            allow
         }
         PreRenderCoordinator.registerFlushTask(task)
         try {
-            snapshotFlow { phaseADrain.value }.first { !it }
+            snapshotFlow { pinPending.value }.first { !it }
         } finally {
             PreRenderCoordinator.unregisterFlushTask(task)
         }

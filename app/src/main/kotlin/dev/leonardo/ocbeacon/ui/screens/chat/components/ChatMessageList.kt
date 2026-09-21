@@ -69,6 +69,8 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.Clipboard
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -481,6 +483,38 @@ fun ChatMessageList(
         }
     }
 
+    // ===== #423 SGB 埋点:结构裂变观测(仅 DEBUG;窗口门控,常态零行) =====
+    // sgSwapAtMs = 最近一次大组映射变化的墙钟;HEAD 类探针以 1.2s 窗门控。
+    val sgSwapAtMs = remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+    // StepGroupHead 顶缘最新实测(逐帧写入,日志窗控;多 head 时为最后写者——单组测试足够)
+    val sgHeadTopY = remember { androidx.compose.runtime.mutableIntStateOf(Int.MIN_VALUE) }
+    LaunchedEffect(expandedLargeStepGroups) {
+        if (!dev.leonardo.ocbeacon.BuildConfig.DEBUG) return@LaunchedEffect
+        val keys = expandedLargeStepGroups.keys.joinToString(",") { it.takeLast(10) }
+        dev.leonardo.ocbeacon.logging.AppLogger.d("SGB", "LARGE n=" + expandedLargeStepGroups.size + " keys=" + keys)
+        sgSwapAtMs.longValue = System.currentTimeMillis()
+        // 裂变窗口逐帧快照:仅值变化帧输出(静止零行)——「往上顶」的帧级时间线
+        val t0 = System.currentTimeMillis()
+        var last = Triple(-1, -1, -1)
+        while (System.currentTimeMillis() - t0 < 1200) {
+            androidx.compose.runtime.withFrameNanos { }
+            val cur = Triple(
+                listState.firstVisibleItemIndex,
+                listState.firstVisibleItemScrollOffset,
+                listState.layoutInfo.totalItemsCount,
+            )
+            if (cur != last) {
+                last = cur
+                dev.leonardo.ocbeacon.logging.AppLogger.d(
+                    "SGB",
+                    "SNAP t=" + (System.currentTimeMillis() - t0) + "ms fii=" + cur.first +
+                        " fiso=" + cur.second + " items=" + cur.third +
+                        " headTop=" + sgHeadTopY.intValue,
+                )
+            }
+        }
+    }
+
     // 以 streamingMsgId 作为 key，流式 turn 变化（新消息
     // 或完成）时状态重置。这比 heightMap + 会话级清除更简单、更正确。
     val compensateState = remember(streamingMsgId) { CompensateState() }
@@ -769,6 +803,14 @@ fun ChatMessageList(
                 " recentN=" + recentStreamedTurnKeys.size
         }
         buildChatEntries(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans, expandedLargeStepGroups = expandedLargeStepGroups)
+            .also { ents ->
+                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                    dev.leonardo.ocbeacon.logging.AppLogger.d(
+                        "SGB",
+                        "ENTRIES n=" + ents.entries.size + " large=" + expandedLargeStepGroups.size,
+                    )
+                }
+            }
     }
 
     // ===== #430 大组硬切换锚定(已撤,待重做) =====
@@ -1499,6 +1541,17 @@ fun ChatMessageList(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clipToBounds()
+                                        .onGloballyPositioned {
+                                            sgHeadTopY.intValue = it.positionInRoot().y.toInt()
+                                            if (dev.leonardo.ocbeacon.BuildConfig.DEBUG &&
+                                                System.currentTimeMillis() - sgSwapAtMs.longValue < 1200
+                                            ) {
+                                                dev.leonardo.ocbeacon.logging.AppLogger.d(
+                                                    "SGB",
+                                                    "HEAD topY=" + sgHeadTopY.intValue,
+                                                )
+                                            }
+                                        }
                                         .padding(bottom = SpacingTokens.XS.dp)
                                 ) {
                                     StepGroupFoldRow(step = entry.step)
