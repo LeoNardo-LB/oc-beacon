@@ -61,6 +61,47 @@
   - 用户裁决(2026-09-20):每 turn 最后 step(最终回答)恒展开,之前 step 自动折叠计数行;流式恒平铺,完结生效
   - 关键发现:StepStart/StepFinish 在 UI 过滤层(RenderableTurn.kt:193 filterRenderableParts)被丢弃——第一步=装配层保留边界标记
   - 方案+调研:docs/research/2026-09-20-code-step-grouping.md;影响面:RenderableTurn/ChunkAssistantItems/折叠组件/i18n(复用统计词);#420:整组单 LazyItem 不拆
+  - 三轮收口(2026-09-21 凌晨):
+  - 1) CardExpandGeometryNode(ModifierNodeElement+LayoutModifierNode)落地:tween 窗口内复用 settle 末真测 placeable(逐帧只重算 report=f·H,子树零重测);窗口外恒真测保内容失效传播;epoch 变化清缓存双保险。展开前 settleUntilContentStable(2 帧判稳/600ms 上限)吸收表格 containerWidth 两拍收敛与 asyncParse 迟到;episode 末 epoch 强制真测+迟到增量 δ 补偿。单测+5(时钟新语义)。
+  - 2) 真机(小米14)验证:重型 turn(10193 字符双表格,H=20292px)10s 冻结 stall 消除——settle 即刻判稳、tween 全程 H 恒定(缓存命中)、收展均为钳制限速平滑动画(展开总 ~2.6s:首测 ~1s 内容固有组合成本+渐进揭示;普通卡片远快于此)。多模态走查:四元素顺序排列无叠压。
+  - 3) 顺带修复两处折叠组渲染 bug:a) #258 Stage A MdChunkPlan 对多消息轮次的巨型 part 分片会绕过 StepGroup(Chunk 条目按 part 直渲染,折叠行+末消息内容双丢失)——产侧协调器+装配侧 buildChatEntries 双端封堵,巨型末消息归 Stage B;b) StepGroupCard 展开体缺 Column 包裹(ChunkAssistantItems 为裸 for)致全部 part 堆叠 (0,0) 互相叠压——补 Column(XS 间距,同 Segmented 路径)。
+  - 4) DSH 折叠时机核实:研究档案 §1.3 定案 DSH=turnClosed 后折叠(流式恒平铺)——与现有实现(装配层 turn 完结重组+渲染层 isStreaming 平铺)一致,无需改动。
+  - 5) code-review 双轴:Spec 6 项全忠实;Standards 8 条修 5(谓词抽取/术语/类KDoc/import序),余 3 低severity(settle 帧循环单测缺口留待)。
+  - 待用户验收:视觉终判(尤其巨型卡展开的 2.6s 钳制限速揭示节奏是否可接受——若嫌慢可裁决 MAX_FRAME_DELTA_PX 按 H 自适应放宽)。
+  - 四轮收口(2026-09-21 01:15,懒加载实施):
+  - 1) 用户报「点了卡死」+ 实测取证:历史大组展开 = 单 LazyItem 一帧组合全部内容(10193 字符双表格,H=20292px,400+ SelectableText 单元格)→ Choreographer Skipped 434 帧 = 3.6s 冻结,MIUIScout 栈顶 MultiParagraphLayoutCache(文本断行)。首轮 Node 缓存只消了逐帧重测风暴,首组合一次性成本仍在。
+  - 2) 用户裁决:仅历史展开路径懒加载(流式输出路径零改动——实测流式最差 37 帧微跳,健康);大组直出+淡入,小组(<3 屏)保留动画。
+  - 3) 实施(14c3aa01+da5833d0):LARGE_STEP_GROUP_WEIGHT=6000 阈值;展开态大组拆条目发射——尾 Turn(skipStepGroupItem)+StepGroupBody×N(权重 2200 切片,独立 LazyItem,220ms 淡入)+StepGroupHead(共享 StepGroupFoldRow);键序号=文档序、发射逆序(#246 语义);displayEntryStart 钉头部;流式恒不拆(单点门控+单测);stepGroupStateKey() 前缀收口。
+  - 4) 真机验证:同重型组冷展开 434 帧→0 帧冻结(全程仅 1 次 37 帧级微跳);折叠行→内容→末消息+统计栏结构正确;收起即时;小组动画保留(713ms);流式冒烟正常;单测 +3(切片/发射序/流式豁免),全量套件过;双轴 review:Spec 10/10 忠实。
+  - 已知权衡(用户已裁决接受):大组收起为硬切无动画;二次展开无淡入(rememberSaveable 残留);流式防护单点在 buildChatEntries。
+  - 待用户真机验收。
+  - 五轮收口(2026-09-21 01:45,用户验收发现的第三层根因):
+  - 1) 用户真机验收:点折叠行两次后卡死(logcat 证:两次 ~2.5s 主线程阻塞,栈顶 SimpleMarkdownTable placement;插桩复现:Skipped 440 帧)。
+  - 2) 插桩定音(已撤):懒加载框架完全生效——entries 拆分成功、仅组合视口内 2 个 body、组合仅 21ms;冻结在 body 组合之后的测量阶段。
+  - 3) 第三层根因:sliceStepGroupBodies 按 part 边界切片,而真实场景大组常为**单个巨型 text part**(60 行表格=10193 字符一个 part)——单 part 不可分,一个 body 条目仍装整表,LazyList 测量该条目时 360 单元格全量断行=3.6s。多层 part 的大组已验证有效(组合快、零跳帧),单 part 巨物未解。
+  - 4) 已交付有效的部分(14c3aa01+da5833d0):多 part 大组懒加载+小组动画保留+单测;另发现折叠行可点击区域仅文字宽度(fillMaxWidth 未生效于触摸区)的存量 bug——用户中排点击无反应即此,待修。
+  - 5) 下一步方案(待实施):body 内巨型 text part 复用 #258 computeChunkPlan 做 AST 块级切片(协调器预解析→区间条目),即 Stage B Giant 段机制接入展开态拆分;折叠行触摸区修复(Row 可点击区域全宽化)。
+  - 教训:本轮『零跳帧验证』实际测的是一次未命中的点击(坐标又落在行边)——仪器验证必须先确认动作确实生效再读数。
+  - 6) 2026-09-21 内容漂移(diagnosing-bugs 全程)——已修复 ede8ac05
+  - - 症状:小组(动画路径)一个展开+收起循环视口净漂 -366px,展开末折叠行 934→836,收起后整个列表上移(uiautomator 三 dump 逐行对账;截图证实标题栏不动=非滚动错觉)
+  - - 根因:#420 δ 配对是开环账本,只记指令不记实际消费。两类误差:(a) dispatchRawDelta 列表边缘残量(逐帧 residual 8+17+35+12+15+11=98px,展开末一次性显形);(b) LazyList 锚点翻转会计误差(收起过程 -268px,账本完全无感知)
+  - - 修复:CardExpandReveal reveal 盒顶缘(=折叠行底缘)onGloballyPositioned 实测窗口 Y;episode 正常完成后 episodeEndCorrection(纯函数,5 单测)判定偏差,单次 dispatchRawDelta 修正回本集起点;用户滚动取消/协程取消(反向 toggle)跳过——阅读位置优先权铁律
+  - - 真机验证(小米14,同测试位):展开 err=98 consumed=98(钉回 934);收起 err=268 consumed=268;循环后 dump 与点击前逐字节一致,净漂 0px;连测 2 循环守恒;PSNR 首尾帧 32dB(同布局)。证据:docs/acceptance/2026-09-21-422-evidence/drift-fixed-cycle.mp4
+  - - 遗留:大组(硬切换条目路径)无任何锚定——展开时折叠行飞出屏(插入高度无补偿),收起时锚点条目被删视口任意落位;与 L3(单巨型 part 测量冻结)同批处理。展开态折叠行 a11y 可见高度 6px(与 reveal 盒 6px 重叠,疑 #231 clip 链)顺带记录
+  - 7) 2026-09-21 渲染前反馈闭环重写(用户裁决弃事后补偿)——899d74a2
+  - - 用户观看压测后裁决:ede8ac05 的 episode 末补偿"先漂再拽回"不可接受;要求渲染前完成计算(#420 同帧配对严格化)
+  - - 逐帧插桩([DEBUG-425] topY/anchor/fii/fiso/rep/abs)定位三类断点:①组合滞后残量永久丢失(指令账本只记指令);②LazyList 锚点翻转会计误差(消费满额但视觉说谎,收起 −60→−328 阶跃);③收起中段 anchor 稳定时 dev=0 证明配对数学本身正确
+  - - 新机制:每帧指令 = 缓动增量 + (锚−上帧实测Y) 死拍反馈;吸收账本观测化;循环收敛条件 = 缓动走完且指令≈0
+  - - 四个真机迭代坑(全部插桩实证后修复):死锁(上报做消费奴隶→dispatch 恒 0,改乐观上报)、双计振荡((目标−已吸收)+偏差 极限环 ±154 交替,改增量+偏差)、崩溃(fraction→0 后缓存 placeable 放置 detached 节点,关窗口+守卫)、连点链式漂移(重定向取消以漂后位置起新锚 −73px,carriedAnchor 携带)
+  - - 压测(用户令系统性设计):A1 十循环 934 守恒;A2 24 连点@300ms / A3 30 连点@150ms 风暴后 934 精确守恒;1244 风暴帧 17 帧(1.4%)瞬时偏差≤2 帧自愈;63 episode 仅 1 次 end-restore 82px;无 ANR/崩溃;JVM 竞态单测 28 个
+  - - 证据:docs/acceptance/2026-09-21-422-evidence/drift-fixed-tap-storm.mp4
+  - - 注:风暴中偶发单次点击丢失(input 投递层面,非状态机;恢复点击均正常翻转);大组硬切路径漂移与 L3 冻结仍在案(与本卡分批)
+  - 8) 2026-09-21 震荡根治·两阶段架构(用户两轮否决后)——a7e7d2bd
+  - - 用户裁决链:ede8ac05 事后补偿=否("先漂再拽回");899d74a2 逐帧反馈=否("来回震荡")
+  - - 取证定案(录屏条带追踪±24-136px + [DEBUG-425] 逐帧):①展开方向 LazyList 布局多 pass 不稳定(dispatch 时刻 topY 逐 pass 振荡±60px)——动画期间布局/滚动参与即震荡;②逐帧实测反馈的信号(布局坐标)对滚动位移盲且滞后,本身成为扰动源;③自然锚定证伪(禁 dispatch 折叠行飞出屏 2852px,dispatch 必需);④收起方向布局稳定(consumed==d 逐帧,topY 恒定)
+  - - 终局架构:展开=A 阶段一次性布局落位(内容不可见,稳定窗全额重试)+B 阶段纯绘制揭示(drawWithContent clipRect,零布局零滚动);收起=原逐帧路径;指令=目标−已吸收账本
+  - - 验证:展开/收起终态 934 精确;5 循环+12 连点守恒;零 end-restore;无崩溃。余量:展开 A 阶段一次 ~130px 单向瞬时沉降(无往复);备选=DSH 式硬切无动画(结构完美,待用户裁决)
+  - - 工具教训:uiautomator dump 对被裁节点报可见高度(6px 假象);positionInRoot 对滚动 draw-offset 盲——测量指标必须与像素级录屏条带交叉验证;screenrecord 变帧率使帧号≠墙钟
 
 - [~] **#421 消息流全量单行形态(DSH化):思考/工具/通知卡去容器** `ui` `chat`
   - 已实施完成(commit 5022b81a..7851eee2):ToolCardScaffold 透明收口16卡/ReasoningBlock去容器去色条+∞图标+尾部摘要/展开左竖线/通知四类+三横幅透明化;豁免:统计栏/问题/权限/错误行
