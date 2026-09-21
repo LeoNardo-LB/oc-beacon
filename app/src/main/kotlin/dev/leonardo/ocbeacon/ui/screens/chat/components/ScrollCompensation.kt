@@ -203,48 +203,73 @@ internal fun Modifier.deferredRevealCompensation(
 // Compose 版本升级前必须手动测试这些成员仍存在（AGENTS.md「精准修改」规则）。
 // 升级后若成员消失/改名 → 初始化探测一次性失败 → 降级为官方 requestScrollToItem
 //（取消 fling 但功能等价、不崩溃）。
+// #423 Phase 0:该核销已自动化——LazyListReflectionTest 在 JVM 上对当前 classpath
+// 钉死三成员的真实签名,BOM 升级若破坏未装箱巧合,单测先红(先于发版)。
+/** #423 Phase 0:反射探针三件套(scrollPosition 字段 / 定位方法 / 失效器字段)。 */
+internal data class LazyListProbes(
+    val scrollPositionField: java.lang.reflect.Field,
+    val requestPositionMethod: java.lang.reflect.Method,
+    val invalidatorField: java.lang.reflect.Field,
+)
+
+/**
+ * #423 Phase 0(D5):一次性探针解析——抽出为可注入类解析器的顶层函数,JVM 单测
+ * 可模拟「类消失/成员签名漂移」验证降级路径(LazyListReflectionTest);
+ * 冒烟用例同步钉死当前 BOM 的真实签名(value-class 未装箱巧合,K9)。
+ * 任一成员失败 → 返回 null,调用方永久走官方 requestScrollToItem 降级。
+ */
+internal fun resolveLazyListProbes(
+    resolveClass: (String) -> Class<*>? = ::defaultResolveClass,
+): LazyListProbes? {
+    val stateClass = resolveClass("androidx.compose.foundation.lazy.LazyListState") ?: return null
+    val scrollPositionField = lookupField(stateClass, "scrollPosition") ?: return null
+    val requestPositionMethod =
+        lookupMethod(
+            scrollPositionField.type,
+            "requestPositionAndForgetLastKnownKey",
+            java.lang.Integer.TYPE,
+            java.lang.Integer.TYPE,
+        ) ?: return null
+    val invalidatorField = lookupField(stateClass, "measurementScopeInvalidator") ?: return null
+    return LazyListProbes(scrollPositionField, requestPositionMethod, invalidatorField)
+}
+
+private fun defaultResolveClass(name: String): Class<*>? = try {
+    Class.forName(name)
+} catch (t: Throwable) {
+    AppLogger.w("LazyListReflection", "class $name not found: ${t.message}")
+    null
+}
+
+private fun lookupField(type: Class<*>, name: String): java.lang.reflect.Field? = try {
+    type.getDeclaredField(name).apply { isAccessible = true }
+} catch (t: Throwable) {
+    // NoSuchFieldException / NoSuchFieldError 等
+    AppLogger.w("LazyListReflection", "field ${type.name}.$name not found: ${t.message}")
+    null
+}
+
+private fun lookupMethod(
+    type: Class<*>,
+    name: String,
+    vararg params: Class<*>,
+): java.lang.reflect.Method? = try {
+    type.getDeclaredMethod(name, *params).apply { isAccessible = true }
+} catch (t: Throwable) {
+    // NoSuchMethodException / NoSuchMethodError 等
+    AppLogger.w("LazyListReflection", "method ${type.name}.$name not found: ${t.message}")
+    null
+}
+
 internal object LazyListReflection {
     // 一次性探测：失败返回 null，后续永久走降级路径。
-    private val scrollPositionField: java.lang.reflect.Field? =
-        lookupField("androidx.compose.foundation.lazy.LazyListState", "scrollPosition")
-
-    private val requestPositionMethod: java.lang.reflect.Method? =
-        scrollPositionField?.type?.let { type ->
-            lookupMethod(
-                type,
-                "requestPositionAndForgetLastKnownKey",
-                java.lang.Integer.TYPE,
-                java.lang.Integer.TYPE,
-            )
-        }
-
-    private val invalidatorField: java.lang.reflect.Field? =
-        lookupField("androidx.compose.foundation.lazy.LazyListState", "measurementScopeInvalidator")
+    // #423 Phase 0 起经 resolveLazyListProbes 统一解析(可测缝,见 LazyListReflectionTest)。
+    private val probes: LazyListProbes? = resolveLazyListProbes()
 
     // #258 换道手术（2026-08-29）：scrollToBeConsumed 反射直写已整体删除——
     // 用户 drag 起手经 onScroll（LazyListState.kt:492）对该残量有
     // checkPrecondition 断言，直写与用户输入根本竞态（真机 FATAL 实证）。
     // 渲染前补偿改走 PreRenderShiftChannel（帧界排空 + request-position 通道）。
-
-    private fun lookupField(className: String, name: String): java.lang.reflect.Field? = try {
-        Class.forName(className).getDeclaredField(name).apply { isAccessible = true }
-    } catch (t: Throwable) {
-        // NoSuchFieldException / NoSuchFieldError / ClassNotFoundException 等
-        AppLogger.w("LazyListReflection", "field $className.$name not found: ${t.message}")
-        null
-    }
-
-    private fun lookupMethod(
-        type: Class<*>,
-        name: String,
-        vararg params: Class<*>,
-    ): java.lang.reflect.Method? = try {
-        type.getDeclaredMethod(name, *params).apply { isAccessible = true }
-    } catch (t: Throwable) {
-        // NoSuchMethodException / NoSuchMethodError 等
-        AppLogger.w("LazyListReflection", "method ${type.name}.$name not found: ${t.message}")
-        null
-    }
 
     /**
      * 设置待定滚动位置但不取消进行中的 fling（反射路径）。
@@ -254,15 +279,13 @@ internal object LazyListReflection {
     @OptIn(ExperimentalFoundationApi::class)
     fun requestScrollToItemNoCancel(state: LazyListState, index: Int, scrollOffset: Int) {
         // smart-cast 友好：局部非空变量
-        val sp = scrollPositionField
-        val rpm = requestPositionMethod
-        val inv = invalidatorField
-        if (sp != null && rpm != null && inv != null) {
+        val p = probes
+        if (p != null) {
             try {
-                val pos = sp.get(state)
-                rpm.invoke(pos, index, scrollOffset)
+                val pos = p.scrollPositionField.get(state)
+                p.requestPositionMethod.invoke(pos, index, scrollOffset)
                 @Suppress("UNCHECKED_CAST")
-                (inv.get(state) as MutableState<Unit>).value = Unit
+                (p.invalidatorField.get(state) as MutableState<Unit>).value = Unit
                 return
             } catch (t: Throwable) {
                 // IllegalAccessException / IllegalArgumentException / ClassCastException 等
