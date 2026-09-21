@@ -8,6 +8,7 @@ import androidx.compose.runtime.snapshots.Snapshot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -60,10 +61,15 @@ class ChatScrollControllerTest {
         }
     }
 
-    private fun executor(gate: FakeGate, logs: MutableList<String>) = ForceScrollExecutor(
+    private fun executor(
+        gate: FakeGate,
+        logs: MutableList<String>,
+        leaseActive: () -> Boolean = { false },
+    ) = ForceScrollExecutor(
         gate = gate,
         onGrowthTimeout = { logs.add(it) },
         waitOneFrame = { }, // JVM 单测无 MonotonicFrameClock，注入空帧等待
+        leaseActive = leaseActive, // #423 I3:视口租约探针
     )
 
     /**
@@ -140,6 +146,41 @@ class ChatScrollControllerTest {
 
         assertEquals("补偿收敛期内不应重滚（避免视口抖动）", 1, gate.progressFlagAtScrollCalls.size)
         assertEquals(0, logs.size)
+    }
+
+    // ============ ⑥ #423 I3:视口租约等待 ============
+
+    @Test
+    fun `execute waits for viewport lease release before anchoring`() = runTest {
+        val gate = FakeGate(initialCount = 10, initialIndex = 2)
+        var lease by mutableStateOf(true) // 在途 episode(如发送时正在展开卡片)
+        val anchorTimes = mutableListOf<Long>()
+        launch { delay(100); gate.count = 11; applySnapshot() } // 消息增长
+        launch { delay(200); lease = false; applySnapshot() }   // episode 结束,租约释放
+        gate.applyScroll = {
+            gate.index = 0
+            gate.offset = 0
+            anchorTimes.add(currentTime)
+        }
+
+        executor(gate, mutableListOf(), leaseActive = { lease }).execute()
+
+        assertEquals(1, gate.progressFlagAtScrollCalls.size)
+        assertTrue(
+            "锚定必须发生在租约释放之后(与 episode end-restore 互搏消除)",
+            anchorTimes.single() >= 200,
+        )
+    }
+
+    @Test
+    fun `execute anchors anyway after lease wait timeout`() = runTest {
+        val gate = FakeGate(initialCount = 10, initialIndex = 2)
+        var lease by mutableStateOf(true) // 永不释放(极端:episode 卡死)
+        launch { delay(100); gate.count = 11; applySnapshot() }
+
+        executor(gate, mutableListOf(), leaseActive = { lease }).execute()
+
+        assertEquals("租约等待超时后仍强制锚定(发送后跟随之义)", 1, gate.progressFlagAtScrollCalls.size)
     }
 
     // ============ ⑤ 滚后持续未到位 → 重滚一次 ============

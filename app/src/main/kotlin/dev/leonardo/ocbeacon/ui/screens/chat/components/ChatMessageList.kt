@@ -91,6 +91,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.SessionMetaState
 import dev.leonardo.ocbeacon.ui.screens.chat.dialog.PermissionCard
 import dev.leonardo.ocbeacon.ui.screens.chat.dialog.QuestionCard
 import dev.leonardo.ocbeacon.ui.screens.chat.components.AlwaysConfirmDialog
+import dev.leonardo.ocbeacon.ui.screens.chat.scroll.PreRenderCoordinator
 import dev.leonardo.ocbeacon.ui.screens.chat.util.rememberSafeFlingBehavior
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.InjectionLabelKind
 import dev.leonardo.ocbeacon.ui.screens.chat.rowmodel.RowCapabilities
@@ -708,7 +709,10 @@ fun ChatMessageList(
                     " idx=" + listState.firstVisibleItemIndex
             )
         }
-        if (revealBannerCount > 0 && autoScrollState.value) {
+        // #423 I3(视口租约):在途渲染前事务期间让位,防锚底与 episode 配对位移互搏。
+        if (revealBannerCount > 0 && autoScrollState.value &&
+            !PreRenderCoordinator.hasActiveTransactions
+        ) {
             // fling 等待 + 重校验（msgCount effect 同款防「快照后用户开始拖动」竞态）
             if (listState.isScrollInProgress) {
                 kotlinx.coroutines.withTimeoutOrNull(2_000) {
@@ -716,7 +720,7 @@ fun ChatMessageList(
                         .first { !it }
                 }
             }
-            if (autoScrollState.value) {
+            if (autoScrollState.value && !PreRenderCoordinator.hasActiveTransactions) {
                 listState.requestScrollToItem(0)
             }
         }

@@ -35,6 +35,7 @@ import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.unit.Constraints
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.logging.AppLogger
+import dev.leonardo.ocbeacon.ui.screens.chat.scroll.PreRenderCoordinator
 import kotlinx.coroutines.CancellationException
 import kotlin.math.abs
 
@@ -398,6 +399,10 @@ internal fun CardExpandReveal(
      * 语义天然覆盖——新循环自 clock.fraction 当前值续走(R5 回摆保留)。
      */
     LaunchedEffect(visible, listState) {
+        // #423 I3(视口租约):episode 全程(含 finally 收尾:end-restore/迟到增量/锚点
+        // 携带)持租约——守卫/MSGEFFECT/PENDING/强滚锚底让位,±H 互搏从构造上消除。
+        // 快速反向 toggle 取消旧集 → finally 必释放;新集立即重持(计数语义)。
+        PreRenderCoordinator.withEpisode {
         val target = if (visible) 1f else 0f
         if (abs(clock.fraction - target) > 0.001f) {
             clock.animating = true
@@ -570,6 +575,7 @@ internal fun CardExpandReveal(
                 carriedAnchor.value = if (completed || clock.userScrollCancelled) null else anchorY
                 clock.animating = false
             }
+        }
         }
     }
 

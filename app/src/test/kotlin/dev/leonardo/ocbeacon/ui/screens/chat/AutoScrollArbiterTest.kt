@@ -125,6 +125,48 @@ class AutoScrollArbiterTest {
         assertFalse("闪断帧不点火（拉底循环下半环断开）", fired)
     }
 
+    // ---------- 守卫让位(#423 I3 视口租约) ----------
+
+    @Test
+    fun `guard yields while pre-render lease held at recheck`() = runTest {
+        var lease = true
+        var fired = false
+        val job = launch {
+            AutoScrollArbiter.reanchorWhenSettledOffBottom(
+                isScrolling = { false },
+                autoScrollOn = { true },
+                isAtBottom = { false },
+                jumpLockActive = { false },
+                leaseActive = { lease },
+                reanchor = { fired = true },
+            )
+        }
+        advanceTimeBy(AutoScrollArbiter.GUARD_DEBOUNCE_MS * 2)
+        job.join()
+        assertFalse("episode(settle+PhaseB 静默窗>250ms)期间租约持有 → 不重锚", fired)
+    }
+
+    @Test
+    fun `guard fires when lease released before recheck`() = runTest {
+        var lease = true
+        var fired = false
+        val job = launch {
+            AutoScrollArbiter.reanchorWhenSettledOffBottom(
+                isScrolling = { false },
+                autoScrollOn = { true },
+                isAtBottom = { false },
+                jumpLockActive = { false },
+                leaseActive = { lease },
+                reanchor = { fired = true },
+            )
+        }
+        advanceTimeBy(AutoScrollArbiter.GUARD_DEBOUNCE_MS / 2)
+        lease = false // 去抖窗内 episode 结束,租约释放
+        advanceTimeBy(AutoScrollArbiter.GUARD_DEBOUNCE_MS)
+        job.join()
+        assertTrue("复查时租约已释放且仍离底 → 重锚(catch-up 语义)", fired)
+    }
+
     @Test
     fun `guard recheck honours autoScroll off and jump lock`() = runTest {
         // autoScroll 窗内被关（用户滚动）
