@@ -17,5 +17,5 @@ trap 'kill $RECPID 2>/dev/null || true' EXIT
 wait $RECPID || true
 adb pull $DEV "$DIR/rec.mp4" >/dev/null
 ffmpeg -hide_banner -loglevel error -i "$DIR/rec.mp4" -vf fps=20 "$DIR/f%04d.png"
-count=$(ls "$DIR" | grep -c "f[0-9]")
+count=$(find "$DIR" -maxdepth 1 -name "f[0-9]*.png" | wc -l)
 echo "frames: $count"

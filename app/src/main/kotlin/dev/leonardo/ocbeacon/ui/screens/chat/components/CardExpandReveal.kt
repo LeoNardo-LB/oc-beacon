@@ -576,7 +576,7 @@ internal fun CardExpandReveal(
                 clock.animating = false
             }
         }
-        }
+        } // withEpisode(缩进未重排:热文件零churn,引擎迁入时整体重构)
     }
 
     // #426 追修复:cancel 处理器必须读**当下** visible——LaunchedEffect(listState)

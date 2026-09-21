@@ -180,7 +180,10 @@ internal fun rememberChatScrollController(
             // 仍 true），等待 fling 结束后无条件 requestScrollToItem(0) 会把
             // 用户正翻看的历史位置强拉回底部。等待结束后**重新校验**：用户
             // 拖动已置 autoScroll=false 则放弃锚定（尊重用户的阅读位置）。
-            if (autoScrollEnabled.value) {
+            // #423 I3 复查补遗(评审阻断项):fling 等待窗(≤2s)内 episode 可启动
+            // (点按不置 isScrollInProgress),恢复后须再验租约——与 A9 横幅双检
+            // 同款,否则「带锚穿越」重开 ±H 互搏。
+            if (autoScrollEnabled.value && !PreRenderCoordinator.hasActiveTransactions) {
                 if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                     AppLogger.w(
                         TAG,

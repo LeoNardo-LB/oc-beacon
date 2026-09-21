@@ -31,11 +31,11 @@ class PreRenderCoordinatorTest {
     fun `nested episodes are counted`() = runTest {
         PreRenderCoordinator.withEpisode {
             PreRenderCoordinator.withEpisode {
-                assertEquals(2, PreRenderCoordinator.activeCount.intValue)
+                assertEquals(2, PreRenderCoordinator.activeCount)
             }
-            assertEquals(1, PreRenderCoordinator.activeCount.intValue)
+            assertEquals(1, PreRenderCoordinator.activeCount)
         }
-        assertEquals(0, PreRenderCoordinator.activeCount.intValue)
+        assertEquals(0, PreRenderCoordinator.activeCount)
     }
 
     @Test

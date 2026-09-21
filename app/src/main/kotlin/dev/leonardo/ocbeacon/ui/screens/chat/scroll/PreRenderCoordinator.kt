@@ -23,14 +23,23 @@ import androidx.compose.runtime.mutableIntStateOf
  *
  * 单例说明:应用同一时刻仅一个会话列表活跃,单例即每列表语义;spec 备注了
  * 多列表场景的组合局部化改造。
+ *
+ * 线程语义:全部状态仅在主线程(Compose UI/其 effect 协程)读写——单写者
+ * 前提由调度器保证,计数操作无需原子原语。
  */
 object PreRenderCoordinator {
 
-    /** 活动渲染前事务数(>0 = 视口租约被持有)。快照可观察:守卫等读它让位。 */
-    val activeCount = mutableIntStateOf(0)
+    /**
+     * 活动渲染前事务数(>0 = 视口租约被持有),只读暴露——计数不变量
+     * (计数=withEpisode 嵌套深度)由 withEpisode 独占维护,外部不可直改。
+     * backing 为快照 int state:让位方在 snapshotFlow/去抖复查中读它即订阅生效。
+     */
+    val activeCount: Int get() = backing.intValue
+
+    private val backing = mutableIntStateOf(0)
 
     /** 守卫/锚底/拉底让位判定:存在活动事务时禁止任何自动视口操作。 */
-    val hasActiveTransactions: Boolean get() = activeCount.intValue > 0
+    val hasActiveTransactions: Boolean get() = backing.intValue > 0
 
     /**
      * 渲染前事务作用域:episode 全程(含 settle/A/B/收尾)持有视口租约。
@@ -38,11 +47,13 @@ object PreRenderCoordinator {
      * 释放放在 finally 且不依赖事务正常完成。
      */
     suspend fun <T> withEpisode(block: suspend () -> T): T {
-        activeCount.intValue = activeCount.intValue + 1
+        // 读-改-写依赖 Compose UI 单主线程约定(effect 协程均派发于主线程),
+        // 无并发写者——线程语义见类 KDoc。
+        backing.intValue = backing.intValue + 1
         try {
             return block()
         } finally {
-            activeCount.intValue = activeCount.intValue - 1
+            backing.intValue = backing.intValue - 1
         }
     }
 }

@@ -9,19 +9,22 @@ APK=${1:?usage: install-dev.sh <apk> [serial]}
 SERIAL=${2:-}
 if [ -n "$SERIAL" ]; then ADB=(adb -s "$SERIAL"); else ADB=(adb); fi
 DIR=$(cd "$(dirname "$0")" && pwd)
+TD=$(mktemp -d); trap 'rm -rf "$TD"' EXIT
 "${ADB[@]}" push "$APK" /data/local/tmp/pr_base.apk >/dev/null
-("${ADB[@]}" shell pm install -r -t /data/local/tmp/pr_base.apk > /tmp/inst.log 2>&1) &
+("${ADB[@]}" shell pm install -r -t /data/local/tmp/pr_base.apk > "$TD/inst.log" 2>&1) &
 IP=$!
 TAPPED=0
 for i in $(seq 1 40); do
+  # 探活早退:安装进程已结束(秒装/已失败)则不再空转轮询
+  if ! kill -0 $IP 2>/dev/null; then break; fi
   sleep 0.7
   "${ADB[@]}" shell uiautomator dump /sdcard/w3.xml >/dev/null 2>&1 || true
-  "${ADB[@]}" pull /sdcard/w3.xml /tmp/w3.xml >/dev/null 2>&1 || true
-  if [ $TAPPED -eq 0 ] && [ -f /tmp/w3.xml ]; then
-    BTN=$(python3 "$DIR/find_install_btn.py" /tmp/w3.xml || true)
+  "${ADB[@]}" pull /sdcard/w3.xml "$TD/w3.xml" >/dev/null 2>&1 || true
+  if [ $TAPPED -eq 0 ] && [ -f "$TD/w3.xml" ]; then
+    BTN=$(python3 "$DIR/find_install_btn.py" "$TD/w3.xml" || true)
     if [ -n "$BTN" ]; then "${ADB[@]}" shell input tap $BTN; TAPPED=1; echo "tapped dialog (poll $i)"; fi
   fi
 done
 wait $IP || true
-cat /tmp/inst.log
-grep -q Success /tmp/inst.log && echo INSTALL_OK || (echo INSTALL_FAIL; exit 1)
+cat "$TD/inst.log"
+grep -q Success "$TD/inst.log" && echo INSTALL_OK || (echo INSTALL_FAIL; exit 1)
