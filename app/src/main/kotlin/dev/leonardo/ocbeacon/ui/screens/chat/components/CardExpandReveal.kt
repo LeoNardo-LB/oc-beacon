@@ -611,10 +611,16 @@ internal fun CardExpandReveal(
                     while (vt < GEOMETRY_TWEEN_MS) {
                         val now = withFrameNanos { it }
                         if (clock.userScrollCancelled) break
-                        vt = minOf(
-                            ((now - t0) / 1_000_000f).coerceAtLeast(0f),
-                            vt + MAX_FRAME_STEP_MS,
-                        )
+                        val elapsedMs = ((now - t0) / 1_000_000f).coerceAtLeast(0f)
+                        // 批次十三b:帧饥饿追平——单帧迟到 >100ms(重内容每步全测
+                        // ~490ms/并发挤占)时 vt 直接跳到墙钟,以少而大的步尽快完成;
+                        // 否则 240ms 缓动被拉成 4 秒爬行(真机 prd_i 定案:同卡贴底
+                        // 275ms/屏中 4083ms)。正常帧仍 20ms 步进不变。
+                        vt = if (elapsedMs - vt > 100f) {
+                            minOf(elapsedMs, GEOMETRY_TWEEN_MS.toFloat())
+                        } else {
+                            minOf(elapsedMs, vt + MAX_FRAME_STEP_MS)
+                        }
                         val f = easedFraction(startF, 0f, vt)
                         val rep = (f * H).toInt()
                         val delta = (rep - lastRep).toFloat()
@@ -731,6 +737,15 @@ internal fun CardExpandReveal(
         if (visible || listState == null) return@LaunchedEffect
         kotlinx.coroutines.delay(PREWARM_IDLE_MS)
         if (visible || listState.isScrollInProgress) return@LaunchedEffect
+        // 批次十三b:集进行中让位(真机定案:收起集 4s 爬行期,1.2s 前触发的
+        // 预热照常开跑=帧饥饿共犯);有界等待集结束(≤2s),仍未结束则放弃本窗。
+        var waits = 0
+        while ((clock.animating || PreRenderCoordinator.hasActiveTransactions) && waits < 8) {
+            kotlinx.coroutines.delay(250)
+            waits++
+            if (visible) return@LaunchedEffect
+        }
+        if (clock.animating || PreRenderCoordinator.hasActiveTransactions) return@LaunchedEffect
         if (clock.fraction > WARMUP_FRACTION) return@LaunchedEffect
         clock.warmup()
         settleUntilContentStable(clock)
