@@ -123,6 +123,10 @@ private const val PHASE_B_JUMP_START = 0.3f
  * 派发,无死锁;阀值仅兜底「贴底残量物理不可约」类永不收敛场景)。 */
 private const val HOLD_VENT_FRAMES = 30
 
+/** #423 批次五b:确认后静默守望窗(ms)——rep 无变更持续此时长才允许修正器解散
+ * (迟到增长在窗内自动重进确认环被修正)。 */
+private const val PIN_QUIET_MS = 1800f
+
 /**
  * #422:settle 判稳帧数——连续 N 帧节点 measure 计数不增即认为内容驱动
  * 的重测已静止。表格 containerWidth(onSizeChanged 回写)两拍收敛、async
@@ -390,6 +394,13 @@ internal fun CardExpandReveal(
     val pinDispatchedTotal = remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
 
     /**
+     * #423 批次五:泵帧武装(放置回调派发点 → 修正器消费)。pin-placed 派发后
+     * 下一帧放行(该帧为修正后布局)驱动坐标回调盖戳——否则须等呼吸阀第 30 帧,
+     * 顶开态可见窗被无谓拉长(收起「顶一下再复位」观感的成分之一)。
+     */
+    val pumpArm = remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    /**
      * #426 同帧配对排干:增长落地当帧(布局完成、draw 之前)补发配对位移。
      *
      * 真机定案([DEBUG-425] 逐帧取证 + 录屏条带):动画相首帧 dispatch 在增长
@@ -518,7 +529,7 @@ internal fun CardExpandReveal(
                     pinAnchor.floatValue = anchorY
                     if (PreRenderCoordinator.isFlushHostAttached) pinPending.value = true
                     val tPin2 = System.nanoTime()
-                    while (pinPending.value && (System.nanoTime() - tPin2) / 1_000_000f < 1500f) {
+                    while (pinPending.value && (System.nanoTime() - tPin2) / 1_000_000f < 2500f) {
                         withFrameNanos { }
                     }
                     // 批次四:不强制清除——修正器自收敛(3 稳定/1.5s)清 pinPending,
@@ -551,7 +562,7 @@ internal fun CardExpandReveal(
                     clock.tweening = true
                     clock.driveTo(0f)
                     val tPinC = System.nanoTime()
-                    while (pinPending.value && (System.nanoTime() - tPinC) / 1_000_000f < 1500f) {
+                    while (pinPending.value && (System.nanoTime() - tPinC) / 1_000_000f < 2500f) {
                         withFrameNanos { }
                     }
                     pinPending.value = false
@@ -679,10 +690,25 @@ internal fun CardExpandReveal(
         var pumpPending = false
         // 批次四f:确认时的报告读数——迟到增长(rep 变更)即刻作废确认,重进确认环
         var repAtConfirm = -1
+        // 批次五:hold 起算时刻——超时预算不再计入武装→增长间的冻结/settle 窗
+        // (真机 red1 定案:冷启首展冻结~700ms+重组~620ms 吃光 1.5s 预算,超时比
+        // 修正回调早 68ms 触发 → 修正器阵亡 → 后续漂移无人管 = 用户「顶开不复位」)
+        var holdStartNs = 0L
+        // 批次五b:静默守望——真机矩阵定案(B/C 红):episode 结束数秒后仍有迟到增长
+        // (表格 containerWidth 多拍收敛/asyncParse 等,+61~+78px 实测),修正器若在
+        // 稳定后即刻解散则无人接管 → 视口被顶走直到下次收起才被配对顺手修回
+        // = 用户「展开顶开不复位/收起顶一下又复位」的统一根因。确认后须等
+        // [PIN_QUIET_MS] 无 rep 变更才允许解散;窗内增长自动重进确认环。
+        var lastRepSeen = clock.lastReportedH
+        var lastRepChangeNs = System.nanoTime()
         val tStart = System.nanoTime()
         val task = PreDrawFlushTask {
             val tgt = pinAnchor.floatValue
             var allow = true
+            if (clock.lastReportedH != lastRepSeen) {
+                lastRepSeen = clock.lastReportedH
+                lastRepChangeNs = System.nanoTime()
+            }
             // 批次四f 定案(三轮取证的最终拼图):增长 measure 在 pre-draw 之后、
             // draw 之前执行——pre-draw 读到的 rep 必属旧布局(账本在增长帧永不可
             // 见增长);而 fraction 是 driveTo 同步内存写,pre-draw 时已到位。
@@ -780,8 +806,11 @@ internal fun CardExpandReveal(
             // 灭钉门控:稳定×3 且几何分数到位(settle 期报告恒 ε,不得灭钉)且
             // 已经确认;超时 1.5s 兜底(亦解 hold)。confirmed=false 的超时退场
             // 意味着钉位失败——episode 末 end-restore 兜底修正。
-            if ((stableFlushes >= 3 && geometryAtTargetNow && (confirmedSinceTarget || tgt.isNaN())) ||
-                (System.nanoTime() - tStart) / 1_000_000f > 1500f
+            val quietMs = (System.nanoTime() - lastRepChangeNs) / 1_000_000f
+            if ((stableFlushes >= 3 && geometryAtTargetNow && (confirmedSinceTarget || tgt.isNaN()) &&
+                quietMs > PIN_QUIET_MS) ||
+                (holdStartNs != 0L && (System.nanoTime() - holdStartNs) / 1_000_000f > 2000f) ||
+                (System.nanoTime() - tStart) / 1_000_000f > 6000f
             ) {
                 if (BuildConfig.DEBUG) {
                     AppLogger.d(
@@ -797,14 +826,19 @@ internal fun CardExpandReveal(
             // 连续 HOLD_VENT_FRAMES 次拒绘后放行一帧(若坐标回调为绘制驱动,
             // 该帧驱动回调刷新——至多一帧错误态闪现,远优于恒顶开)。
             if (fractionAtTarget && !confirmedSinceTarget && pinPending.value) {
-                if (pumpPending) {
-                    pumpPending = false // 泵帧放行:修正后布局上屏,驱动回调盖戳
+                if (holdStartNs == 0L) holdStartNs = System.nanoTime()
+                if (pumpPending || pumpArm.value) {
+                    // 泵帧放行:修正后布局上屏,驱动坐标回调盖戳(pin-placed 亦武装)
+                    pumpPending = false
+                    pumpArm.value = false
                 } else if (holdRefusals < HOLD_VENT_FRAMES) {
                     allow = false
                     holdRefusals++
                 } else {
                     holdRefusals = 0
                 }
+            } else {
+                holdStartNs = 0L // 不持时重置(重定向后再持有重新计时)
             }
             allow
         }
@@ -843,6 +877,7 @@ internal fun CardExpandReveal(
                         guardCur.floatValue = cur2
                         val consumed2 = runCatching { listState.dispatchRawDelta(tgt2 - cur2) }.getOrDefault(0f)
                         pinDispatchedTotal.floatValue += consumed2
+                        pumpArm.value = true
                         clock.recordDisplacement(consumed2)
                         if (!clock.departureFired && abs(clock.episodeDisplacement) > DEPARTURE_THRESHOLD_PX) {
                             clock.departureFired = true

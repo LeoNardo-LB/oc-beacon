@@ -15,20 +15,30 @@ enter_session() {
   sleep 4
 }
 
-echo '########## A: 中位-步骤组 x3 ##########'
+# 漂移金丝雀:Grok 4.7 页脚行(结构恒定,任何 toggle 不重构;它动=整个对话被顶)
+echo '########## A: 中位-步骤组 x3(金丝雀=Grok 页脚) ##########'
 enter_session
-bash "$DIR/pin_matrix.sh" "$S" '1 步 · 1 个工具' A-group 3
+bash "$DIR/pin_matrix.sh" "$S" 'Grok 4.7' A-group 3 8000 '1 步 · 1 个工具'
 
 echo '########## B: 组内-Step3 思考卡 x3(先展开组) ##########'
-$A shell input tap 220 1113
-sleep 4
-bash "$DIR/pin_matrix.sh" "$S" 'Step 3: one-sentence summary' B-inGroupThink 3
-$A shell input tap 220 1113
-sleep 3
+# A 场景结束态不定:仅当 Step3 行不可见(组收起)时才点展开
+$A exec-out uiautomator dump /dev/tty 2>/dev/null > /tmp/ui_b.xml
+if ! python3 "$DIR/find_row.py" /tmp/ui_b.xml 'Step 3: one-sentence' | grep -q .; then
+  $A shell input tap 220 1113
+  sleep 4
+fi
+bash "$DIR/pin_matrix.sh" "$S" 'Grok 4.7' B-inGroupThink 3 8000 'Step 3: one-sentence'
+# 复原:若组仍展开则收起
+$A exec-out uiautomator dump /dev/tty 2>/dev/null > /tmp/ui_b2.xml
+if python3 "$DIR/find_row.py" /tmp/ui_b2.xml 'Step 3: one-sentence' | grep -q .; then
+  $A shell input tap 220 1113
+  sleep 3
+fi
 
-echo '########## C: 中位-1+1 思考卡 x3 ##########'
-bash "$DIR/pin_matrix.sh" "$S" 'Simple question' C-midThink 3
+echo '########## C: 中位-1+1 思考卡 x3(重置会话态) ##########'
+enter_session
+bash "$DIR/pin_matrix.sh" "$S" 'Grok 4.7' C-midThink 3 8000 'Simple question'
 
 echo '########## D: 贴底重进-步骤组 x3 ##########'
 enter_session
-bash "$DIR/pin_matrix.sh" "$S" '1 步 · 1 个工具' D-bottom-entry-group 3
+bash "$DIR/pin_matrix.sh" "$S" 'Grok 4.7' D-bottom-entry-group 3 8000 '1 步 · 1 个工具'

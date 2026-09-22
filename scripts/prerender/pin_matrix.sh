@@ -1,10 +1,12 @@
 #!/bin/bash
 # pin_matrix.sh — #423 钉位回归判红环(diagnosing-bugs Phase 1)
 # 同一位置重复 N 次 toggle:DOM 锚行前后位移 + episode 事实 → 红绿判定
-# 用法: pin_matrix.sh <serial> <anchor_regex> <label> <repeats> [settle_ms]
+# 用法: pin_matrix.sh <serial> <anchor_regex> <label> <repeats> [settle_ms] [tap_regex]
+# tap_regex 缺省=anchor(点谁量谁);B 场景量外组头、点组内思考行(展开态文本节点
+# 结构变化会使同文本 bounds 失真——测得 +28 伪影即此教训)
 # 判红: 位移>12px / confirmed=false / 修正 consumed=0 且 err>=50(边缘残量)
 set -u
-S=${1:?serial}; ANCHOR=${2:?anchor_regex}; LABEL=${3:?label}; N=${4:-3}; SETTLE=${5:-3800}
+S=${1:?serial}; ANCHOR=${2:?anchor_regex}; LABEL=${3:?label}; N=${4:-3}; SETTLE=${5:-3800}; TAPR=${6:-}
 export ANDROID_ADB_SERVER_PORT=5038
 A="adb -s $S"
 DIR=$(cd "$(dirname "$0")" && pwd)
@@ -15,6 +17,11 @@ bounds() {
   python3 "$DIR/find_row.py" $TMP/ui.xml "$ANCHOR"
 }
 
+tapbounds() {
+  $A exec-out uiautomator dump /dev/tty 2>/dev/null > $TMP/ui2.xml
+  python3 "$DIR/find_row.py" $TMP/ui2.xml "${TAPR:-$ANCHOR}"
+}
+
 for i in $(seq 1 "$N"); do
   PID=$($A shell pidof dev.leonardo.ocbeacon.dev | tr -d '\r')
   [ -z "$PID" ] && { echo "== $LABEL #$i: NO_PROC"; exit 2; }
@@ -23,6 +30,8 @@ for i in $(seq 1 "$N"); do
   B0=$(bounds)
   [ -z "$B0" ] && { echo "== $LABEL #$i: SKIP(no-anchor)"; continue; }
   IFS=, read -r x1 y1 x2 y2 <<< "$B0"
+  T=$(tapbounds)
+  if [ -n "$T" ]; then IFS=, read -r x1 y1 x2 y2 <<< "$T"; fi
   CX=$(( (x1+x2)/2 )); CY=$(( (y1+y2)/2 ))
 
   $A shell input tap "$CX" "$CY"
