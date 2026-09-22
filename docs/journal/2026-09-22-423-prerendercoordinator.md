@@ -148,3 +148,13 @@
 **真机实证**:思考卡展开 REPIN y0=2001 y1=1855 err=146 consumed=146(单发全额,146=卡高);pin-placed=0——旧引擎修正彻底归零。
 
 **状态**:组卡(批次六/七)+思考卡(批次八)全部结构化/瞬时+单发实测重锚;CardExpandReveal 原地引擎在折叠组/思考卡域退役(流式 degrade 路径保留)。待用户三场景手感验收。
+
+## 批次九(2026-09-22 晚):用户裁决——统一高度控制模块(渲染前计算+反射逐帧设置)
+
+**用户令**:放弃动态添加模式(仍顶起+REPIN 闪回);走统一高度控制模块,实现=渲染前计算好+反射逐帧设置。
+
+**机制**:preRenderScrollBy 反射绝对位写入(requestPositionAndForgetLastKnownKey+measurementScopeInvalidator,PreRenderShiftChannel 同族安全通道)——滚动位与高度分数**同一遍 measure 原子生效**;dispatchRawDelta 的消费语义(增长未落地 consumed=0)从构造上消失。数学:增长 δ 上移折叠行 δ + 滚动位前进 δ 下移 δ = 净零。
+
+**episode 重写**:warmup/settle(H 定格)→ 240ms 逐帧双写循环;钉位武装/FLUSH 修正环/两阶段揭示退役;小组重新门槛化、思考卡回归引擎。
+
+**验收(三通道)**:视频逐帧 dy=0(顶起-闪回消失,旧 topY −1843 瞬态=未绘制中间遍);PAIR 13 帧序列终态 (9,4067) vs 钉稳态 (9,4071) 差 4px;episode 954ms。**未竟**:收起方向(负向回走)与思考卡真机验证被设备链路中断,待补;goal 已建(goal-37ecd24f)。
