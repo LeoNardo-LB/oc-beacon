@@ -129,6 +129,12 @@ private const val CURTAIN_MS = 200f
 private const val PREWARM_IDLE_MS = 1_200L
 
 /**
+ * #423 批次十三c:收起末段(矮盒便宜区)单帧几何步软上限(px)——防追平巨 δ
+ * 一次跨多条目边界的锚点重推导震荡(真机三轮 +72/−36 确定性复现)。
+ */
+private const val CATCHUP_SOFT_PX = 1200
+
+/**
  * #423 批次十一(#262 applyTapShift 复活):渲染前位移——measure 块外施加,
  * 下一遍 measure 与布局终态同帧原子落地。
  * 贴底(fii==0 且 fiso<120)=反射 request-position(下方无余量,上方内容固定);
@@ -608,7 +614,9 @@ internal fun CardExpandReveal(
                     val t0 = withFrameNanos { it }
                     var vt = 0f
                     var lastRep = clock.lastReportedH
-                    while (vt < GEOMETRY_TWEEN_MS) {
+                    // 批次十三c:循环终点双重条件——vt 到点但 rep 未清零时
+                    // (软上限分步的尾量)继续走到几何归零,杜绝终末残量巨跳。
+                    while (vt < GEOMETRY_TWEEN_MS || lastRep > 4) {
                         val now = withFrameNanos { it }
                         if (clock.userScrollCancelled) break
                         val elapsedMs = ((now - t0) / 1_000_000f).coerceAtLeast(0f)
@@ -621,8 +629,16 @@ internal fun CardExpandReveal(
                         } else {
                             minOf(elapsedMs, vt + MAX_FRAME_STEP_MS)
                         }
-                        val f = easedFraction(startF, 0f, vt)
-                        val rep = (f * H).toInt()
+                        val fTarget = easedFraction(startF, 0f, vt)
+                        val repTarget = (fTarget * H).toInt()
+                        // 批次十三c:末段软上限——矮盒(rep≤~1.2 屏,测量便宜区)
+                        // 单帧几何步 ≤CATCHUP_SOFT_PX,防追平巨 δ 一次跨多条目
+                        // 边界(真机 prd_k 三轮定案:LEAP idx 9→0 dOff=−3747 的
+                        // 锚点重推导帧=用户「~0.3s 小震荡」,+72/−36 确定性复现);
+                        // 高盒区(每步全测 ~490ms)不设限,保住十三b 的快速逃离。
+                        val cap = CATCHUP_SOFT_PX
+                        val rep = maxOf(repTarget, lastRep - cap)
+                        val f = if (H > 0) rep.toFloat() / H else 0f
                         val delta = (rep - lastRep).toFloat()
                         clock.driveTo(f)
                         if (delta < -0.5f) {
