@@ -1,0 +1,190 @@
+--------- beginning of system
+09-22 18:31:15.856 25024 25024 I MIUIInput: [MotionEvent] ViewRootImpl windowName 'dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity', { action=ACTION_DOWN, id[0]=0, pointerCount=1, eventTime=234553112, downTime=234553112, phoneEventTime=1790073075853 } moveCount:0
+09-22 18:31:15.857 25024 25024 D VRI[MainActivity]: getMiuiFreeformStackInfo mTmpFrames.miuiFreeFormStackInfo: null
+09-22 18:31:15.873 25024 25024 I MIUIInput: [MotionEvent] ViewRootImpl windowName 'dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity', { action=ACTION_UP, id[0]=0, pointerCount=1, eventTime=234553112, downTime=234553112, phoneEventTime=1790073075854 } moveCount:0
+--------- beginning of main
+09-22 18:31:15.875 25024 25024 D SGB     : CLICK key=sdZAUFFgDCaJ expanded=false steps=1 tools=1
+09-22 18:31:15.877 25024 25024 W RB-EXP  : [DEBUG-rbexp] toggle id=UFFgDCaJ -> true from=getStackTrace<-toggleToolExpanded<-ChatScreen$lambda$94$0<-$r8$lambda$d4F2An_3XtOWujyCtZU0NSfEZxQ<-invoke<-StepGroupFoldRow$lambda$1$0
+09-22 18:31:15.900 25024 25024 D ItemDiag: Turn item key=t_msg_0bfce4ea4001 role=assistant grp=1
+09-22 18:31:15.902 25024 25024 D InjCard : render id=msg_0bfce4e76001lSFh3Kkxygzcyw kind=null role=user nParts=1
+09-22 18:31:15.904 25024 25024 D ItemDiag: Turn item key=t_msg_0bfba5c07001 role=assistant grp=2
+09-22 18:31:15.907 25024 25024 D InjCard : render id=msg_0bfba28cc001cKsvy1Lj1P4lOH kind=null role=user nParts=1
+09-22 18:31:15.908 25024 25024 W SysMsgDiag: #234 event-card branch RENDER id=NQ7NW2nb textLen=36
+09-22 18:31:15.910 25024 25024 D ItemDiag: Turn item key=t_msg_0bf7181dc001 role=assistant grp=1
+09-22 18:31:15.941 25024 25024 D ItemDiag: Turn item key=t_msg_0bfce4ea4001 role=assistant grp=1
+09-22 18:31:15.942 25024 25024 D InjCard : render id=msg_0bfce4e76001lSFh3Kkxygzcyw kind=null role=user nParts=1
+09-22 18:31:15.943 25024 25024 D ItemDiag: Turn item key=t_msg_0bfba5c07001 role=assistant grp=2
+09-22 18:31:15.945 25024 25024 D InjCard : render id=msg_0bfba28cc001cKsvy1Lj1P4lOH kind=null role=user nParts=1
+09-22 18:31:15.946 25024 25024 W SysMsgDiag: #234 event-card branch RENDER id=NQ7NW2nb textLen=36
+09-22 18:31:15.947 25024 25024 D ItemDiag: Turn item key=t_msg_0bf7181dc001 role=assistant grp=1
+09-22 18:31:15.955 25024 25024 D PRD     : E1 PLACED t=234553213871669 topY=1148 rep=0 abs=0 f=0.001 fii=0 fiso=0
+09-22 18:31:15.958 25024 25024 D PRD     : E1 DRAW t=234553216651252 drawF=0.000 boxH=72.0 clipPx=0 residual=0 topY=1148
+09-22 18:31:15.961 25024 25024 D SGB     : REPIN noop y0=1100 y1=1100
+09-22 18:31:16.391 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 563->567 (d=4) dispIdx=2 inProgress=false
+09-22 18:31:16.417 25024 25024 D PRD     : E1 PLACED t=234553675999586 topY=1144 rep=4 abs=0 f=0.001 fii=0 fiso=0
+09-22 18:31:16.423 25024 25024 D PRD     : E1 DRAW t=234553681722242 drawF=0.000 boxH=4688.0 clipPx=0 residual=4 topY=1144
+09-22 18:31:16.457 25024 25024 W RB-EXP  : [DEBUG-rbexp] RB id=ng_ord_0 expanded=false mapHit=false default=false
+09-22 18:31:16.460 25024 25024 I Choreographer: Skipped 58 frames!  The application may be doing too much work on its main thread.
+09-22 18:31:16.486 25024 25024 D PRD     : E1 PLACED t=234553744938023 topY=1144 rep=4 abs=0 f=0.001 fii=0 fiso=0
+09-22 18:31:16.522 25024 25024 D PRD     : E1 PLACED t=234553780285627 topY=1144 rep=4 abs=0 f=0.001 fii=0 fiso=0
+09-22 18:31:16.529 25024 25024 D CardExpand: [DEBUG-422] settle done frames=2 measures=3 H=4688
+09-22 18:31:16.531 25024 25024 D PRD     : E1 DRAW t=234553789526669 drawF=1.000 boxH=4688.0 clipPx=4688 residual=4 topY=1144
+09-22 18:31:16.537 25024 25024 D PRD     : E1 PLACED t=234553795387867 topY=1144 rep=4 abs=0 f=0.001 fii=0 fiso=0
+09-22 18:31:16.552 25024 25024 D PRD     : E1 PAIR vt=8 f=0.004 rep=17 d=13 fii=0 fiso=13 topY=1144
+09-22 18:31:16.559 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 567->580 (d=13) dispIdx=2 inProgress=false
+09-22 18:31:16.564 25024 25024 D PRD     : E1 PLACED t=234553823080627 topY=1131 rep=17 abs=0 f=0.004 fii=7 fiso=13
+09-22 18:31:16.568 25024 25024 D PRD     : E1 DRAW t=234553827053752 drawF=1.000 boxH=4688.0 clipPx=4688 residual=17 topY=1131
+09-22 18:31:16.572 25024 25024 D PRD     : E1 PAIR vt=24 f=0.029 rep=136 d=119 fii=7 fiso=132 topY=1131
+09-22 18:31:16.574 25024 25024 D ChatScrollController: [DEBUG-drift] atBot=false scrolling=false autoOn=true idx=7 off=132
+09-22 18:31:16.575 25024 25024 W ScrollDiag: LEAP idx 0->7 (dIdx=7) off 13->132 (dOff=119) inProgress=false total=18
+09-22 18:31:16.585 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 580->699 (d=119) dispIdx=2 inProgress=false
+09-22 18:31:16.593 25024 25024 D PRD     : E1 PLACED t=234553851850471 topY=1012 rep=136 abs=0 f=0.029 fii=7 fiso=132
+09-22 18:31:16.598 25024 25024 D PRD     : E1 DRAW t=234553856418960 drawF=1.000 boxH=4688.0 clipPx=4688 residual=136 topY=1012
+09-22 18:31:16.606 25024 25024 D PRD     : E1 PAIR vt=44 f=0.114 rep=536 d=400 fii=7 fiso=532 topY=1012
+09-22 18:31:16.610 25024 25024 W ScrollDiag: LEAP idx 7->7 (dIdx=0) off 132->532 (dOff=400) inProgress=false total=18
+09-22 18:31:16.617 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 699->1099 (d=400) dispIdx=2 inProgress=false
+09-22 18:31:16.623 25024 25024 D PRD     : E1 PLACED t=234553881698179 topY=631 rep=536 abs=0 f=0.114 fii=8 fiso=199
+09-22 18:31:16.627 25024 25024 D PRD     : E1 DRAW t=234553885593596 drawF=1.000 boxH=4688.0 clipPx=4688 residual=536 topY=631
+09-22 18:31:16.630 25024 25024 D PRD     : E1 PAIR vt=64 f=0.289 rep=1354 d=818 fii=8 fiso=1017 topY=631
+09-22 18:31:16.632 25024 25024 W ScrollDiag: LEAP idx 7->8 (dIdx=1) off 532->1017 (dOff=485) inProgress=false total=18
+09-22 18:31:16.639 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 1099->1917 (d=818) dispIdx=2 inProgress=false
+09-22 18:31:16.644 25024 25024 D PRD     : E1 PLACED t=234553902875419 topY=-130 rep=1354 abs=0 f=0.289 fii=9 fiso=733
+09-22 18:31:16.648 25024 25024 D PRD     : E1 DRAW t=234553906998908 drawF=1.000 boxH=4688.0 clipPx=4688 residual=1354 topY=-130
+09-22 18:31:16.653 25024 25024 D PRD     : E1 PAIR vt=84 f=0.510 rep=2392 d=1038 fii=9 fiso=1771 topY=-130
+09-22 18:31:16.655 25024 25024 W ScrollDiag: LEAP idx 8->9 (dIdx=1) off 1017->1771 (dOff=754) inProgress=false total=18
+09-22 18:31:16.661 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 1917->2955 (d=1038) dispIdx=2 inProgress=false
+09-22 18:31:16.666 25024 25024 D PRD     : E1 PLACED t=234553924896200 topY=-1011 rep=2392 abs=0 f=0.510 fii=9 fiso=1771
+09-22 18:31:16.670 25024 25024 D PRD     : E1 DRAW t=234553928793440 drawF=1.000 boxH=4688.0 clipPx=4688 residual=2392 topY=-1011
+09-22 18:31:16.674 25024 25024 D PRD     : E1 PAIR vt=104 f=0.684 rep=3204 d=812 fii=9 fiso=2583 topY=-1011
+09-22 18:31:16.675 25024 25024 W ScrollDiag: LEAP idx 9->9 (dIdx=0) off 1771->2583 (dOff=812) inProgress=false total=18
+09-22 18:31:16.680 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 2955->3767 (d=812) dispIdx=2 inProgress=false
+09-22 18:31:16.686 25024 25024 D PRD     : E1 PLACED t=234553944241565 topY=-1633 rep=3204 abs=0 f=0.684 fii=9 fiso=2583
+09-22 18:31:16.690 25024 25024 D PRD     : E1 DRAW t=234553948333648 drawF=1.000 boxH=4688.0 clipPx=4688 residual=3204 topY=-1633
+09-22 18:31:16.696 25024 25024 D PRD     : E1 PAIR vt=124 f=0.801 rep=3752 d=548 fii=9 fiso=3131 topY=-1633
+09-22 18:31:16.698 25024 25024 W ScrollDiag: LEAP idx 9->9 (dIdx=0) off 2583->3131 (dOff=548) inProgress=false total=18
+09-22 18:31:16.703 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 3767->4315 (d=548) dispIdx=2 inProgress=false
+09-22 18:31:16.710 25024 25024 D PRD     : E1 PLACED t=234553968629429 topY=-1735 rep=3752 abs=0 f=0.801 fii=9 fiso=3131
+09-22 18:31:16.714 25024 25024 D PRD     : E1 DRAW t=234553972768700 drawF=1.000 boxH=4688.0 clipPx=4688 residual=3752 topY=-1735
+09-22 18:31:16.718 25024 25024 D PRD     : E1 PAIR vt=144 f=0.879 rep=4121 d=369 fii=9 fiso=3500 topY=-1735
+09-22 18:31:16.719 25024 25024 W ScrollDiag: LEAP idx 9->9 (dIdx=0) off 3131->3500 (dOff=369) inProgress=false total=18
+09-22 18:31:16.724 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 4315->4684 (d=369) dispIdx=2 inProgress=false
+09-22 18:31:16.729 25024 25024 D PRD     : E1 PLACED t=234553988049169 topY=-1740 rep=4121 abs=0 f=0.879 fii=9 fiso=3500
+09-22 18:31:16.733 25024 25024 D PRD     : E1 DRAW t=234553992059429 drawF=1.000 boxH=4688.0 clipPx=4688 residual=4121 topY=-1740
+09-22 18:31:16.737 25024 25024 D PRD     : E1 PAIR vt=164 f=0.932 rep=4369 d=248 fii=9 fiso=3748 topY=-1740
+09-22 18:31:16.743 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 4684->4932 (d=248) dispIdx=2 inProgress=false
+09-22 18:31:16.749 25024 25024 D PRD     : E1 PLACED t=234554007289117 topY=-1392 rep=4369 abs=0 f=0.932 fii=9 fiso=3748
+09-22 18:31:16.752 25024 25024 D PRD     : E1 DRAW t=234554011097710 drawF=1.000 boxH=4688.0 clipPx=4688 residual=4369 topY=-1392
+09-22 18:31:16.756 25024 25024 D PRD     : E1 PAIR vt=184 f=0.967 rep=4531 d=162 fii=9 fiso=3910 topY=-1392
+09-22 18:31:16.762 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 4932->5094 (d=162) dispIdx=2 inProgress=false
+09-22 18:31:16.767 25024 25024 D PRD     : E1 PLACED t=234554025757346 topY=-1161 rep=4531 abs=0 f=0.967 fii=9 fiso=3910
+09-22 18:31:16.771 25024 25024 D PRD     : E1 DRAW t=234554029528231 drawF=1.000 boxH=4688.0 clipPx=4688 residual=4531 topY=-1161
+09-22 18:31:16.774 25024 25024 D PRD     : E1 PAIR vt=204 f=0.987 rep=4629 d=98 fii=9 fiso=4008 topY=-1161
+09-22 18:31:16.780 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 5094->5192 (d=98) dispIdx=2 inProgress=false
+09-22 18:31:16.785 25024 25024 D PRD     : E1 PLACED t=234554044062658 topY=-884 rep=4629 abs=0 f=0.987 fii=9 fiso=4008
+09-22 18:31:16.789 25024 25024 D PRD     : E1 DRAW t=234554047813335 drawF=1.000 boxH=4688.0 clipPx=4688 residual=4629 topY=-884
+09-22 18:31:16.793 25024 25024 D PRD     : E1 PAIR vt=224 f=0.998 rep=4677 d=48 fii=9 fiso=4056 topY=-884
+09-22 18:31:16.798 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 5192->5240 (d=48) dispIdx=2 inProgress=false
+09-22 18:31:16.804 25024 25024 D PRD     : E1 PLACED t=234554062403752 topY=-586 rep=4677 abs=0 f=0.998 fii=9 fiso=4056
+09-22 18:31:16.807 25024 25024 D PRD     : E1 DRAW t=234554065902606 drawF=1.000 boxH=4688.0 clipPx=4688 residual=4677 topY=-586
+09-22 18:31:16.810 25024 25024 D PRD     : E1 PAIR vt=244 f=1.000 rep=4688 d=11 fii=9 fiso=4067 topY=-586
+09-22 18:31:16.816 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 5240->5251 (d=11) dispIdx=2 inProgress=false
+09-22 18:31:16.821 25024 25024 D PRD     : E1 PLACED t=234554080158648 topY=-286 rep=4688 abs=0 f=1.000 fii=9 fiso=4067
+09-22 18:31:16.825 25024 25024 D PRD     : E1 DRAW t=234554084208544 drawF=1.000 boxH=4688.0 clipPx=4688 residual=4688 topY=-286
+09-22 18:31:16.839 25024 25024 D PRD     : E1 PLACED t=234554097459012 topY=105 rep=4688 abs=0 f=1.000 fii=9 fiso=4067
+09-22 18:31:16.842 25024 25024 D PRD     : E1 DRAW t=234554100758960 drawF=1.000 boxH=4688.0 clipPx=4688 residual=4688 topY=105
+09-22 18:31:16.848 25024 25024 D CardExpand: [DEBUG-422] episode done f=1.000 totalMs=916 completed=true pinPending=false
+09-22 18:31:16.881 25024 25024 I Ktor Client: REQUEST: http://127.0.0.1:4199/api/session/active
+09-22 18:31:16.881 25024 25024 I Ktor Client: METHOD: GET
+09-22 18:31:16.996 25024 25024 I Ktor Client: RESPONSE: 200 OK
+09-22 18:31:16.996 25024 25024 I Ktor Client: METHOD: GET
+09-22 18:31:16.996 25024 25024 I Ktor Client: FROM: http://127.0.0.1:4199/api/session/active
+09-22 18:31:21.030 25024 25024 I MIUIInput: [MotionEvent] ViewRootImpl windowName 'dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity', { action=ACTION_DOWN, id[0]=0, pointerCount=1, eventTime=234558285, downTime=234558285, phoneEventTime=1790073081027 } moveCount:0
+09-22 18:31:21.031 25024 25024 D VRI[MainActivity]: getMiuiFreeformStackInfo mTmpFrames.miuiFreeFormStackInfo: null
+09-22 18:31:21.041 25024 25024 I MIUIInput: [MotionEvent] ViewRootImpl windowName 'dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity', { action=ACTION_UP, id[0]=0, pointerCount=1, eventTime=234558285, downTime=234558285, phoneEventTime=1790073081027 } moveCount:0
+09-22 18:31:21.043 25024 25024 D SGB     : CLICK key=sdZAUFFgDCaJ expanded=true steps=1 tools=1
+09-22 18:31:21.045 25024 25024 W RB-EXP  : [DEBUG-rbexp] toggle id=UFFgDCaJ -> false from=getStackTrace<-toggleToolExpanded<-ChatScreen$lambda$94$0<-$r8$lambda$d4F2An_3XtOWujyCtZU0NSfEZxQ<-invoke<-StepGroupFoldRow$lambda$1$0
+09-22 18:31:21.060 25024 25024 D InjCard : render id=msg_0bfce4e76001lSFh3Kkxygzcyw kind=null role=user nParts=1
+09-22 18:31:21.062 25024 25024 D ItemDiag: Turn item key=t_msg_0bfba5c07001 role=assistant grp=2
+09-22 18:31:21.066 25024 25024 D InjCard : render id=msg_0bfba28cc001cKsvy1Lj1P4lOH kind=null role=user nParts=1
+09-22 18:31:21.067 25024 25024 W SysMsgDiag: #234 event-card branch RENDER id=NQ7NW2nb textLen=36
+09-22 18:31:21.069 25024 25024 D ItemDiag: Turn item key=t_msg_0bf7181dc001 role=assistant grp=1
+09-22 18:31:21.093 25024 25024 D ItemDiag: Turn item key=t_msg_0bfba5c07001 role=assistant grp=2
+09-22 18:31:21.096 25024 25024 D InjCard : render id=msg_0bfba28cc001cKsvy1Lj1P4lOH kind=null role=user nParts=1
+09-22 18:31:21.097 25024 25024 W SysMsgDiag: #234 event-card branch RENDER id=NQ7NW2nb textLen=36
+09-22 18:31:21.098 25024 25024 D ItemDiag: Turn item key=t_msg_0bf7181dc001 role=assistant grp=1
+09-22 18:31:21.102 25024 25024 D PRD     : E2 PLACED t=234558360536250 topY=1144 rep=4688 abs=0 f=1.000 fii=9 fiso=4067
+09-22 18:31:21.109 25024 25024 D SGB     : REPIN noop y0=5784 y1=5784
+09-22 18:31:21.116 25024 25024 D PRD     : E2 PAIR vt=20 f=0.983 rep=4607 d=-81 fii=9 fiso=3986 topY=1144
+09-22 18:31:21.125 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 5251->5170 (d=-81) dispIdx=2 inProgress=false
+09-22 18:31:21.131 25024 25024 D PRD     : E2 PLACED t=234558389422136 topY=1225 rep=4607 abs=0 f=0.983 fii=9 fiso=3986
+09-22 18:31:21.143 25024 25024 D PRD     : E2 PAIR vt=33 f=0.946 rep=4434 d=-173 fii=9 fiso=3813 topY=1225
+09-22 18:31:21.150 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 5170->4997 (d=-173) dispIdx=2 inProgress=false
+09-22 18:31:21.155 25024 25024 D PRD     : E2 PLACED t=234558413184584 topY=1398 rep=4434 abs=0 f=0.946 fii=9 fiso=3813
+09-22 18:31:21.161 25024 25024 D PRD     : E2 PAIR vt=53 f=0.827 rep=3875 d=-559 fii=9 fiso=3254 topY=1398
+09-22 18:31:21.163 25024 25024 W ScrollDiag: LEAP idx 9->9 (dIdx=0) off 3813->3254 (dOff=-559) inProgress=false total=18
+09-22 18:31:21.168 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 4997->4438 (d=-559) dispIdx=2 inProgress=false
+09-22 18:31:21.170 25024 25024 D PRD     : E2 PLACED t=234558429083907 topY=1946 rep=3875 abs=0 f=0.827 fii=9 fiso=3254
+09-22 18:31:21.175 25024 25024 D PRD     : E2 PAIR vt=73 f=0.620 rep=2906 d=-969 fii=9 fiso=2285 topY=1946
+09-22 18:31:21.176 25024 25024 W ScrollDiag: LEAP idx 9->9 (dIdx=0) off 3254->2285 (dOff=-969) inProgress=false total=18
+09-22 18:31:21.180 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 4438->3469 (d=-969) dispIdx=2 inProgress=false
+09-22 18:31:21.184 25024 25024 D PRD     : E2 PLACED t=234558442197761 topY=2868 rep=2906 abs=0 f=0.620 fii=9 fiso=2285
+09-22 18:31:21.189 25024 25024 D PRD     : E2 PAIR vt=91 f=0.428 rep=2007 d=-899 fii=9 fiso=1386 topY=2868
+09-22 18:31:21.190 25024 25024 W ScrollDiag: LEAP idx 9->9 (dIdx=0) off 2285->1386 (dOff=-899) inProgress=false total=18
+09-22 18:31:21.194 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 3469->2570 (d=-899) dispIdx=2 inProgress=false
+09-22 18:31:21.197 25024 25024 D PRD     : E2 PLACED t=234558455881042 topY=3718 rep=2007 abs=0 f=0.428 fii=9 fiso=1386
+09-22 18:31:21.202 25024 25024 D PRD     : E2 PAIR vt=99 f=0.357 rep=1673 d=-334 fii=9 fiso=1052 topY=3718
+09-22 18:31:21.208 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 2570->2236 (d=-334) dispIdx=2 inProgress=false
+09-22 18:31:21.210 25024 25024 D PRD     : E2 PLACED t=234558468944219 topY=3855 rep=1673 abs=0 f=0.357 fii=9 fiso=1052
+09-22 18:31:21.217 25024 25024 D PRD     : E2 PAIR vt=116 f=0.245 rep=1149 d=-524 fii=9 fiso=528 topY=3855
+09-22 18:31:21.218 25024 25024 W ScrollDiag: LEAP idx 9->9 (dIdx=0) off 1052->528 (dOff=-524) inProgress=false total=18
+09-22 18:31:21.222 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 2236->1712 (d=-524) dispIdx=2 inProgress=false
+09-22 18:31:21.225 25024 25024 D PRD     : E2 PLACED t=234558483534271 topY=4083 rep=1149 abs=0 f=0.245 fii=9 fiso=528
+09-22 18:31:21.230 25024 25024 D PRD     : E2 PAIR vt=132 f=0.165 rep=773 d=-376 fii=9 fiso=152 topY=4083
+09-22 18:31:21.231 25024 25024 W ScrollDiag: LEAP idx 9->9 (dIdx=0) off 528->152 (dOff=-376) inProgress=false total=18
+09-22 18:31:21.235 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 1712->1336 (d=-376) dispIdx=2 inProgress=false
+09-22 18:31:21.238 25024 25024 D PRD     : E2 PLACED t=234558496462969 topY=4286 rep=773 abs=0 f=0.165 fii=9 fiso=152
+09-22 18:31:21.242 25024 25024 D PRD     : E2 PAIR vt=141 f=0.134 rep=626 d=-147 fii=9 fiso=5 topY=4286
+09-22 18:31:21.247 25024 25024 D InjCard : render id=msg_0bfce4e76001lSFh3Kkxygzcyw kind=null role=user nParts=1
+09-22 18:31:21.258 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 1336->1189 (d=-147) dispIdx=2 inProgress=false
+09-22 18:31:21.263 25024 25024 D PRD     : E2 PLACED t=234558521425573 topY=4040 rep=626 abs=0 f=0.134 fii=9 fiso=5
+09-22 18:31:21.270 25024 25024 D PRD     : E2 PAIR vt=157 f=0.085 rep=397 d=-229 fii=8 fiso=60 topY=4040
+09-22 18:31:21.276 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 1189->960 (d=-229) dispIdx=2 inProgress=false
+09-22 18:31:21.279 25024 25024 D PRD     : E2 PLACED t=234558537929688 topY=3642 rep=397 abs=0 f=0.085 fii=8 fiso=60
+09-22 18:31:21.284 25024 25024 D LazyListReflection: preRenderScrollBy skip: size[7] unknown, off=-130
+09-22 18:31:21.284 25024 25024 D PRD     : E2 PAIR vt=177 f=0.044 rep=207 d=-190 fii=8 fiso=60 topY=3642
+09-22 18:31:21.290 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 960->770 (d=-190) dispIdx=2 inProgress=false
+09-22 18:31:21.293 25024 25024 D PRD     : E2 PLACED t=234558551233334 topY=3432 rep=207 abs=0 f=0.044 fii=8 fiso=60
+09-22 18:31:21.299 25024 25024 D LazyListReflection: preRenderScrollBy skip: size[7] unknown, off=-60
+09-22 18:31:21.299 25024 25024 D PRD     : E2 PAIR vt=197 f=0.019 rep=87 d=-120 fii=8 fiso=60 topY=3432
+09-22 18:31:21.305 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 770->650 (d=-120) dispIdx=2 inProgress=false
+09-22 18:31:21.308 25024 25024 D PRD     : E2 PLACED t=234558566391563 topY=3363 rep=87 abs=0 f=0.019 fii=8 fiso=60
+09-22 18:31:21.312 25024 25024 D PRD     : E2 PAIR vt=207 f=0.011 rep=49 d=-38 fii=8 fiso=22 topY=3363
+09-22 18:31:21.319 25024 25024 D ItemDiag: Turn item key=t_msg_0bfce4ea4001 role=assistant grp=1
+09-22 18:31:21.347 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 650->612 (d=-38) dispIdx=2 inProgress=false
+09-22 18:31:21.354 25024 25024 D PRD     : E2 PLACED t=234558612631146 topY=3034 rep=49 abs=0 f=0.011 fii=8 fiso=22
+09-22 18:31:21.364 25024 25024 D PRD     : E2 PAIR vt=224 f=0.002 rep=11 d=-38 fii=7 fiso=255 topY=3034
+09-22 18:31:21.366 25024 25024 W RB-EXP  : [DEBUG-rbexp] RB id=ng_ord_0 expanded=false mapHit=false default=false
+09-22 18:31:21.382 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfce4ea4001 h 223->285 (d=62) dispIdx=0 inProgress=false
+09-22 18:31:21.383 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 612->574 (d=-38) dispIdx=2 inProgress=false
+09-22 18:31:21.387 25024 25024 D PRD     : E2 PLACED t=234558646148542 topY=2197 rep=11 abs=0 f=0.002 fii=7 fiso=255
+09-22 18:31:21.394 25024 25024 D PRD     : E2 PAIR vt=244 f=0.000 rep=0 d=-11 fii=7 fiso=244 topY=2197
+09-22 18:31:21.417 25024 25024 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 574->563 (d=-11) dispIdx=2 inProgress=false
+09-22 18:31:21.421 25024 25024 D PRD     : E2 PLACED t=234558679589115 topY=1985 rep=0 abs=0 f=0.000 fii=7 fiso=244
+09-22 18:31:21.433 25024 25024 D PRD     : E2 PLACED t=234558691998386 topY=1762 rep=0 abs=0 f=0.000 fii=7 fiso=244
+09-22 18:31:21.436 25024 25024 D CardExpand: [DEBUG-422] episode done f=0.000 totalMs=347 completed=true pinPending=false
+09-22 18:31:22.011 25024 25024 I Ktor Client: REQUEST: http://127.0.0.1:4199/api/session/active
+09-22 18:31:22.011 25024 25024 I Ktor Client: METHOD: GET
+09-22 18:31:22.093 25024 25024 I Ktor Client: RESPONSE: 200 OK
+09-22 18:31:22.093 25024 25024 I Ktor Client: METHOD: GET
+09-22 18:31:22.093 25024 25024 I Ktor Client: FROM: http://127.0.0.1:4199/api/session/active
+09-22 18:31:26.253 25024 25024 I MIUIInput: [MotionEvent] ViewRootImpl windowName 'dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity', { action=ACTION_DOWN, id[0]=0, pointerCount=1, eventTime=234563508, downTime=234563508, phoneEventTime=1790073086250 } moveCount:0
+09-22 18:31:26.254 25024 25024 D VRI[MainActivity]: getMiuiFreeformStackInfo mTmpFrames.miuiFreeFormStackInfo: null
+09-22 18:31:26.274 25024 25024 I MIUIInput: [MotionEvent] ViewRootImpl windowName 'dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity', { action=ACTION_UP, id[0]=0, pointerCount=1, eventTime=234563508, downTime=234563508, phoneEventTime=1790073086250 } moveCount:0
+09-22 18:31:30.959 25024 25024 I MIUIInput: [MotionEvent] ViewRootImpl windowName 'dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity', { action=ACTION_DOWN, id[0]=0, pointerCount=1, eventTime=234568214, downTime=234568214, phoneEventTime=1790073090956 } moveCount:0
+09-22 18:31:30.960 25024 25024 D VRI[MainActivity]: getMiuiFreeformStackInfo mTmpFrames.miuiFreeFormStackInfo: null
+09-22 18:31:30.976 25024 25024 I MIUIInput: [MotionEvent] ViewRootImpl windowName 'dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity', { action=ACTION_UP, id[0]=0, pointerCount=1, eventTime=234568214, downTime=234568214, phoneEventTime=1790073090956 } moveCount:0
+09-22 18:31:36.130 25024 30860 I Ktor Client: REQUEST: http://127.0.0.1:4199/api/form/request
+09-22 18:31:36.130 25024 30860 I Ktor Client: METHOD: GET
+09-22 18:31:36.191 25024 30860 I Ktor Client: RESPONSE: 200 OK
+09-22 18:31:36.191 25024 30860 I Ktor Client: METHOD: GET
+09-22 18:31:36.191 25024 30860 I Ktor Client: FROM: http://127.0.0.1:4199/api/form/request
