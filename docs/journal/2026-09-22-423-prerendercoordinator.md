@@ -107,3 +107,19 @@
 **修**(d40355c3,已装真机):超时改 hold 起算 2s / 总帽 6s / episode 等待环 2.5s;pumpArm 泵帧(放置回调派发后放行修正后布局);PIN_QUIET_MS=1.8s 静默守望(rep 无变更才解散,窗内迟到增长自动重进确认环)。修后矩阵 A/D 全绿(confirmed=true,含冷启首展)。
 
 **遗留**:金丝雀锚矩阵因设备 uiautomator 楔死未跑完(需设备重启后补跑);收起 -62 边缘残量(consumed=0,DOM 无可见位移,#420 物理不可约在案);L3 AST 切片 / Phase 2 大组结构裂变不变。
+
+## 批次六(2026-09-22 午后):调研定案→折叠组全线结构裂变
+
+**用户裁决**:调研确认框架无成熟「原地展开不挪视口」原语后,批准全线切结构裂变路径。
+
+**实施**:
+- ChatMessageList:expandedLargeStepGroups→expandedStepGroups(拆权重门槛,小组并入);收集器仅剩展开判定。
+- MarkdownChunking:参数更名,发射机制不变(尾 Turn+Body×N+#sgt+#sgh)。
+- itemsIndexed 全条目包 Box(Modifier.animateItem(fadeInSpec=null, fadeOutSpec=null))——仅位移动画;结构变化平滑滑动,滚动不触发。
+- StepGroupLazySplitTest:+小组裂变契约用例;全量单测绿(3m54s)。
+
+**真机初证**(装机后单次探测,13:55):CLICK→ENTRIES 重建 18ms(原地引擎秒级 episode);SPLIT n=1;HEAD 就位;SNAP 首帧 fii=0 fiso=0 items=22;无崩溃。
+
+**未竟**:金丝雀×3 矩阵——设备侧 uiautomator 反复楔死+MIUI 无线调试分钟级掉线(息屏自动关),需设备重启后补跑;矩阵脚本已加固(svc power stayon/转储重试/force-stop 清态,后者顺带发现 ViewModel 展开态跨 activity 重启存活)。
+
+**语义注记**:CardExpandReveal 引擎退守思考卡/SSE 域;StepGroupCard 仅剩收起态渲染;animateItem 语义=滚动不触发、结构变化位移平滑。
