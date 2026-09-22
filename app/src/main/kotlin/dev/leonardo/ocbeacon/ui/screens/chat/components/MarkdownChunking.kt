@@ -314,9 +314,9 @@ internal fun buildChatEntries(
     chunkPlans: Map<String, MdChunkPlan>,
     recentStreamedTurnKeys: Set<String>,
     segmentPlans: Map<String, TurnSegmentPlan> = emptyMap(),
-    /** #422 历史懒加载:turnKey → 展开态大 StepGroup(见 LARGE_STEP_GROUP_WEIGHT)。
+    /** #422→#423 批次六:turnKey → 展开态 StepGroup(权重门槛已拆,全量裂变)。
      *  命中的 turn 拆条目发射(尾 Turn + StepGroupBody×N + StepGroupHead)。 */
-    expandedLargeStepGroups: Map<String, dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderItem.StepGroup> = emptyMap(),
+    expandedStepGroups: Map<String, dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderItem.StepGroup> = emptyMap(),
 ): ChatEntries {
     val entries = mutableListOf<ChatEntry>()
     val displayEntryStart = IntArray(displayItems.size)
@@ -374,7 +374,7 @@ internal fun buildChatEntries(
         // 内容分片逆序,折叠行头最后(视觉顶部)。displayEntryStart 钉回头部——
         // 跳转落点 = 折叠行,语义与其他路径的"首片含标签栏"一致。
         val splitStepGroup =
-            if (!msg.isUser && !isStreamingTurn) expandedLargeStepGroups[turnKey] else null
+            if (!msg.isUser && !isStreamingTurn) expandedStepGroups[turnKey] else null
         if (splitStepGroup != null) {
             entries += ChatEntry.Turn(displayIdx, turnKey, skipStepGroupItem = true)
             // 键序号=文档序,发射逆序(底部=文档最旧片)——同 #246 chunk 键语义

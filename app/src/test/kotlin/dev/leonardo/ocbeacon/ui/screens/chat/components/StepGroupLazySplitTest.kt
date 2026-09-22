@@ -68,7 +68,7 @@ class StepGroupLazySplitTest {
             streamingMsgId = null,
             chunkPlans = emptyMap(),
             recentStreamedTurnKeys = emptySet(),
-            expandedLargeStepGroups = mapOf("t_m_last" to sg),
+            expandedStepGroups = mapOf("t_m_last" to sg),
         )
         val kinds = chat.entries.map { it::class.simpleName }
         // 自底向上:尾 Turn → 3 个 Body(逆序) → 尾收起行(#sgt) → Head;随后是更旧的 user 条目
@@ -98,6 +98,32 @@ class StepGroupLazySplitTest {
     }
 
     @Test
+    fun expandedSmallGroupAlsoSplits() {
+        // #423 批次六:权重门槛拆除——小组展开同样走结构裂变(调研定案:头行恒高+
+        // 内容条目化+animateItem;CardExpandReveal 原地增高路线退役于折叠组域)。
+        val last = assistantMsg("m_last")
+        val displayItems = listOf(0 to last, 1 to userMsg("m_u"))
+        val turnGroups = mapOf(0 to listOf(last, assistantMsg("m_sg")))
+        val small = RenderItem.StepGroup(
+            msgId = "m_sg",
+            groups = listOf(PartGroup.Single(Part.Text(id = "m_sg_p", sessionId = "s1", messageId = "m_sg", text = "tiny"))),
+            toolCount = 0,
+            textCount = 1,
+        )
+        val chat = buildChatEntries(
+            displayItems, turnGroups, streamingMsgId = null,
+            chunkPlans = emptyMap(), recentStreamedTurnKeys = emptySet(),
+            expandedStepGroups = mapOf("t_m_last" to small),
+        )
+        // 自底向上:尾 Turn → 单 Body → 尾收起行 → Head
+        assertEquals(
+            listOf("Turn", "StepGroupBody", "StepGroupHead", "StepGroupHead", "Turn"),
+            chat.entries.map { it::class.simpleName },
+        )
+        assertTrue((chat.entries[0] as ChatEntry.Turn).skipStepGroupItem)
+    }
+
+    @Test
     fun notExpandedOrStreamingKeepsSingleTurn() {
         val last = assistantMsg("m_last")
         val displayItems = listOf(0 to last, 1 to userMsg("m_u"))
@@ -114,7 +140,7 @@ class StepGroupLazySplitTest {
         val streaming = buildChatEntries(
             displayItems, turnGroups, streamingMsgId = "m_last",
             chunkPlans = emptyMap(), recentStreamedTurnKeys = emptySet(),
-            expandedLargeStepGroups = mapOf("t_m_last" to bigStepGroup("m_sg")),
+            expandedStepGroups = mapOf("t_m_last" to bigStepGroup("m_sg")),
         )
         assertEquals(2, streaming.entries.size)
         assertEquals(false, (streaming.entries[0] as ChatEntry.Turn).skipStepGroupItem)

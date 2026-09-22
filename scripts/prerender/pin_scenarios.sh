@@ -9,6 +9,9 @@ A="adb -s $S"
 DIR=$(cd "$(dirname "$0")" && pwd)
 
 enter_session() {
+  $A shell am force-stop dev.leonardo.ocbeacon.dev 2>/dev/null
+  sleep 1
+  $A shell input keyevent KEYCODE_WAKEUP 2>/dev/null
   ./scripts/debug-entry.sh "$S" dev.leonardo.ocbeacon.dev >/dev/null 2>&1
   sleep 2.5
   $A shell input tap 480 620

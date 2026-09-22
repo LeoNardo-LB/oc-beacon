@@ -11,14 +11,27 @@ export ANDROID_ADB_SERVER_PORT=5038
 A="adb -s $S"
 DIR=$(cd "$(dirname "$0")" && pwd)
 TMP=$(mktemp -d)
+# MIUI 熄屏/锁屏会使 uiautomator 返回空、无线调试掉线——跑批期间保持亮屏
+$A shell svc power stayon true >/dev/null 2>&1
+trap '$A shell svc power stayon false >/dev/null 2>&1' EXIT
+
+dumpxml() { # $1=目标文件;空转储重试 3 次
+  for k in 1 2 3; do
+    $A exec-out uiautomator dump /dev/tty 2>/dev/null > "$1"
+    [ "$(wc -c < "$1")" -gt 200 ] && return 0
+    $A shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
+    sleep 1.5
+  done
+  return 1
+}
 
 bounds() {
-  $A exec-out uiautomator dump /dev/tty 2>/dev/null > $TMP/ui.xml
+  dumpxml $TMP/ui.xml || return 1
   python3 "$DIR/find_row.py" $TMP/ui.xml "$ANCHOR"
 }
 
 tapbounds() {
-  $A exec-out uiautomator dump /dev/tty 2>/dev/null > $TMP/ui2.xml
+  dumpxml $TMP/ui2.xml || return 1
   python3 "$DIR/find_row.py" $TMP/ui2.xml "${TAPR:-$ANCHOR}"
 }
 

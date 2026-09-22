@@ -452,12 +452,14 @@ fun ChatMessageList(
         result
     }
 
-    // ===== #422 历史懒加载:展开态大折叠组 → 拆条目发射 =====
+    // ===== #422→#423 批次六:展开态折叠组 → 拆条目发射(全量,不再限大组) =====
     // 派生自 toolExpandedStates 快照(toggle 写 StateFlow → 新 Map 实例 →
-    // 本 remember 重算 → chatEntries 重建)。只收集「已展开 && 权重达阈值」
-    // 的组;小组不动(保留 CardExpandReveal 平滑揭示)。
+    // 本 remember 重算 → chatEntries 重建)。调研定案(2026-09-22):框架对「原地
+    // 展开+视口不动」无成熟原语,成熟做法=结构裂变(头行恒高+内容条目化+
+    // animateItem 平滑滑动)——权重门槛拆除,小组并入;CardExpandReveal 引擎
+    // 退守思考卡/SSE 流式域。
     val toolExpandedStatesSnapshot = LocalToolExpandedStates.current
-    val expandedLargeStepGroups = remember(
+    val expandedStepGroups = remember(
         renderableTurns, turnGroups, displayItems, toolExpandedStatesSnapshot,
     ) {
         if (toolExpandedStatesSnapshot.isEmpty()) {
@@ -472,9 +474,7 @@ fun ChatMessageList(
                     ?: return@forEachIndexed
                 // 注:流式豁免由 buildChatEntries 单点门控(!isStreamingTurn,有单测
                 // 兜底)——此处仅做候选收集,两处 gate 语义见 isMultiMessageTurn 先例
-                if (toolExpandedStatesSnapshot[stepGroupStateKey(sg.msgId)] == true &&
-                    turnItemWeight(sg) >= LARGE_STEP_GROUP_WEIGHT
-                ) {
+                if (toolExpandedStatesSnapshot[stepGroupStateKey(sg.msgId)] == true) {
                     val tk = "t_" + (turnGroups[rawIdx]?.firstOrNull()?.message?.id ?: msg.message.id)
                     out[tk] = sg
                 }
@@ -488,10 +488,10 @@ fun ChatMessageList(
     val sgSwapAtMs = remember { androidx.compose.runtime.mutableLongStateOf(0L) }
     // StepGroupHead 顶缘最新实测(逐帧写入,日志窗控;多 head 时为最后写者——单组测试足够)
     val sgHeadTopY = remember { androidx.compose.runtime.mutableIntStateOf(Int.MIN_VALUE) }
-    LaunchedEffect(expandedLargeStepGroups) {
+    LaunchedEffect(expandedStepGroups) {
         if (!dev.leonardo.ocbeacon.BuildConfig.DEBUG) return@LaunchedEffect
-        val keys = expandedLargeStepGroups.keys.joinToString(",") { it.takeLast(10) }
-        dev.leonardo.ocbeacon.logging.AppLogger.d("SGB", "LARGE n=" + expandedLargeStepGroups.size + " keys=" + keys)
+        val keys = expandedStepGroups.keys.joinToString(",") { it.takeLast(10) }
+        dev.leonardo.ocbeacon.logging.AppLogger.d("SGB", "SPLIT n=" + expandedStepGroups.size + " keys=" + keys)
         sgSwapAtMs.longValue = System.currentTimeMillis()
         // 裂变窗口逐帧快照:仅值变化帧输出(静止零行)——「往上顶」的帧级时间线
         val t0 = System.currentTimeMillis()
@@ -794,7 +794,7 @@ fun ChatMessageList(
     // ===== 2026-08-20 fling 巨帧根治：分片发射表（消息区 entries）=====
     // entries = displayItems 经 chunkPlans 展开（巨型 turn → N 个 chunk item）。
     // 双向索引是 LazyColumn index ↔ displayItems index 的单一真相源。
-    val chatEntries = remember(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans, expandedLargeStepGroups) {
+    val chatEntries = remember(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans, expandedStepGroups) {
         dev.leonardo.ocbeacon.debug.RaceProbe.probe {
             "ENTRIES rebuild n=" + displayItems.size +
                 " chunkPlans=" + chunkPlans.size +
@@ -802,12 +802,12 @@ fun ChatMessageList(
                 " streaming=" + (streamingMsgId != null) +
                 " recentN=" + recentStreamedTurnKeys.size
         }
-        buildChatEntries(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans, expandedLargeStepGroups = expandedLargeStepGroups)
+        buildChatEntries(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans, expandedStepGroups = expandedStepGroups)
             .also { ents ->
                 if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                     dev.leonardo.ocbeacon.logging.AppLogger.d(
                         "SGB",
-                        "ENTRIES n=" + ents.entries.size + " large=" + expandedLargeStepGroups.size,
+                        "ENTRIES n=" + ents.entries.size + " expanded=" + expandedStepGroups.size,
                     )
                 }
             }
@@ -2477,25 +2477,34 @@ fun ChatMessageList(
                             }
                         },
                     ) { _, entry ->
+                        // #423 批次六:全条目接入 animateItem(仅位移,无淡入淡出——
+                        // 滚动不触发,结构变化(条目插拔)平滑滑动)。调研定案:结构
+                        // 裂变的成熟收尾;视口内让位条目滑开而非跳变。
                         // #420:卡片原地揭示补偿的逐 item 上下文(挂 itemsIndexed 层——
                         // renderTranscriptEntry 内部的早退 return 不受 Provider 包裹影响;
                         // 流式 turn 降级裸 AV,由 item 级 COMP-MSG 补偿独占,杜绝双重注入)
                         val entryStreaming = (turnGroups[displayItems[entry.displayIndex].first]
                             ?: listOf(displayItems[entry.displayIndex].second))
                             .any { it.message.id == streamingMsgId }
-                        CompositionLocalProvider(
-                            LocalCardExpandListState provides listState,
-                            LocalCardExpandDeparture provides onExpandDeparture,
-                            LocalInStreamingTurn provides entryStreaming,
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .animateItem(fadeInSpec = null, fadeOutSpec = null),
                         ) {
-                            val extras = transcriptCardExtras[entry.key]
-                            if (extras == null || extras.isEmpty) {
-                                renderTranscriptEntry(entry)
-                            } else {
-                                Column(modifier = Modifier.fillMaxWidth()) {
-                                    extras.before.forEach { renderTranscriptCardItem(it, spacingBelow = true) }
+                            CompositionLocalProvider(
+                                LocalCardExpandListState provides listState,
+                                LocalCardExpandDeparture provides onExpandDeparture,
+                                LocalInStreamingTurn provides entryStreaming,
+                            ) {
+                                val extras = transcriptCardExtras[entry.key]
+                                if (extras == null || extras.isEmpty) {
                                     renderTranscriptEntry(entry)
-                                    extras.after.forEach { renderTranscriptCardItem(it, spacingBelow = false) }
+                                } else {
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        extras.before.forEach { renderTranscriptCardItem(it, spacingBelow = true) }
+                                        renderTranscriptEntry(entry)
+                                        extras.after.forEach { renderTranscriptCardItem(it, spacingBelow = false) }
+                                    }
                                 }
                             }
                         }
