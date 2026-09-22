@@ -1,0 +1,375 @@
+--------- beginning of system
+09-22 14:12:28.553  7306  7306 I MIUIInput: [MotionEvent] ViewRootImpl windowName 'dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity', { action=ACTION_DOWN, id[0]=0, pointerCount=1, eventTime=219025810, downTime=219025810, phoneEventTime=1790057548551 } moveCount:0
+09-22 14:12:28.554  7306  7306 D VRI[MainActivity]: getMiuiFreeformStackInfo mTmpFrames.miuiFreeFormStackInfo: null
+09-22 14:12:28.562  7306  7306 I MIUIInput: [MotionEvent] ViewRootImpl windowName 'dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity', { action=ACTION_UP, id[0]=0, pointerCount=1, eventTime=219025810, downTime=219025810, phoneEventTime=1790057548552 } moveCount:0
+--------- beginning of main
+09-22 14:12:28.565  7306  7306 D SGB     : CLICK key=sdZAUFFgDCaJ expanded=false steps=1 tools=1
+09-22 14:12:28.569  7306  7306 W RB-EXP  : [DEBUG-rbexp] toggle id=UFFgDCaJ -> true from=getStackTrace<-toggleToolExpanded<-ChatScreen$lambda$94$0<-$r8$lambda$d4F2An_3XtOWujyCtZU0NSfEZxQ<-invoke<-StepGroupFoldRow$lambda$0$0
+09-22 14:12:28.596  7306  7306 D SGB     : ENTRIES n=15 expanded=1
+09-22 14:12:28.618  7306  7306 D ItemDiag: Turn item key=t_msg_0bfce4ea4001 role=assistant grp=1
+09-22 14:12:28.624  7306  7306 D InjCard : render id=msg_0bfce4e76001lSFh3Kkxygzcyw kind=null role=user nParts=1
+09-22 14:12:28.627  7306  7306 D ItemDiag: Turn item key=t_msg_0bfba5c07001 role=assistant grp=2
+09-22 14:12:28.632  7306  7306 D InjCard : render id=msg_0bfba28cc001cKsvy1Lj1P4lOH kind=null role=user nParts=1
+09-22 14:12:28.636  7306  7306 W SysMsgDiag: #234 event-card branch RENDER id=NQ7NW2nb textLen=36
+09-22 14:12:28.639  7306  7306 D ItemDiag: Turn item key=t_msg_0bf7181dc001 role=assistant grp=1
+09-22 14:12:28.667  7306  7306 W ScrollDiag: RESIZE key=t_msg_0bfba5c07001 h 563->491 (d=-72) dispIdx=2 inProgress=false
+09-22 14:12:28.732  7306  7306 D SGB     : SPLIT n=1 keys=046KeYdeeN
+09-22 14:12:28.745  7306  7306 D ItemDiag: Turn item key=t_msg_0bfce4ea4001 role=assistant grp=1
+09-22 14:12:28.746  7306  7306 D InjCard : render id=msg_0bfce4e76001lSFh3Kkxygzcyw kind=null role=user nParts=1
+09-22 14:12:28.747  7306  7306 D ItemDiag: Turn item key=t_msg_0bfba5c07001 role=assistant grp=2
+09-22 14:12:28.748  7306  7306 D InjCard : render id=msg_0bfba28cc001cKsvy1Lj1P4lOH kind=null role=user nParts=1
+09-22 14:12:28.749  7306  7306 W SysMsgDiag: #234 event-card branch RENDER id=NQ7NW2nb textLen=36
+09-22 14:12:28.750  7306  7306 D ItemDiag: Turn item key=t_msg_0bf7181dc001 role=assistant grp=1
+09-22 14:12:28.760  7306  7306 D SGB     : HEAD topY=704
+09-22 14:12:28.761  7306  7306 D SGB     : HEAD topY=644
+09-22 14:12:28.764  7306  7306 D SGB     : SNAP t=32ms fii=0 fiso=0 items=22 headTop=644
+09-22 14:12:28.806  7306 13704 I do.ocbeacon.dev: JIT allocated 67KB for stack maps of kotlin.Unit dev.leonardo.ocbeacon.ui.screens.chat.components.ChatMessageListKt.ChatMessageList_ev4rg4s$lambda$4(java.util.List, dev.leonardo.ocbeacon.ui.screens.chat.ChatViewModel, kotlin.jvm.functions.Function1, kotlinx.coroutines.CoroutineScope, androidx.compose.material3.SnackbarHostState, android.content.Context, java.util.List, androidx.compose.foundation.lazy.LazyListState, androidx.compose.runtime.State, boolean, dev.leonardo.ocbeacon.ui.screens.chat.InteractionState, java.util.List, androidx.compose.runtime.State, kotlin.jvm.functions.Function1, androidx.compose.ui.Modifier, java.lang.String, dev.leonardo.ocbeacon.ui.screens.chat.MessageListState, kotlin.jvm.functions.Function0, androidx.compose.ui.platform.SoftwareKeyboardController, java.util.List, float, kotlin.jvm.functions.Function0, dev.leonardo.ocbeacon.ui.screens.chat.SessionMetaState, kotlin.jvm.functions.Function0, java.util.List, boolean, java.util.List, kotlin.jvm.functions.Function1, kotlin.jvm.functions.Function1, boolean, androidx.compose.ui.platform.Clipboard, java.util.List, kotlin.jvm.functions.Function1, androidx.compose.runtime.Composer, int)
+09-22 14:12:28.807  7306 13704 I do.ocbeacon.dev: Compiler allocated 16MB to compile kotlin.Unit dev.leonardo.ocbeacon.ui.screens.chat.components.ChatMessageListKt.ChatMessageList_ev4rg4s$lambda$4(java.util.List, dev.leonardo.ocbeacon.ui.screens.chat.ChatViewModel, kotlin.jvm.functions.Function1, kotlinx.coroutines.CoroutineScope, androidx.compose.material3.SnackbarHostState, android.content.Context, java.util.List, androidx.compose.foundation.lazy.LazyListState, androidx.compose.runtime.State, boolean, dev.leonardo.ocbeacon.ui.screens.chat.InteractionState, java.util.List, androidx.compose.runtime.State, kotlin.jvm.functions.Function1, androidx.compose.ui.Modifier, java.lang.String, dev.leonardo.ocbeacon.ui.screens.chat.MessageListState, kotlin.jvm.functions.Function0, androidx.compose.ui.platform.SoftwareKeyboardController, java.util.List, float, kotlin.jvm.functions.Function0, dev.leonardo.ocbeacon.ui.screens.chat.SessionMetaState, kotlin.jvm.functions.Function0, java.util.List, boolean, java.util.List, kotlin.jvm.functions.Function1, kotlin.jvm.functions.Function1, boolean, androidx.compose.ui.platform.Clipboard, java.util.List, kotlin.jvm.functions.Function1, androidx.compose.runtime.Composer, int)
+09-22 14:12:28.927  7306 13705 I do.ocbeacon.dev: This is non sticky GC, maxfree is 33554432 minfree is 8388608
+09-22 14:12:29.076  7306 13830 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:29.077  7306 13830 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:29.094  7306 13830 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:29.233  7306 13830 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:29.233  7306 13830 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:29.240  7306 13830 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:29.327  7306  7306 W RB-EXP  : [DEBUG-rbexp] RB id=ng_ord_0 expanded=false mapHit=false default=false
+09-22 14:12:29.331  7306  7306 I Choreographer: Skipped 67 frames!  The application may be doing too much work on its main thread.
+09-22 14:12:29.792  7306 13830 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:29.793  7306 13830 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:29.800  7306 13768 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:29.919  7306 13771 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:29.920  7306 13771 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:29.923  7306 13830 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:30.211  7306 13768 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:30.212  7306 13768 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:30.214  7306 13768 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:30.516  7306 13830 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:30.518  7306 13830 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:30.529  7306 13771 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:30.716  7306 13768 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:30.717  7306 13768 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:30.718  7306 13768 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:31.004  7306  7306 I Ktor Client: REQUEST: http://127.0.0.1:4199/api/session/active
+09-22 14:12:31.004  7306  7306 I Ktor Client: METHOD: GET
+09-22 14:12:31.046  7306  7306 I Ktor Client: RESPONSE: 200 OK
+09-22 14:12:31.046  7306  7306 I Ktor Client: METHOD: GET
+09-22 14:12:31.046  7306  7306 I Ktor Client: FROM: http://127.0.0.1:4199/api/session/active
+09-22 14:12:31.165  7306 13771 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:31.169  7306 13771 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:31.172  7306 13771 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:31.361  7306 13830 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:31.364  7306 13830 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:31.372  7306 13768 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:31.456  7306 13771 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:31.458  7306 13771 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:31.642  7306 13830 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:31.644  7306 13830 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:31.648  7306 13768 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:31.649  7306 13768 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:31.741  7306 13830 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:31.744  7306 13830 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:31.746  7306 13830 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:31.948  7306 13768 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:31.950  7306 13768 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:31.951  7306 13768 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:32.565  7306 13831 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:32.567  7306 13831 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:32.568  7306 13831 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:32.569  7306 13831 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:32.570  7306 13831 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:32.571  7306 13831 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:32.870  7306 13831 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:32.871  7306 13831 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:32.875  7306 13831 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:32.895  7306 13831 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:32.896  7306 13831 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:32.896  7306 13831 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:32.896  7306 13831 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:32.930  7306 13831 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:33.174  7306 13831 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:33.174  7306 13831 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:33.175  7306 13831 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:33.178  7306 13830 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:33.507  7306 13771 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:33.507  7306 13771 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:33.534  7306 13768 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:33.795  7306 13830 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:33.797  7306 13830 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:33.799  7306 13830 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:33.820  7306 13768 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:33.821  7306 13768 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:33.822  7306 13768 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:34.099  7306 13830 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:34.101  7306 13830 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:34.103  7306 13830 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:34.106  7306 13831 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:34.107  7306 13831 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:34.111  7306 13771 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:34.223  7306 13831 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:34.225  7306 13831 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:34.228  7306 13830 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:34.379  7306 13768 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:34.382  7306 13768 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:34.384  7306 13831 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:34.623  7306 13830 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:34.625  7306 13830 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:34.648  7306 13831 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:34.653  7306 13831 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:34.654  7306 13831 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:34.655  7306 13831 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:34.746  7306 13768 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:34.747  7306 13768 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:34.750  7306 13768 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:34.755  7306 13831 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:34.756  7306 13831 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:34.758  7306 13771 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:34.847  7306  7306 I MIUIInput: [MotionEvent] ViewRootImpl windowName 'dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity', { action=ACTION_DOWN, id[0]=0, pointerCount=1, eventTime=219032101, downTime=219032101, phoneEventTime=1790057554842 } moveCount:0
+09-22 14:12:34.847  7306  7306 D VRI[MainActivity]: getMiuiFreeformStackInfo mTmpFrames.miuiFreeFormStackInfo: null
+09-22 14:12:34.861  7306  7306 I MIUIInput: [MotionEvent] ViewRootImpl windowName 'dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity', { action=ACTION_UP, id[0]=0, pointerCount=1, eventTime=219032101, downTime=219032101, phoneEventTime=1790057554843 } moveCount:0
+09-22 14:12:34.865  7306  7306 W RB-EXP  : [DEBUG-rbexp] toggle id=9fb32ddf -> true from=getStackTrace<-toggleToolExpanded<-ChatScreen$lambda$94$0<-$r8$lambda$d4F2An_3XtOWujyCtZU0NSfEZxQ<-invoke<-PartContentInner_0JaWfxQ$lambda$21$0
+09-22 14:12:34.887  7306  7306 D ItemDiag: Turn item key=t_msg_0bfce4ea4001 role=assistant grp=1
+09-22 14:12:34.889  7306 13771 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:34.889  7306 13771 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:34.890  7306  7306 D InjCard : render id=msg_0bfce4e76001lSFh3Kkxygzcyw kind=null role=user nParts=1
+09-22 14:12:34.891  7306  7306 D ItemDiag: Turn item key=t_msg_0bfba5c07001 role=assistant grp=2
+09-22 14:12:34.892  7306 13771 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:34.893  7306  7306 D InjCard : render id=msg_0bfba28cc001cKsvy1Lj1P4lOH kind=null role=user nParts=1
+09-22 14:12:34.895  7306  7306 W SysMsgDiag: #234 event-card branch RENDER id=NQ7NW2nb textLen=36
+09-22 14:12:34.927  7306  7306 D ItemDiag: Turn item key=t_msg_0bfce4ea4001 role=assistant grp=1
+09-22 14:12:34.928  7306  7306 D InjCard : render id=msg_0bfce4e76001lSFh3Kkxygzcyw kind=null role=user nParts=1
+09-22 14:12:34.929  7306  7306 D ItemDiag: Turn item key=t_msg_0bfba5c07001 role=assistant grp=2
+09-22 14:12:34.946  7306  7306 D PRD     : E1 PLACED t=219032204540350 topY=1178 rep=0 abs=0 f=0.001 fii=0 fiso=0
+09-22 14:12:34.948  7306  7306 D PRD     : E1 DRAW t=219032206523475 drawF=0.000 boxH=69.0 clipPx=0 residual=0 topY=1178
+09-22 14:12:34.955  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.001 topY=1178 guard=0 conf=false geo=false
+09-22 14:12:34.957  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.001 topY=1178 guard=0 conf=true geo=false
+09-22 14:12:34.960  7306  7306 D CardExpand: [DEBUG-422] settle done frames=2 measures=2 H=69
+09-22 14:12:34.967  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=1.000 topY=1178 guard=0 conf=true geo=false
+09-22 14:12:34.974  7306  7306 D CardExpand: [DEBUG-423] pin-placed err=69 consumed=69 cur=1109/1178
+09-22 14:12:34.974  7306  7306 D PRD     : E1 PLACED t=219032232939517 topY=1109 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:34.977  7306  7306 D PRD     : E1 DRAW t=219032236162798 drawF=0.000 boxH=69.0 clipPx=0 residual=69 topY=1109
+09-22 14:12:34.984  7306  7306 D ChatScrollController: [DEBUG-drift] atBot=false scrolling=false autoOn=true idx=7 off=69
+09-22 14:12:34.984  7306  7306 W ScrollDiag: LEAP idx 0->7 (dIdx=7) off 0->69 (dOff=69) inProgress=false total=22
+09-22 14:12:34.993  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1109 guard=1109 conf=false geo=true
+09-22 14:12:35.000  7306  7306 D PRD     : E1 PLACED t=219032258298892 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.004  7306  7306 D PRD     : E1 DRAW t=219032262705350 drawF=0.000 boxH=69.0 clipPx=0 residual=69 topY=1178
+09-22 14:12:35.012  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=false geo=true
+09-22 14:12:35.015  7306  7306 D PRD     : E1 PLACED t=219032273676340 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.022  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.025  7306  7306 D PRD     : E1 PLACED t=219032283852017 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.030  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.033  7306  7306 D PRD     : E1 PLACED t=219032291713319 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.038  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.041  7306  7306 D PRD     : E1 PLACED t=219032299411704 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.047  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.050  7306  7306 D PRD     : E1 PLACED t=219032308592694 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.054  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.057  7306  7306 D PRD     : E1 PLACED t=219032315505142 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.060  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.063  7306  7306 D PRD     : E1 PLACED t=219032321627173 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.066  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.069  7306  7306 D PRD     : E1 PLACED t=219032327724829 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.075  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.080  7306  7306 D PRD     : E1 PLACED t=219032338649309 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.086  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.090  7306  7306 D PRD     : E1 PLACED t=219032348495611 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.094  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.097  7306  7306 D PRD     : E1 PLACED t=219032355667850 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.102  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.104  7306  7306 D PRD     : E1 PLACED t=219032363190402 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.105  7306 13771 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:35.105  7306 13771 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:35.110  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.115  7306  7306 D PRD     : E1 PLACED t=219032373704933 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.122  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.125  7306 13771 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:35.125  7306 13771 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:35.125  7306 13771 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:35.127  7306  7306 D PRD     : E1 PLACED t=219032385424517 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.129  7306 13771 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:35.132  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.135  7306  7306 D PRD     : E1 PLACED t=219032393259308 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.140  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.143  7306  7306 D PRD     : E1 PLACED t=219032401807173 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.149  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.151  7306  7306 D PRD     : E1 PLACED t=219032410029725 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.157  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.160  7306  7306 D PRD     : E1 PLACED t=219032418213475 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.165  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.168  7306  7306 D PRD     : E1 PLACED t=219032426739465 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.174  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.177  7306  7306 D PRD     : E1 PLACED t=219032435279933 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.182  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.185  7306  7306 D PRD     : E1 PLACED t=219032443321183 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.190  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.192  7306  7306 D PRD     : E1 PLACED t=219032450555142 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.199  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.202  7306  7306 D PRD     : E1 PLACED t=219032460641183 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.207  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.209  7306  7306 D PRD     : E1 PLACED t=219032467650871 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.215  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.217  7306  7306 D PRD     : E1 PLACED t=219032475731913 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.218  7306 13831 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:35.218  7306 13831 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:35.218  7306 13831 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:35.223  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.225  7306  7306 D PRD     : E1 PLACED t=219032483488163 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.239  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.245  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.247  7306  7306 D PRD     : E1 PLACED t=219032505888788 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.251  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.256  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.265  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.274  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.277  7306  7306 D PRD     : E1 PLACED t=219032535293058 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.283  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.290  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.299  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.302  7306  7306 D PRD     : E1 PLACED t=219032560152746 topY=1178 rep=69 abs=0 f=1.000 fii=7 fiso=69
+09-22 14:12:35.308  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.308  7306 13830 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:35.309  7306 13830 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:35.309  7306 13830 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:35.310  7306 13830 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:35.312  7306 13830 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:35.312  7306 13830 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:35.313  7306 13830 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:35.313  7306 13830 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:35.322  7306 13830 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:35.322  7306 13830 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:35.327  7306 13830 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:35.332  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.336  7306 13830 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:35.443  7306 13831 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:35.443  7306 13831 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:35.449  7306 13831 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:35.458  7306 13831 D SseClientV2: V2 unhandled event: mcp.resources.changed
+09-22 14:12:35.458  7306 13831 D SseClientV2: V2 unhandled event: mcp.status.changed
+09-22 14:12:35.462  7306 13768 D SseClientV2: V2 unhandled event: command.updated
+09-22 14:12:35.706  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:35.714  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:36.064  7306  7306 I Ktor Client: REQUEST: http://127.0.0.1:4199/api/session/active
+09-22 14:12:36.064  7306  7306 I Ktor Client: METHOD: GET
+09-22 14:12:36.106  7306  7306 I Ktor Client: RESPONSE: 200 OK
+09-22 14:12:36.106  7306  7306 I Ktor Client: METHOD: GET
+09-22 14:12:36.106  7306  7306 I Ktor Client: FROM: http://127.0.0.1:4199/api/session/active
+09-22 14:12:37.494  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=69 f=1.000 topY=1178 guard=1109 conf=true geo=true
+09-22 14:12:37.494  7306  7306 D CardExpand: [DEBUG-423] pin done stable=44 ms=2542 confirmed=true
+09-22 14:12:37.496  7306  7306 D PRD     : E1 DRAW t=219034755027953 drawF=0.302 boxH=69.0 clipPx=20 residual=69 topY=1178
+09-22 14:12:37.506  7306  7306 D PRD     : E1 DRAW t=219034764435922 drawF=0.308 boxH=69.0 clipPx=21 residual=69 topY=1178
+09-22 14:12:37.510  7306  7306 D PRD     : E1 DRAW t=219034768365349 drawF=0.320 boxH=69.0 clipPx=22 residual=69 topY=1178
+09-22 14:12:37.522  7306  7306 D PRD     : E1 DRAW t=219034780364203 drawF=0.338 boxH=69.0 clipPx=23 residual=69 topY=1178
+09-22 14:12:37.535  7306  7306 D PRD     : E1 DRAW t=219034793490089 drawF=0.382 boxH=69.0 clipPx=26 residual=69 topY=1178
+09-22 14:12:37.543  7306  7306 D PRD     : E1 DRAW t=219034801683266 drawF=0.455 boxH=69.0 clipPx=31 residual=69 topY=1178
+09-22 14:12:37.551  7306  7306 D PRD     : E1 DRAW t=219034809230193 drawF=0.515 boxH=69.0 clipPx=35 residual=69 topY=1178
+09-22 14:12:37.559  7306  7306 D PRD     : E1 DRAW t=219034817614880 drawF=0.581 boxH=69.0 clipPx=40 residual=69 topY=1178
+09-22 14:12:37.568  7306  7306 D PRD     : E1 DRAW t=219034826201235 drawF=0.644 boxH=69.0 clipPx=44 residual=69 topY=1178
+09-22 14:12:37.576  7306  7306 D PRD     : E1 DRAW t=219034834603578 drawF=0.702 boxH=69.0 clipPx=48 residual=69 topY=1178
+09-22 14:12:37.585  7306  7306 D PRD     : E1 DRAW t=219034843403474 drawF=0.752 boxH=69.0 clipPx=51 residual=69 topY=1178
+09-22 14:12:37.593  7306  7306 D PRD     : E1 DRAW t=219034851305766 drawF=0.794 boxH=69.0 clipPx=54 residual=69 topY=1178
+09-22 14:12:37.601  7306  7306 D PRD     : E1 DRAW t=219034859321755 drawF=0.830 boxH=69.0 clipPx=57 residual=69 topY=1178
+09-22 14:12:37.609  7306  7306 D PRD     : E1 DRAW t=219034867384464 drawF=0.859 boxH=69.0 clipPx=59 residual=69 topY=1178
+09-22 14:12:37.618  7306  7306 D PRD     : E1 DRAW t=219034876388735 drawF=0.885 boxH=69.0 clipPx=61 residual=69 topY=1178
+09-22 14:12:37.626  7306  7306 D PRD     : E1 DRAW t=219034884680505 drawF=0.907 boxH=69.0 clipPx=62 residual=69 topY=1178
+09-22 14:12:37.635  7306  7306 D PRD     : E1 DRAW t=219034893079308 drawF=0.925 boxH=69.0 clipPx=63 residual=69 topY=1178
+09-22 14:12:37.642  7306  7306 D PRD     : E1 DRAW t=219034900396339 drawF=0.941 boxH=69.0 clipPx=64 residual=69 topY=1178
+09-22 14:12:37.650  7306  7306 D PRD     : E1 DRAW t=219034909033683 drawF=0.954 boxH=69.0 clipPx=65 residual=69 topY=1178
+09-22 14:12:37.660  7306  7306 D PRD     : E1 DRAW t=219034918187745 drawF=0.965 boxH=69.0 clipPx=66 residual=69 topY=1178
+09-22 14:12:37.668  7306  7306 D PRD     : E1 DRAW t=219034926149776 drawF=0.975 boxH=69.0 clipPx=67 residual=69 topY=1178
+09-22 14:12:37.677  7306  7306 D PRD     : E1 DRAW t=219034935252224 drawF=0.982 boxH=69.0 clipPx=67 residual=69 topY=1178
+09-22 14:12:37.684  7306  7306 D PRD     : E1 DRAW t=219034942592433 drawF=0.988 boxH=69.0 clipPx=68 residual=69 topY=1178
+09-22 14:12:37.693  7306  7306 D PRD     : E1 DRAW t=219034951549516 drawF=0.993 boxH=69.0 clipPx=68 residual=69 topY=1178
+09-22 14:12:37.702  7306  7306 D PRD     : E1 DRAW t=219034960246703 drawF=0.996 boxH=69.0 clipPx=68 residual=69 topY=1178
+09-22 14:12:37.709  7306  7306 D PRD     : E1 DRAW t=219034967354672 drawF=0.998 boxH=69.0 clipPx=68 residual=69 topY=1178
+09-22 14:12:37.717  7306  7306 D PRD     : E1 DRAW t=219034975634151 drawF=1.000 boxH=69.0 clipPx=68 residual=69 topY=1178
+09-22 14:12:37.726  7306  7306 D PRD     : E1 PLACED t=219034984920505 topY=1178 rep=69 abs=69 f=1.000 fii=7 fiso=69
+09-22 14:12:37.727  7306  7306 D PRD     : E1 DRAW t=219034985760141 drawF=1.000 boxH=69.0 clipPx=69 residual=0 topY=1178
+09-22 14:12:37.733  7306  7306 D CardExpand: [DEBUG-422] episode done f=1.000 totalMs=2814 completed=true pinPending=false
+09-22 14:12:41.027  7306  7306 I MIUIInput: [MotionEvent] ViewRootImpl windowName 'dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity', { action=ACTION_DOWN, id[0]=0, pointerCount=1, eventTime=219038283, downTime=219038283, phoneEventTime=1790057561025 } moveCount:0
+09-22 14:12:41.027  7306  7306 D VRI[MainActivity]: getMiuiFreeformStackInfo mTmpFrames.miuiFreeFormStackInfo: null
+09-22 14:12:41.035  7306  7306 I MIUIInput: [MotionEvent] ViewRootImpl windowName 'dev.leonardo.ocbeacon.dev/dev.leonardo.ocbeacon.MainActivity', { action=ACTION_UP, id[0]=0, pointerCount=1, eventTime=219038283, downTime=219038283, phoneEventTime=1790057561025 } moveCount:0
+09-22 14:12:41.038  7306  7306 W RB-EXP  : [DEBUG-rbexp] toggle id=9fb32ddf -> false from=getStackTrace<-toggleToolExpanded<-ChatScreen$lambda$94$0<-$r8$lambda$d4F2An_3XtOWujyCtZU0NSfEZxQ<-invoke<-PartContentInner_0JaWfxQ$lambda$21$0
+09-22 14:12:41.053  7306  7306 D ItemDiag: Turn item key=t_msg_0bfce4ea4001 role=assistant grp=1
+09-22 14:12:41.055  7306  7306 D InjCard : render id=msg_0bfce4e76001lSFh3Kkxygzcyw kind=null role=user nParts=1
+09-22 14:12:41.056  7306  7306 D ItemDiag: Turn item key=t_msg_0bfba5c07001 role=assistant grp=2
+09-22 14:12:41.070  7306 13704 I do.ocbeacon.dev: Compiler allocated 7063KB to compile void dev.leonardo.ocbeacon.ui.screens.chat.ChatScreenBottomBarKt.ChatScreenBottomBar(dev.leonardo.ocbeacon.ui.screens.chat.ChatViewModel, dev.leonardo.ocbeacon.ui.screens.chat.SessionMetaState, boolean, dev.leonardo.ocbeacon.ui.screens.chat.MessageListState, dev.leonardo.ocbeacon.ui.screens.chat.InteractionState, dev.leonardo.ocbeacon.ui.screens.chat.ModelConfigState, boolean, boolean, java.util.List, java.util.Set, boolean, java.util.List, dev.leonardo.ocbeacon.ui.screens.chat.input.ChatAttachmentsHandler, dev.leonardo.ocbeacon.ui.screens.chat.RevertedDraftPayload, kotlin.jvm.functions.Function1, androidx.compose.ui.text.input.TextFieldValue, kotlin.jvm.functions.Function1, kotlin.jvm.functions.Function1, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function1, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function1, kotlinx.coroutines.CoroutineScope, androidx.compose.material3.SnackbarHostState, kotlin.jvm.functions.Function0, androidx.compose.runtime.Composer, int, int, int, int)
+09-22 14:12:41.082  7306  7306 D ItemDiag: Turn item key=t_msg_0bfce4ea4001 role=assistant grp=1
+09-22 14:12:41.083  7306  7306 D InjCard : render id=msg_0bfce4e76001lSFh3Kkxygzcyw kind=null role=user nParts=1
+09-22 14:12:41.083  7306  7306 D ItemDiag: Turn item key=t_msg_0bfba5c07001 role=assistant grp=2
+09-22 14:12:41.114  7306  7306 D CardExpand: [DEBUG-423] pin-placed err=-69 consumed=-69 cur=1247/1178
+09-22 14:12:41.114  7306  7306 D PRD     : E2 PLACED t=219038372974827 topY=1247 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.127  7306  7306 D ChatScrollController: [DEBUG-drift] atBot=true scrolling=false autoOn=true idx=0 off=0
+09-22 14:12:41.128  7306  7306 W ScrollDiag: LEAP idx 7->0 (dIdx=-7) off 69->0 (dOff=-69) inProgress=false total=22
+09-22 14:12:41.136  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1247 guard=1247 conf=false geo=true
+09-22 14:12:41.138  7306  7306 D PRD     : E2 PLACED t=219038396967952 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.145  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=false geo=true
+09-22 14:12:41.149  7306  7306 D PRD     : E2 PLACED t=219038407413160 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.154  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.156  7306  7306 D PRD     : E2 PLACED t=219038414496337 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.160  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.162  7306  7306 D PRD     : E2 PLACED t=219038420868890 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.166  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.168  7306  7306 D PRD     : E2 PLACED t=219038426963629 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.175  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.177  7306  7306 D PRD     : E2 PLACED t=219038435798785 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.183  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.186  7306  7306 D PRD     : E2 PLACED t=219038444249046 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.191  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.194  7306  7306 D PRD     : E2 PLACED t=219038452969671 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.201  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.205  7306  7306 D PRD     : E2 PLACED t=219038463862952 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.214  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.217  7306  7306 D PRD     : E2 PLACED t=219038475505035 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.221  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.224  7306  7306 D PRD     : E2 PLACED t=219038482443681 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.228  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.230  7306  7306 D PRD     : E2 PLACED t=219038488695400 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.235  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.237  7306  7306 D PRD     : E2 PLACED t=219038495402639 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.242  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.246  7306  7306 D PRD     : E2 PLACED t=219038505143889 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.252  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.254  7306  7306 D PRD     : E2 PLACED t=219038512941389 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.258  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.261  7306  7306 D PRD     : E2 PLACED t=219038519308577 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.266  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.269  7306  7306 D PRD     : E2 PLACED t=219038527224619 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.275  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.277  7306  7306 D PRD     : E2 PLACED t=219038535449619 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.284  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.288  7306  7306 D PRD     : E2 PLACED t=219038546742900 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.294  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.298  7306  7306 D PRD     : E2 PLACED t=219038556389619 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.302  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.305  7306  7306 D PRD     : E2 PLACED t=219038563636754 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.309  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.311  7306  7306 D PRD     : E2 PLACED t=219038569610764 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.316  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.318  7306  7306 D PRD     : E2 PLACED t=219038576702014 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.324  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.327  7306  7306 D PRD     : E2 PLACED t=219038585539306 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.332  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.334  7306  7306 D PRD     : E2 PLACED t=219038592777119 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.342  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.346  7306  7306 D PRD     : E2 PLACED t=219038605023942 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.352  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.355  7306  7306 D PRD     : E2 PLACED t=219038613839931 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.359  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.374  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.378  7306  7306 D PRD     : E2 PLACED t=219038636564462 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.386  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.388  7306  7306 D PRD     : E2 PLACED t=219038646796181 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.391  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.399  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.408  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.417  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.420  7306  7306 D PRD     : E2 PLACED t=219038678473681 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.425  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.432  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.441  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.444  7306  7306 D PRD     : E2 PLACED t=219038703138212 topY=1178 rep=0 abs=69 f=0.000 fii=0 fiso=0
+09-22 14:12:41.450  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.499  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.890  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:41.898  7306  7306 D CardExpand: [DEBUG-423] flush-entry rep=0 f=0.000 topY=1178 guard=1247 conf=true geo=true
+09-22 14:12:43.592  7306  7306 D PRD     : E2 PLACED t=219040850392378 topY=1178 rep=0 abs=0 f=0.000 fii=0 fiso=0
+09-22 14:12:43.598  7306  7306 D CardExpand: [DEBUG-422] episode done f=0.000 totalMs=2521 completed=true pinPending=false

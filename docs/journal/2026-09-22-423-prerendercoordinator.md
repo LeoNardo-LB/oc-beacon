@@ -158,3 +158,10 @@
 **episode 重写**:warmup/settle(H 定格)→ 240ms 逐帧双写循环;钉位武装/FLUSH 修正环/两阶段揭示退役;小组重新门槛化、思考卡回归引擎。
 
 **验收(三通道)**:视频逐帧 dy=0(顶起-闪回消失,旧 topY −1843 瞬态=未绘制中间遍);PAIR 13 帧序列终态 (9,4067) vs 钉稳态 (9,4071) 差 4px;episode 954ms。**未竟**:收起方向(负向回走)与思考卡真机验证被设备链路中断,待补;goal 已建(goal-37ecd24f)。
+
+### 批次九·目标轮 1 补录(2026-09-22 深夜)
+
+- 终验进展:小组展开三通道全绿(视频 dy=0 中段稳定;PAIR 13 帧;REPIN noop y0=y1=1100 交叉验证引擎钉稳)。意外发现:qj1Bj7eSbe8T 为大组(结构+REPIN 路径),REPIN noop y0=413 y1=413 亦稳。119 个"异常"=adb reverse 断开后的 Ktor 网络噪音,非崩溃。
+- **残余缺陷(登记)**:终段泄漏——episode 末 end-restore err=1020(约 22% 配对量):大 δ 帧的反射写入跨多 item 时,LazyListScrollPosition 内部行走的未测 item 尺寸估计偏差致净泄漏;片尾由 end-restore(dispatchRawDelta)兜底产生一次 ~1020px 可见跳变(视频帧 18-19 弱匹配信号)。
+- **修复方向(下轮)**:①终段改"渲染前重校":循环后等 1 帧→读 revealTopY 实测→preRenderScrollBy(err)→下一帧落位(≤1 错误帧,替代 dispatchRawDelta 兜底跳变);②查大 δ 帧的写入丢失根因(逐帧对账 fiso 写入 vs 归一化回读);③收起方向(负向回走)与思考卡真机验证仍缺(设备链路分钟级掉线+adb server 反复被回收,全并单调用模式已可部分绕过)。
+- 设备工作法沉淀:一体化单调用(start-server→mdns→connect→全程)是当前链路唯一稳定形态。
