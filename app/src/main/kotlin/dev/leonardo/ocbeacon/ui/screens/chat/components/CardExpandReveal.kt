@@ -571,6 +571,12 @@ internal fun CardExpandReveal(
                     } finally {
                         clock.programmaticShift = false
                     }
+                    // 离底解跟随(真机定案:预移后 atBot=false 而 autoOn=true,
+                    // 仲裁器集后把整个列表拽回底=「其他元素移动」主诉):
+                    // 位移超阈即视为用户意图离底,关 autoScroll(旧引擎同款钩)
+                    if (H > DEPARTURE_THRESHOLD_PX) {
+                        departure?.invoke()
+                    }
                     // 幕布:纯绘制揭示 0→1(200ms,零布局零滚动)
                     val tC = withFrameNanos { it }
                     var vc = 0f
