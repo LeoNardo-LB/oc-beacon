@@ -206,3 +206,7 @@
 
 **终验(六集,DRAW 绘制级)**:首展 1016ms/二展 817ms/双收 1768+1487ms/思考卡 291+301ms 全 completed;topY 全程 1148 恒定(≤两帧 32px 边界瞬态)。**顶部钉死、下方展开、零补偿环**。
 **存档**:批次十(门控增长)被本架构取代;反射 request-position 保留于负向不可消费域与 LazyListReflection 域。
+
+### 批次十一·补:展开后「其他元素移动」根修(离底解跟随)
+
+用户复检:卡片自身钉死 ok,但点击时其他元素移动。日志定案:预移后 atBot=false 而 autoOn=true——自动跟随仍武装,仲裁器集后拽回底。修:预移超阈即 departure?.invoke()(关 autoScroll,旧引擎同款钩,移植时漏接)。真机:展开后 autoOn=false;收起后 atBot=true autoOn=false。
