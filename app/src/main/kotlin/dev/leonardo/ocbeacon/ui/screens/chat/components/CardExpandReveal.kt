@@ -148,6 +148,60 @@ internal fun applyPreRenderShift(ls: androidx.compose.foundation.lazy.LazyListSt
     }
 }
 
+/**
+ * #427 收起位移终局根因修复：配对派发的残差重试参数（纯决策，JVM 可单测）。
+ * 真机取证（#427 两会话复现）：展开 dispatch 需 +20352 实消费 +14190、收起
+ * 需 −20352 实消费 −14458——**跨锚点巨位移的测量竞态**（派发滚动途中条目重测，
+ * 高度增长/塌缩即时改写可消费空间）令两次欠消费残差不等（6162−5894=268），
+ * 开环单发把差值永久漏成视口净漂：中位列位每展开-收起周期恒 −268px（用户
+ * 实测「收起后整体对话上移一小段」）；列表边缘（可消费空间对称饱和）零漂。
+ * 语义：同相位（渲染前、programmaticShift 豁免内）以「目标−已消费」为下一发
+ * 指令重试至全额——#425 吸收账本语义的最小复活，**不是渲染后补偿**（补偿族
+ * 两次被用户否决；本修复只把「单发配对」补完为「配对到全额」，时序仍在
+ * measure 前的原子相位内）。
+ */
+internal object PairedDispatch {
+    internal const val MAX_TRIES = 4
+
+    /** 下一发指令；null=结束（全额/亚像素/零消费物理边缘/超上限）。 */
+    fun nextCommand(requested: Float, consumed: Float, tries: Int): Float? {
+        if (tries >= MAX_TRIES) return null
+        val remaining = requested - consumed
+        if (abs(remaining) < 0.5f) return null // 整数守恒量化阈（同 advance/onMeasure）
+        if (abs(consumed) < 0.5f) return null // 物理不可消费（边缘/布局未就绪）——余量由布局吸收
+        return remaining
+    }
+}
+
+/**
+ * #427：配对派发执行器——applyPreRenderShift 的全额版（残差重试至目标）。
+ * 展开/收起的原子位移共用；全消费路径与旧行为逐字节一致（首轮即全额）。
+ */
+internal fun applyPairedPreRenderShift(ls: androidx.compose.foundation.lazy.LazyListState, deltaPx: Float): Float {
+    var consumedTotal = 0f
+    try {
+        var requested = deltaPx
+        var tries = 0
+        while (true) {
+            val consumed = ls.dispatchRawDelta(requested)
+            consumedTotal += consumed
+            val next = PairedDispatch.nextCommand(deltaPx, consumedTotal, tries) ?: break
+            requested = next
+            tries++
+        }
+        if (BuildConfig.DEBUG && abs(consumedTotal - deltaPx) >= 0.5f) {
+            AppLogger.d(
+                "CardExpand",
+                "[DEBUG-427] paired-shift target=" + deltaPx.toInt() +
+                    " consumed=" + consumedTotal.toInt() + " tries=" + tries,
+            )
+        }
+    } catch (t: Throwable) {
+        AppLogger.w("CardExpand", "paired pre-shift failed: " + t.message)
+    }
+    return consumedTotal
+}
+
 /** #423 批次四d:hold 呼吸阀——连续拒绘上限(真机证实坐标回调在拒绘遍历中照常
  * 派发,无死锁;阀值仅兜底「贴底残量物理不可约」类永不收敛场景)。 */
 private const val HOLD_VENT_FRAMES = 30
@@ -243,7 +297,11 @@ internal class CardExpandClock(initialFraction: Float) {
      * 本方法与 [onMeasure] 的 report 公式严格一致 → 整数守恒。
      */
     fun advance(newFraction: Float): Float {
-        val target = (newFraction * lastMeasuredH).toInt()
+        // #427 收起位移根因修复：ε 预热窗口(fraction≤WARMUP_FRACTION)上报恒 0——
+        // (fraction×H) 在 20k 级内容上 ε 仍 ~20px 布局残高，±H 配对账本每循环净漂
+        // ~ε·H（真机用户实测「收起后整体上移一小段」；批次十三 0.7px 零视觉标定
+        // 不再成立于大内容）。组合保温(fraction>0)不受影响，仅布局足迹归零。
+        val target = if (newFraction <= WARMUP_FRACTION) 0 else (newFraction * lastMeasuredH).toInt()
         val delta = (target - lastReportedH).toFloat()
         lastReportedH = target
         fraction = newFraction
@@ -261,7 +319,8 @@ internal class CardExpandClock(initialFraction: Float) {
      */
     fun onMeasure(realH: Int): Int {
         lastMeasuredH = realH
-        val report = (fraction * realH).toInt()
+        // #427：同 advance——ε 预热窗口零上报（残高∝H 在大内容上显性为位移净漂）
+        val report = if (fraction <= WARMUP_FRACTION) 0 else (fraction * realH).toInt()
         lastReportedH = report
         return report
     }
@@ -300,6 +359,24 @@ internal class CardExpandClock(initialFraction: Float) {
 
     /** #424:本集内用户滚动取消(cancel-on-scroll 置位)——episode 末闭环位置恢复须跳过。 */
     var userScrollCancelled = false
+
+    /**
+     * #427 收起位移终局根因(F3 定案)：展开集的**实际消费位移**(px,plain)。
+     * 真机取证:展开 dispatch 需 +H 实消费 +14190(可消费空间所限),收起若按
+     * 全高 −rep(−20352)回退则过冲 6162——直接把列表砸到最新端边缘(fii=0
+     * fiso=0),残差漏成每周期恒定视口净漂(中位 −268/小卡 −62,两会话复现)。
+     * 配对契约修正:收起退回**展开实位移**的负值(镜像对称),非内容全高。
+     */
+    var episodeShiftConsumedPx = 0f
+
+    /**
+     * #427(终局)：展开集派发前的锚点状态(fii/fiso,plain)。滚动消费账与几何
+     * 位移账永差条目 padding 一档(实测 2972 vs 2910,差=messageSpacing)——
+     * 位移镜像仍有 ±spacing 残差。收起的正解=**恢复展开前锚点状态**
+     * (scrollToItem 前值,按构造精确);用户滚动过(位置优先权)则回退镜像。
+     */
+    var episodeAnchorItem = -1
+    var episodeAnchorOffset = 0
 
     /**
      * #423 批次十一:程序化位移豁免——dispatchRawDelta 会触发 isScrollInProgress,
@@ -574,7 +651,13 @@ internal fun CardExpandReveal(
                     // 同帧原子;程序化豁免包裹(防取消守卫误杀)
                     clock.programmaticShift = true
                     try {
-                        applyPreRenderShift(listState, H.toFloat())
+                        // #427(终局):记录展开前锚点状态——收起按构造精确恢复
+                        clock.episodeAnchorItem = listState.firstVisibleItemIndex
+                        clock.episodeAnchorOffset = listState.firstVisibleItemScrollOffset
+                        // #427:配对到全额(残差重试)——单发在跨锚点测量竞态下
+                        // 欠消费残差不等=每周期恒定净漂(真机 -268px 定罪)
+                        clock.episodeShiftConsumedPx =
+                            applyPairedPreRenderShift(listState, H.toFloat())
                     } finally {
                         clock.programmaticShift = false
                     }
@@ -627,15 +710,53 @@ internal fun CardExpandReveal(
                     // ② 单步原子闭合(镜像展开的 withMutableSnapshot+dispatch:
                     //   首个放置即含塌缩+位移,中间态从构造上不存在)
                     val rep = clock.lastReportedH
+                    if (BuildConfig.DEBUG) {
+                        AppLogger.d(
+                            "CardExpand",
+                            "[DEBUG-427] close-pre rep=" + rep + " meas=" + clock.lastMeasuredH +
+                                " fii=" + listState.firstVisibleItemIndex +
+                                " fiso=" + listState.firstVisibleItemScrollOffset +
+                                " items=" + listState.layoutInfo.visibleItemsInfo.joinToString("|") { it.index.toString() + ":" + it.size },
+                        )
+                    }
                     clock.tweening = false
                     androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
                         clock.driveTo(0f)
                     }
                     clock.programmaticShift = true
                     try {
-                        applyPreRenderShift(listState, -rep.toFloat())
+                        // #427(终局):收起=恢复展开前锚点状态(scrollToItem 按构造
+                        // 精确——滚动消费账与几何位移账的 padding 口径差从此无关)。
+                        // 用户滚动过(阅读位置优先权铁律)或锚点缺失 → 回退镜像位移。
+                        val backPx = if (clock.episodeShiftConsumedPx != 0f) {
+                            -clock.episodeShiftConsumedPx
+                        } else {
+                            -rep.toFloat()
+                        }
+                        if (!clock.userScrollCancelled && clock.episodeAnchorItem >= 0) {
+                            listState.scrollToItem(clock.episodeAnchorItem, clock.episodeAnchorOffset)
+                            if (BuildConfig.DEBUG) {
+                                AppLogger.d(
+                                    "CardExpand",
+                                    "[DEBUG-427] close-anchor-restore fii=" + clock.episodeAnchorItem +
+                                        " fiso=" + clock.episodeAnchorOffset,
+                                )
+                            }
+                        } else {
+                            applyPairedPreRenderShift(listState, backPx)
+                        }
+                        clock.episodeShiftConsumedPx = 0f
+                        clock.episodeAnchorItem = -1
                     } finally {
                         clock.programmaticShift = false
+                    }
+                    if (BuildConfig.DEBUG) {
+                        AppLogger.d(
+                            "CardExpand",
+                            "[DEBUG-427] close-post fii=" + listState.firstVisibleItemIndex +
+                                " fiso=" + listState.firstVisibleItemScrollOffset +
+                                " items=" + listState.layoutInfo.visibleItemsInfo.joinToString("|") { it.index.toString() + ":" + it.size },
+                        )
                     }
                     curtain.floatValue = 0f
                 }
@@ -666,6 +787,14 @@ internal fun CardExpandReveal(
                 try {
                     withFrameNanos { }
                     withFrameNanos { } // 复测于上一帧 layout 已跑,此处读数可靠
+                    if (BuildConfig.DEBUG) {
+                        AppLogger.d(
+                            "CardExpand",
+                            "[DEBUG-427] close+2f fii=" + listState.firstVisibleItemIndex +
+                                " fiso=" + listState.firstVisibleItemScrollOffset +
+                                " items=" + listState.layoutInfo.visibleItemsInfo.joinToString("|") { it.index.toString() + ":" + it.size },
+                        )
+                    }
                     // 迟到增量补偿:残差走与 tween 帧同一 δ 配对(账本 telescoping),
                     // 上报(report=f·H_new)与位移同帧——不引入 #262 类错位。
                     if (clock.fraction > 0f && clock.lastMeasuredH != clock.lastReportedH) {
@@ -1197,6 +1326,9 @@ private class CardExpandGeometryNode(
     private var cachedMeasurable: Measurable? = null
     private var cachedWidth: Int = Int.MIN_VALUE
     private var cachedAtEpoch = -1
+    // #427 观测：稳态(非动画相)上报高度变化的探针账——收起/展开集之外任何
+    // 高度变化(如 ε 预热残高回树)都是位移净漂的候选源，逐变化留痕。
+    private var lastSteadyReport = Int.MIN_VALUE
 
     override fun onDetach() {
         super.onDetach()
@@ -1239,6 +1371,17 @@ private class CardExpandGeometryNode(
             }
         }
         val report = clock.onMeasure(placeable.height)
+        if (BuildConfig.DEBUG && !clock.animating && report != lastSteadyReport) {
+            if (lastSteadyReport != Int.MIN_VALUE) {
+                AppLogger.d(
+                    "CardExpand",
+                    "[DEBUG-427] steady-report d=" + (report - lastSteadyReport) +
+                        " rep=" + report + " H=" + clock.lastMeasuredH +
+                        " f=" + "%.3f".format(clock.fraction),
+                )
+            }
+            lastSteadyReport = report
+        }
         return layout(placeable.width, report) {
             placeable.placeRelative(0, 0)
         }

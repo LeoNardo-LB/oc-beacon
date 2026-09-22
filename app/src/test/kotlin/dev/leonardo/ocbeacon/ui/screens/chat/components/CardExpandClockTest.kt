@@ -28,6 +28,49 @@ class CardExpandClockTest {
         assertEquals(800, c.onMeasure(800))
     }
 
+    /**
+     * #427 收起位移根因（用户实测：收起大卡整体对话上移一小段）：ε 预热相位的
+     * 上报高度必须为 0——report=(fraction×H) 在 H=20k 级时 ε=0.001 仍上报 ~20px
+     * 布局残高（批次十三标定 H≈738px 时 0.7px 判零视觉）。该残高在「预热在树
+     * →展开 →收起 →预热回树」循环的 ±H 配对账本里不对称 → 每循环净漂 ~ε·H。
+     * 语义：warmup 相位（fraction ≤ WARMUP_FRACTION）组合保温但零布局足迹。
+     */
+    @Test
+    fun warmupPhaseReportsZeroRegardlessOfHeight() {
+        val c = clock(expanded = false)
+        c.warmup() // fraction = 0.001
+        assertEquals(0, c.onMeasure(20_340))
+        assertEquals(0, c.lastReportedH)
+        assertEquals(20_340, c.lastMeasuredH)
+        // 常规动画相位不受影响（fraction 高于 warmup 窗口照常上报）
+        c.driveTo(0.5f)
+        assertEquals(10_170, c.onMeasure(20_340))
+    }
+
+    /**
+     * #427 收起位移终局根因：配对派发的消费残差重试指令（纯决策）。
+     * 真机取证（两会话复现）：展开 dispatch 需 +20352 实消费 +14190、收起
+     * 需 −20352 实消费 −14458——跨锚点测量竞态下两次欠消费残差不等
+     * (6162−5894=268)，开环单发把差值漏成视口净漂（每周期恒 −268px）。
+     * 决策：同相位（渲染前、程序化豁免内）把未消费余量作为下一发指令重试；
+     * 消费为零（物理边缘/布局未就绪）则停止——不是渲染后补偿，是补完配对。
+     */
+    @Test
+    fun pairedDispatchResidualRetryDecision() {
+        // 全额消费 → 无需重试
+        assertEquals(null, PairedDispatch.nextCommand(20_352f, 20_352f, tries = 0))
+        // 欠消费 → 重试余量
+        assertEquals(6_162f, PairedDispatch.nextCommand(20_352f, 14_190f, tries = 0)!!, 0.5f)
+        // 收起方向对称
+        assertEquals(-5_894f, PairedDispatch.nextCommand(-20_352f, -14_458f, tries = 0)!!, 0.5f)
+        // 亚像素残差 → 结束（整数守恒量化阈）
+        assertEquals(null, PairedDispatch.nextCommand(20_352f, 20_351.6f, tries = 0))
+        // 零消费（物理不可约边缘）→ 停止，余量由布局吸收
+        assertEquals(null, PairedDispatch.nextCommand(20_352f, 0f, tries = 0))
+        // 有界重试：上限后放弃（防不可收敛死循环）
+        assertEquals(null, PairedDispatch.nextCommand(20_352f, 14_190f, tries = 4))
+    }
+
     @Test
     fun expandConservation() {
         val c = clock(expanded = false)
