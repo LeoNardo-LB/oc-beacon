@@ -282,16 +282,11 @@ internal fun ReasoningBlock(
                     // #215 批3：chevron IconButton 移除——本体点击=展开唯一入口
                 }
 
-                // 批次八(2026-09-22 用户复检定案):弃原地揭示引擎——真机日志
-                // 实测每次展开 13+ 次爬行修正(err 80→1,350ms+)且连点 ±80 锚点
-                // 振荡(#425 携带病)。改瞬时显隐(仅淡入淡出,零尺寸动画)+
-                // REPIN 单发实测重锚(与组折叠行同机制:点击快照→新鲜放置→
-                // 一次 dispatchRawDelta 归位)。流式增长不变(SSE 补偿域)。
-                AnimatedVisibility(
-                    visible = expanded,
-                    enter = fadeIn(tween(AppMotion.SHORT)),
-                    exit = fadeOut(tween(AppMotion.SHORT)),
-                ) {
+                // 批次九(用户裁决 2026-09-22):回归统一高度控制引擎——
+                // CardExpandReveal 已改造为「渲染前计算+反射逐帧设置」双写契约
+                // (高度分数与滚动位同遍 measure 原子生效,配对构造性精确),
+                // 批次八的瞬时显隐+REPIN 后置修正模式退役。
+                CardExpandReveal(visible = expanded) {
                     // 2026-09-20 单行形态:展开区左竖线(Roo 式,与工具卡同语言;
                     // 修饰在 Reveal content 内部——#420 硬地板教训)
                     val guideColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)

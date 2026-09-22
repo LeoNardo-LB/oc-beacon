@@ -474,7 +474,11 @@ fun ChatMessageList(
                     ?: return@forEachIndexed
                 // 注:流式豁免由 buildChatEntries 单点门控(!isStreamingTurn,有单测
                 // 兜底)——此处仅做候选收集,两处 gate 语义见 isMultiMessageTurn 先例
-                if (toolExpandedStatesSnapshot[stepGroupStateKey(sg.msgId)] == true) {
+                // 批次九(用户裁决):小组回归统一高度控制引擎(渲染前计算+反射
+                // 逐帧设置),结构裂变退回大组专属(#422 历史懒加载域)。
+                if (toolExpandedStatesSnapshot[stepGroupStateKey(sg.msgId)] == true &&
+                    turnItemWeight(sg) >= LARGE_STEP_GROUP_WEIGHT
+                ) {
                     val tk = "t_" + (turnGroups[rawIdx]?.firstOrNull()?.message?.id ?: msg.message.id)
                     out[tk] = sg
                 }

@@ -302,4 +302,45 @@ internal object LazyListReflection {
     // 当年 #222 定因链（测量中途注入被 updateFromMeasureResult 回写覆盖）
     // 在新通道不成立：帧界注入时上一遍已完全结束，无中途覆盖窗口——
     // request-position 通道由此成为无崩溃且无回写竞争的最终形态。
+
+    /**
+     * #423 批次九(用户裁决 2026-09-22):统一高度控制——渲染前逐帧滚动配对。
+     *
+     * 卡片展开/收起的逐帧滚动配对通道:高度分数(官方,measure 相读取)与滚动位
+     * (本反射写)在**同一次 measure 遍**原子生效——配对从构造上精确,无
+     * dispatchRawDelta 的消费语义(增长未落地时 consumed=0=永远差一拍)。
+     *
+     * 数学(批次四标定反推):增长 δ 使折叠行上移 δ;滚动位前进 δ(fiso+=δ)使
+     * 折叠行下移 δ——逐帧双写=净零。正向偏移越界由 LazyListMeasure 遍内自行
+     * 归一化(跨 item 行走,无需本地尺寸表);负向(收起)以 layoutInfo 尺寸
+     * 手动回走,尺寸不可得帧跳过配对(日志留痕)。
+     *
+     * 帧时机:episode 协程 withFrameNanos 回调相(Choreographer 动画相)调用,
+     * 早于当帧 measure——即「渲染前设置」。
+     */
+    fun preRenderScrollBy(state: LazyListState, delta: Float) {
+        if (delta == 0f) return
+        val idx = state.firstVisibleItemIndex
+        var off = state.firstVisibleItemScrollOffset + delta.toInt()
+        var i = idx
+        if (off < 0) {
+            // 负向回走:收起方向,尺寸取自上帧 layoutInfo(动画中视口稳定)
+            val sizes = state.layoutInfo.visibleItemsInfo.associate { it.index to it.size }
+            while (off < 0 && i > 0) {
+                val s = sizes[i - 1] ?: run {
+                    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                        AppLogger.d(
+                            "LazyListReflection",
+                            "preRenderScrollBy skip: size[" + (i - 1) + "] unknown, off=" + off,
+                        )
+                    }
+                    return
+                }
+                i--
+                off += s
+            }
+            if (off < 0) return // 列首边缘:无处可退,放弃本帧配对(贴底由上方吸收)
+        }
+        requestScrollToItemNoCancel(state, i, off)
+    }
 }

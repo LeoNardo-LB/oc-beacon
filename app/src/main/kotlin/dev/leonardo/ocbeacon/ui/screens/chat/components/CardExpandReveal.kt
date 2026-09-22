@@ -470,112 +470,80 @@ internal fun CardExpandReveal(
         // 快速反向 toggle 取消旧集 → finally 必释放;新集立即重持(计数语义)。
         PreRenderCoordinator.withEpisode {
         val target = if (visible) 1f else 0f
-        // #423 批次三:入口扩展——钉位未收敛(跨回收续跑)也进集,即使 fraction 已达。
         val needsEpisode = abs(clock.fraction - target) > 0.001f
-        if (needsEpisode || (target > 0f && pinPending.value)) {
+        if (needsEpisode) {
+            // 批次九(用户裁决 2026-09-22):统一高度控制——渲染前计算 + 反射逐帧
+            // 设置。钉位武装/FLUSH 修正环/两阶段揭示全部退役:高度分数与滚动位
+            // 在同一遍 measure 原子生效,配对从构造上精确(零补偿、零修正环)。
             episodeSeq.intValue = episodeSeq.intValue + 1
             clock.animating = true
             clock.beginEpisode()
             clock.pinTargetFraction = target
-            // 批次四e:账本重开——基线=当下报告,派发清零(续跑集重锚同理)
-            pinLedgerBase.floatValue = clock.lastReportedH.toFloat()
-            pinDispatchedTotal.floatValue = 0f
             val episodeStart = System.nanoTime()
-            // #425:本集起点锚 = 携带锚(重定向链)或当下实测位置;续跑集沿用 saveable 钉锚。
-            val anchorY = if (needsEpisode) (carriedAnchor.value ?: revealTopY.floatValue) else pinAnchor.floatValue
-            // #423 批次四:收起同样武装钉位——逐步 dispatch 配对退役(真机取证:每步
-            // 配对晚一帧可见 + 硬顶断点后残量一次性塌陷无配对 = 末段顶动),双向统一
-            // 为「布局驱动 + FLUSH 实测钉位」契约。无 FLUSH 宿主(预览/单测)不武装。
-            if (needsEpisode && PreRenderCoordinator.isFlushHostAttached && !anchorY.isNaN()) {
-                pinAnchor.floatValue = anchorY
-                pinPending.value = true
-            }
+            // #425:本集起点锚 = 携带锚(重定向链)或当下实测位置(end-restore 兜底用)
+            val anchorY = carriedAnchor.value ?: revealTopY.floatValue
             var completed = false
             // #431→#423 批次四:闭环尾循环整体退役(展开向 Phase A 绕过、收起向并入
             // 钉位契约);续跑集(回收后钉位续)不重跑 settle/A/B 相,由下方分支结构保证。
             try {
-                if (target > 0f && needsEpisode) {
-                    // #420 预热:content 入树开始首测(ε·H<1px 零视觉)。注意
-                    // lastMeasuredH==0 判定已移除:collapse 末 content 离树后的
-                    // 重入(reverse toggle/回收复用)同样需要 settle。
+                // ===== 批次九:渲染前计算 =====
+                if (target > 0f) {
+                    // 预热(ε·H<1px 零视觉)+ 内容沉降:H 定格后再开动画——
+                    // 表格 containerWidth 两拍收敛/asyncParse 在此吸收完。
                     clock.warmup()
-                    // #422 内容沉降:表格 containerWidth 两拍收敛、asyncParse
-                    // 完成等「首测后仍有内容驱动重测」在此吸收完,再开缓存
-                    // 窗口——否则 tween 全程锁死在过期 H 上。
                     settleUntilContentStable(clock)
-                    // ===== #425 A 阶段:一次性布局落位 + 同帧全额配对 =====
-                    // 真机定案:展开方向 LazyList 布局多 pass 不稳定(dispatch 时刻
-                    // topY 逐 pass 振荡 ±60px,录屏条带 ±136px 来回震荡)——动画
-                    // 期间布局/滚动参与即震荡。故:report 一次到全高 + 同帧配对
-                    // 全额位移,残量在稳定窗重试;多 pass 混乱全部发生在内容
-                    // 不可见时。随后 B 阶段纯绘制揭示(零布局零滚动)。
-                    // #431 教训:小卡逐帧配对路径已撤——首拍 pending<1 即解除
-                    // drain 武装,后续每帧增长全部无配对(图标条实测卡片被推
-                    // -194px,episode 末 end-restore 一次性跳回=「位置漂移+回跳」,
-                    // 违反卡片视口位置不变量)。小卡空白拍改由 B 阶段跳跃起始
-                    // 消除(见 PHASE_B_JUMP_START),不再走逐帧几何。
-                    drawFraction.floatValue = 0f
-                    clock.tweening = true
-                    clock.driveTo(1f)
-                    // ===== #423 批次三(终):实测钉位替代预测配对 =====
-                    // 批次二的 pre-pair(预测 +H 同遍合并)对贴近锚的小卡(思考卡
-                    // H=146)成立;大 H(4688)跨多 item 的 dispatch=LEAP,触发
-                    // ①#430 反向布局重锚语义雷区(视口甩到无关区域,预测量与
-                    // 折叠行实际位移不符)②item 回收→episode 协程
-                    // LeftCompositionCancellationException 取消,修正循环来不及跑。
-                    // 终局:预测配对退役;增长先落地,FLUSH 相(pre-draw)以实测
-                    // err=钉锚−折叠行屏位 分段修正(±2000/帧,拒绘≤2/帧压住中间
-                    // 态),收敛后面包揭示。无 LEAP→无回收→循环活着。
-                    pinAnchor.floatValue = anchorY
-                    if (PreRenderCoordinator.isFlushHostAttached) pinPending.value = true
-                    val tPin2 = System.nanoTime()
-                    while (pinPending.value && (System.nanoTime() - tPin2) / 1_000_000f < 2500f) {
-                        withFrameNanos { }
-                    }
-                    // 批次四:不强制清除——修正器自收敛(3 稳定/1.5s)清 pinPending,
-                    // B 阶段揭示期间迟到增长仍在钉位保护内(集内 pin 环已退役)。
-                    clock.tweening = false
-                    // ===== #425 B 阶段:纯绘制揭示(drawFraction JUMP→1) =====
-                    // #431:B 不再从 0 起坡——A 落地帧排干完成时已跳跃起始
-                    // (drainPhaseA 内,同帧 pre-draw),消除「高度到位但内容
-                    // 不可见」的空白拍(小卡四拍顿挫的残余根因)。
-                    val tDraw = withFrameNanos { it }
-                    var vtDraw = 0f
-                    while (vtDraw < GEOMETRY_TWEEN_MS) {
-                        val nowD = withFrameNanos { it }
-                        vtDraw = minOf(
-                            ((nowD - tDraw) / 1_000_000f).coerceAtLeast(0f),
-                            vtDraw + MAX_FRAME_STEP_MS,
-                        )
-                        val p = (vtDraw / GEOMETRY_TWEEN_MS).coerceIn(0f, 1f)
-                        drawFraction.floatValue = PHASE_B_JUMP_START +
-                            (1f - PHASE_B_JUMP_START) * FastOutSlowInEasing.transform(p)
-                    }
-                    drawFraction.floatValue = 1f
-                } else {
-                    // #423 批次四:收起并入统一契约——一次性布局塌陷 + FLUSH 实测钉位。
-                    // 退役逐步 dispatch 配对,真机取证(09-22):每帧 270-670ms 重组卡顿下
-                    // 配对晚一帧可见(逐步跳变),wall>EPISODE_HARD_CAP 断点逃逸后剩余
-                    // ~4300px 在收尾一次性塌陷无配对 → 末段大顶动;end-restore 又被内容
-                    // 离树后的陈旧坐标骗过(err=0 不修正)→ 漂移残留(DOM 实测净移)。
-                    drawFraction.floatValue = 1f
-                    clock.tweening = true
-                    clock.driveTo(0f)
-                    val tPinC = System.nanoTime()
-                    while (pinPending.value && (System.nanoTime() - tPinC) / 1_000_000f < 2500f) {
-                        withFrameNanos { }
-                    }
-                    pinPending.value = false
-                    clock.tweening = false
                 }
-                // #423 批次四:集内 pin 环(±2000 分段、可见帧 dispatch)退役——
-                // 无拒绘保护的修正 = 「顶一下再跳回」的直接来源(用户 09-22 报告①)。
-                // 钉位唯一路径 = 下方 LaunchedEffect(pinPending) 的 FLUSH 修正器。
-                clock.primeLedger()
-                // #423 批次四:闭环逐帧 dispatch 配对整体退役——展开向批次三已绕过,
-                // 收起向本批并入钉位契约(每步配对晚一帧可见 + 硬顶断点残量无配对)。
-                // 位移配对唯一路径 = FLUSH 实测钉位修正器;此处仅保留账本底座
-                // (primeLedger)供 finally 迟到增量兜底。缓动/钳制/反馈式全数下线。
+                // ===== 批次九:逐帧渲染前双写(统一高度控制契约) =====
+                // 每帧(Choreographer 动画相回调,早于当帧 measure):
+                //   1) 高度:clock.driveTo(f)——几何节点 measure 相官方读取;
+                //   2) 滚动:preRenderScrollBy(δ)——反射绝对位写入,同遍
+                //      measure 遍首消费。dispatchRawDelta 的消费语义(增长未
+                //      落地时 consumed=0,永远差一拍)从构造上消失。
+                // 数学(批次四标定反推):增长 δ 上移折叠行 δ;滚动位前进 δ
+                // (fiso+=δ,正向越界由 measure 遍内自行归一化)下移折叠行 δ
+                // ——逐帧双写=净零,折叠行屏位构造性不动。
+                drawFraction.floatValue = 1f
+                clock.tweening = true
+                val H = clock.lastMeasuredH
+                var lastRep = clock.lastReportedH
+                val startF = clock.fraction
+                val t0 = withFrameNanos { it }
+                var vt = 0f
+                while (vt < GEOMETRY_TWEEN_MS) {
+                    val now = withFrameNanos { it }
+                    if (clock.userScrollCancelled) break // 用户滚动优先权铁律
+                    vt = minOf(
+                        ((now - t0) / 1_000_000f).coerceAtLeast(0f),
+                        vt + MAX_FRAME_STEP_MS,
+                    )
+                    val f = easedFraction(startF, target, vt)
+                    val rep = (f * H).toInt()
+                    val delta = (rep - lastRep).toFloat()
+                    clock.driveTo(f)
+                    if (abs(delta) >= 0.5f) {
+                        LazyListReflection.preRenderScrollBy(listState, delta)
+                    }
+                    lastRep = rep
+                    if (BuildConfig.DEBUG) {
+                        AppLogger.d(
+                            "PRD",
+                            "E" + episodeSeq.intValue + " PAIR vt=" + vt.toInt() +
+                                " f=" + "%.3f".format(f) + " rep=" + rep + " d=" + delta.toInt() +
+                                " fii=" + listState.firstVisibleItemIndex +
+                                " fiso=" + listState.firstVisibleItemScrollOffset +
+                                " topY=" + revealTopY.floatValue.toInt(),
+                        )
+                    }
+                }
+                // 收尾:虚拟时钟终点精确落位 + 余量配对
+                if (!clock.userScrollCancelled) {
+                    clock.driveTo(target)
+                    val endDelta = ((target * H).toInt() - lastRep).toFloat()
+                    if (abs(endDelta) >= 0.5f) {
+                        LazyListReflection.preRenderScrollBy(listState, endDelta)
+                    }
+                }
+                clock.tweening = false
                 completed = true
             } catch (t: Throwable) {
                 // #423 批次三诊断:区分取消/异常(真机大组集 54ms 早退未明因)
@@ -611,7 +579,11 @@ internal fun CardExpandReveal(
                                     (clock.lastMeasuredH - clock.lastReportedH) + " H=" + clock.lastMeasuredH,
                             )
                         }
-                        dispatchClosedLoop(listState, clock, departure, clock.fraction, anchorY, revealTopY.floatValue)
+                        // 批次九:迟到增量兜底同走反射逐帧通道(渲染前配对)
+                        val lateDelta = (clock.lastMeasuredH - clock.lastReportedH).toFloat()
+                        if (abs(lateDelta) >= 0.5f) {
+                            LazyListReflection.preRenderScrollBy(listState, lateDelta)
+                        }
                     }
                 } catch (_: CancellationException) {
                     // 取消(snap)路径:落位已由 snap 完成,无需补偿
