@@ -119,6 +119,9 @@ private const val WARMUP_FRACTION = 0.001f
  */
 private const val PHASE_B_JUMP_START = 0.3f
 
+/** #423 批次十终式:门控增长的钉稳窗(px)——亏空回窗内才推进高度。 */
+private const val PIN_GATE_PX = 8f
+
 /** #423 批次四d:hold 呼吸阀——连续拒绘上限(真机证实坐标回调在拒绘遍历中照常
  * 派发,无死锁;阀值仅兜底「贴底残量物理不可约」类永不收敛场景)。 */
 private const val HOLD_VENT_FRAMES = 30
@@ -332,6 +335,15 @@ internal fun CardExpandReveal(
     // 以实测对账修正开环 δ 账本累积的视口漂移(边缘残量/锚点翻转会计误差)。
     val revealTopY = remember { androidx.compose.runtime.mutableFloatStateOf(Float.NaN) }
 
+    /**
+     * #423 批次十:绘制真值(在 drawWithContent 内采样——该时刻读到的布局值
+     * 即实际渲染值,天然过滤多遍测量的幻影放置)。逐帧双写的闭环反馈源:
+     * 真机绘制级定案(s21 DRAW 时间线):状态写入精确(fiso 增量==δ)但视觉
+     * 传递函数≈0.35(写 72 仅移 25,单调上爬 47px=用户「顶」观感)——开环
+     * 数学正确、传递函数失真,必须以绘制真值闭环补偿。
+     */
+    val drawnTopY = remember { androidx.compose.runtime.mutableFloatStateOf(Float.NaN) }
+
     // #425 连点竞态:反向 toggle 取消上一集时携带其锚点——否则新集以「漂后
     // 位置」起锚,逐集链式泄漏(真机 24 连点净漂 −73px)。正常完成/用户滚动
     // 取消则清空(下次以当下位置重新起锚)。
@@ -509,13 +521,31 @@ internal fun CardExpandReveal(
                 val startF = clock.fraction
                 val t0 = withFrameNanos { it }
                 var vt = 0f
-                while (vt < GEOMETRY_TWEEN_MS) {
+                // ===== 批次十终式:门控增长(不变量优先) =====
+                // 根因(绘制级定案):滚写视觉生效滞后高度增长 2-3 帧——组卡中段
+                // 超前 ~2655px=头行飞出屏再回(用户「顶上去再下来」);小卡单调
+                // 爬 47px 同源。反馈助推(0.3/1.0 增益)均振荡或留残——滞后系统
+                // 不可用同量级前馈/反馈消差。终式:亏空未回窗(PIN_GATE_PX)前
+                // **不推进高度**(vt 冻结,滚写在途量自然落地)——「顶部钉死」
+                // 从构造上成立;动画时长让位于不变量(墙帽 1.5s 兜底)。
+                val tHard = System.nanoTime()
+                while (true) {
                     val now = withFrameNanos { it }
                     if (clock.userScrollCancelled) break // 用户滚动优先权铁律
-                    vt = minOf(
-                        ((now - t0) / 1_000_000f).coerceAtLeast(0f),
-                        vt + MAX_FRAME_STEP_MS,
-                    )
+                    if ((System.nanoTime() - tHard) / 1_000_000f > 1500f) break
+                    // 冷启动洞修补:首帧尚无绘制真值时门必须闭合(NaN→deficit=0
+                    // 会让门误开,展开偷跑 58px/收起 276px 实测)——无真值=不推进
+                    val haveTruth = !anchorY.isNaN() && !drawnTopY.floatValue.isNaN()
+                    val deficit = if (haveTruth) anchorY - drawnTopY.floatValue else Float.MAX_VALUE
+                    val vtDone = vt >= GEOMETRY_TWEEN_MS
+                    if (vtDone && haveTruth && abs(deficit) < PIN_GATE_PX) break
+                    if (!vtDone && haveTruth && abs(deficit) < PIN_GATE_PX) {
+                        // 钉稳门开:虚拟时钟才前进(墙钟追赶+单帧步钳)
+                        vt = minOf(
+                            ((now - t0) / 1_000_000f).coerceAtLeast(0f),
+                            vt + MAX_FRAME_STEP_MS,
+                        )
+                    }
                     val f = easedFraction(startF, target, vt)
                     val rep = (f * H).toInt()
                     val delta = (rep - lastRep).toFloat()
@@ -528,10 +558,10 @@ internal fun CardExpandReveal(
                         AppLogger.d(
                             "PRD",
                             "E" + episodeSeq.intValue + " PAIR vt=" + vt.toInt() +
+                                " def=" + deficit.toInt() +
                                 " f=" + "%.3f".format(f) + " rep=" + rep + " d=" + delta.toInt() +
                                 " fii=" + listState.firstVisibleItemIndex +
-                                " fiso=" + listState.firstVisibleItemScrollOffset +
-                                " topY=" + revealTopY.floatValue.toInt(),
+                                " fiso=" + listState.firstVisibleItemScrollOffset,
                         )
                     }
                 }
@@ -899,6 +929,7 @@ internal fun CardExpandReveal(
                     .drawWithContent {
                         // #425 B 阶段纯绘制揭示:clipRect 高度系数,只重绘不重排
                         val w = drawFraction.floatValue
+                        drawnTopY.floatValue = revealTopY.floatValue // 批次十:绘制真值采样
                         if (BuildConfig.DEBUG && clock.animating) {
                             AppLogger.d(
                                 "PRD",
