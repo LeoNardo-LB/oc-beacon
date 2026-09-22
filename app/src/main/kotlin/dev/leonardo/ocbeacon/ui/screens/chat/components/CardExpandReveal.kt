@@ -535,7 +535,10 @@ internal fun CardExpandReveal(
                         )
                     }
                 }
-                // 收尾:虚拟时钟终点精确落位 + 余量配对
+                // 收尾:虚拟时钟终点精确落位 + 余量配对(不再做实测重校——
+                // 轮2 视频实锤:放置回调在迟沉降窗报多遍瞬态幻影坐标,任何基于
+                // 它的修正(重校环/end-restore)都在过冲并制造可见终端抖动;
+                // 中段双写的数学本身已被视频 dy≈0 与终态滚动位≈钉稳态证实)
                 if (!clock.userScrollCancelled) {
                     clock.driveTo(target)
                     val endDelta = ((target * H).toInt() - lastRep).toFloat()
@@ -588,9 +591,11 @@ internal fun CardExpandReveal(
                 } catch (_: CancellationException) {
                     // 取消(snap)路径:落位已由 snap 完成,无需补偿
                 }
-                // #424 闭环位置恢复:正常完成(反向 toggle 重启/用户滚动取消不修)时,
-                // 实测 reveal 顶缘与本集起点的偏差并单次修正 dispatch 回起点。
-                if (completed) {
+                // #424 闭环位置恢复——批次九轮2 退役:迟沉降窗的 revealTopY 报
+                // 多遍瞬态幻影坐标(视频实锤:屏面稳定时它报 −230→1426 爬升),
+                // 基于它的修正必过冲并制造可见终端抖动;中段双写数学已被视频
+                // dy≈0 与终态滚动位≈钉稳态双证。episodeEndCorrection 保留供单测。
+                if (completed && !LazyListReflection.probesResolved) {
                     val err = episodeEndCorrection(anchorY, revealTopY.floatValue, clock.userScrollCancelled)
                     if (err != null && err != 0f) {
                         val consumed = runCatching { listState.dispatchRawDelta(err) }.getOrDefault(0f)

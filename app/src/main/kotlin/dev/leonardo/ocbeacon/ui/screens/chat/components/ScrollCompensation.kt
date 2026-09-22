@@ -266,6 +266,9 @@ internal object LazyListReflection {
     // #423 Phase 0 起经 resolveLazyListProbes 统一解析(可测缝,见 LazyListReflectionTest)。
     private val probes: LazyListProbes? = resolveLazyListProbes()
 
+    /** 批次九轮2:反射探针可用(=逐帧双写通道在役)。end-restore 据此让位。 */
+    val probesResolved: Boolean get() = probes != null
+
     // #258 换道手术（2026-08-29）：scrollToBeConsumed 反射直写已整体删除——
     // 用户 drag 起手经 onScroll（LazyListState.kt:492）对该残量有
     // checkPrecondition 断言，直写与用户输入根本竞态（真机 FATAL 实证）。
