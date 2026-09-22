@@ -1254,6 +1254,16 @@ private fun StepGroupCard(
     val toolExpandedStates = LocalToolExpandedStates.current
     val stateKey = stepGroupStateKey(step.msgId)
     val expanded = toolExpandedStates[stateKey] ?: false
+    // #427 P3:切片表+片高账本提升到卡体(收起时引擎会把内容(fraction 门控)
+    // 整体离树——放在内容里的 rememberSaveable 随之弃置,账本每次收起清零,
+    // 二次展开永远冷;卡体随折叠行常驻,账本跨收起/展开存活)。
+    val stepSlices = androidx.compose.runtime.remember(step.groups) {
+        sliceStepGroupBodies(step.groups)
+    }
+    val stepFingerprints = androidx.compose.runtime.remember(stepSlices) {
+        stepSlices.map { sliceFingerprint(it) }
+    }
+    val stepLedger = rememberStepGroupLedger(step.msgId)
     Column(modifier = Modifier.fillMaxWidth()) {
         StepGroupFoldRow(step = step)
         CardExpandReveal(visible = expanded, cacheKey = step.msgId) {
@@ -1277,7 +1287,7 @@ private fun StepGroupCard(
                 }
                 if (!heavyComposed) {
                     Spacer(modifier = Modifier.fillMaxWidth().height(24.dp))
-                } else {
+                } else if (!stepGroupNeedsSlicing(step.groups)) {
                 ChunkAssistantItems(
                     items = step.groups.map { RenderItem.GroupedParts(it) },
                     textColor = textColor,
@@ -1292,8 +1302,59 @@ private fun StepGroupCard(
                 )
                 // #423 批次三:组尾收起行——多屏内容不必滚回顶部折叠行才能收起
                 StepGroupFoldRow(step = step)
+                } else {
+                // #427 P3:大组切片+窗口化——组合成本与「视口±1 屏」成正比、
+                // 与内容总高无关(展开 ε 组合/收起弃树都只付窗口内的钱);片高
+                // 空闲预量入账本,总高=Σ片高对引擎透明(lastMeasuredH 即 Σ)。
+                // 小组路径(上方分支)零改动——spec 用户故事 8。切片/账本在卡体
+                // 上方已备,此处仅建窗口规格(捕获卡体级实例,收起后存活)。
+                val spec = androidx.compose.runtime.remember(stepFingerprints, stepLedger) {
+                    StepGroupWindowSpec(
+                        sliceCount = stepSlices.size,
+                        heightOf = { i -> stepLedger.heightOf(stepFingerprints[i]) },
+                        isWarm = { stepLedger.isWarm(stepFingerprints) },
+                        onMeasured = { i, h, w ->
+                            stepLedger.record(w, stepFingerprints[i], h)
+                            stepLedger.prune(stepFingerprints)
+                        },
+                    )
+                }
+                StepGroupWindowedBody(spec = spec) { i ->
+                    ChunkAssistantItems(
+                        items = stepSlices[i].map { RenderItem.GroupedParts(it) },
+                        textColor = textColor,
+                        isAmoled = isAmoled,
+                        onViewSubSession = onViewSubSession,
+                        onOpenFile = onOpenFile,
+                        onLocateTask = onLocateTask,
+                        eventExpandedStates = eventExpandedStates,
+                        renderableTurn = renderableTurn,
+                        compact = compact,
+                        readinessRegistry = readinessRegistry,
+                    )
+                }
+                // #423 批次三:组尾收起行——多屏内容不必滚回顶部折叠行才能收起
+                StepGroupFoldRow(step = step)
                 }
             }
         }
     }
+}
+
+/**
+ * #427:片高账本随卡持久化(rememberSaveable,机制同引擎 finalH 缓存)——
+ * 条目回收/滚动离屏后二次展开账本即热(零等待,spec 用户故事 4)。
+ */
+@Composable
+private fun rememberStepGroupLedger(msgId: String): StepGroupHeightLedger {
+    val saver = androidx.compose.runtime.remember {
+        androidx.compose.runtime.saveable.Saver<StepGroupHeightLedger, String>(
+            save = { it.encode() },
+            restore = { StepGroupHeightLedger.fromEncoded(it) },
+        )
+    }
+    return androidx.compose.runtime.saveable.rememberSaveable(
+        stateSaver = saver,
+        key = "sg_ledger_" + msgId,
+    ) { androidx.compose.runtime.mutableStateOf(StepGroupHeightLedger()) }.value
 }
