@@ -483,6 +483,24 @@ fun ChatMessageList(
         }
     }
 
+    // ===== #423 批次七:结构裂变单发实测重锚 =====
+    // 底贴态逐帧验证(dy=0)框架锚定自稳;用户滚动态(组下方有屏外新内容)插入
+    // 条目把头行顶走(用户主诉「整个对话往上顶」)。修:toggle 瞬间快照折叠行
+    // 屏位 → 条目重建后测新位 → 单发 dispatchRawDelta(err) 归位(与 FLUSH 修正
+    // 器同号性约定)。底贴态 err≈0 自动无操作。无逐帧引擎、无协程驻留。
+    val foldRowYs = remember { java.util.concurrent.ConcurrentHashMap<String, Float>() }
+    var foldRowSeq by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    var pinClickKey by remember { mutableStateOf<String?>(null) }
+    var pinClickY by remember { androidx.compose.runtime.mutableFloatStateOf(Float.NaN) }
+    val foldRowReport: (String, Float) -> Unit = { k, y ->
+        foldRowYs[k] = y
+        foldRowSeq++
+    }
+    val foldRowClick: (String) -> Unit = { k ->
+        pinClickKey = k
+        pinClickY = foldRowYs[k] ?: Float.NaN
+    }
+
     // ===== #423 SGB 埋点:结构裂变观测(仅 DEBUG;窗口门控,常态零行) =====
     // sgSwapAtMs = 最近一次大组映射变化的墙钟;HEAD 类探针以 1.2s 窗门控。
     val sgSwapAtMs = remember { androidx.compose.runtime.mutableLongStateOf(0L) }
@@ -811,6 +829,39 @@ fun ChatMessageList(
                     )
                 }
             }
+    }
+
+    // 批次七:结构裂变单发实测重锚(在 chatEntries 之后以其为触发 key)。
+    // 号性依据:FLUSH 修正器真机实证 dispatchRawDelta(屏位 err) 号性正确;
+    // 与 #430 五轮翻车的 scrollToItem 索引/偏移数学无关(此处零索引运算)。
+    LaunchedEffect(chatEntries) {
+        val key = pinClickKey ?: return@LaunchedEffect
+        pinClickKey = null
+        if (pinClickY.isNaN()) return@LaunchedEffect
+        val seq0 = foldRowSeq
+        val t0 = System.nanoTime()
+        // 等重建后该 key 折叠行的新鲜放置(≤1.5s 兜底;重内容组合慢)
+        while (System.nanoTime() - t0 < 1_500_000_000L) {
+            androidx.compose.runtime.withFrameNanos { }
+            val y1 = foldRowYs[key]
+            if (foldRowSeq > seq0 && y1 != null && !y1.isNaN()) {
+                val err = pinClickY - y1
+                if (kotlin.math.abs(err) >= 8f) {
+                    val consumed = runCatching { listState.dispatchRawDelta(err) }.getOrDefault(0f)
+                    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                        dev.leonardo.ocbeacon.logging.AppLogger.d(
+                            "SGB", "REPIN y0=" + pinClickY.toInt() + " y1=" + y1.toInt() +
+                                " err=" + err.toInt() + " consumed=" + consumed.toInt(),
+                        )
+                    }
+                } else if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                    dev.leonardo.ocbeacon.logging.AppLogger.d(
+                        "SGB", "REPIN noop y0=" + pinClickY.toInt() + " y1=" + y1.toInt(),
+                    )
+                }
+                break
+            }
+        }
     }
 
     // ===== #430 大组硬切换锚定(已撤,待重做) =====
@@ -1537,6 +1588,9 @@ fun ChatMessageList(
                             // ===== #422 历史懒加载:大组展开态的拆分条目 =====
                             is ChatEntry.StepGroupHead -> {
                                 // 折叠行头(气泡顶部):共享 StepGroupFoldRow(点击收起)
+                                // #sgt 尾行 pinEligible=false:与 #sgh 同 stateKey,
+                                // 双写会让重锚测到 60px 外的尾行(批次七)
+                                val isHeadRow = entry.key.endsWith("#sgh")
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -1554,7 +1608,7 @@ fun ChatMessageList(
                                         }
                                         .padding(bottom = SpacingTokens.XS.dp)
                                 ) {
-                                    StepGroupFoldRow(step = entry.step)
+                                    StepGroupFoldRow(step = entry.step, pinEligible = isHeadRow)
                                 }
                             }
                             is ChatEntry.StepGroupBody -> {
@@ -2495,6 +2549,8 @@ fun ChatMessageList(
                                 LocalCardExpandListState provides listState,
                                 LocalCardExpandDeparture provides onExpandDeparture,
                                 LocalInStreamingTurn provides entryStreaming,
+                                LocalFoldRowYReport provides foldRowReport,
+                                LocalFoldRowClick provides foldRowClick,
                             ) {
                                 val extras = transcriptCardExtras[entry.key]
                                 if (extras == null || extras.isEmpty) {

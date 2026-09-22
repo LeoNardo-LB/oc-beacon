@@ -35,12 +35,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboard
@@ -1161,6 +1164,12 @@ private fun AssistantTurnTail(
  */
 internal fun stepGroupStateKey(msgId: String): String = "step_" + msgId
 
+/** #423 批次七:折叠行位置上报(结构裂变重锚的实测源)。key=stateKey。 */
+internal val LocalFoldRowYReport = staticCompositionLocalOf<((String, Float) -> Unit)?> { null }
+
+/** #423 批次七:折叠行点击快照钩(toggle 瞬间冻结点击行屏位,供重建后重锚)。 */
+internal val LocalFoldRowClick = staticCompositionLocalOf<((String) -> Unit)?> { null }
+
 /**
  * #422 折叠组计数行(共享组件):Layers 图标 + 「N 步 · M 个工具」,点击 toggle
  * 展开态。StepGroupCard(小组动画路径)与 ChatEntry.StepGroupHead 条目
@@ -1170,6 +1179,8 @@ internal fun stepGroupStateKey(msgId: String): String = "step_" + msgId
 internal fun StepGroupFoldRow(
     step: RenderItem.StepGroup,
     modifier: Modifier = Modifier,
+    /** #423 批次七:#sgt 尾行不参与重锚(与 #sgh 同 stateKey,防 60px 歧义)。 */
+    pinEligible: Boolean = true,
 ) {
     val toolExpandedStates = LocalToolExpandedStates.current
     val onToggleToolExpanded = LocalOnToggleToolExpanded.current
@@ -1177,10 +1188,17 @@ internal fun StepGroupFoldRow(
     val hapticOn = LocalHapticFeedbackEnabled.current
     val stateKey = stepGroupStateKey(step.msgId)
     val expanded = toolExpandedStates[stateKey] ?: false
+    val reportY = LocalFoldRowYReport.current
+    val clickHook = LocalFoldRowClick.current
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .onGloballyPositioned {
+                // 批次七:逐放置上报屏位(常态每布局一次,零日志;重锚消费)
+                if (pinEligible) reportY?.invoke(stateKey, it.positionInRoot().y)
+            }
             .clickable {
+                clickHook?.invoke(stateKey)
                 if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                     dev.leonardo.ocbeacon.logging.AppLogger.d(
                         "SGB",
