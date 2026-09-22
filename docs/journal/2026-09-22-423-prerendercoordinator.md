@@ -403,3 +403,32 @@
 - 超大卡闭合的单次重测仍 ~0.5-0.8s(成本∝总高的最后一处),
   L3 AST 切片(backlog)是成本维度根因;展开侧 settle 同族。
 - 小卡收起观感从「同步滑升」变为「幕布收拢+一步闭合」(与展开对称)。
+
+## #427 P1-P3 批次（2026-09-23）：切片器 + 片高账本 + 窗口化宿主落地
+
+> spec：docs/specs/2026-09-23-427-step-group-slicing-windowing.md；提交 f2bcb12e(P1) → a1b3ce8f(P2) → 3759317a(P3)。P4（表级窗口化）与预热错峰（P3b）未做，见文末差距清单。
+
+### 交付
+
+- **P1 切片器**（StepGroupSlicing.kt）：STEP_GROUP_BODY_TARGET_WEIGHT=2200/片（#422 语义迁入）、STEP_GROUP_SLICE_THRESHOLD_WEIGHT=4400（≈2 屏）切片阈值、stepGroupWeight/stepGroupNeedsSlicing/sliceFingerprint（part id+文本当量长度，内容变更互斥）。旧 LARGE_STEP_GROUP_WEIGHT 随迁出退役。JVM 单测 18 例（边界/守恒/幂等/阈值/指纹）。
+- **P2 片高账本**（StepGroupHeightLedger.kt）：宽度键控（旋转失效全量重算）、Σ守恒、encode/fromEncoded 字符串持久化（rememberSaveable 载荷，机制同引擎 finalH）、isWarm 冷回退判定、重测差异封顶≤单片高、prune 防孤儿膨胀。JVM 单测 12 例。
+- **P3 窗口化宿主**（StepGroupWindowedBody.kt + StepGroupCard 接线）：SubcomposeLayout 子组合只组「视口±1 屏」相交片（visibleSliceRange 纯函数单测 8 例）；窗外片以账本高占位（纯放置空隙零组合）；冷账本回退整体组合（成本与现行 ε 沟降对齐，正确性不依赖预热）；宿主自报高度=Σ片高+片间距——引擎 lastMeasuredH 即总高，**引擎零改动**（契约原样：快照原子/单发配对/幕布纯绘制/离底钩/程序化豁免/小组路径逐字保留/SSE 域不动）。账本随卡体存活（fraction 门控内容离树不弃账本）。
+
+### 取证链（小米 houji 真机，60 行 6 列国家表组 w=11643/n=2/H=20340px）
+
+- **根因定罪（P3 两轮）**：① subcompose().first() 只测放槽内首个 measurable——ChunkAssistantItems 是裸 for 多兄弟节点，slice0 首组后的内容（60 行表）整体 0px 消失；修复=槽内容包 Column 收敛单 measurable。② 账本原在 CardExpandReveal 内容内，收起（fraction→0 内容离树）即弃置→二次展开恒冷；修复=切片表/指纹/账本上提卡体。中途理论（槽内容实例不稳致 LaunchedEffect 早死→rememberUpdatedState 固定）保留为防御性正确写法。
+- **渲染**：冷展开 60 行表完整渲染（dump 实证表头+行；H=20340=settle 实测）；展开态深滚 9 屏表格全程正常（故事 5 定性过）。
+- **性能**：暖展开 269/249/255ms（预算 ≤400ms ✓，含 200ms 幕布）；收起 772/808ms（20k 单体怪物片；4688px 级 253-303ms ✓ 预算内）；冷展开 3118ms（单体怪物片整体组合，与旧路径持平——账本即填）；小组（<4400 权重）展开/收起 227-249ms，路径未变。
+- **铁律（引擎 DRAW 探针，E3 展开集）**：PLACED topY=644 原子落地（rep=20340 f=1.000）→ 26 个 DRAW 帧 drawF 0.000→1.000 幕布纯绘制扫过，**topY=644 逐帧恒定**，residual=20340 全吸收 abs=0——钉位/零震荡仪器级证明。录屏分带互相关（244 帧）topMotion=0 botMotion=0 为辅助证据（录屏在重负载下掉帧，证据力弱于探针）。
+- **账本存活**：收起→空闲预热 measure warm=true total=20280（窗内实测+账本占位Σ）→再展开 269ms——跨收起二次展开零等待（故事 4 ✓）。
+
+### 差距（如实）
+
+- **多片窗切换（n>2）未真机实证**：本会话数据里大组均为「单体怪物片」结构（单个 10k 字符 text part 不可分），无 ≥3 片组可测；窗口成员判定为纯函数已单测，机制随 n=2 案例激活。造数尝试（服务器 API 注入五步任务）因免费模型连续 failed 未果——留待用户真实会话验证。
+- **P3b 预热错峰未做**：现行预热在冷账本时仍整体组合（一次空闲长帧，与批次十三持平）；账本暖后预热自动收窄为窗内组合（实测 warm=true）。一次一卡错峰队列未实现（#425 动机部分收编）。
+- **P4 表级窗口化未立项**：20k 单体片展开组合/收起弃树成本仍 ∝ 片高（772-3118ms），根治需 AST/表行级分片（spec P4 可选）。
+- **#426 裂变死代码清理未做**（P3 时未随切片器转正一并清，留独立批次）。
+
+### 工具沉淀
+
+/tmp/bd.py（分带互相关）、/tmp/dev.sh（adb 舞步封装）、/tmp/ironlaw2.sh（点击身份验证版录屏取证）、/tmp/mk_montage.py（PIL 拼图）——如需长期用迁 scripts/prerender/。
