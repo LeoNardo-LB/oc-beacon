@@ -123,3 +123,18 @@
 **未竟**:金丝雀×3 矩阵——设备侧 uiautomator 反复楔死+MIUI 无线调试分钟级掉线(息屏自动关),需设备重启后补跑;矩阵脚本已加固(svc power stayon/转储重试/force-stop 清态,后者顺带发现 ViewModel 展开态跨 activity 重启存活)。
 
 **语义注记**:CardExpandReveal 引擎退守思考卡/SSE 域;StepGroupCard 仅剩收起态渲染;animateItem 语义=滚动不触发、结构变化位移平滑。
+
+## 批次七(2026-09-22 晚):用户逐帧复检→单发实测重锚 REPIN
+
+**用户令**:「你自己录视频逐帧分析!!!!视频逐帧分析+日志埋点+逐行分析」。
+
+**三通道取证**:
+1. 录屏逐帧全局位移量化(新工具 scripts/prerender/frame_dy.py:相邻帧中心带归一化互相关):底贴态展开全程 dy=0(score=1.000)——屏面纹丝不动,框架锚定在该态自稳。
+2. 应用探针:HEAD topY 揭示他态头行 1100→644(+456 顶起);SNAP fii=0 fiso=0。
+3. 日志逐行:CLICK→ENTRIES 重建 15ms→SPLIT→(无 REPIN 时)头行顶起残留=用户「整个对话往上顶」的结构路径版本。
+
+**修(单发实测重锚)**:StepGroupFoldRow 逐放置上报屏位(LocalFoldRowYReport;#sgt 尾行 pinEligible=false 防同 key 歧义)+点击快照(LocalFoldRowClick)→LaunchedEffect(chatEntries) 等重建后新鲜放置→err=y0−y1→|err|≥8 一次 dispatchRawDelta。号性=FLUSH 修正器实证约定;零索引运算(避开 #430 翻车的 scrollToItem 数学)。
+
+**真机实证**:REPIN y0=1100 y1=644 err=456 consumed=456(点击后 ~120ms 全额归位,consumed==err 全额消费)。
+
+**未竟**:设备链路(MIUI 无线调试分钟级掉线+uiautomator 反复楔死)阻断×3 矩阵与用户滚动态的自动复现;中位态修复逻辑同构(同一实测机制),待用户手感验收或设备重启后补仪器矩阵。
