@@ -23,7 +23,7 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
  *
  * 只组合与「视口 ±1 屏」相交的片（子组合语义同 LazyColumn：未引用槽位
  * 本测量遍结束即弃）；窗口外以账本高度占位（纯放置空隙，零组合）。
- * 冷账本（任一片无实测）回退整体组合（现行 ε 沟降成本对齐——正确性
+ * 冷账本（任一片无实测）降级整体组合（现行 ε 沉降成本对齐——正确性
  * 不依赖预热，spec §Implementation Decisions）。
  *
  * **契约**（引擎不变量全部保持）：
@@ -42,7 +42,7 @@ internal class StepGroupWindowSpec(
     val sliceCount: Int,
     /** 片 i 的账本占位高（px）；冷=null。 */
     val heightOf: (Int) -> Int?,
-    /** 账本全暖判定（决定窗口化 or 冷回退整体组合）。 */
+    /** 账本全暖判定（决定窗口化 or 冷降级整体组合）。 */
     val isWarm: () -> Boolean,
     /** 片实测回报（index, heightPx, widthPx）——测量相逐片调用。 */
     val onMeasured: (index: Int, heightPx: Int, widthPx: Int) -> Unit,
@@ -106,7 +106,15 @@ internal fun StepGroupWindowedBody(
         // .first() 只测放首个 = 首组之后的内容(大文本/表格)整体消失(真机
         // #427 取证：slice0 只出 reasoning 52px，60 行表 0px 定罪)。
         List(spec.sliceCount) { idx ->
-            @Composable { androidx.compose.foundation.layout.Column { currentContent(idx) } }
+            // spacedBy(XS)：片内组间间距与未切片路径（外层 Column spacedBy XS）
+            // 逐像素对齐——双轴审查 #427 指出的跨阈值视觉奇偶问题。
+            @Composable {
+                androidx.compose.foundation.layout.Column(
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
+                        dev.leonardo.ocbeacon.ui.theme.SpacingTokens.XS.dp,
+                    ),
+                ) { currentContent(idx) }
+            }
         }
     }
 
@@ -126,7 +134,7 @@ internal fun StepGroupWindowedBody(
         val width = constraints.maxWidth
         val spacing = SpacingTokens.XS.dp.roundToPx()
         val warm = spec.isWarm()
-        // 有效窗：冷回退=全片（ε 沟降成本对齐）；暖=快照窗（含首测默认）
+        // 有效窗：冷降级=全片（ε 沉降成本对齐）；暖=快照窗（含首测默认）
         val range = if (warm) (windowRange ?: defaultWindow(n)) else 0..n - 1
         val sliceConstraints = Constraints(maxWidth = width, minHeight = 0, maxHeight = Constraints.Infinity)
         val heights = IntArray(n)

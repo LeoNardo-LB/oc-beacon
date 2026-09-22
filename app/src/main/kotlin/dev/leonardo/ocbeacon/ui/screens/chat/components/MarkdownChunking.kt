@@ -269,8 +269,9 @@ internal fun List<ChatMessage>.isMultiMessageTurn(): Boolean = size > 1
 
 /**
  * #422 历史懒加载阈值(已退役,批次十三全量裂变退役后仅注释留存):StepGroup
- * 权重达此值曾走条目化发射。#427 起切片语义迁 [StepGroupSlicing.kt](宿主
- * 移入卡片内部),本文件不再承载切片。
+ * 权重达此值曾走条目化发射。#427 起切片器定义迁 [StepGroupSlicing.kt]
+ * (宿主移入卡片内部);本文件下方退役裂变发射分支仍引用该函数——分支恒
+ * 不触发(expandedStepGroups 恒空),随 #426 死代码批次整体移除。
  */
 
 /**

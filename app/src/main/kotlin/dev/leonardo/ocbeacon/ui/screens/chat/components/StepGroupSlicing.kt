@@ -52,11 +52,13 @@ internal fun sliceStepGroupBodies(groups: List<PartGroup>): List<List<PartGroup>
 }
 
 /**
- * 切片内容指纹（#427 P2 高度账本键的原料）：part id 序列 + 文本当量长度。
+ * 切片内容指纹（#427 P2 高度账本键的原料）：part id 序列 + 内容当量体量
+ *（文本/推理/Shell 输出/工具 state 的输出与附件长度）。
  * - 同内容稳定（跨组合/跨进程持久化可命中）；
- * - part 增删、顺序变化、文本长度变化均互斥（内容变更不得命中旧高度）；
- * - 不含完整文本哈希：账本只需区分「内容变了没有」，长文本哈希成本高且
- *   长度变化已覆盖工具输出补全场景。
+ * - part 增删、顺序变化、内容体量变化均互斥（内容变更不得命中旧高度——
+ *   双轴审查 #427 指出：工具输出主体在 state，长度不进指纹=同 id 增长漏判）；
+ * - 不含完整文本哈希：账本只需区分「内容变了没有」，长度当量已覆盖补全/改写
+ *   主场景，等长异内容改写由重测差异封顶（≤单片高）兜底。
  */
 internal fun sliceFingerprint(slice: List<PartGroup>): String {
     val sb = StringBuilder(slice.size * 24)
@@ -64,7 +66,7 @@ internal fun sliceFingerprint(slice: List<PartGroup>): String {
         when (g) {
             is PartGroup.Context -> {
                 sb.append('c').append(g.parts.size).append(';')
-                g.parts.forEach { sb.append(it.id).append(',').append(it.tool).append(';') }
+                g.parts.forEach { sb.append(it.id).append(',').append(it.tool).append(',').append(toolStateBulk(it.state)).append(';') }
             }
             is PartGroup.Single -> {
                 val p = g.part
@@ -73,6 +75,7 @@ internal fun sliceFingerprint(slice: List<PartGroup>): String {
                     is Part.Text -> sb.append('t').append(p.text.length)
                     is Part.Reasoning -> sb.append('r').append(p.text.length)
                     is Part.Shell -> sb.append('h').append((p.output ?: "").length)
+                    is Part.Tool -> sb.append('w').append(toolStateBulk(p.state))
                     else -> sb.append('o')
                 }
                 sb.append(';')
@@ -82,6 +85,16 @@ internal fun sliceFingerprint(slice: List<PartGroup>): String {
     return sb.toString()
 }
 
-/** 指纹等价便捷谓词（测试/账本用）。 */
-internal fun List<PartGroup>.sameFingerprintAs(other: List<PartGroup>): Boolean =
-    sliceFingerprint(this) == sliceFingerprint(other)
+/** 工具 state 的内容当量体量（输出/原始入参/错误/附件长度——状态机阶段+体量）。 */
+private fun toolStateBulk(state: dev.leonardo.ocbeacon.domain.model.ToolState): String =
+    when (state) {
+        is dev.leonardo.ocbeacon.domain.model.ToolState.Pending ->
+            "p" + (state.raw ?: "").length
+        is dev.leonardo.ocbeacon.domain.model.ToolState.Running ->
+            "g" + state.output.length + "," + (state.title ?: "").length
+        is dev.leonardo.ocbeacon.domain.model.ToolState.Completed ->
+            "c" + state.output.length + "," + (state.title ?: "").length + "," +
+                (state.attachments?.sumOf { (it.data ?: "").length } ?: 0)
+        is dev.leonardo.ocbeacon.domain.model.ToolState.Error ->
+            "e" + state.error.length
+    }

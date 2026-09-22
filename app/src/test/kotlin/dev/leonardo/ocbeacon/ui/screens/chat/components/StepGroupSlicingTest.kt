@@ -167,4 +167,19 @@ class StepGroupSlicingTest {
         val b = listOf(textPart("p2", "de"), textPart("p1", "abc"))
         assertNotEquals(sliceFingerprint(a), sliceFingerprint(b))
     }
+
+    @Test
+    fun fingerprintDiffersWhenToolOutputGrows() {
+        // 双轴审查 #427：工具输出主体在 state——同 id 输出增长不得命中旧账本高度
+        fun toolPart(id: String, output: String) = PartGroup.Single(
+            Part.Tool(
+                id = id, sessionId = "s1", messageId = "m1", tool = "read",
+                state = dev.leonardo.ocbeacon.domain.model.ToolState.Completed(output = output),
+            )
+        )
+        val small = listOf(toolPart("w1", "x".repeat(100)))
+        val grown = listOf(toolPart("w1", "x".repeat(5000)))
+        assertEquals(sliceFingerprint(small), sliceFingerprint(small))
+        assertNotEquals(sliceFingerprint(small), sliceFingerprint(grown))
+    }
 }

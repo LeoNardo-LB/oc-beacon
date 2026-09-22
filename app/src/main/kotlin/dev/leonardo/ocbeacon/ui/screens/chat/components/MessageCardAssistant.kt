@@ -1263,6 +1263,9 @@ private fun StepGroupCard(
     val stepFingerprints = androidx.compose.runtime.remember(stepSlices) {
         stepSlices.map { sliceFingerprint(it) }
     }
+    val stepNeedsSlicing = androidx.compose.runtime.remember(step.groups) {
+        stepGroupNeedsSlicing(step.groups)
+    }
     val stepLedger = rememberStepGroupLedger(step.msgId)
     Column(modifier = Modifier.fillMaxWidth()) {
         StepGroupFoldRow(step = step)
@@ -1287,7 +1290,7 @@ private fun StepGroupCard(
                 }
                 if (!heavyComposed) {
                     Spacer(modifier = Modifier.fillMaxWidth().height(24.dp))
-                } else if (!stepGroupNeedsSlicing(step.groups)) {
+                } else if (!stepNeedsSlicing) {
                 ChunkAssistantItems(
                     items = step.groups.map { RenderItem.GroupedParts(it) },
                     textColor = textColor,
@@ -1300,8 +1303,6 @@ private fun StepGroupCard(
                     compact = compact,
                     readinessRegistry = readinessRegistry,
                 )
-                // #423 批次三:组尾收起行——多屏内容不必滚回顶部折叠行才能收起
-                StepGroupFoldRow(step = step)
                 } else {
                 // #427 P3:大组切片+窗口化——组合成本与「视口±1 屏」成正比、
                 // 与内容总高无关(展开 ε 组合/收起弃树都只付窗口内的钱);片高
@@ -1334,6 +1335,7 @@ private fun StepGroupCard(
                     )
                 }
                 // #423 批次三:组尾收起行——多屏内容不必滚回顶部折叠行才能收起
+                // （两渲染路径共用，双轴审查后从分支内提出去重）
                 StepGroupFoldRow(step = step)
                 }
             }

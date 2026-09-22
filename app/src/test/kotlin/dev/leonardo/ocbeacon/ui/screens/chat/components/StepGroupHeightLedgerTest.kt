@@ -8,7 +8,7 @@ import org.junit.Test
 
 /**
  * #427 P2 高度账本外部行为（spec §Testing Decisions 预定 seam）：
- * Σ 守恒、宽度变化失效、跨回收持久化往返、冷回退触发条件、差异封顶（≤单片高）。
+ * Σ 守恒、宽度变化失效、跨回收持久化往返、冷降级触发条件、差异封顶（≤单片高）。
  * 账本本体为纯数据结构——组合级行为（rememberSaveable 附着）由 P3 宿主接线。
  */
 class StepGroupHeightLedgerTest {
@@ -36,7 +36,7 @@ class StepGroupHeightLedgerTest {
 
     @Test
     fun partialRecordsRemainCold() {
-        // 冷回退触发条件：任一片缺席即冷（引擎回退整体 ε 沉降）
+        // 冷降级触发条件：任一片缺席即冷（引擎降级整体 ε 沉降）
         val ledger = StepGroupHeightLedger()
         ledger.record(1080, "fp1", 100)
         ledger.record(1080, "fp2", 200)

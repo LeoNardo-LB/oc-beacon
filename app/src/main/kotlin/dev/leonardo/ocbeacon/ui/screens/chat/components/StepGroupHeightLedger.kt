@@ -3,16 +3,16 @@ package dev.leonardo.ocbeacon.ui.screens.chat.components
 /**
  * #427 P2：步组片高账本（纯数据结构，JVM 可单测）。
  *
- * 职责：按「内容指纹 + 可用宽度」缓存每片实侧高度；总高 = Σ片高。
+ * 职责：按「内容指纹 + 可用宽度」缓存每片实测高度；总高 = Σ片高。
  * - 宽度键控：宽度变化（旋转/折叠形态）整体失效（spec 用户故事 9）；
  * - 跨回收持久化：[encode]/[fromEncoded] 字符串即 rememberSaveable 载荷
  *   （与引擎 finalH 缓存同机制——组合回收后二次展开零等待）；
- * - 冷回退：[isWarm] 为假时宿主回退现行整体 ε 沟降（正确性不依赖预热）；
+ * - 冷降级：[isWarm] 为假时宿主降级现行整体 ε 沉降（正确性不依赖预热）；
  * - 差异封顶：重测只替换对应片高度，Σ 漂移 ≤ 该片高度（迟到增量经引擎
  *   既有配对通道消化）。
  *
  * 非目标：不缓存宽度未定/内容未稳的中间态——写入方（P3 宿主）只在片
- * 实侧完成后 record。
+ * 实测完成后 record。
  */
 internal class StepGroupHeightLedger private constructor(
     private var widthKey: Int,
@@ -27,8 +27,8 @@ internal class StepGroupHeightLedger private constructor(
     fun heightOf(fingerprint: String): Int? = heights[fingerprint]
 
     /**
-     * 是否全暖：宽度已定且 [fingerprints] 全部有实侧记录。
-     * 冷回退判定的唯一依据（spec §Testing Decisions）。
+     * 是否全暖：宽度已定且 [fingerprints] 全部有实测记录。
+     * 冷降级判定的唯一依据（spec §Testing Decisions）。
      */
     fun isWarm(fingerprints: List<String>): Boolean =
         widthKey != WIDTH_UNSET && fingerprints.isNotEmpty() &&
@@ -39,9 +39,12 @@ internal class StepGroupHeightLedger private constructor(
         fingerprints.sumOf { heights[it] ?: 0 }
 
     /**
-     * 记录片实侧高度。宽度键变化 → 先全量失效（旧宽度高度不可跨宽度复用）。
+     * 记录片实测高度。宽度键变化 → 先全量失效（旧宽度高度不可跨宽度复用）；
+     * 非正高度拒绝写入（与 fromEncoded 对称——0 高片无占位意义，写入会让
+     * 持久化恢复整本丢弃，双轴审查 #427 定为校验不对称）。
      */
     fun record(widthKey: Int, fingerprint: String, heightPx: Int) {
+        if (heightPx <= 0) return
         if (this.widthKey != widthKey) {
             heights.clear()
             this.widthKey = widthKey
