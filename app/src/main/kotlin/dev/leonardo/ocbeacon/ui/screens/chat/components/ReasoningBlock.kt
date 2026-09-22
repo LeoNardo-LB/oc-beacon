@@ -46,6 +46,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalView
@@ -74,10 +76,21 @@ internal fun resolveReasoningDisplayDuration(durationMs: Long?, frozenElapsedMs:
     durationMs?.takeIf { it > 0 } ?: frozenElapsedMs.takeIf { it > 0 }
 
 @Composable
-internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleExpand: () -> Unit = {}, durationMs: Long? = null, isStreaming: Boolean = false, startTimeMs: Long? = null) {
+internal fun ReasoningBlock(
+    text: String,
+    isExpanded: Boolean = false,
+    onToggleExpand: () -> Unit = {},
+    durationMs: Long? = null,
+    isStreaming: Boolean = false,
+    startTimeMs: Long? = null,
+    /** #423 批次八:REPIN 键(part.id)——空=不参与(预览/单测)。 */
+    pinKey: String = "",
+) {
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
     val expanded = isExpanded
+    val reportY = LocalFoldRowYReport.current
+    val clickHook = LocalFoldRowClick.current
 
     // 流式推理的实时计时器
     // #207：fallback 锚点 remember → rememberSaveable。time=null 的残留 part 无
@@ -191,11 +204,18 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        // 批次八:REPIN 上报/快照(与组折叠行同机制)
+                        .onGloballyPositioned {
+                            if (pinKey.isNotEmpty()) reportY?.invoke(pinKey, it.positionInRoot().y)
+                        }
                         // 2026-09-20 方案A回退(用户裁决:还是正常卡片就行)——
                         // 强制 height(12dp) 单行胶囊只瘦了思考卡,工具卡未同步,
                         // 卡族折叠态高度失配=「不协调」来源,且违背 2026-08-16
                         // 「折叠行高与工具卡一致」裁决。恢复自然行高。
-                        .clickable { performHaptic(hapticView, hapticOn); onToggleExpand() },
+                        .clickable {
+                            if (pinKey.isNotEmpty()) clickHook?.invoke(pinKey)
+                            performHaptic(hapticView, hapticOn); onToggleExpand()
+                        },
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -262,10 +282,16 @@ internal fun ReasoningBlock(text: String, isExpanded: Boolean = false, onToggleE
                     // #215 批3：chevron IconButton 移除——本体点击=展开唯一入口
                 }
 
-                // 可展开内容——#420(2026-09-20 用户裁决 A):原地揭示补偿
-                // (单一时钟同帧配对,展开/收起不再把高度变化转译为视口跳动;
-                // 降级路径=出厂 AV,行为与 2026-08-30 终局一致)
-                CardExpandReveal(visible = expanded) {
+                // 批次八(2026-09-22 用户复检定案):弃原地揭示引擎——真机日志
+                // 实测每次展开 13+ 次爬行修正(err 80→1,350ms+)且连点 ±80 锚点
+                // 振荡(#425 携带病)。改瞬时显隐(仅淡入淡出,零尺寸动画)+
+                // REPIN 单发实测重锚(与组折叠行同机制:点击快照→新鲜放置→
+                // 一次 dispatchRawDelta 归位)。流式增长不变(SSE 补偿域)。
+                AnimatedVisibility(
+                    visible = expanded,
+                    enter = fadeIn(tween(AppMotion.SHORT)),
+                    exit = fadeOut(tween(AppMotion.SHORT)),
+                ) {
                     // 2026-09-20 单行形态:展开区左竖线(Roo 式,与工具卡同语言;
                     // 修饰在 Reveal content 内部——#420 硬地板教训)
                     val guideColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)

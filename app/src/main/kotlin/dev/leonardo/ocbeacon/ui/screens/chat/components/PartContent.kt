@@ -207,7 +207,8 @@ private fun PartContentInner(
                     onToggleExpand = { onToggleToolExpanded(part.id, expandReasoningDefault) },
                     durationMs = reasoningDuration,
                     isStreaming = isStreaming,
-                    startTimeMs = startTimeMs
+                    startTimeMs = startTimeMs,
+                    pinKey = part.id,
                 )
             }
         }

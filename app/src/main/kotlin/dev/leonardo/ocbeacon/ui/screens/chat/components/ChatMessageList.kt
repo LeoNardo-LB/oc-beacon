@@ -496,9 +496,11 @@ fun ChatMessageList(
         foldRowYs[k] = y
         foldRowSeq++
     }
+    var pinClickCount by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     val foldRowClick: (String) -> Unit = { k ->
         pinClickKey = k
         pinClickY = foldRowYs[k] ?: Float.NaN
+        pinClickCount++
     }
 
     // ===== #423 SGB 埋点:结构裂变观测(仅 DEBUG;窗口门控,常态零行) =====
@@ -831,10 +833,12 @@ fun ChatMessageList(
             }
     }
 
-    // 批次七:结构裂变单发实测重锚(在 chatEntries 之后以其为触发 key)。
+    // 批次七/八:单发实测重锚——触发=点击计数(服务组折叠行+思考卡头行双族;
+    // 思考卡 toggle 不重建 entries,chatEntries 触发对它失明)。
     // 号性依据:FLUSH 修正器真机实证 dispatchRawDelta(屏位 err) 号性正确;
     // 与 #430 五轮翻车的 scrollToItem 索引/偏移数学无关(此处零索引运算)。
-    LaunchedEffect(chatEntries) {
+    LaunchedEffect(pinClickCount) {
+        if (pinClickCount == 0) return@LaunchedEffect
         val key = pinClickKey ?: return@LaunchedEffect
         pinClickKey = null
         if (pinClickY.isNaN()) return@LaunchedEffect
