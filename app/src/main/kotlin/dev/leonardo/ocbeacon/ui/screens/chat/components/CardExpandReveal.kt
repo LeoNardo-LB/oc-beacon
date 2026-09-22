@@ -128,11 +128,6 @@ private const val CURTAIN_MS = 200f
  */
 private const val PREWARM_IDLE_MS = 1_200L
 
-/**
- * #423 批次十三c:收起末段(矮盒便宜区)单帧几何步软上限(px)——防追平巨 δ
- * 一次跨多条目边界的锚点重推导震荡(真机三轮 +72/−36 确定性复现)。
- */
-private const val CATCHUP_SOFT_PX = 1200
 
 /**
  * #423 批次十一(#262 applyTapShift 复活):渲染前位移——measure 块外施加,
@@ -605,61 +600,43 @@ internal fun CardExpandReveal(
                     }
                     curtain.floatValue = 1f
                 } else {
-                    // 收起(#262 §3 裁决「下方收上来」):布局+幕布同步缓动,
-                    // 逐帧 dispatchRawDelta(−δ)(帧回调相,measure 块外)——
-                    // header 锚点每帧静止(旧通道实证语义)
-                    val H = clock.lastMeasuredH
-                    val startF = clock.fraction
+                    // ===== 批次十四:收起镜像化(根因修复,与展开同构) =====
+                    // 展开的「布局先终态+幕布揭示」真机实证零震荡(同样跨 9 条目
+                    // 的位移从不泄露中间帧);旧收起=逐帧缓动布局,重内容每步全测
+                    // ~490ms×N(延迟主体)+动画中段跨界致锚点重推导泄露帧(十三c
+                    // 定罪的 ±72/−36 震荡)——两个症状同根:逐帧布局参与。
+                    // 镜像化后:幕布收拢=纯 draw(零布局零测量)→单步原子闭合
+                    // (快照批量 driveTo(0f)+单发 dispatch −rep)——重测只付一次,
+                    // 跨界原子性与展开同等。十三b追平/十三c软上限随环退役。
                     clock.tweening = true
-                    val t0 = withFrameNanos { it }
-                    var vt = 0f
-                    var lastRep = clock.lastReportedH
-                    // 批次十三c:循环终点双重条件——vt 到点但 rep 未清零时
-                    // (软上限分步的尾量)继续走到几何归零,杜绝终末残量巨跳。
-                    while (vt < GEOMETRY_TWEEN_MS || lastRep > 4) {
-                        val now = withFrameNanos { it }
+                    // ① 幕布收拢(draw-only 200ms;盒高不变→钉位静止,
+                    //   下方内容保持推开)
+                    val tC = withFrameNanos { it }
+                    var vc = 0f
+                    while (vc < CURTAIN_MS) {
+                        val nc = withFrameNanos { it }
                         if (clock.userScrollCancelled) break
-                        val elapsedMs = ((now - t0) / 1_000_000f).coerceAtLeast(0f)
-                        // 批次十三b:帧饥饿追平——单帧迟到 >100ms(重内容每步全测
-                        // ~490ms/并发挤占)时 vt 直接跳到墙钟,以少而大的步尽快完成;
-                        // 否则 240ms 缓动被拉成 4 秒爬行(真机 prd_i 定案:同卡贴底
-                        // 275ms/屏中 4083ms)。正常帧仍 20ms 步进不变。
-                        vt = if (elapsedMs - vt > 100f) {
-                            minOf(elapsedMs, GEOMETRY_TWEEN_MS.toFloat())
-                        } else {
-                            minOf(elapsedMs, vt + MAX_FRAME_STEP_MS)
-                        }
-                        val fTarget = easedFraction(startF, 0f, vt)
-                        val repTarget = (fTarget * H).toInt()
-                        // 批次十三c:末段软上限——矮盒(rep≤~1.2 屏,测量便宜区)
-                        // 单帧几何步 ≤CATCHUP_SOFT_PX,防追平巨 δ 一次跨多条目
-                        // 边界(真机 prd_k 三轮定案:LEAP idx 9→0 dOff=−3747 的
-                        // 锚点重推导帧=用户「~0.3s 小震荡」,+72/−36 确定性复现);
-                        // 高盒区(每步全测 ~490ms)不设限,保住十三b 的快速逃离。
-                        val cap = CATCHUP_SOFT_PX
-                        val rep = maxOf(repTarget, lastRep - cap)
-                        val f = if (H > 0) rep.toFloat() / H else 0f
-                        val delta = (rep - lastRep).toFloat()
-                        clock.driveTo(f)
-                        if (delta < -0.5f) {
-                            clock.programmaticShift = true
-                            try {
-                                runCatching { listState.dispatchRawDelta(delta) }
-                            } finally {
-                                clock.programmaticShift = false
-                            }
-                        }
-                        curtain.floatValue = maxOf(curtain.floatValue, f)
-                        lastRep = rep
+                        vc = minOf(
+                            ((nc - tC) / 1_000_000f).coerceAtLeast(0f),
+                            vc + MAX_FRAME_STEP_MS,
+                        )
+                        curtain.floatValue = 1f - FastOutSlowInEasing.transform(
+                            (vc / CURTAIN_MS).coerceIn(0f, 1f),
+                        )
                     }
-                    clock.driveTo(0f)
+                    // ② 单步原子闭合(镜像展开的 withMutableSnapshot+dispatch:
+                    //   首个放置即含塌缩+位移,中间态从构造上不存在)
+                    val rep = clock.lastReportedH
+                    clock.tweening = false
+                    androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
+                        clock.driveTo(0f)
+                    }
                     clock.programmaticShift = true
                     try {
-                        runCatching { listState.dispatchRawDelta((0 - lastRep).toFloat()) }
+                        applyPreRenderShift(listState, -rep.toFloat())
                     } finally {
                         clock.programmaticShift = false
                     }
-                    clock.tweening = false
                     curtain.floatValue = 0f
                 }
                 completed = true
