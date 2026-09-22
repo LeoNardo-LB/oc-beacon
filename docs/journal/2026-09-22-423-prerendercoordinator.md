@@ -210,3 +210,67 @@
 ### 批次十一·补:展开后「其他元素移动」根修(离底解跟随)
 
 用户复检:卡片自身钉死 ok,但点击时其他元素移动。日志定案:预移后 atBot=false 而 autoOn=true——自动跟随仍武装,仲裁器集后拽回底。修:预移超阈即 departure?.invoke()(关 autoScroll,旧引擎同款钩,移植时漏接)。真机:展开后 autoOn=false;收起后 atBot=true autoOn=false。
+
+# 批次十二：录屏逐帧 + 多模态取证定罪 animateItem placement 弹簧
+
+## 主诉
+
+用户：展开卡片时其他元素仍会移动，要求本人录屏逐帧分析。
+
+## 取证方法
+
+- MIUI screenrecord（VFR，风暴后残余段可达 120fps 密集 pts）+ logcat `-v time` 同步；
+  `MPEG4Writer setStartTimestampUs` 与 PRD 探针 `t=` 纳秒时戳互锚，帧↔事件对账到毫秒。
+- `frame_dy.py`（全局）/ 自制 `band_dy.py`（TOP 400-1050 / BOT 1250-2320 分带互相关，
+  ±500px 窗）逐帧位移；低分帧=内容突变信号。
+- 多模态子代理（glm-5.3-flash read_image）逐帧目检拼图/三联对比——「白屏窗口」
+  与「上滑归位动画」两个关键事实均由目检定案。
+
+## 修复前铁证（prd_a，1 步组展开）
+
+- f39-f41（约 150ms）：**整屏聊天区白屏**，TOP/BOT 双带内容消失，仅折叠行独活
+  （41-43% 高度），右下角闪现回到底部 FAB 残片。
+- f40→f44：上方原有内容（通知行/用户气泡）出现在折叠行**下方 73% 处**，随后
+  **~600px 平滑上滑归位**（73%→47%→28%→18%→16%）——分带互相关呈 ±504px
+  完美匹配震荡（score 0.999-1.000）。
+- 事件时间轴：CLICK 50.321 → settle（61 次测量，Choreographer Skipped 40）→
+  RESIZE d=4684（50.757）→ drift autoOn=false（50.760）→ LEAP idx 0→9（50.760）→
+  PLACED rep=4688 f=1.000（50.771）。
+- **引擎清白**：SPLIT 未触发（entries 稳定）、LEAP 仅引擎自身原子位移、
+  topY 全程恒定、REPIN noop、收起路径逐帧小位移实测干净、思考卡仅 +48px 微跳
+  ——位移量与 H 正相关，指向「单帧大跳变」独有路径。
+
+## 根因
+
+`ChatMessageList` 条目包装 `Box.animateItem(fadeInSpec = null, fadeOutSpec = null)`
+（#423 批次六引入，为结构裂变做平滑滑动）保留了**默认 placementSpec 弹簧**：
+引擎的原子跳变（item 布局偏移一帧 −H、滚动位移同帧配平）被 animateItem 当成
+条目移动，弹簧播放 ~H 量级归位动画＝用户看到的「其他元素移动」；风暴期条目被
+弹簧甩离屏＝白屏窗。收起走逐帧 dispatchRawDelta 小位移路径，弹簧无跳变可捕
+（实测干净），反证成立。
+
+## 修复
+
+`ChatMessageList.kt`（itemsIndexed 条目 Box）：`placementSpec = null`——全局退役
+位移弹簧。用户铁律（其他元素纹丝不动）优先于裂变滑动观感；大组裂变滑动缺口
+并入 #422 Phase 2 重做。fadeIn/fadeOut 保持 null（增删淡入淡出本就未启用）。
+
+## 验证（prd_c，同会话同卡片，装机后实测）
+
+- 全片 726 帧：TOP/BOT 双带**无一帧 |dy|≥3px**（唯一 +3px 为思考卡点击涟漪）；
+  修复前为 ±504px 多帧震荡 + 白屏。
+- settle 风暴仍在（Skipped 54 帧、measures=3）但**无白屏**：风暴窗内两带分数
+  ≥0.94，主线程跳帧期间旧帧保持有效（冻结而非闪白）。
+- 多模态目检（18 帧连续序列 + 前/中/后三联）：变化仅限折叠行按压高亮与幕布
+  揭示区；上方内容像素级一致（MAD≈1.4 编码噪声）；『1 步 · 1 个工具』行字形
+  三帧同位；下方内容为预期推下。状态栏/横幅/底部全部固定。
+- 单测 `:app:testDevDebugUnitTest --rerun` 全绿；compileDevDebugKotlin 通过。
+
+## 遗留
+
+- settle 重组风暴（首次冷展开最重，Skipped 40-54 帧）：视觉伤害已被本修复消除
+  （旧帧保持），时长问题归 L3 AST 切片 backlog。
+- 大组（≥6000）结构裂变路径失去 placement 滑动：观感回退为瞬跳，随 #422
+  Phase 2 SWAP 配对方案重做。
+- 帧分析工具 `band_dy.py` 落位 /tmp（一次性），如需复用应迁入 scripts/prerender。
+

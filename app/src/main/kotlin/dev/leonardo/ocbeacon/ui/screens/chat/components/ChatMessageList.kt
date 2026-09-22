@@ -2542,6 +2542,14 @@ fun ChatMessageList(
                         // #423 批次六:全条目接入 animateItem(仅位移,无淡入淡出——
                         // 滚动不触发,结构变化(条目插拔)平滑滑动)。调研定案:结构
                         // 裂变的成熟收尾;视口内让位条目滑开而非跳变。
+                        // #423 批次十二(2026-09-22 录屏逐帧+多模态取证定案):
+                        // placement 弹簧=「点击卡片其他元素移动」真凶——引擎原子跳变
+                        // (item 布局偏移一帧 -H、滚动位移同帧配平)被 animateItem
+                        // 当成条目移动,播放 ~600px 归位动画(f40-f44 实测:上方内容
+                        // 73%→16% 上滑+整屏空白);收起走逐帧小位移路径实测干净,
+                        // 反证即此。placementSpec=null 全局退役位移弹簧——用户铁律
+                        // (其他元素纹丝不动)优先于裂变滑动观感;大组裂变滑动缺口
+                        // 并入 #422 Phase 2 重做。
                         // #420:卡片原地揭示补偿的逐 item 上下文(挂 itemsIndexed 层——
                         // renderTranscriptEntry 内部的早退 return 不受 Provider 包裹影响;
                         // 流式 turn 降级裸 AV,由 item 级 COMP-MSG 补偿独占,杜绝双重注入)
@@ -2551,7 +2559,7 @@ fun ChatMessageList(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .animateItem(fadeInSpec = null, fadeOutSpec = null),
+                                .animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = null),
                         ) {
                             CompositionLocalProvider(
                                 LocalCardExpandListState provides listState,
