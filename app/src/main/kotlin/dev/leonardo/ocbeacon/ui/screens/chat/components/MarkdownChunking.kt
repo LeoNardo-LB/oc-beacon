@@ -268,30 +268,10 @@ internal data class ChatEntries(
 internal fun List<ChatMessage>.isMultiMessageTurn(): Boolean = size > 1
 
 /**
- * #422 历史懒加载阈值:StepGroup 权重(字符当量,见 turnItemWeight)达此值的
- * 展开体改走条目化发射。≈3 屏正文——实测 20k px 组单 LazyItem 一帧组合
- * = 434 帧跳帧(3.6s 冻结);条目化后首开只组视口内条目。小于阈值的组保留
- * CardExpandReveal 平滑揭示动画(小卡展开本就 <100ms)。
+ * #422 历史懒加载阈值(已退役,批次十三全量裂变退役后仅注释留存):StepGroup
+ * 权重达此值曾走条目化发射。#427 起切片语义迁 [StepGroupSlicing.kt](宿主
+ * 移入卡片内部),本文件不再承载切片。
  */
-const val LARGE_STEP_GROUP_WEIGHT = 6000
-
-/** 大组展开体单条目权重预算(≈1 屏)。 */
-const val STEP_GROUP_BODY_TARGET_WEIGHT = 2200
-
-/** 大组展开体切片:按权重贪心聚合 groups 为若干条目(纯函数,可单测)。 */
-internal fun sliceStepGroupBodies(groups: List<PartGroup>): List<List<PartGroup>> {
-    val out = mutableListOf<MutableList<PartGroup>>()
-    var acc = 0
-    for (g in groups) {
-        if (out.isEmpty() || acc >= STEP_GROUP_BODY_TARGET_WEIGHT) {
-            out += mutableListOf<PartGroup>()
-            acc = 0
-        }
-        out.last() += g
-        acc += turnItemWeight(dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderItem.GroupedParts(g))
-    }
-    return out
-}
 
 /**
  * 构建分片发射表。分片条件（全部满足）：
