@@ -119,8 +119,27 @@ private const val WARMUP_FRACTION = 0.001f
  */
 private const val PHASE_B_JUMP_START = 0.3f
 
-/** #423 批次十终式:门控增长的钉稳窗(px)——亏空回窗内才推进高度。 */
-private const val PIN_GATE_PX = 8f
+/** #423 批次十一:幕布揭示时长(ms)(#262 同款 200ms 纯 draw)。 */
+private const val CURTAIN_MS = 200f
+
+/**
+ * #423 批次十一(#262 applyTapShift 复活):渲染前位移——measure 块外施加,
+ * 下一遍 measure 与布局终态同帧原子落地。
+ * 贴底(fii==0 且 fiso<120)=反射 request-position(下方无余量,上方内容固定);
+ * mid-list=dispatchRawDelta(同步消费、跨 item、无残量)。
+ */
+internal fun applyPreRenderShift(ls: androidx.compose.foundation.lazy.LazyListState, deltaPx: Float) {
+    // 批次十一校准(真机 DRAW 定案):request-position 在贴底态(0,0)方向反——
+    // 实测 +H 写入把内容推上屏外(topY −3540)后框架 10 帧自愈。展开正向位移
+    // 恒走 dispatchRawDelta:滚动位 0 即起点,向旧侧永远有空间、同步消费精确
+    // (真机反复实证 consumed==d)。反射 request-position 保留给负向不可消费域。
+    try {
+        ls.dispatchRawDelta(deltaPx)
+    } catch (t: Throwable) {
+        // 降级:预移失败=退化为渲染后推挤一帧,绝不崩溃(宁推挤不卡渲染)
+        dev.leonardo.ocbeacon.logging.AppLogger.w("CardExpand", "pre-shift failed: " + t.message)
+    }
+}
 
 /** #423 批次四d:hold 呼吸阀——连续拒绘上限(真机证实坐标回调在拒绘遍历中照常
  * 派发,无死锁;阀值仅兜底「贴底残量物理不可约」类永不收敛场景)。 */
@@ -276,6 +295,12 @@ internal class CardExpandClock(initialFraction: Float) {
     var userScrollCancelled = false
 
     /**
+     * #423 批次十一:程序化位移豁免——dispatchRawDelta 会触发 isScrollInProgress,
+     * 取消守卫须区分用户手势与引擎位移(真机:预移+4688 被守卫误杀,集 826ms 自裁)。
+     */
+    var programmaticShift = false
+
+    /**
      * #423 批次四b:本集几何目标分数(plain)。FLUSH 修正器的灭钉门控——
      * 坐标静止计数稳定前,分数必须已到位(settle/warmup 期报告恒 ε,不得灭钉;
      * 否则 driveTo 增长到来时修正器已离场 = 顶开帧直接上屏)。
@@ -312,6 +337,8 @@ internal class CardExpandClock(initialFraction: Float) {
 internal fun CardExpandReveal(
     visible: Boolean,
     modifier: Modifier = Modifier,
+    /** #423 批次十一:finalH 缓存键(msgId/part.id)——二次展开零延迟预移。 */
+    cacheKey: Any? = null,
     content: @Composable () -> Unit,
 ) {
     val listState = LocalCardExpandListState.current
@@ -343,6 +370,24 @@ internal fun CardExpandReveal(
      * 数学正确、传递函数失真,必须以绘制真值闭环补偿。
      */
     val drawnTopY = remember { androidx.compose.runtime.mutableFloatStateOf(Float.NaN) }
+
+    /**
+     * #423 批次十一(#262 复活):finalH 缓存(rememberSaveable,cacheKey 为键)
+     * ——二次展开高度提前已知,渲染前双写零延迟;只向上自愈(防陈旧回写)。
+     */
+    val finalHCacheRaw = androidx.compose.runtime.saveable.rememberSaveable(cacheKey) {
+        androidx.compose.runtime.mutableStateOf(-1)
+    }
+    val finalHCache = remember(cacheKey) {
+        androidx.compose.runtime.mutableStateOf(-1).also { it.value = finalHCacheRaw.value }
+    }
+    fun storeFinalH(h: Int) {
+        if (h > finalHCacheRaw.value) finalHCacheRaw.value = h
+        if (h > finalHCache.value) finalHCache.value = h
+    }
+
+    /** #423 批次十一:幕布系数(纯 draw 揭示;draw 相读,动画循环写)。 */
+    val curtain = remember { androidx.compose.runtime.mutableFloatStateOf(if (visible) 1f else 0f) }
 
     // #425 连点竞态:反向 toggle 取消上一集时携带其锚点——否则新集以「漂后
     // 位置」起锚,逐集链式泄漏(真机 24 连点净漂 −73px)。正常完成/用户滚动
@@ -498,85 +543,91 @@ internal fun CardExpandReveal(
             // #431→#423 批次四:闭环尾循环整体退役(展开向 Phase A 绕过、收起向并入
             // 钉位契约);续跑集(回收后钉位续)不重跑 settle/A/B 相,由下方分支结构保证。
             try {
-                // ===== 批次九:渲染前计算 =====
+                // ===== 批次十一(#262 架构复活,用户裁决):渲染前计算 + 渲染前位移 =====
+                // 布局层首帧即终态(展开无布局动画);视觉=纯绘制幕布(clipF);
+                // 位移在 measure 前施加(tap 后首帧或测量后首帧)——高度与滚动
+                // 位同帧原子落地,中间态从构造上不存在(零补偿/零门控/零闭环)。
                 if (target > 0f) {
-                    // 预热(ε·H<1px 零视觉)+ 内容沉降:H 定格后再开动画——
-                    // 表格 containerWidth 两拍收敛/asyncParse 在此吸收完。
+                    // 恒走预热+沉降(缓存命中亦然):收起后内容已离树,跳过组合
+                    // 会让 dispatch 内测见旧高→条目回收→协程被杀(真机 53ms
+                    // exit-CANCELLED 定案)。缓存的真正价值=跨回收高度预知(floor)。
                     clock.warmup()
                     settleUntilContentStable(clock)
-                }
-                // ===== 批次九:逐帧渲染前双写(统一高度控制契约) =====
-                // 每帧(Choreographer 动画相回调,早于当帧 measure):
-                //   1) 高度:clock.driveTo(f)——几何节点 measure 相官方读取;
-                //   2) 滚动:preRenderScrollBy(δ)——反射绝对位写入,同遍
-                //      measure 遍首消费。dispatchRawDelta 的消费语义(增长未
-                //      落地时 consumed=0,永远差一拍)从构造上消失。
-                // 数学(批次四标定反推):增长 δ 上移折叠行 δ;滚动位前进 δ
-                // (fiso+=δ,正向越界由 measure 遍内自行归一化)下移折叠行 δ
-                // ——逐帧双写=净零,折叠行屏位构造性不动。
-                drawFraction.floatValue = 1f
-                clock.tweening = true
-                val H = clock.lastMeasuredH
-                var lastRep = clock.lastReportedH
-                val startF = clock.fraction
-                val t0 = withFrameNanos { it }
-                var vt = 0f
-                // ===== 批次十终式:门控增长(不变量优先) =====
-                // 根因(绘制级定案):滚写视觉生效滞后高度增长 2-3 帧——组卡中段
-                // 超前 ~2655px=头行飞出屏再回(用户「顶上去再下来」);小卡单调
-                // 爬 47px 同源。反馈助推(0.3/1.0 增益)均振荡或留残——滞后系统
-                // 不可用同量级前馈/反馈消差。终式:亏空未回窗(PIN_GATE_PX)前
-                // **不推进高度**(vt 冻结,滚写在途量自然落地)——「顶部钉死」
-                // 从构造上成立;动画时长让位于不变量(墙帽 1.5s 兜底)。
-                val tHard = System.nanoTime()
-                while (true) {
-                    val now = withFrameNanos { it }
-                    if (clock.userScrollCancelled) break // 用户滚动优先权铁律
-                    if ((System.nanoTime() - tHard) / 1_000_000f > 1500f) break
-                    // 冷启动洞修补:首帧尚无绘制真值时门必须闭合(NaN→deficit=0
-                    // 会让门误开,展开偷跑 58px/收起 276px 实测)——无真值=不推进
-                    val haveTruth = !anchorY.isNaN() && !drawnTopY.floatValue.isNaN()
-                    val deficit = if (haveTruth) anchorY - drawnTopY.floatValue else Float.MAX_VALUE
-                    val vtDone = vt >= GEOMETRY_TWEEN_MS
-                    if (vtDone && haveTruth && abs(deficit) < PIN_GATE_PX) break
-                    if (!vtDone && haveTruth && abs(deficit) < PIN_GATE_PX) {
-                        // 钉稳门开:虚拟时钟才前进(墙钟追赶+单帧步钳)
+                    val H = maxOf(clock.lastMeasuredH, finalHCache.value).also { if (it > 0) storeFinalH(it) }
+                    // 布局终态先行且**同步施加**:mutableStateOf 写入是快照批量的,
+                    // 裸写后 dispatch 的内部测量仍见旧高(中间态=卡片屏外 4688px
+                    // →条目回收→协程被杀,真机 exit-CANCELLED 829ms 定案)。
+                    // withMutableSnapshot 块末同步应用 → dispatch 测量即见终高。
+                    clock.tweening = true
+                    androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
+                        clock.driveTo(1f)
+                    }
+                    clock.tweening = false
+                    // 渲染后一帧再位移? 不——dispatch 内部 measure 已含增长,
+                    // 同帧原子;程序化豁免包裹(防取消守卫误杀)
+                    clock.programmaticShift = true
+                    try {
+                        applyPreRenderShift(listState, H.toFloat())
+                    } finally {
+                        clock.programmaticShift = false
+                    }
+                    // 幕布:纯绘制揭示 0→1(200ms,零布局零滚动)
+                    val tC = withFrameNanos { it }
+                    var vc = 0f
+                    while (vc < CURTAIN_MS) {
+                        val nc = withFrameNanos { it }
+                        if (clock.userScrollCancelled) break
+                        vc = minOf(
+                            ((nc - tC) / 1_000_000f).coerceAtLeast(0f),
+                            vc + MAX_FRAME_STEP_MS,
+                        )
+                        curtain.floatValue = FastOutSlowInEasing.transform(
+                            (vc / CURTAIN_MS).coerceIn(0f, 1f),
+                        )
+                    }
+                    curtain.floatValue = 1f
+                } else {
+                    // 收起(#262 §3 裁决「下方收上来」):布局+幕布同步缓动,
+                    // 逐帧 dispatchRawDelta(−δ)(帧回调相,measure 块外)——
+                    // header 锚点每帧静止(旧通道实证语义)
+                    val H = clock.lastMeasuredH
+                    val startF = clock.fraction
+                    clock.tweening = true
+                    val t0 = withFrameNanos { it }
+                    var vt = 0f
+                    var lastRep = clock.lastReportedH
+                    while (vt < GEOMETRY_TWEEN_MS) {
+                        val now = withFrameNanos { it }
+                        if (clock.userScrollCancelled) break
                         vt = minOf(
                             ((now - t0) / 1_000_000f).coerceAtLeast(0f),
                             vt + MAX_FRAME_STEP_MS,
                         )
+                        val f = easedFraction(startF, 0f, vt)
+                        val rep = (f * H).toInt()
+                        val delta = (rep - lastRep).toFloat()
+                        clock.driveTo(f)
+                        if (delta < -0.5f) {
+                            clock.programmaticShift = true
+                            try {
+                                runCatching { listState.dispatchRawDelta(delta) }
+                            } finally {
+                                clock.programmaticShift = false
+                            }
+                        }
+                        curtain.floatValue = maxOf(curtain.floatValue, f)
+                        lastRep = rep
                     }
-                    val f = easedFraction(startF, target, vt)
-                    val rep = (f * H).toInt()
-                    val delta = (rep - lastRep).toFloat()
-                    clock.driveTo(f)
-                    if (abs(delta) >= 0.5f) {
-                        LazyListReflection.preRenderScrollBy(listState, delta)
+                    clock.driveTo(0f)
+                    clock.programmaticShift = true
+                    try {
+                        runCatching { listState.dispatchRawDelta((0 - lastRep).toFloat()) }
+                    } finally {
+                        clock.programmaticShift = false
                     }
-                    lastRep = rep
-                    if (BuildConfig.DEBUG) {
-                        AppLogger.d(
-                            "PRD",
-                            "E" + episodeSeq.intValue + " PAIR vt=" + vt.toInt() +
-                                " def=" + deficit.toInt() +
-                                " f=" + "%.3f".format(f) + " rep=" + rep + " d=" + delta.toInt() +
-                                " fii=" + listState.firstVisibleItemIndex +
-                                " fiso=" + listState.firstVisibleItemScrollOffset,
-                        )
-                    }
+                    clock.tweening = false
+                    curtain.floatValue = 0f
                 }
-                // 收尾:虚拟时钟终点精确落位 + 余量配对(不再做实测重校——
-                // 轮2 视频实锤:放置回调在迟沉降窗报多遍瞬态幻影坐标,任何基于
-                // 它的修正(重校环/end-restore)都在过冲并制造可见终端抖动;
-                // 中段双写的数学本身已被视频 dy≈0 与终态滚动位≈钉稳态证实)
-                if (!clock.userScrollCancelled) {
-                    clock.driveTo(target)
-                    val endDelta = ((target * H).toInt() - lastRep).toFloat()
-                    if (abs(endDelta) >= 0.5f) {
-                        LazyListReflection.preRenderScrollBy(listState, endDelta)
-                    }
-                }
-                clock.tweening = false
                 completed = true
             } catch (t: Throwable) {
                 // #423 批次三诊断:区分取消/异常(真机大组集 54ms 早退未明因)
@@ -596,6 +647,8 @@ internal fun CardExpandReveal(
                 // 配可见内容——纯绘制分数只在 A→B 正常走完时才回到 1;取消/
                 // 异常/竞态在此兜底,杜绝「占位不显示」的空白卡死态。
                 drawFraction.floatValue = if (clock.fraction > 0.001f) 1f else 0f
+                if (clock.fraction > 0.001f && curtain.floatValue < 1f) curtain.floatValue = 1f
+                if (clock.fraction <= 0.001f) curtain.floatValue = 0f
                 // #422 episode 末强制真测:epoch 写使节点 measure 失效,且
                 // tweening=false → 缓存旁路——迟到内容增量在此落地为新 H。
                 clock.requestRemeasure()
@@ -664,7 +717,7 @@ internal fun CardExpandReveal(
     LaunchedEffect(listState) {
         snapshotFlow { listState.isScrollInProgress }
             .collect { scrolling ->
-                if (scrolling && clock.animating) {
+                if (scrolling && clock.animating && !clock.programmaticShift) {
                     if (BuildConfig.DEBUG) {
                         AppLogger.d("CardExpand", "[DEBUG-420] cancel-on-scroll snap f=" + "%.3f".format(clock.fraction))
                     }
@@ -928,7 +981,7 @@ internal fun CardExpandReveal(
                     }
                     .drawWithContent {
                         // #425 B 阶段纯绘制揭示:clipRect 高度系数,只重绘不重排
-                        val w = drawFraction.floatValue
+                        val w = if (clock.fraction > 0.001f) curtain.floatValue else 0f
                         drawnTopY.floatValue = revealTopY.floatValue // 批次十:绘制真值采样
                         if (BuildConfig.DEBUG && clock.animating) {
                             AppLogger.d(

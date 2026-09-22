@@ -1255,7 +1255,7 @@ private fun StepGroupCard(
     val expanded = toolExpandedStates[stateKey] ?: false
     Column(modifier = Modifier.fillMaxWidth()) {
         StepGroupFoldRow(step = step)
-        CardExpandReveal(visible = expanded) {
+        CardExpandReveal(visible = expanded, cacheKey = step.msgId) {
             // #422 二轮修复:ChunkAssistantItems 是裸 for(设计为在父 Column 内
             // 调用)——直接放进 Reveal 的 Box 会使各 part 堆叠在 (0,0) 互相叠压
             // (实测:表格/读取卡/标题三层重叠)。包裹同 SegmentedAssistantMessage

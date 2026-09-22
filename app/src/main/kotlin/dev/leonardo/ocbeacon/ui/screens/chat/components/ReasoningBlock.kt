@@ -286,7 +286,7 @@ internal fun ReasoningBlock(
                 // CardExpandReveal 已改造为「渲染前计算+反射逐帧设置」双写契约
                 // (高度分数与滚动位同遍 measure 原子生效,配对构造性精确),
                 // 批次八的瞬时显隐+REPIN 后置修正模式退役。
-                CardExpandReveal(visible = expanded) {
+                CardExpandReveal(visible = expanded, cacheKey = pinKey.ifEmpty { null }) {
                     // 2026-09-20 单行形态:展开区左竖线(Roo 式,与工具卡同语言;
                     // 修饰在 Reveal content 内部——#420 硬地板教训)
                     val guideColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
