@@ -274,3 +274,50 @@
   Phase 2 SWAP 配对方案重做。
 - 帧分析工具 `band_dy.py` 落位 /tmp（一次性），如需复用应迁入 scripts/prerender。
 
+
+# 批次十三:结构裂变全量退役——统一引擎 + 空闲预热(用户裁决「大数据量加速而非拆分」)
+
+## 用户主诉与裁决
+
+- 主诉:部分多步卡展开仍将内容往上顶;过程卡收起普遍顶一下再闪回。
+- 定因:两类卡走两条路——小组(权重<6000)走 CardExpandReveal 引擎(钉位
+  正确);大组走 #422 结构裂变(StepGroupHead/Body 拆条目,无同帧配平,
+  靠 REPIN 事后单发修正=顶一下+闪回)。
+- 裁决:不区分大小组;大数据量**加速**而非拆分。
+
+## 改动
+
+1. ChatMessageList:expandedStepGroups 恒空(LARGE_STEP_GROUP_WEIGHT 门
+   拆除)→buildChatEntries 裂变分支休眠;REPIN 修正器(armed 状态+
+   LaunchedEffect(pinchCount)+两个 CompositionLocal provider)全量退役。
+   StepGroupFoldRow 的 CLICK 日志/toggle 独立于钩子,保留。
+2. CardExpandReveal:新增空闲预热(PREWARM_IDLE_MS=1200ms)——折叠卡可见
+   且静止后,以 ε 高度组合+沉降,内容保温在树内(fraction>0 即组合),
+   finalH 缓存同步抬升;不 dispatch、不动滚动位。
+3. MessageCardAssistant:StepGroupCard 注释更新(全组走引擎)。
+
+## 真机验证(状态码表会话 H=4688 组 + DSHWeb H=302 组)
+
+- 预热生效:浏览期间 24+ 条 [PRD-warm];目标卡 H=4688 预热完成。
+- 展开:CLICK→settle(measures=3)→LEAP(dOff=+4688)→PLACED 原子落地仅
+  **80ms**(未预热时 ~450ms);幕布 190ms;topY 恒定。
+- 收起:逐帧 RESIZE d == LEAP dOff 逐一相等,topY 恒定,集 248-275ms。
+- 视频(prd_f 425帧/prd_g 289帧/prd_h 344帧):TOP/BOT 分带**无一帧
+  |dy|>=3px**;低分帧全部位于卡内区域(幕布揭示/折叠,设计内),
+  TOP 带全程 1.000。
+- 编译+单测(:app:testDevDebugUnitTest --rerun)全绿。
+
+## 已知边界(诚实记录)
+
+- 预热风暴:滚动停止后多卡同帧预热,实测一次 Skipped 53 帧(~880ms
+  空闲期停顿)——需错峰(队列化一卡一窗)。
+- 怪物组(如 20k px/44k 权重)预热组合仍是单帧长块;未预热即点=冻结后
+  瞬间展开(无位移无闪)。拆块正解=L3 AST 切片(backlog)。
+- 状态码表会话 turn-1 大内容实为 chunk 分片路径(非步组),未受影响。
+
+## 环境备注
+
+- adb 重启会断 tcp:4199 反向隧道→应用重连风暴+消息同步插入,测试中段
+  须 `adb reverse tcp:4199 tcp:4199` 复通。
+- input swipe 滚动列表**有效**(旧「不能滚」认知作废;此前失败疑与调用
+  参数/时机有关)。

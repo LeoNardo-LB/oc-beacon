@@ -123,6 +123,12 @@ private const val PHASE_B_JUMP_START = 0.3f
 private const val CURTAIN_MS = 200f
 
 /**
+ * #423 批次十三:空闲预热等待(ms)——折叠卡可见且用户静止后,提前以 ε 高度
+ * 组合+测高(大内容「加速」而非拆分,用户裁决 2026-09-22)。
+ */
+private const val PREWARM_IDLE_MS = 1_200L
+
+/**
  * #423 批次十一(#262 applyTapShift 复活):渲染前位移——measure 块外施加,
  * 下一遍 measure 与布局终态同帧原子落地。
  * 贴底(fii==0 且 fiso<120)=反射 request-position(下方无余量,上方内容固定);
@@ -712,6 +718,26 @@ internal fun CardExpandReveal(
             }
         }
         } // withEpisode(缩进未重排:热文件零churn,引擎迁入时整体重构)
+    }
+
+    // ===== #423 批次十三:空闲预热(大内容「加速」而非拆分,用户裁决) =====
+    // 折叠卡可见且用户静止 PREWARM_IDLE_MS 后,以 ε 高度组合+沉降内容
+    // (fraction>0 即组合,内容保温在树内;finalH 缓存同步抬升)。点击时
+    // H 已知、内容已热 → settle 一两帧即稳 → 原子落地+幕布,首开即快。
+    // 预热不 dispatch、不动滚动位;滚动中/已展开/流式降级分支不参与。
+    // 20k px 级怪物组的预热组合仍是一帧长块(空闲期付账);拆块正解=L3
+    // AST 切片(backlog)。
+    LaunchedEffect(visible, listState) {
+        if (visible || listState == null) return@LaunchedEffect
+        kotlinx.coroutines.delay(PREWARM_IDLE_MS)
+        if (visible || listState.isScrollInProgress) return@LaunchedEffect
+        if (clock.fraction > WARMUP_FRACTION) return@LaunchedEffect
+        clock.warmup()
+        settleUntilContentStable(clock)
+        clock.lastMeasuredH.takeIf { it > 0 }?.let { storeFinalH(it) }
+        if (BuildConfig.DEBUG) {
+            AppLogger.d("CardExpand", "[PRD-warm] H=" + clock.lastMeasuredH)
+        }
     }
 
     // #426 追修复:cancel 处理器必须读**当下** visible——LaunchedEffect(listState)

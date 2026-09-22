@@ -452,93 +452,20 @@ fun ChatMessageList(
         result
     }
 
-    // ===== #422→#423 批次六:展开态折叠组 → 拆条目发射(全量,不再限大组) =====
-    // 派生自 toolExpandedStates 快照(toggle 写 StateFlow → 新 Map 实例 →
-    // 本 remember 重算 → chatEntries 重建)。调研定案(2026-09-22):框架对「原地
-    // 展开+视口不动」无成熟原语,成熟做法=结构裂变(头行恒高+内容条目化+
-    // animateItem 平滑滑动)——权重门槛拆除,小组并入;CardExpandReveal 引擎
-    // 退守思考卡/SSE 流式域。
-    val toolExpandedStatesSnapshot = LocalToolExpandedStates.current
-    val expandedStepGroups = remember(
-        renderableTurns, turnGroups, displayItems, toolExpandedStatesSnapshot,
-    ) {
-        if (toolExpandedStatesSnapshot.isEmpty()) {
-            emptyMap()
-        } else {
-            val out = mutableMapOf<String, dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderItem.StepGroup>()
-            displayItems.forEachIndexed { di, (rawIdx, msg) ->
-                if (!msg.isAssistant) return@forEachIndexed
-                val sg = renderableTurns.getOrNull(di)?.renderItems
-                    ?.firstOrNull { it is dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderItem.StepGroup }
-                    as? dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderItem.StepGroup
-                    ?: return@forEachIndexed
-                // 注:流式豁免由 buildChatEntries 单点门控(!isStreamingTurn,有单测
-                // 兜底)——此处仅做候选收集,两处 gate 语义见 isMultiMessageTurn 先例
-                // 批次九(用户裁决):小组回归统一高度控制引擎(渲染前计算+反射
-                // 逐帧设置),结构裂变退回大组专属(#422 历史懒加载域)。
-                if (toolExpandedStatesSnapshot[stepGroupStateKey(sg.msgId)] == true &&
-                    turnItemWeight(sg) >= LARGE_STEP_GROUP_WEIGHT
-                ) {
-                    val tk = "t_" + (turnGroups[rawIdx]?.firstOrNull()?.message?.id ?: msg.message.id)
-                    out[tk] = sg
-                }
-            }
-            out
-        }
-    }
+    // ===== #423 批次十三:结构裂变全量退役(用户裁决「大数据量加速而非拆分」) =====
+    // 全部步组走 CardExpandReveal 统一引擎(渲染前计算+反射位移——钉位铁律
+    // 全局一致,大小组无别);大内容加速=引擎空闲预热(CardExpandReveal
+    // PREWARM_IDLE_MS),而非 #422 条目拆分懒加载。映射恒空 →
+    // buildChatEntries 裂变分支休眠(发射机保留,死代码清理另行批次);
+    // REPIN 重锚修正器同批退役(引擎自证钉位,不留补偿族)。
+    val expandedStepGroups: Map<String, dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderItem.StepGroup> = emptyMap()
 
-    // ===== #423 批次七:结构裂变单发实测重锚 =====
-    // 底贴态逐帧验证(dy=0)框架锚定自稳;用户滚动态(组下方有屏外新内容)插入
-    // 条目把头行顶走(用户主诉「整个对话往上顶」)。修:toggle 瞬间快照折叠行
-    // 屏位 → 条目重建后测新位 → 单发 dispatchRawDelta(err) 归位(与 FLUSH 修正
-    // 器同号性约定)。底贴态 err≈0 自动无操作。无逐帧引擎、无协程驻留。
-    val foldRowYs = remember { java.util.concurrent.ConcurrentHashMap<String, Float>() }
-    var foldRowSeq by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-    var pinClickKey by remember { mutableStateOf<String?>(null) }
-    var pinClickY by remember { androidx.compose.runtime.mutableFloatStateOf(Float.NaN) }
-    val foldRowReport: (String, Float) -> Unit = { k, y ->
-        foldRowYs[k] = y
-        foldRowSeq++
-    }
-    var pinClickCount by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-    val foldRowClick: (String) -> Unit = { k ->
-        pinClickKey = k
-        pinClickY = foldRowYs[k] ?: Float.NaN
-        pinClickCount++
-    }
 
     // ===== #423 SGB 埋点:结构裂变观测(仅 DEBUG;窗口门控,常态零行) =====
-    // sgSwapAtMs = 最近一次大组映射变化的墙钟;HEAD 类探针以 1.2s 窗门控。
+    // 批次十三:裂变退役 → SPLIT/SNAP 效应移除;两探针保留供休眠的 Head 渲染
+    // 分支引用(sgSwapAtMs 恒 0 = 窗口永闭,零日志)。
     val sgSwapAtMs = remember { androidx.compose.runtime.mutableLongStateOf(0L) }
-    // StepGroupHead 顶缘最新实测(逐帧写入,日志窗控;多 head 时为最后写者——单组测试足够)
     val sgHeadTopY = remember { androidx.compose.runtime.mutableIntStateOf(Int.MIN_VALUE) }
-    LaunchedEffect(expandedStepGroups) {
-        if (!dev.leonardo.ocbeacon.BuildConfig.DEBUG) return@LaunchedEffect
-        val keys = expandedStepGroups.keys.joinToString(",") { it.takeLast(10) }
-        dev.leonardo.ocbeacon.logging.AppLogger.d("SGB", "SPLIT n=" + expandedStepGroups.size + " keys=" + keys)
-        sgSwapAtMs.longValue = System.currentTimeMillis()
-        // 裂变窗口逐帧快照:仅值变化帧输出(静止零行)——「往上顶」的帧级时间线
-        val t0 = System.currentTimeMillis()
-        var last = Triple(-1, -1, -1)
-        while (System.currentTimeMillis() - t0 < 1200) {
-            androidx.compose.runtime.withFrameNanos { }
-            val cur = Triple(
-                listState.firstVisibleItemIndex,
-                listState.firstVisibleItemScrollOffset,
-                listState.layoutInfo.totalItemsCount,
-            )
-            if (cur != last) {
-                last = cur
-                dev.leonardo.ocbeacon.logging.AppLogger.d(
-                    "SGB",
-                    "SNAP t=" + (System.currentTimeMillis() - t0) + "ms fii=" + cur.first +
-                        " fiso=" + cur.second + " items=" + cur.third +
-                        " headTop=" + sgHeadTopY.intValue,
-                )
-            }
-        }
-    }
-
     // 以 streamingMsgId 作为 key，流式 turn 变化（新消息
     // 或完成）时状态重置。这比 heightMap + 会话级清除更简单、更正确。
     val compensateState = remember(streamingMsgId) { CompensateState() }
@@ -818,7 +745,7 @@ fun ChatMessageList(
     // ===== 2026-08-20 fling 巨帧根治：分片发射表（消息区 entries）=====
     // entries = displayItems 经 chunkPlans 展开（巨型 turn → N 个 chunk item）。
     // 双向索引是 LazyColumn index ↔ displayItems index 的单一真相源。
-    val chatEntries = remember(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans, expandedStepGroups) {
+    val chatEntries = remember(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans) {
         dev.leonardo.ocbeacon.debug.RaceProbe.probe {
             "ENTRIES rebuild n=" + displayItems.size +
                 " chunkPlans=" + chunkPlans.size +
@@ -826,51 +753,18 @@ fun ChatMessageList(
                 " streaming=" + (streamingMsgId != null) +
                 " recentN=" + recentStreamedTurnKeys.size
         }
-        buildChatEntries(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans, expandedStepGroups = expandedStepGroups)
+        buildChatEntries(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans)
             .also { ents ->
                 if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                     dev.leonardo.ocbeacon.logging.AppLogger.d(
                         "SGB",
-                        "ENTRIES n=" + ents.entries.size + " expanded=" + expandedStepGroups.size,
+                        "ENTRIES n=" + ents.entries.size,
                     )
                 }
             }
     }
 
-    // 批次七/八:单发实测重锚——触发=点击计数(服务组折叠行+思考卡头行双族;
-    // 思考卡 toggle 不重建 entries,chatEntries 触发对它失明)。
-    // 号性依据:FLUSH 修正器真机实证 dispatchRawDelta(屏位 err) 号性正确;
-    // 与 #430 五轮翻车的 scrollToItem 索引/偏移数学无关(此处零索引运算)。
-    LaunchedEffect(pinClickCount) {
-        if (pinClickCount == 0) return@LaunchedEffect
-        val key = pinClickKey ?: return@LaunchedEffect
-        pinClickKey = null
-        if (pinClickY.isNaN()) return@LaunchedEffect
-        val seq0 = foldRowSeq
-        val t0 = System.nanoTime()
-        // 等重建后该 key 折叠行的新鲜放置(≤1.5s 兜底;重内容组合慢)
-        while (System.nanoTime() - t0 < 1_500_000_000L) {
-            androidx.compose.runtime.withFrameNanos { }
-            val y1 = foldRowYs[key]
-            if (foldRowSeq > seq0 && y1 != null && !y1.isNaN()) {
-                val err = pinClickY - y1
-                if (kotlin.math.abs(err) >= 8f) {
-                    val consumed = runCatching { listState.dispatchRawDelta(err) }.getOrDefault(0f)
-                    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
-                        dev.leonardo.ocbeacon.logging.AppLogger.d(
-                            "SGB", "REPIN y0=" + pinClickY.toInt() + " y1=" + y1.toInt() +
-                                " err=" + err.toInt() + " consumed=" + consumed.toInt(),
-                        )
-                    }
-                } else if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
-                    dev.leonardo.ocbeacon.logging.AppLogger.d(
-                        "SGB", "REPIN noop y0=" + pinClickY.toInt() + " y1=" + y1.toInt(),
-                    )
-                }
-                break
-            }
-        }
-    }
+
 
     // ===== #430 大组硬切换锚定(已撤,待重做) =====
     // 尝试把展开后的 StepGroupHead 钉回视口上部;五轮真机迭代均在反向布局
@@ -2565,8 +2459,6 @@ fun ChatMessageList(
                                 LocalCardExpandListState provides listState,
                                 LocalCardExpandDeparture provides onExpandDeparture,
                                 LocalInStreamingTurn provides entryStreaming,
-                                LocalFoldRowYReport provides foldRowReport,
-                                LocalFoldRowClick provides foldRowClick,
                             ) {
                                 val extras = transcriptCardExtras[entry.key]
                                 if (extras == null || extras.isEmpty) {

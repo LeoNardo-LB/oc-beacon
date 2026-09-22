@@ -1235,7 +1235,8 @@ internal fun StepGroupFoldRow(
  * #422 step 折叠组卡：计数行(复用 chat_msg_tail_summary「N steps · M tools」)
  * + CardExpandReveal 展开体(递归调 ChunkAssistantItems 渲染 groups)。
  * 展开态复用工具展开表(key 前缀 step_ 与 part id 不冲突)。
- * 大组(≥ LARGE_STEP_GROUP_WEIGHT)由条目化路径接管,不走本卡。
+ * 批次十三(2026-09-22 用户裁决):全部步组走本卡引擎路径(裂变退役,大小组
+ * 无别);大内容由引擎空闲预热加速(CardExpandReveal PREWARM)。
  */
 @Composable
 private fun StepGroupCard(
