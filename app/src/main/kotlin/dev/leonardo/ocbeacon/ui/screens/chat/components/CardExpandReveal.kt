@@ -720,36 +720,49 @@ internal fun CardExpandReveal(
                         )
                     }
                     clock.tweening = false
+                    // #427(终局·无闪烁,用户裁决:渲染前计算+反射设置):收起=恢复
+                    // 展开前锚点状态。反射 requestScrollToItemNoCancel 把目标位写入
+                    // **待定区,由下一遍 measure 消费**——与下述快照的高度塌缩
+                    // **同一遍 measure 原子生效**:单帧落地、无中间帧。
+                    // (scrollToItem 是独立排布通道:塌缩先渲染一帧再跳位
+                    //  =整屏闪烁,真机复验收敛定罪;本质=渲染后修正,弃。)
+                    // 用户滚动过(阅读位置优先权铁律)或锚点缺失 → 回退镜像位移。
+                    val anchorKnown =
+                        !clock.userScrollCancelled && clock.episodeAnchorItem >= 0
+                    if (anchorKnown) {
+                        dev.leonardo.ocbeacon.ui.screens.chat.components.LazyListReflection
+                            .requestScrollToItemNoCancel(
+                                listState,
+                                clock.episodeAnchorItem,
+                                clock.episodeAnchorOffset,
+                            )
+                        if (BuildConfig.DEBUG) {
+                            AppLogger.d(
+                                "CardExpand",
+                                "[DEBUG-427] close-anchor-request fii=" + clock.episodeAnchorItem +
+                                    " fiso=" + clock.episodeAnchorOffset,
+                            )
+                        }
+                    }
+                    clock.tweening = false
                     androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
                         clock.driveTo(0f)
                     }
-                    clock.programmaticShift = true
-                    try {
-                        // #427(终局):收起=恢复展开前锚点状态(scrollToItem 按构造
-                        // 精确——滚动消费账与几何位移账的 padding 口径差从此无关)。
-                        // 用户滚动过(阅读位置优先权铁律)或锚点缺失 → 回退镜像位移。
-                        val backPx = if (clock.episodeShiftConsumedPx != 0f) {
-                            -clock.episodeShiftConsumedPx
-                        } else {
-                            -rep.toFloat()
-                        }
-                        if (!clock.userScrollCancelled && clock.episodeAnchorItem >= 0) {
-                            listState.scrollToItem(clock.episodeAnchorItem, clock.episodeAnchorOffset)
-                            if (BuildConfig.DEBUG) {
-                                AppLogger.d(
-                                    "CardExpand",
-                                    "[DEBUG-427] close-anchor-restore fii=" + clock.episodeAnchorItem +
-                                        " fiso=" + clock.episodeAnchorOffset,
-                                )
+                    if (!anchorKnown) {
+                        clock.programmaticShift = true
+                        try {
+                            val backPx = if (clock.episodeShiftConsumedPx != 0f) {
+                                -clock.episodeShiftConsumedPx
+                            } else {
+                                -rep.toFloat()
                             }
-                        } else {
                             applyPairedPreRenderShift(listState, backPx)
+                        } finally {
+                            clock.programmaticShift = false
                         }
-                        clock.episodeShiftConsumedPx = 0f
-                        clock.episodeAnchorItem = -1
-                    } finally {
-                        clock.programmaticShift = false
                     }
+                    clock.episodeShiftConsumedPx = 0f
+                    clock.episodeAnchorItem = -1
                     if (BuildConfig.DEBUG) {
                         AppLogger.d(
                             "CardExpand",
