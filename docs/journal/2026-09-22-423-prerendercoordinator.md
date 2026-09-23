@@ -562,3 +562,10 @@ dy 曲线「渐进上推 4-5 帧 + 复位 +330」经三个子代理互证 = **MI
 - **单测**：`MarkdownParsedStateCacheTest` 7 例全绿（命中/未命中/Loading 拒入/容量上界/LRU 访问序/同键覆写/parseMarkdown 终态契约锚）。
 - **真机验证**：装机后双真收起样本 k1/k2（CLICK j7eSbe8T expanded=true,POST_CLOSE_RED=0 各 1 次有效命中）；回归 6 连点+双 fling——PID 存活、0 崩溃、0 ANR（唯一命中为 adbd 回显 grep 命令自身）。
 - **流程事故入账**：验证轮 NotificationShade 盖屏导致一轮无效抓取（MIUI 已知坑,`cmd statusbar collapse` 恢复）；ensure_app 后 NAV_OK 缺失时不得继续 capture。
+
+## 追加批次七(#429 L0 交付+L1 尝试回退)
+
+- **L0 交付（d3462892）**：①toggle 重组风暴收敛——`toolExpandedStates` 改 StateFlow 整体下沉（稳定身份）+ `toolExpandedOrDefault` per-key derivedStateOf 逐键读取；真机实证 CLICK 后全列表重组洪泛+GC 122MB → 仅 7 行局部重组。②表格退出逐字选择（`DisableSelection`）——240 个可选中文本单元的单帧 2501ms 排版风暴拆除；真机冷进程首开 CLICK→Phase A **62ms**（改造前 2.4~3.5s,零 MIUIScout 长帧）。长按单元格复制菜单（复制此格/复制整表 TSV）补偿选择能力,15 语言 i18n 检查通过,TableTsv 单测 3 例+全量单测绿。
+- **L1 行组虚拟化第一次尝试（已回退,教训入账）**：表内下沉一层窗口化（窗口内行组两遍实测/窗外冻结估高/放置回调重算窗口）。三轮迭代：修双测崩溃（同一 Measurable 不得 measure 两次,真机 22:54 崩溃栈）、修窗口抖动（measure 内写窗口状态与总高变化成反馈环,改放置回调独占）、修估高偏置（表头行剔除+×0.75 保守——低估=滚动渐增,高估=尾部幽灵空隙）。**终局阻塞**：首遍测量 containerWidth=0（onSizeChanged 未回）时列宽按 minCell 上限测量 → 行高坍缩至 ~1/3（6188 vs ~20000），且跨测量遍的 subcompose 槽位别名使正确宽度下的重测不生效；错误高度经片高账本持久化（17604 污染实例）。回退保 L0（回退版复验收起绿+零崩溃）。
+- **L1-v2 设计草案（下轮实施）**：每组独立小 SubcomposeLayout 装在 Column 内——组间无跨遍槽位别名,高度经放置回调入账本（measure 零状态写入）,containerWidth 变化自然触发各组重测；外层保留一次全表 loose 探针定列宽（三遍中最便宜的单行测量）。
+- **流程事故**：装机重启会走系统状态恢复（ledger/finalH 带"暖"假象）——测量实验必须 force-stop 真冷；测试期间设备被用户操作（无线调试设置页占用前台）多轮,导航失败时先查 mCurrentFocus。
