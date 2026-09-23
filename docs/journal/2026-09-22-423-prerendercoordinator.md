@@ -506,3 +506,42 @@
 ### debug 版本影响（如实）
 
 debug 构建（无 R8、额外运行时检查）放大全部成本——冷组合 2.2-3.4s 在 release 会显著更低；但预热风暴是结构性的（每次收起都重组整片），非 debug 伪影。
+
+## #427 追加批次四（2026-09-23 晚）：收起尾部上推终局定位——闭合帧后一帧「视口重填」泄露（诊断轮，未修复）
+
+> 触发：用户复验——卡顿基本修复 ✓（fac75665 预热资格门生效）；残留「大卡收起快完毕时向上推约 1~3 帧然后突然高度复位」。
+
+### 反馈环（diagnosing-bugs Phase 1 产物，全部沉淀 /tmp）
+
+- **dy_track.py v2**：分带垂直互相关（TOP/BOT 条带行均值曲线），全窗搜索+匹配质量门槛。初版 maxlag=60px 对大位移盲报 0——「NO_BIG_MOVEMENT」假绿教训；v2 后三收起样本全现症状。
+- **frame_diff.py**：闭合帧（最大突变帧）锚定 + 其后 1-6 帧差异度 >2% = 红判定器（POST_CLOSE_RED）。
+- **nav_guard.sh**：焦点守卫导航（每轮校验应用前台+Shade 收集+进程存活）。
+- 多模态子代理目检 ×5（帧拼图 + 全分辨率裁剪逐字核对）。
+
+### 伪影剥离（重要：曾 100% 误导）
+
+dy 曲线「渐进上推 4-5 帧 + 复位 +330」经三个子代理互证 = **MIUI「已连接到无线调试」悬浮通知 heads-up 滑出动画**——app 列表全程零滚动（底部条带差分 0.00）。adb 无线调试连接每次弹横幅——采集环境伪影，与 app 无关。判定器须剔除横幅覆盖区。
+
+### 真症状定性（仪器+目检三重）
+
+闭合帧（单帧原子 ✓ 设计内）后 1-4 帧存在**二次跳变**：16-29% 像素变化，**上方内容整体刚性上移 268px**，下方逐像素不动，跳变时刻**零应用日志**。100% 复现（cl1/cl2/c1/fix1/fix2/fix3/g1/g2 八样本）。
+
+### 假设链（两否一立）
+
+1. **否——短文本 asyncParse Loading 空档**：改同步分流（<PREPARSE_MIN_CHARS 走 rememberMarkdownState）无效。库的解析经 LaunchedEffect 执行——「同步」仅是解析线程语义，**state 就绪永远在下一帧**（md-cache 零命中 + 跳变帧无 MDPilot 日志实证）。
+2. **否——异步解析跨组合 LRU 缓存**（asyncParsedStateCache）：跳变 part 根本不经过该路径（日志零行）。中途「组合期 runBlocking 填充」方案**死锁主线程 20.7s → MIUI input ANR 杀进程**（真机 19:37，ANR 栈直指 rememberParsedMarkdownState）——**组合期 runBlocking 与 flowOn(Default) 等待链死锁，永久禁用**。全部实验改动已回滚（HEAD 干净）。
+3. **立——LazyList 闭合帧后一帧视口重填**：g1 补出块=turn-2「第三步：总结」268px；g2 补出=turn-1 Build 行+turn-2 气泡——**补出内容随视口而异、位移量恒 268、时机恒闭合后一帧、无任何渲染日志** ⇒ 非 part 渲染层，是 LazyList 布局层。close+2f 实测恢复位视口 items 总高 1930px < 视口 2400px（下方空白）——下一帧 LazyList 补齐=二遍填泄露。与批次十三c「锚点重推导多遍中间放置泄露 1-2 帧」同族：单步原子闭合治了大位移震荡，未治「不满视口二遍填」。
+4. 旁证：每轮收起 item19 高度 467→199（-268 恒定）——与 c5ddfbbf 修复前历史净漂 -268px/周期同值，非巧合待深挖。
+
+### 环境坑（本轮新增）
+
+- MIUI 在 NotificationShade 盖住期间把前台应用当后台杀（两轮同型：Shade 开 → 应用 NOT_RUNNING 无 crash）；收 Shade 用 cmd statusbar collapse（BACK 无效）。
+- 底部上滑 input swipe(y 大→y 小) = 手势导航 HOME——会误退应用。
+- uiautomator 陈旧 dump 误判（2025-08-25 三坑）再犯：rm 后 dump+前台校验才可信。
+- svc power stayon true 可防测试间隙锁屏。
+
+### 状态与候选（需用户裁决后另批实施）
+
+- 修复未实施（本轮=诊断+假设排除）；MarkdownContent.kt 三实验已回滚。
+- 候选：a) FLUSH 拒绘闭合帧（PreDrawFlushTask hold 至视口稳定——冻结 ≤2 帧代价）；b) 恢复位视口预填（闭合前预热恢复位条目——引擎×列表耦合重）；c) beyondBoundsCount 提升试验。
+- 票据：#428（P1）。
