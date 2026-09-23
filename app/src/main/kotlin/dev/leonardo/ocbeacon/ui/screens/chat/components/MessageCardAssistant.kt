@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
@@ -1182,6 +1183,11 @@ internal fun StepGroupFoldRow(
     modifier: Modifier = Modifier,
     /** #423 批次七:#sgt 尾行不参与重锚(与 #sgh 同 stateKey,防 60px 歧义)。 */
     pinEligible: Boolean = true,
+    /**
+     * #429:展开集高度计算期——true 时层叠图标换小 spinner(loading 过渡,
+     * 用户裁决 2026-09-24;计算期=点击→Phase A 落地,幕布接续)。
+     */
+    expanding: Boolean = false,
 ) {
     val onToggleToolExpanded = LocalOnToggleToolExpanded.current
     val hapticView = LocalView.current
@@ -1216,12 +1222,20 @@ internal fun StepGroupFoldRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
     ) {
-        Icon(
-            imageVector = Icons.Default.Layers,
-            contentDescription = stringResource(if (expanded) R.string.a11y_icon_collapse else R.string.a11y_icon_expand),
-            modifier = Modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
-        )
+        if (expanding) {
+            // #429:loading 过渡——高度计算期(先算后展)的可见反馈
+            CircularProgressIndicator(
+                modifier = Modifier.size(16.dp),
+                strokeWidth = 2.dp,
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.Layers,
+                contentDescription = stringResource(if (expanded) R.string.a11y_icon_collapse else R.string.a11y_icon_expand),
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = AlphaTokens.MUTED),
+            )
+        }
         Text(
             text = stringResource(R.string.chat_msg_tail_summary, step.textCount.coerceAtLeast(1), step.toolCount),
             style = MaterialTheme.typography.labelMedium,
@@ -1277,11 +1291,16 @@ private fun StepGroupCard(
         androidx.compose.runtime.withFrameNanos { }
         heavyComposed = true
     }
+    // #429:展开集计算期信号——折叠行 spinner 过渡(先算高度+loading,用户裁决)
+    val expandComputing = androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateOf(false)
+    }
     Column(modifier = Modifier.fillMaxWidth()) {
-        StepGroupFoldRow(step = step)
+        StepGroupFoldRow(step = step, expanding = expandComputing.value)
         CardExpandReveal(
             visible = expanded,
             cacheKey = step.msgId,
+            onExpandComputing = { expandComputing.value = it },
             // #427 竞态修复:仅「小组(无账本概念)或切片但账本冷(首次填账)」
             // 才预热——切片卡账本暖后预热重组窗内怪物片=主线程 2.5s 长块
             // (真机 42 帧掉帧定罪)且零收益(高度已在账本)。

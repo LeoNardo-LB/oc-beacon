@@ -430,6 +430,12 @@ internal fun CardExpandReveal(
      * 占位门=Spacer 首帧 63px 单帧弹跳(「收起后上推再弹回」成分)。
      */
     prewarmEligible: (() -> Boolean)? = null,
+    /**
+     * #429:展开集「高度计算期」信号——true=正在计算(等待 settle 落定),宿主
+     * 以此渲染 loading 过渡(用户裁决 2026-09-24:先算高度+loading 过渡动画)。
+     * 仅用户可见性驱动的展开集触发;null=不关心(存量调用点零改动)。
+     */
+    onExpandComputing: ((Boolean) -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val listState = LocalCardExpandListState.current
@@ -620,6 +626,8 @@ internal fun CardExpandReveal(
         val target = if (visible) 1f else 0f
         val needsEpisode = abs(clock.fraction - target) > 0.001f
         if (needsEpisode) {
+            // #429:展开集计算期开始(收起集无等待语义,不置位)
+            if (target > 0f) onExpandComputing?.invoke(true)
             // 批次九(用户裁决 2026-09-22):统一高度控制——渲染前计算 + 反射逐帧
             // 设置。钉位武装/FLUSH 修正环/两阶段揭示全部退役:高度分数与滚动位
             // 在同一遍 measure 原子生效,配对从构造上精确(零补偿、零修正环)。
@@ -674,6 +682,8 @@ internal fun CardExpandReveal(
                     if (H > DEPARTURE_THRESHOLD_PX) {
                         departure?.invoke()
                     }
+                    // #429:高度已定/相位已落——计算期结束,loading 让位幕布揭示
+                    onExpandComputing?.invoke(false)
                     // 幕布:纯绘制揭示 0→1(200ms,零布局零滚动)
                     val tC = withFrameNanos { it }
                     var vc = 0f
@@ -795,6 +805,8 @@ internal fun CardExpandReveal(
                 }
                 throw t
             } finally {
+                // #429:任何退出路径(取消/异常)都不得悬挂 loading
+                onExpandComputing?.invoke(false)
                 clock.tweening = false
                 phaseADrain.value = false
                 // #426 追修复(不变量):任何退出路径上,布局占位(fraction>0)必须

@@ -10,9 +10,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -26,13 +24,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.layout.SubcomposeLayout
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -98,25 +93,6 @@ internal fun tableTsv(content: String, rows: List<TableRow>, columnCount: Int): 
     rows.joinToString("\n") { row ->
         row.cells.take(columnCount).joinToString("\t") { cellPlainText(content, it) }
     }
-
-/** #429 L1-v2：行组虚拟化阈值——超过此行数的表才行组窗口化（小表走原整测路径，零回归面）。 */
-internal const val TABLE_VIRTUALIZE_MIN_ROWS = 20
-
-/** #429 L1-v2：行组边界——首组小（首屏快），其余组大（降低重组粒度）。JVM 可单测。 */
-internal fun tableGroupBounds(rowCount: Int): List<IntRange> {
-    if (rowCount <= 0) return emptyList()
-    val bounds = mutableListOf<IntRange>()
-    var start = 0
-    var first = true
-    while (start < rowCount) {
-        val size = if (first) 8 else 12
-        val end = minOf(start + size, rowCount) - 1
-        bounds.add(start..end)
-        start = end + 1
-        first = false
-    }
-    return bounds
-}
 
 /**
  * #135（D2-L46）：表格测量缓存——探针列宽与行高在"内容、约束、列宽"
@@ -201,24 +177,6 @@ internal fun SimpleMarkdownTable(
     val scrollState = rememberScrollState()
     val minCellWidthPx = with(LocalDensity.current) { 120.dp.toPx() }.roundToInt()
 
-    // ===== #429 L1-v2：行组虚拟化（仅大表）=====
-    // v1 教训（批次七）：单宿主多槽跨测量遍别名 + measure 内写状态 = 窗口抖动/
-    // 错误高度污染账本。v2 = 每组独立 SubcomposeLayout 装进 Column，组高经
-    // 放置回调入账本（measure 零状态写入），窗口仅放置回调重算。
-    val virtualized = rowCount > TABLE_VIRTUALIZE_MIN_ROWS
-    val tableGroups = remember(rowCount) {
-        if (virtualized) tableGroupBounds(rowCount) else emptyList()
-    }
-    val groupHeights = remember(content, tableNode) {
-        mutableStateOf<Map<Int, Int>>(emptyMap())
-    }
-    var estRowHeight by remember(content, tableNode) { mutableIntStateOf(-1) }
-    var windowGroups by remember(content, tableNode) { mutableStateOf(0..0) }
-    val screenHpx = with(LocalDensity.current) {
-        androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp.toPx()
-    }
-    var hostTopY by remember { mutableFloatStateOf(Float.NaN) }
-
     // #429 L0-②：长按复制（菜单见文件尾 Popup）
     val clipboard = LocalClipboard.current
     val clipScope = rememberCoroutineScope()
@@ -244,39 +202,8 @@ internal fun SimpleMarkdownTable(
             modifier = Modifier
                 .fillMaxWidth()
                 .onSizeChanged { containerWidth = it.width }
-                .onGloballyPositioned { coords ->
-                    hostTopY = coords.positionInRoot().y
-                    // 窗口重算（StepGroupWindowedBody 同款：仅放置回调写，measure 只读）
-                    if (virtualized && !hostTopY.isNaN()) {
-                        val est = if (estRowHeight > 0) estRowHeight else 80
-                        val tops = IntArray(tableGroups.size + 1)
-                        var acc = 0
-                        tableGroups.forEachIndexed { gi, gr ->
-                            tops[gi] = acc
-                            acc += groupHeights.value[gi] ?: est * (gr.last - gr.first + 1)
-                        }
-                        tops[tableGroups.size] = acc
-                        var firstW = -1
-                        var lastW = -1
-                        for (gi in tableGroups.indices) {
-                            val top = hostTopY + tops[gi]
-                            val bottom = hostTopY + tops[gi + 1]
-                            // L2:首窗=视口+~1 屏(2 倍屏高自根原点,扣除表顶根坐标
-                            // 偏移后≈视口下 1 屏);更深组放置后经本回调渐进入窗
-                            // (折叠线下不可见域渐进组合)
-                            if (bottom > -screenHpx && top < 2f * screenHpx) {
-                                if (firstW < 0) firstW = gi
-                                lastW = gi
-                            }
-                        }
-                        if (firstW >= 0 && windowGroups != firstW..lastW) {
-                            windowGroups = firstW..lastW
-                        }
-                    }
-                }
                 .horizontalScroll(scrollState)
         ) {
-            if (!virtualized) {
             val cellContent: @Composable () -> Unit = {
                 rows.forEachIndexed { rowIdx, row ->
                     val cellCount = minOf(row.cells.size, columnCount)
@@ -470,43 +397,6 @@ internal fun SimpleMarkdownTable(
                     }
                 }
             }
-            } else {
-                // #429 L1-v2：大表行组虚拟化——窗口内组=独立子组合块实测，窗外组=
-                // 冻结估高占位；组高经放置回调入账本（measure 零状态写入）。
-                dev.leonardo.ocbeacon.ui.screens.chat.markdown.VirtualizedTableBody(
-                    content = content,
-                    rows = rows,
-                    columnCount = columnCount,
-                    tableGroups = tableGroups,
-                    headerStyle = headerStyle,
-                    bodyStyle = bodyStyle,
-                    headerBg = headerBg,
-                    rowBgOdd = rowBgOdd,
-                    dividerColor = dividerColor,
-                    pad = pad,
-                    linkColor = linkColor,
-                    uriHandler = uriHandler,
-                    containerWidth = containerWidth,
-                    minCellWidthPx = minCellWidthPx,
-                    windowGroups = windowGroups,
-                    estRowPx = if (estRowHeight > 0) estRowHeight else 80,
-                    groupHeights = groupHeights.value,
-                    onGroupMeasured = { gi, h, bodyRows, bodyHeight ->
-                        if (groupHeights.value[gi] != h) {
-                            groupHeights.value = groupHeights.value + (gi to h)
-                        }
-                        // 估高冻结（表头行剔除 + ×0.75 保守：低估=滚动渐增无幽灵空隙，
-                        // 高估=尾部空白段 UX 恶）
-                        if (estRowHeight < 0 && bodyRows > 0 && bodyHeight > 0) {
-                            estRowHeight = maxOf((bodyHeight.toFloat() / bodyRows * 0.75f).toInt(), 24)
-                        }
-                    },
-                    onCellLongPress = { text ->
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        copyCellText = text
-                    },
-                )
-            }
         }
 
         // #429 L0-②：长按单元格复制菜单（复制此格 / 复制整表 TSV）
@@ -551,280 +441,5 @@ internal fun SimpleMarkdownTable(
             }
         }
     }
-    }
-}
-
-/**
- * #429 L1-v2：单元格行渲染（虚拟化路径专用；原整测路径的 cellContent 保持原样）。
- * 与原路径逐像素对齐：背景/网格线/长按复制/可点击链接语义一致。
- */
-@Composable
-private fun VirtualizedRow(
-    rowIdx: Int,
-    rows: List<TableRow>,
-    columnCount: Int,
-    content: String,
-    headerStyle: TextStyle,
-    bodyStyle: TextStyle,
-    headerBg: Color,
-    rowBgOdd: Color,
-    dividerColor: Color,
-    pad: androidx.compose.ui.unit.Dp,
-    linkColor: Color,
-    uriHandler: UriHandler,
-    onCellLongPress: (String) -> Unit,
-) {
-    val row = rows[rowIdx]
-    val cellCount = minOf(row.cells.size, columnCount)
-    val isLastRow = rowIdx == rows.lastIndex
-    val annotator = annotatorSettings()
-    repeat(cellCount) { colIdx ->
-        val cell = row.cells[colIdx]
-        val isLastCol = colIdx == cellCount - 1
-        val cellStyle = if (row.isHeader) headerStyle else bodyStyle
-        val cellResult = remember(content, cell, cellStyle.color, linkColor) {
-            buildClickableMarkdown(content, cell, cellStyle, annotator, linkColor)
-        }
-        val cellText = remember(cellResult) { cellResult.annotatedString.toString() }
-        Box(
-            modifier = Modifier
-                .background(
-                    when {
-                        row.isHeader -> headerBg
-                        row.rowIndex % 2 == 1 -> rowBgOdd
-                        else -> Color.Transparent
-                    }
-                )
-                .then(
-                    Modifier.drawBehind {
-                        if (!isLastCol) {
-                            drawLine(
-                                dividerColor,
-                                Offset(size.width, 0f),
-                                Offset(size.width, size.height),
-                                strokeWidth = 1f,
-                            )
-                        }
-                        if (!isLastRow) {
-                            drawLine(
-                                dividerColor,
-                                Offset(0f, size.height),
-                                Offset(size.width, size.height),
-                                strokeWidth = 1f,
-                            )
-                        }
-                    }
-                )
-                .combinedClickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {},
-                    onLongClick = { onCellLongPress(cellText) },
-                )
-                .padding(horizontal = pad, vertical = if (row.isHeader) 8.dp else 6.dp)
-        ) {
-            var cellLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
-            MarkdownBasicText(
-                text = cellResult.annotatedString,
-                style = cellStyle,
-                onTextLayout = { cellLayoutResult = it },
-                modifier = Modifier.clickableMarkdown(cellResult, { cellLayoutResult }, uriHandler),
-            )
-        }
-    }
-}
-
-/**
- * #429 L1-v2：行组块——每组的独立 SubcomposeLayout（p1/fin 双槽，组间零跨遍
- * 别名）。行高统计经普通数组寄存，由 onSizeChanged 放置回调带出（measure
- * 零状态写入）。
- */
-@Composable
-private fun TableRowGroup(
-    gi: Int,
-    rowRange: IntRange,
-    rows: List<TableRow>,
-    columnCount: Int,
-    content: String,
-    finalColWidths: IntArray,
-    headerStyle: TextStyle,
-    bodyStyle: TextStyle,
-    headerBg: Color,
-    rowBgOdd: Color,
-    dividerColor: Color,
-    pad: androidx.compose.ui.unit.Dp,
-    linkColor: Color,
-    uriHandler: UriHandler,
-    onGroupMeasured: (gi: Int, heightPx: Int, bodyRows: Int, bodyHeight: Int) -> Unit,
-    onCellLongPress: (String) -> Unit,
-) {
-    // 普通寄存（非快照）：measure 写、放置回调读——不产生失效语义
-    val stats = remember { arrayOfNulls<IntArray>(1) }
-    SubcomposeLayout(
-        modifier = Modifier.onSizeChanged { sz ->
-            stats[0]?.let { rh ->
-                val bodyRows = rh.size - 1
-                val bodyHeight = rh.sum() - (rh.firstOrNull() ?: 0)
-                onGroupMeasured(gi, sz.height, bodyRows, bodyHeight)
-            }
-        }
-    ) { constraints ->
-        val nRows = rowRange.last - rowRange.first + 1
-        val cells: @Composable () -> Unit = {
-            rowRange.forEach { ri ->
-                VirtualizedRow(
-                    rowIdx = ri, rows = rows, columnCount = columnCount, content = content,
-                    headerStyle = headerStyle, bodyStyle = bodyStyle,
-                    headerBg = headerBg, rowBgOdd = rowBgOdd, dividerColor = dividerColor,
-                    pad = pad, linkColor = linkColor, uriHandler = uriHandler,
-                    onCellLongPress = onCellLongPress,
-                )
-            }
-        }
-        val pass1 = subcompose("p1", cells).mapIndexed { index, m ->
-            val col = index % columnCount
-            m.measure(
-                Constraints(
-                    minWidth = finalColWidths[col],
-                    maxWidth = finalColWidths[col],
-                    minHeight = 0,
-                    maxHeight = constraints.maxHeight,
-                )
-            )
-        }
-        val rowH = IntArray(nRows) { 0 }
-        pass1.forEachIndexed { index, p ->
-            val r = index / columnCount
-            if (r < nRows) rowH[r] = maxOf(rowH[r], p.height)
-        }
-        stats[0] = rowH
-        val finals = subcompose("fin", cells).mapIndexed { index, m ->
-            val col = index % columnCount
-            val r = index / columnCount
-            m.measure(
-                Constraints(
-                    minWidth = finalColWidths[col],
-                    maxWidth = finalColWidths[col],
-                    minHeight = if (r < nRows) rowH[r] else 0,
-                    maxHeight = constraints.maxHeight,
-                )
-            )
-        }
-        layout(finalColWidths.sum(), rowH.sum()) {
-            var y = 0
-            var idx = 0
-            for (r in 0 until nRows) {
-                var x = 0
-                for (c in 0 until columnCount) {
-                    if (idx < finals.size) {
-                        finals[idx].placeRelative(x, y)
-                    }
-                    x += finalColWidths[c]
-                    idx++
-                }
-                y += rowH[r]
-            }
-        }
-    }
-}
-
-/**
- * #429 L1-v2：虚拟化表体——Column 装配行组块。列宽组合期一次定死
- * （TextMeasurer 纯文本单行测量，行内样式宽度差可忽略）；窗外组=估高 Spacer。
- */
-@Composable
-private fun VirtualizedTableBody(
-    content: String,
-    rows: List<TableRow>,
-    columnCount: Int,
-    tableGroups: List<IntRange>,
-    headerStyle: TextStyle,
-    bodyStyle: TextStyle,
-    headerBg: Color,
-    rowBgOdd: Color,
-    dividerColor: Color,
-    pad: androidx.compose.ui.unit.Dp,
-    linkColor: Color,
-    uriHandler: UriHandler,
-    containerWidth: Int,
-    minCellWidthPx: Int,
-    windowGroups: IntRange,
-    estRowPx: Int,
-    groupHeights: Map<Int, Int>,
-    onGroupMeasured: (gi: Int, heightPx: Int, bodyRows: Int, bodyHeight: Int) -> Unit,
-    onCellLongPress: (String) -> Unit,
-) {
-    val density = LocalDensity.current
-    val textMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
-    // 自然列宽：组合期一次（remember 键=内容与列数）
-    val naturalWidths = remember(content, rows, columnCount, bodyStyle.fontSize) {
-        val w = IntArray(columnCount) { 0 }
-        rows.forEach { row ->
-            row.cells.take(columnCount).forEachIndexed { col, cell ->
-                val t = cellPlainText(content, cell)
-                if (t.isNotEmpty()) {
-                    val m = textMeasurer.measure(
-                        androidx.compose.ui.text.AnnotatedString(t),
-                        bodyStyle,
-                    )
-                    if (m.size.width > w[col]) w[col] = m.size.width
-                }
-            }
-        }
-        w
-    }
-    // cap/fill（与原路径同语义）
-    val effectiveCap = if (containerWidth > 0) {
-        maxOf(containerWidth / columnCount, minCellWidthPx)
-    } else {
-        minCellWidthPx
-    }
-    val capped = IntArray(columnCount) { minOf(naturalWidths[it], effectiveCap) }
-    val natural = capped.sum()
-    val finalColWidths = if (natural > 0 && containerWidth > 0 && natural < containerWidth) {
-        val scale = containerWidth.toFloat() / natural.toFloat()
-        val scaled = IntArray(columnCount) { (capped[it] * scale).toInt() }
-        val diff = containerWidth - scaled.sum()
-        for (i in 0 until diff.coerceAtMost(columnCount)) scaled[i] += 1
-        scaled
-    } else {
-        capped
-    }
-    val totalWidthPx = finalColWidths.sum()
-
-    androidx.compose.foundation.layout.Column(
-        modifier = Modifier.width(with(density) { totalWidthPx.toDp() }),
-    ) {
-        tableGroups.forEachIndexed { gi, gr ->
-            if (gi in windowGroups) {
-                androidx.compose.runtime.key(gi) {
-                    TableRowGroup(
-                        gi = gi,
-                        rowRange = gr,
-                        rows = rows,
-                        columnCount = columnCount,
-                        content = content,
-                        finalColWidths = finalColWidths,
-                        headerStyle = headerStyle,
-                        bodyStyle = bodyStyle,
-                        headerBg = headerBg,
-                        rowBgOdd = rowBgOdd,
-                        dividerColor = dividerColor,
-                        pad = pad,
-                        linkColor = linkColor,
-                        uriHandler = uriHandler,
-                        onGroupMeasured = onGroupMeasured,
-                        onCellLongPress = onCellLongPress,
-                    )
-                }
-            } else {
-                val h = estRowPx * (gr.last - gr.first + 1)
-                androidx.compose.foundation.layout.Spacer(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(with(density) { h.toDp() }),
-                )
-            }
-        }
     }
 }

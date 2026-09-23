@@ -577,3 +577,10 @@ dy 曲线「渐进上推 4-5 帧 + 复位 +330」经三个子代理互证 = **MI
 - **行为验证**：组渐进组合实证（6 组 ×~90ms 逐个落地）；滚动中窗口正确平移（win 随滚动入/出），账本 6/6 保持；真冷首次展开 ~1.2s，账本暖/跨重启 81~94ms；深部滚动+快速双收起回归 POST_CLOSE_RED=0；全程零崩溃零 ANR。TableGroupBoundsTest 4 例+全量单测绿。
 - **L3 定性（结构吸收）**：L2 构造下可见区域恒在 Phase A 前组合完毕（settle 只等首窗）→ 幕布揭示的必为已组合内容；更深组在揭示期/其后于折叠线下渐进就位（不可见）——用户「片就绪才揭示」的语义对可见域按构造成立，无需独立耦合机制。残余：极慢首窗（>settle 预算）时幕布会等待而非部分揭示——settle 600ms 上限与首窗 ~300-400ms 实测相容。
 - **账本跨重启观察**：force-stop 后 ledger/finalH 仍有恢复渠道（系统状态恢复），「真冷」仅指首次-ever 展开；1.23s 为 honest 首开数。
+
+## 追加批次九(#429 虚拟化回退+loading 过渡:用户裁决滚动巨卡)
+
+- **用户裁决（2026-09-24 01:00）**：L1-v2 行组虚拟化「开了之后一旦滑动就巨卡无比」（组入窗=12行×6列×双遍组合测量落在滚动帧上）——回退虚拟化，恢复原「先计算高度」架构；**新增要求：计算期以 loading 作为过渡动画**。
+- **回退**：MarkdownTable.kt 回到 L0 提交态（d3462892，单体整测+去选择+复制菜单保留）；TableGroupBoundsTest 删除。滚动流畅性复验：展开态 6 次快速下 fling+3 次上 fling 穿越全表，**零 MIUIScout 长帧**（v2 的组入窗卡顿随回退消失）。
+- **loading 过渡实现**：引擎 CardExpandReveal 新增 `onExpandComputing: ((Boolean) -> Unit)? = null`——仅用户可见性驱动的展开集置位（收起集无等待语义）；true=集起点，false=Phase A 落地点（高度已定/相位已落，loading 让位幕布），finally 兜底防取消悬挂。StepGroupCard 接线：`expandComputing` 状态 → StepGroupFoldRow 新参 `expanding: Boolean`——true 时层叠图标替换为 16dp/2dp strokeWidth 的 CircularProgressIndicator。其余 5 个 CardExpandReveal 调用点默认参数零改动。
+- **验证状态**：构建+全量单测绿；收起回归 POST_CLOSE_RED=0；展开 H=20352 单体真高恢复；零崩溃。**spinner 视觉取证未完成**——录屏两轮：一轮命中 121ms 快路径小卡（60fps 抽帧隔 2 取 1 未捕到 1-2 帧窗口），一轮遇设备被用户占用（设置页/息屏）。机制层面：回调路径已在真机运行中执行（g1exp 时间线 ε→settle→Phase A 与回调区间一致），冷巨卡计算窗 ~200ms-1.2s=12-70 帧可见量级；待设备可用补录或用户真机直接验收。
