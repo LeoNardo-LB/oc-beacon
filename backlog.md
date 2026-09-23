@@ -64,6 +64,7 @@
   - 进度(2026-09-24):L1-v2+L2 交付——每组独立 SubcomposeLayout+Column,组高走放置回调,首窗=视口+1屏,更深组折叠线下渐进组合;视觉对原版基线一致(ref0 裁决),真冷首开~1.2s/暖 81-94ms,零崩溃零ANR;L3 被构造吸收(可见域恒先组合后揭示)
   - 调整(2026-09-24 用户裁决):L1-v2 虚拟化因展开后滑动巨卡回退(组入窗组合落滚动帧);恢复原先算高度架构+新增 loading 过渡(引擎 onExpandComputing 信号+折叠行 spinner,计算期可见反馈);滚动流畅复验零长帧;spinner 视觉取证待设备可用
   - loading 修复(2026-09-24):①跨条目接线(LocalStepGroupComputing 共享表,大组#sgh外层行与卡体不同 LazyItem)②先行帧(invoke(true)后等一帧再 warmup——spinner 重组否则与重组合同帧被压 2.3s);终验 state=true→行渲染 10ms,2.4s 窗内圆环像素验证可见;收起回归绿
+  - 后台化调研(2026-09-24,用户指示):组合/测量不可后台(WindowRecomposer绑定UI线程,官方源码定罪,1.7-1.12无API);可后台=解析(已做)/列宽StaticLayout预测(PrecomputedText官方路径);官方推荐原语=PausableComposition分帧+movableContentOf保活+Canvas直绘;文档 docs/research/2026-09-24-compose-background-compute-feasibility.md(含本地实证附录);时间切片WIP已stash待裁决
 
 - [~] **#428 大卡收起闭合帧后一帧视口重填 268px 跳变(LazyList 不满视口二遍填)** `perf` `render`
   - 收起锚点恢复后视口 items 总高 1930<2400,下一帧 LazyList 补齐=268px 单帧上移泄露(100%复现,与渲染解析无关——三假设两否一立)
