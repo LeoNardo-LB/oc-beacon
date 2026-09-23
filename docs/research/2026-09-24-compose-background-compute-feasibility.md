@@ -143,3 +143,13 @@
 2. **成本构成实证**（MIUIScout 长帧栈）：2.5s 巨帧栈 = MultiParagraph/TextAnnotatedStringNode（文本排版）← SimpleMarkdownTable 行高测量 ← CardExpandGeometryNode——即 Q2 所述 StaticLayout 成本 + Q1 所述组合/测量主线程成本。
 3. **本地字节码核对**（gradle 缓存 1.12.0 AAR javap）：UiApplier extends AbstractApplier&lt;LayoutNode&gt;（树变更器绑定 UI 节点树）；TextMeasurer 为纯类（构造仅 FontFamily.Resolver/Density/LayoutDirection/cacheSize，无 Looper/View 依赖）——与「API 表面无线程绑定痕迹、但官方无线程安全承诺」一致。
 4. **已在后台的部分**：markdown 解析（rememberAsyncMarkdownState，Dispatchers.Default，#428 已加跨组合终态缓存）——即「能后台的早已后台」，剩余冻结部分恰为不可后台部分（Q1）。
+
+---
+
+## 附二：版本可用性核验（2026-09-24，本地 gradle 缓存字节码）
+
+- `androidx.compose.runtime.PausableCompositionKt`（`PausableComposition(Applier, CompositionContext)`）✅ **存在于本仓库锁定的 runtime 1.12.0**
+- `androidx.compose.ui.layout.SubcomposeLayoutState$PausedPrecomposition` ✅ **存在于 ui 1.12.0**
+- `movableContentOf`（MovableContentKt）✅ 存在
+
+→ 路线 A（分帧）与路线 B（保活）在本版本**零依赖风险**，无需升级 Compose。
