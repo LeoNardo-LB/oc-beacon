@@ -545,3 +545,13 @@ dy 曲线「渐进上推 4-5 帧 + 复位 +330」经三个子代理互证 = **MI
 - 修复未实施（本轮=诊断+假设排除）；MarkdownContent.kt 三实验已回滚。
 - 候选：a) FLUSH 拒绘闭合帧（PreDrawFlushTask hold 至视口稳定——冻结 ≤2 帧代价）；b) 恢复位视口预填（闭合前预热恢复位条目——引擎×列表耦合重）；c) beyondBoundsCount 提升试验。
 - 票据：#428（P1）。
+
+## 追加批次五(#428 修复:小文本同步解析,闭合帧首测即终高)
+
+- **判决修正**:批次四的「LazyList 不满视口二遍填」定性修正——闭合帧组合集并未在跳变帧增长(close+2f 仍只列到尾条目,且 p5 实测视口已覆盖),真正的二遍是**既有条目的迟到重测**:恢复位邻域条目在大卡展开期被 20400px 卡体推出组合窗(上方 ~19800px),闭合帧原子重组时以短高入测,下一帧回填真高。
+- **逐帧+逐条目双探针定罪链**(p3/p5/p6):`[DEBUG-428m]` 逐帧 layoutInfo(收起集 60 帧)显示闭合帧 fr=26 锚点精确恢复(18,446)/卡体 20400→48 同帧原子 ✓,但 item19=199;fr=28 item19→467,其下全部条目(含折叠行)+268px 下移=跳变帧。`ItemSize428`(itemsIndexed 层 onSizeChanged 按 key)钉死条目身份:`05a1..P58#s1`(TurnChunk 助手段落,#258 Stage B `#s<i>` 键)首测 199、+1~2 帧 467。
+- **路径定罪**(`MdPath428`):#s1 内 len=2422 大 part `preParsed=true`(registry 命中,直渲无占位——item17=5171 全周期稳定之因);**len=101 小 part `preParsed=false`**(<200 字符不查渲染供给 registry,MessageCardAssistant 门槛)→`rememberAsyncMarkdownState` 首组合恒 `State.Loading()`→Default 解析完成次帧回填。多模态取证(f0085/86 占位帧):无 loading 圈/骨架,内容超绘+槽位错位(199 槽画 467 内容),折叠行被盖不可见——「上推1~3帧然后突然高度复位」用户主诉与像素证据逐帧自洽。
+- **诊断期证伪勘误**:「short-text asyncParse Loading gap 假设被否」不成立——当时把短文本改道到库 `rememberMarkdownState`,而库的 parseBlocking 跑在 LaunchedEffect(主线程但下一帧),首测同样见 Loading;两条路径都占位,非此路径无罪。
+- **修复**(MarkdownContent.kt,+50/−1):`asyncParse` 路径分档——>2048 字符维持异步(84ms 冷滑巨帧既有防线;≥200 字符有 registry 预解析);≤2048 字符改 `rememberSyncMarkdownState`:remember 计算内联调用库 `parseMarkdown(content, ...)`(0.45.0 javap 证实的非 suspend 纯函数入口,与 parseMarkdownFlow 终态同源),`SyncMarkdownState` 以终态构造 StateFlow。组合线程纯 CPU 计算 1-3ms 有界,**不是** runBlocking 等待后台流的 ANR 禁用家族。首组合首测即终高,占位帧从构造上消失。
+- **验证**:反馈回路 `capture_close.sh`+`frame_diff.py`(POST_CLOSE_RED=闭合帧后 1-6 帧任一 >2% 判红)。基线红 5/5(b1/p3/p5/p6/fix1——fix1 证伪了「改道库路径」方案,同样占位)→修复绿 5/5(fix2/fix4/v1/v2/v3;含探针样本 #s1 首测即 467 与清洁版像素级 POST_CLOSE_RED=0;覆盖全新安装/会话退出重进/三种锚点几何)。`assembleDevDebug + testDevDebugUnitTest --rerun` 全绿。回归:6 连点快速 toggle、3 次 fling、会话重进——PID 存活、零崩溃、零 ANR、零 episode 退出异常。
+- **残余与沉淀**:>2048 字符 part 在 registry 条目被视口离场 remove(RenderReadiness D-7 语义)时仍可一帧占位——同族加固项(registry 保留/LRU)未做,另记卡片明细;修复期间三轮流程事故教训入账:ensure_app 已展开后勿再跑 nav_guard(方向翻转产生无效绿样本)、SGB CLICK 日志的 expanded= 为**前置态**、frame_diff 的闭合帧锚是 0 基 diff 序号(文件名+1)。

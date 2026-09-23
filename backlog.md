@@ -55,10 +55,14 @@
 
 ## P1 — 核心功能需求
 
-- [ ] **#428 大卡收起闭合帧后一帧视口重填 268px 跳变(LazyList 不满视口二遍填)** `perf` `render`
+- [~] **#428 大卡收起闭合帧后一帧视口重填 268px 跳变(LazyList 不满视口二遍填)** `perf` `render`
   - 收起锚点恢复后视口 items 总高 1930<2400,下一帧 LazyList 补齐=268px 单帧上移泄露(100%复现,与渲染解析无关——三假设两否一立)
   - 候选:FLUSH 拒绘闭合帧hold到视口稳定/恢复位预填/beyondBoundsCount 试验;同族:批次十三c 锚点重推导泄露
   - 取证链+工具沉淀见 journal 2026-09-23 追加批次四
+  - 修复(2026-09-23):根因修正——二遍填非新条目组合,是恢复位邻域条目(#s1 TurnChunk 段,含 101 字符小文本 part)闭合帧原子重组时走异步解析路径首帧 State.Loading 短高 199px 入测,Default 解析完成后次帧回填 467px→其下内容 +268px 二次重排=「上推1~3帧后高度复位」;ItemSize428 逐条目探针定罪(p5/p6),多模态取证排除 loading 圈观感(占位帧内容超绘、槽位错位)
+  - 修复落点 MarkdownContent.kt:≤2048 字符文本 part 改 remember 内联同步解析(库 parseMarkdown 非 suspend 纯函数,组合线程有界 1-3ms,非 runBlocking 家族),首组合首测即终高;>2048 保持异步(84ms 冷滑巨帧防线+registry 预解析覆盖)
+  - 验证:基线红 5/5(b1/p3/p5/p6/fix1)→修复绿 5/5(fix2/fix4/v1/v2/v3,POST_CLOSE_RED=0,#s1 首测即 467,覆盖新装/会话重进/不同锚点);单测全绿;回归 6 连点+3 fling+会话重进无崩溃无 ANR 无集退出异常
+  - 勘误:诊断期 short-text 假设证伪不成立——当时改道库 rememberMarkdownState 同样首帧占位(parse 在 LaunchedEffect);残余同族风险:>2048 字符 part 在 registry 条目被视口离场逐出时仍可占位一帧,加固项(registry 保留/LRU)另记
 
 - [ ] **#423 PreRenderCoordinator 集中式渲染前计算模块** `render` `architecture` `stability`
   - 集中式渲染前计算/视口配对模块:意图层并行声明+底层单写者串行帧事务,统一全部卡片展开/收起稳定性(十一轮竞态根因收拢)

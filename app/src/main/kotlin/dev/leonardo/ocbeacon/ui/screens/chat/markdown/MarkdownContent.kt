@@ -34,6 +34,7 @@ import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
 import com.mikepenz.markdown.model.markdownAnimations
 import com.mikepenz.markdown.model.markdownPadding
+import com.mikepenz.markdown.model.parseMarkdown
 import com.mikepenz.markdown.model.parseMarkdownFlow
 import org.intellij.markdown.MarkdownTokenTypes
 import com.mikepenz.markdown.utils.getUnescapedTextInNode
@@ -604,8 +605,27 @@ internal fun MarkdownContent(
     // 在主线程同步 parseBlocking（字节码实证 parse$2 内联 parseBlocking，无
     // flowOn）；预解析 miss 时冷态快滑巨帧 84ms（framestats vsync→input）。
     // asyncParse=true 时归一化+解析全程 Default 线程，主线程仅收 StateFlow 发射。
+    //
+    // #428（2026-09-23 根因修复）：异步路径首组合帧恒 State.Loading 占位——
+    // 大卡展开把恢复位邻域条目逐出组合窗后，收起闭合帧原子重组时小文本
+    // （<preParsed 门槛 200 字符,不查渲染供给 registry）以 Loading 短高入测
+    // （真机 #s1 条目 199px），Default 线程解析完成于下一帧回填真高（467px）
+    // → 其下内容 +268px 二次重排=「收起末尾上推然后突然高度复位」主诉。
+    // 小文本（≤[ASYNC_PARSE_MIN_CHARS]）回归库同步解析：parseBlocking 于
+    // remember 内联执行（1-3ms 有界,无跨线程等待=非 runBlocking 家族）,
+    // 首测即终高,占位帧从构造上消失;大文本保持异步（84ms 冷滑巨帧防线,
+    // 且 ≥200 字符有 registry 预解析覆盖）。
     val markdownState = overrideState ?: if (asyncParse) {
-        rememberAsyncMarkdownState(markdown, isUser)
+        if (markdown.length > ASYNC_PARSE_MIN_CHARS) {
+            rememberAsyncMarkdownState(markdown, isUser)
+        } else {
+            // #428:小文本同步解析——remember 内联调用库的非 suspend 入口
+            // parseMarkdown(纯 CPU 计算,≤[ASYNC_PARSE_MIN_CHARS] 有界 1-3ms),
+            // 首组合首测即终高。异步路径(与库 rememberMarkdownState 的效果路径)
+            // 首帧恒 State.Loading 占位——大卡收起闭合帧原子重组时以短高入测、
+            // 解析回填帧二次重排(真机 #s1 条目 199→467,+268px 跳变)即其泄露。
+            rememberSyncMarkdownState(markdown, isUser)
+        }
     } else {
         // 流式/同步路径：归一化保留在此分支（流式单条增量成本可控）
         val normalizedForLib = remember(markdown, isUser) { normalizeForRender(markdown, isUser) }
@@ -672,6 +692,35 @@ private class AsyncMarkdownStateImpl : MarkdownState {
 
     private var lastIsUser: Boolean = false
 }
+
+/** #428:异步解析的最小文本长度(字符)——短于此走同步解析,首组合即终高。 */
+private const val ASYNC_PARSE_MIN_CHARS = 2048
+
+/**
+ * #428:同步解析的 MarkdownState——remember 时内联 parse 出终态,无 Loading 帧。
+ *
+ * 库的 [com.mikepenz.markdown.model.parseMarkdown] 为非 suspend 纯函数入口
+ * (与 parseMarkdownFlow 的终态发射同源);调用发生在 remember 计算内
+ * (组合线程内联 CPU 计算,≤2KB 有界),**不是** runBlocking 等待后台流的
+ * 禁用家族(2026-09-23 ANR 教训仅针对跨线程阻塞等待)。
+ * [parse] 防御实现直接返回已持有终态(Markdown 可组合项按 0.43 字节码核对
+ * 不调用它;0.45 语义兼容)。
+ */
+private class SyncMarkdownState(parsed: State) : MarkdownState {
+    private val _state = MutableStateFlow<State>(parsed)
+    override val state: StateFlow<State> = _state.asStateFlow()
+    private val _links = MutableStateFlow<Map<String, String>>(emptyMap())
+    override val links: StateFlow<Map<String, String>> = _links.asStateFlow()
+    override suspend fun parse(): State = _state.value
+}
+
+@Composable
+private fun rememberSyncMarkdownState(content: String, isUser: Boolean): MarkdownState =
+    remember(content, isUser) {
+        SyncMarkdownState(
+            parseMarkdown(normalizeForRender(content, isUser)),
+        )
+    }
 
 @Composable
 private fun rememberAsyncMarkdownState(content: String, isUser: Boolean): MarkdownState {
