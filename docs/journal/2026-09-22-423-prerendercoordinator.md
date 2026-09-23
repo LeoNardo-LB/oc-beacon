@@ -555,3 +555,10 @@ dy 曲线「渐进上推 4-5 帧 + 复位 +330」经三个子代理互证 = **MI
 - **修复**(MarkdownContent.kt,+50/−1):`asyncParse` 路径分档——>2048 字符维持异步(84ms 冷滑巨帧既有防线;≥200 字符有 registry 预解析);≤2048 字符改 `rememberSyncMarkdownState`:remember 计算内联调用库 `parseMarkdown(content, ...)`(0.45.0 javap 证实的非 suspend 纯函数入口,与 parseMarkdownFlow 终态同源),`SyncMarkdownState` 以终态构造 StateFlow。组合线程纯 CPU 计算 1-3ms 有界,**不是** runBlocking 等待后台流的 ANR 禁用家族。首组合首测即终高,占位帧从构造上消失。
 - **验证**:反馈回路 `capture_close.sh`+`frame_diff.py`(POST_CLOSE_RED=闭合帧后 1-6 帧任一 >2% 判红)。基线红 5/5(b1/p3/p5/p6/fix1——fix1 证伪了「改道库路径」方案,同样占位)→修复绿 5/5(fix2/fix4/v1/v2/v3;含探针样本 #s1 首测即 467 与清洁版像素级 POST_CLOSE_RED=0;覆盖全新安装/会话退出重进/三种锚点几何)。`assembleDevDebug + testDevDebugUnitTest --rerun` 全绿。回归:6 连点快速 toggle、3 次 fling、会话重进——PID 存活、零崩溃、零 ANR、零 episode 退出异常。
 - **残余与沉淀**:>2048 字符 part 在 registry 条目被视口离场 remove(RenderReadiness D-7 语义)时仍可一帧占位——同族加固项(registry 保留/LRU)未做,另记卡片明细;修复期间三轮流程事故教训入账:ensure_app 已展开后勿再跑 nav_guard(方向翻转产生无效绿样本)、SGB CLICK 日志的 expanded= 为**前置态**、frame_diff 的闭合帧锚是 0 基 diff 序号(文件名+1)。
+
+## 追加批次六(#428 同族加固:跨组合解析终态LRU缓存)
+
+- **#428 同族加固（批次六）**：>2048 字符异步解析 part 的跨组合终态缓存 `MarkdownParsedStateCache`（有界 LRU 32 条,线程安全,内容为键,Loading 拒入）——`rememberAsyncMarkdownState` 命中即同步终态（零占位帧）,miss 路径解析完成后终态入缓存。覆盖渲染供给 registry 视口离场 remove（D-7 语义）与 <200 字符不查 registry 两类 miss 场景：大卡收起闭合帧重入邻域条目时,大文本 part 不再以 `State.Loading` 短高入测。AST 不可变,跨 Markdown() 实例共享安全；上界 32×~20KB≈0.7MB。
+- **单测**：`MarkdownParsedStateCacheTest` 7 例全绿（命中/未命中/Loading 拒入/容量上界/LRU 访问序/同键覆写/parseMarkdown 终态契约锚）。
+- **真机验证**：装机后双真收起样本 k1/k2（CLICK j7eSbe8T expanded=true,POST_CLOSE_RED=0 各 1 次有效命中）；回归 6 连点+双 fling——PID 存活、0 崩溃、0 ANR（唯一命中为 adbd 回显 grep 命令自身）。
+- **流程事故入账**：验证轮 NotificationShade 盖屏导致一轮无效抓取（MIUI 已知坑,`cmd statusbar collapse` 恢复）；ensure_app 后 NAV_OK 缺失时不得继续 capture。

@@ -665,6 +665,9 @@ private class AsyncMarkdownStateImpl : MarkdownState {
     override val links: StateFlow<Map<String, String>> = _links.asStateFlow()
     private var lastContent: String = ""
 
+    /** 当前状态(终态读取:#428 缓存入账)。 */
+    fun currentState(): State = _state.value
+
     /** 后台归一化+解析并持续回写状态（suspend 到完成；全程 Default 线程）。 */
     suspend fun parseAsync(content: String, isUser: Boolean) {
         lastContent = content
@@ -697,6 +700,42 @@ private class AsyncMarkdownStateImpl : MarkdownState {
 private const val ASYNC_PARSE_MIN_CHARS = 2048
 
 /**
+ * #428 同族加固:跨组合解析终态缓存(有界 LRU,线程安全,JVM 可单测)。
+ *
+ * 动机:>[ASYNC_PARSE_MIN_CHARS] 的文本 part 走 [rememberAsyncMarkdownState],
+ * 首组合帧恒 `State.Loading` 占位。渲染供给 registry 的 Parsed 条目会被
+ * 视口离场 remove(RenderReadiness D-7 语义)且 <200 字符不查 registry——
+ * 大卡收起闭合帧原子重组恢复位邻域条目时,任何 miss 都让条目以 Loading
+ * 短高入测、解析回填帧二次重排(真机 #s1 199→467,+268px 跳变同族)。
+ * 本缓存以内容为键保留解析终态:同内容跨组合(收起闭合帧/滚出滚回)命中
+ * 即同步终态,首测即终高。上界 [MAX_ENTRIES] 条 × 大文本(~20KB)≈ 0.7MB
+ * 内存换零占位帧;AST 不可变,跨 Markdown() 实例共享安全。
+ */
+internal object MarkdownParsedStateCache {
+    internal const val MAX_ENTRIES = 32
+
+    private val lock = Any()
+    private val map = object : LinkedHashMap<String, State>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, State>): Boolean =
+            size > MAX_ENTRIES
+    }
+
+    /** 命中返回解析终态;miss 返回 null。 */
+    fun get(content: String): State? = synchronized(lock) { map[content] }
+
+    /** 终态入缓存(Loading 不入——非终态占位无复用价值)。 */
+    fun put(content: String, state: State) {
+        if (state is State.Loading) return
+        synchronized(lock) { map[content] = state }
+    }
+
+    fun size(): Int = synchronized(lock) { map.size }
+
+    /** 仅测试用。 */
+    fun clearForTest() = synchronized(lock) { map.clear() }
+}
+
+/**
  * #428:同步解析的 MarkdownState——remember 时内联 parse 出终态,无 Loading 帧。
  *
  * 库的 [com.mikepenz.markdown.model.parseMarkdown] 为非 suspend 纯函数入口
@@ -724,9 +763,16 @@ private fun rememberSyncMarkdownState(content: String, isUser: Boolean): Markdow
 
 @Composable
 private fun rememberAsyncMarkdownState(content: String, isUser: Boolean): MarkdownState {
+    // #428 同族加固:缓存命中→同步终态,跨组合首测即终高(registry 逐出/
+    // 未注册场景闭合帧零占位)。
+    MarkdownParsedStateCache.get(content)?.let { cached ->
+        return remember(content) { SyncMarkdownState(cached) }
+    }
     val impl = remember { AsyncMarkdownStateImpl() }
     LaunchedEffect(impl, content, isUser) {
         impl.parseAsync(content, isUser)
+        // 终态入缓存:同内容下一次跨组合(收起闭合帧重入等)命中即零占位。
+        MarkdownParsedStateCache.put(content, impl.currentState())
     }
     return impl
 }
