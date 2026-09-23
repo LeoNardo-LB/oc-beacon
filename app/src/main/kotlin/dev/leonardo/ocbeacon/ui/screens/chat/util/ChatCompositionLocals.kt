@@ -63,6 +63,16 @@ internal fun toolExpandedOrDefault(key: String, default: Boolean = false): Boole
 /** 通过 part id 切换工具卡片展开状态的回调。 */
 val LocalOnToggleToolExpanded = compositionLocalOf<(String, Boolean) -> Unit> { { _, _ -> } }
 
+/**
+ * #429：步组「展开计算期」共享表（快照态，键=stepGroupStateKey）。
+ * 引擎信号由卡体内的 StepGroupCard 写入；**外层** #sgh 折叠行条目（大组懒
+ * 加载路径，与卡体不同 LazyItem）经本表读取显示 spinner——跨条目直连无路径
+ * （LocalFoldRowYReport 同款模式）。
+ */
+val LocalStepGroupComputing = compositionLocalOf<androidx.compose.runtime.MutableState<Map<String, Boolean>>> {
+    androidx.compose.runtime.mutableStateOf(emptyMap())
+}
+
 /** 工具特定卡片 composable 的解析器。 */
 val LocalToolCardResolver = compositionLocalOf<ToolCardResolver> {
     DefaultToolCardResolver()

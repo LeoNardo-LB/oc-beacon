@@ -584,3 +584,11 @@ dy 曲线「渐进上推 4-5 帧 + 复位 +330」经三个子代理互证 = **MI
 - **回退**：MarkdownTable.kt 回到 L0 提交态（d3462892，单体整测+去选择+复制菜单保留）；TableGroupBoundsTest 删除。滚动流畅性复验：展开态 6 次快速下 fling+3 次上 fling 穿越全表，**零 MIUIScout 长帧**（v2 的组入窗卡顿随回退消失）。
 - **loading 过渡实现**：引擎 CardExpandReveal 新增 `onExpandComputing: ((Boolean) -> Unit)? = null`——仅用户可见性驱动的展开集置位（收起集无等待语义）；true=集起点，false=Phase A 落地点（高度已定/相位已落，loading 让位幕布），finally 兜底防取消悬挂。StepGroupCard 接线：`expandComputing` 状态 → StepGroupFoldRow 新参 `expanding: Boolean`——true 时层叠图标替换为 16dp/2dp strokeWidth 的 CircularProgressIndicator。其余 5 个 CardExpandReveal 调用点默认参数零改动。
 - **验证状态**：构建+全量单测绿；收起回归 POST_CLOSE_RED=0；展开 H=20352 单体真高恢复；零崩溃。**spinner 视觉取证未完成**——录屏两轮：一轮命中 121ms 快路径小卡（60fps 抽帧隔 2 取 1 未捕到 1-2 帧窗口），一轮遇设备被用户占用（设置页/息屏）。机制层面：回调路径已在真机运行中执行（g1exp 时间线 ε→settle→Phase A 与回调区间一致），冷巨卡计算窗 ~200ms-1.2s=12-70 帧可见量级；待设备可用补录或用户真机直接验收。
+
+## 追加批次十(#429 loading 过渡三轮定罪与修复:先行帧+共享表跨条目)
+
+- **spinner 不可见三轮定罪链（批次十主体）**：①探针证状态机运转正常（callback true/false 与计算窗 2.2s 精确对齐）但像素验不到圆环 → ②行内判别探针定罪：`state=true` 与折叠行首次渲染 computing 态相隔 **2.3s**——spinner 的重组与 ε 内容组合同帧排队，被压在 2s 级巨帧之后，计算结束才首次上屏 → ③修复：`invoke(true)` 后**先等一帧**（withFrameNanos）再 warmup——spinner 单独上一帧后重组合才开跑。修复后 `state=true`→`ROW computing` 仅 **10ms**，2.4s 计算窗内折叠行持续显示圆环（连拍像素验证：窗内图标填充率 13% 细环形态，与展开后层叠图标差 987px）。
+- **接线修正**：初版 spinner 只接了 StepGroupCard 内层折叠行——真机定罪发现大组懒加载路径（#sgh 外层条目）与卡体是不同 LazyItem，跨条目直连无路径；按 LocalFoldRowYReport 同款模式加 `LocalStepGroupComputing` 共享表（快照态，键=stateKey）：卡体双写（本行+共享表），折叠行读本参或共享表命中皆显示。
+- **窗内 spinner 静止定性**：计算期主线程在巨帧中，圆环重绘只能穿插于帧间隙（连拍间偶静止）——物理必然，非缺陷；静止圆环仍是明确的 loading 语义。
+- **取证方法沉淀**：adb 逐张 screencap 往返 ~3.3s/张不可用——设备端单壳循环（tap 后同 shell 连续 screencap）首拍 ~0.4s 落窗；帧对齐用「窗内帧 vs 窗后帧 图标区差分」判据。
+- **终验**：清探针终建——双收起回归 POST_CLOSE_RED=0、PID 存活、零崩溃零 ANR、全量单测绿。

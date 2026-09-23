@@ -1194,6 +1194,9 @@ internal fun StepGroupFoldRow(
     val hapticOn = LocalHapticFeedbackEnabled.current
     val stateKey = stepGroupStateKey(step.msgId)
     val expanded = toolExpandedOrDefault(stateKey)
+    // #429:计算期 spinner——本参(小组卡内路径)或共享表命中(大组外层行)皆显示
+    val computingShared = dev.leonardo.ocbeacon.ui.screens.chat.util.LocalStepGroupComputing.current
+    val showComputing = expanding || (computingShared.value[stateKey] == true)
     val reportY = LocalFoldRowYReport.current
     val clickHook = LocalFoldRowClick.current
     Row(
@@ -1222,7 +1225,7 @@ internal fun StepGroupFoldRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
     ) {
-        if (expanding) {
+        if (showComputing) {
             // #429:loading 过渡——高度计算期(先算后展)的可见反馈
             CircularProgressIndicator(
                 modifier = Modifier.size(16.dp),
@@ -1291,16 +1294,24 @@ private fun StepGroupCard(
         androidx.compose.runtime.withFrameNanos { }
         heavyComposed = true
     }
-    // #429:展开集计算期信号——折叠行 spinner 过渡(先算高度+loading,用户裁决)
+    // #429:展开集计算期信号——折叠行 spinner 过渡(先算高度+loading,用户裁决)。
+    // 双写:本卡折叠行(小组路径)+ 共享表(外层 #sgh 大组路径跨条目读取)。
     val expandComputing = androidx.compose.runtime.remember {
         androidx.compose.runtime.mutableStateOf(false)
     }
+    val computingSharedLocal =
+        dev.leonardo.ocbeacon.ui.screens.chat.util.LocalStepGroupComputing.current
     Column(modifier = Modifier.fillMaxWidth()) {
         StepGroupFoldRow(step = step, expanding = expandComputing.value)
         CardExpandReveal(
             visible = expanded,
             cacheKey = step.msgId,
-            onExpandComputing = { expandComputing.value = it },
+            onExpandComputing = { c ->
+                expandComputing.value = c
+                computingSharedLocal.value =
+                    if (c) computingSharedLocal.value + (stateKey to true)
+                    else computingSharedLocal.value - stateKey
+            },
             // #427 竞态修复:仅「小组(无账本概念)或切片但账本冷(首次填账)」
             // 才预热——切片卡账本暖后预热重组窗内怪物片=主线程 2.5s 长块
             // (真机 42 帧掉帧定罪)且零收益(高度已在账本)。

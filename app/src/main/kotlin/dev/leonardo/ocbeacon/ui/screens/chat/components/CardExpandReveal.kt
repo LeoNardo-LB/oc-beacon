@@ -626,8 +626,14 @@ internal fun CardExpandReveal(
         val target = if (visible) 1f else 0f
         val needsEpisode = abs(clock.fraction - target) > 0.001f
         if (needsEpisode) {
-            // #429:展开集计算期开始(收起集无等待语义,不置位)
-            if (target > 0f) onExpandComputing?.invoke(true)
+            // #429:展开集计算期开始(收起集无等待语义,不置位)。
+            // 关键:置位后先等一帧——spinner 的重组若与 ε 内容组合同帧,
+            // 会被压在 2s 级巨帧之后到计算结束才首次渲染(真机 Spin429 探针
+            // 定罪:true→ROW computing 相隔 2.3s)。先让 spinner 单独上一帧。
+            if (target > 0f) {
+                onExpandComputing?.invoke(true)
+                withFrameNanos { }
+            }
             // 批次九(用户裁决 2026-09-22):统一高度控制——渲染前计算 + 反射逐帧
             // 设置。钉位武装/FLUSH 修正环/两阶段揭示全部退役:高度分数与滚动位
             // 在同一遍 measure 原子生效,配对从构造上精确(零补偿、零修正环)。
