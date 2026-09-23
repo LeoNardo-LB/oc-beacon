@@ -44,6 +44,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalOnViewTool
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalSessionStreaming
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalToolCardResolver
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalToolExpandedStates
+import dev.leonardo.ocbeacon.ui.screens.chat.util.toolExpandedOrDefault
 import dev.leonardo.ocbeacon.ui.screens.chat.util.QuestionParser
 import dev.leonardo.ocbeacon.ui.screens.chat.util.isAmoledTheme
 import dev.leonardo.ocbeacon.ui.screens.viewer.FileViewerSource
@@ -189,15 +190,15 @@ private fun PartContentInner(
                 val reasoningDuration = part.time?.let { t ->
                     t.end?.let { end -> reasoningDurationMs(t.start, end) }
                 }
-                val toolExpandedStates = LocalToolExpandedStates.current
+                val toolStatesFlow = LocalToolExpandedStates.current
                 val onToggleToolExpanded = LocalOnToggleToolExpanded.current
                 val expandReasoningDefault = LocalExpandReasoning.current
-                val rbExpanded = toolExpandedStates[part.id] ?: expandReasoningDefault
+                val rbExpanded = toolExpandedOrDefault(part.id, expandReasoningDefault)
                 androidx.compose.runtime.LaunchedEffect(part.id, rbExpanded) {
                     dev.leonardo.ocbeacon.logging.AppLogger.w(
                         "RB-EXP",
                         "[DEBUG-rbexp] RB id=" + part.id.takeLast(8) + " expanded=" + rbExpanded +
-                            " mapHit=" + (toolExpandedStates[part.id] != null) +
+                            " mapHit=" + (toolStatesFlow.value[part.id] != null) +
                             " default=" + expandReasoningDefault
                     )
                 }
@@ -213,14 +214,13 @@ private fun PartContentInner(
             }
         }
         is Part.Tool -> {            // todoread parts 完全过滤掉（WebUI 约定）
-            val toolExpandedStates = LocalToolExpandedStates.current
             val onToggleToolExpanded = LocalOnToggleToolExpanded.current
             if (part.tool == "todoread") {
                 // 跳过
             } else if (part.tool == "todowrite") {
                 TodoListCard(
                     tool = part,
-                    isExpanded = toolExpandedStates[part.id] ?: true,
+                    isExpanded = toolExpandedOrDefault(part.id, true),
                     onToggleExpand = { onToggleToolExpanded(part.id, true) }
                 )
             } else if (specialToolCardKind(part.tool) == SpecialToolCardKind.Question) {
@@ -246,7 +246,7 @@ private fun PartContentInner(
                             iconTint = MaterialTheme.colorScheme.primary,
                             title = completedState.title ?: "Asked",
                             copyText = toolOutput,
-                            isExpanded = toolExpandedStates[part.id] ?: autoExpand,
+                            isExpanded = toolExpandedOrDefault(part.id, autoExpand),
                             isRunning = false,
                             hasContent = true,
                             isAmoled = isAmoledTheme(),
@@ -278,7 +278,7 @@ private fun PartContentInner(
                                 iconTint = MaterialTheme.colorScheme.primary,
                                 title = "Asked",
                                 copyText = "",
-                                isExpanded = toolExpandedStates[part.id] ?: autoExpand,
+                                isExpanded = toolExpandedOrDefault(part.id, autoExpand),
                                 isRunning = false,
                                 hasContent = true,
                                 isAmoled = isAmoledTheme(),
@@ -297,7 +297,7 @@ private fun PartContentInner(
                 // question 分支「活跃不渲染」同哲学）。
                 SkillToolCard(
                     part = part,
-                    isExpanded = toolExpandedStates[part.id] ?: false,
+                    isExpanded = toolExpandedOrDefault(part.id, false),
                     onToggleExpand = { onToggleToolExpanded(part.id, false) },
                 )
             } else {
@@ -317,7 +317,7 @@ private fun PartContentInner(
                         iconTint = MaterialTheme.colorScheme.primary,
                         title = completedState?.title ?: "Asked",
                         copyText = toolOutput,
-                        isExpanded = toolExpandedStates[part.id] ?: autoExpand,
+                        isExpanded = toolExpandedOrDefault(part.id, autoExpand),
                         isRunning = false,
                         hasContent = parsed.any { it.options.isNotEmpty() },
                         isAmoled = isAmoledTheme(),
@@ -328,7 +328,7 @@ private fun PartContentInner(
                 } else {
                 // 使用解析器注册表
                 val autoExpand = LocalAutoExpandTools.current
-                val expanded = toolExpandedStates[part.id] ?: autoExpand
+                val expanded = toolExpandedOrDefault(part.id, autoExpand)
                 val toggleExpand = { onToggleToolExpanded(part.id, autoExpand) }
 
                 // 阶段 2：为 Read/Write/Edit 拦截 onOpenFile → TOOL_SNAPSHOT
@@ -368,13 +368,12 @@ private fun PartContentInner(
         }
         is Part.Shell -> {
             // 后台 shell 命令卡片（V2）——2 行布局，与 TaskToolCard 对称
-            val toolExpandedStates = LocalToolExpandedStates.current
             val onToggleToolExpanded = LocalOnToggleToolExpanded.current
             ShellCard(
                 shell = part,
                 // #215 批2 修复首击陷阱：初值 ?: false 与 toggle 默认参必须一致
                 //（原默认参 true：首击 null→!true=false 视觉无变化，需双击才展开）
-                isExpanded = toolExpandedStates[part.id] ?: false,
+                isExpanded = toolExpandedOrDefault(part.id, false),
                 onToggleExpand = { onToggleToolExpanded(part.id, false) }
             )
         }
@@ -386,11 +385,10 @@ private fun PartContentInner(
         }
         is Part.Patch -> {
             val autoExpand = LocalAutoExpandTools.current
-            val toolExpandedStates = LocalToolExpandedStates.current
             val onToggleToolExpanded = LocalOnToggleToolExpanded.current
             PatchCard(
                 patch = part,
-                isExpanded = toolExpandedStates[part.id] ?: autoExpand,
+                isExpanded = toolExpandedOrDefault(part.id, autoExpand),
                 onToggleExpand = { onToggleToolExpanded(part.id, autoExpand) },
                 onOpenFile = onOpenFile
             )

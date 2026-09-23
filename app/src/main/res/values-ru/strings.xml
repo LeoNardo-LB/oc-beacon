@@ -75,6 +75,8 @@
     <string name="todo_empty">Нет элементов TODO</string>
     <string name="chat_empty">Начать сессию</string>
     <string name="chat_copy">Копировать</string>
+    <string name="table_copy_cell">Копировать ячейку</string>
+    <string name="table_copy_table">Копировать таблицу (TSV)</string>
     <string name="terminal_copy">Копировать</string>
     <string name="terminal_paste">Вставить</string>
     <string name="terminal_more">Ещё…</string>

@@ -150,6 +150,8 @@
     <string name="pending_item_sending">Wird gesendet…</string>
     <string name="todo_empty">Keine TODO-Elemente</string>
     <string name="chat_copy">Kopieren</string>
+    <string name="table_copy_cell">Zelle kopieren</string>
+    <string name="table_copy_table">Tabelle kopieren (TSV)</string>
     <string name="terminal_copy">Kopieren</string>
     <string name="terminal_paste">Einfügen</string>
     <string name="terminal_more">Mehr…</string>

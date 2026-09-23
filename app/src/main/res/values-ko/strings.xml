@@ -150,6 +150,8 @@
     <string name="pending_item_sending">전송 중…</string>
     <string name="todo_empty">TODO 항목이 없습니다</string>
     <string name="chat_copy">복사</string>
+    <string name="table_copy_cell">셀 복사</string>
+    <string name="table_copy_table">표 복사(TSV)</string>
     <string name="terminal_copy">복사</string>
     <string name="terminal_paste">붙여넣기</string>
     <string name="terminal_more">더 보기…</string>

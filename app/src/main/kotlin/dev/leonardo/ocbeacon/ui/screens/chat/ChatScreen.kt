@@ -621,7 +621,8 @@ fun ChatScreen(
     CompositionLocalProvider(
         LocalHapticFeedbackEnabled provides hapticEnabled,
         LocalImageSaveRequest provides attachmentHandler.requestSaveImage,
-        LocalToolExpandedStates provides messageState.toolExpandedStates,
+        // #429 L0:StateFlow 整体下沉(稳定身份),读者 per-key 派生读取
+        LocalToolExpandedStates provides viewModel.toolExpandedStates,
         LocalOnToggleToolExpanded provides onToggleToolExpandedLambda,
         LocalToolCardResolver provides viewModel.toolCardResolver,
         // #182：Task 卡片展开时的全量输出拉取（part 优先→降级子智能体会话 transcript）

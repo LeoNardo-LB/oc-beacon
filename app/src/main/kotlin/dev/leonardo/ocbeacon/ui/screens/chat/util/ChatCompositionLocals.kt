@@ -1,10 +1,18 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.util
 
+import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import dev.leonardo.ocbeacon.domain.model.FileDiff
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.DefaultToolCardResolver
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.ToolCardResolver
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 // ============ 通过 CompositionLocal 传递的聊天设置 ============
 
@@ -30,8 +38,27 @@ val LocalSessionStreaming = staticCompositionLocalOf { false }
 /** 图片保存请求回调，供图片预览 composable 使用。 */
 val LocalImageSaveRequest = compositionLocalOf<(ByteArray, String, String?) -> Unit> { { _, _, _ -> } }
 
-/** 已持久化的工具卡片展开/折叠状态，以 Part.Tool.id 或 Part.Patch.id 为键。 */
-val LocalToolExpandedStates = compositionLocalOf<Map<String, Boolean>> { emptyMap() }
+/**
+ * 已持久化的工具卡片展开/折叠状态，以 Part.Tool.id 或 Part.Patch.id 为键。
+ *
+ * #429 L0：以 **StateFlow 整体**下沉（稳定身份）——原 Map 直供时，任一键
+ * 翻转=新 Map 实例=local 值变化=**全部读者**重组（真机实测 toggle 一次全列表
+ * 重组+GC 122MB）。读者经 [toolExpandedOrDefault] 做 per-key 派生读取，
+ * 只在自己键的值翻转时重组。
+ */
+val LocalToolExpandedStates = compositionLocalOf<StateFlow<Map<String, Boolean>>> {
+    MutableStateFlow(emptyMap())
+}
+
+/**
+ * #429 L0：逐键展开态读取——collectAsState 订阅不读值（不触发本层重组），
+ * derivedStateOf 只在**本键**的布尔值翻转时使读者失效。
+ */
+@androidx.compose.runtime.Composable
+internal fun toolExpandedOrDefault(key: String, default: Boolean = false): Boolean {
+    val states: State<Map<String, Boolean>> = LocalToolExpandedStates.current.collectAsState()
+    return remember(key) { derivedStateOf { states.value[key] ?: default } }.value
+}
 
 /** 通过 part id 切换工具卡片展开状态的回调。 */
 val LocalOnToggleToolExpanded = compositionLocalOf<(String, Boolean) -> Unit> { { _, _ -> } }

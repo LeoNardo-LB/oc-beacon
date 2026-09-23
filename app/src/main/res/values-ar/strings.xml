@@ -150,6 +150,8 @@
     <string name="pending_item_sending">جارٍ الإرسال…</string>
     <string name="todo_empty">لا توجد عناصر TODO</string>
     <string name="chat_copy">نسخ</string>
+    <string name="table_copy_cell">نسخ الخلية</string>
+    <string name="table_copy_table">نسخ الجدول (TSV)</string>
     <string name="terminal_copy">نسخ</string>
     <string name="terminal_paste">لصق</string>
     <string name="terminal_more">المزيد…</string>

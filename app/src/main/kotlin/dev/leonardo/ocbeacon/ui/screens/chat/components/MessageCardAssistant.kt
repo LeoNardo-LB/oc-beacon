@@ -86,6 +86,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalOnToggleToolExpanded
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalToolExpandedStates
+import dev.leonardo.ocbeacon.ui.screens.chat.util.toolExpandedOrDefault
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material3.Icon
 
@@ -1182,12 +1183,11 @@ internal fun StepGroupFoldRow(
     /** #423 批次七:#sgt 尾行不参与重锚(与 #sgh 同 stateKey,防 60px 歧义)。 */
     pinEligible: Boolean = true,
 ) {
-    val toolExpandedStates = LocalToolExpandedStates.current
     val onToggleToolExpanded = LocalOnToggleToolExpanded.current
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
     val stateKey = stepGroupStateKey(step.msgId)
-    val expanded = toolExpandedStates[stateKey] ?: false
+    val expanded = toolExpandedOrDefault(stateKey)
     val reportY = LocalFoldRowYReport.current
     val clickHook = LocalFoldRowClick.current
     Row(
@@ -1251,9 +1251,8 @@ private fun StepGroupCard(
     compact: Boolean,
     readinessRegistry: RenderReadinessRegistry,
 ) {
-    val toolExpandedStates = LocalToolExpandedStates.current
     val stateKey = stepGroupStateKey(step.msgId)
-    val expanded = toolExpandedStates[stateKey] ?: false
+    val expanded = toolExpandedOrDefault(stateKey)
     // #427 P3:切片表+片高账本提升到卡体(收起时引擎会把内容(fraction 门控)
     // 整体离树——放在内容里的 rememberSaveable 随之弃置,账本每次收起清零,
     // 二次展开永远冷;卡体随折叠行常驻,账本跨收起/展开存活)。

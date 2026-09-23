@@ -152,6 +152,8 @@
     <string name="pending_item_sending">发送中…</string>
     <string name="todo_empty">暂无 TODO 项</string>
     <string name="chat_copy">复制</string>
+    <string name="table_copy_cell">复制单元格</string>
+    <string name="table_copy_table">复制表格（TSV）</string>
     <string name="terminal_copy">复制</string>
     <string name="terminal_paste">粘贴</string>
     <string name="terminal_more">更多…</string>

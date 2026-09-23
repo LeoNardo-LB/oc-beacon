@@ -150,6 +150,8 @@
     <string name="pending_item_sending">Envoi…</string>
     <string name="todo_empty">Aucun élément TODO</string>
     <string name="chat_copy">Copier</string>
+    <string name="table_copy_cell">Copier la cellule</string>
+    <string name="table_copy_table">Copier le tableau (TSV)</string>
     <string name="terminal_copy">Copier</string>
     <string name="terminal_paste">Coller</string>
     <string name="terminal_more">Plus…</string>

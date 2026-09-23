@@ -142,6 +142,8 @@
     <string name="todo_empty">No TODO items</string>
     <string name="chat_empty">Start a session</string>
     <string name="chat_copy">Copy</string>
+    <string name="table_copy_cell">Copy cell</string>
+    <string name="table_copy_table">Copy table (TSV)</string>
     <string name="terminal_copy">Copy</string>
     <string name="terminal_paste">Paste</string>
     <string name="terminal_more">More…</string>

@@ -150,6 +150,8 @@
     <string name="pending_item_sending">Gönderiliyor…</string>
     <string name="todo_empty">TODO öğesi yok</string>
     <string name="chat_copy">Kopyala</string>
+    <string name="table_copy_cell">Hücreyi kopyala</string>
+    <string name="table_copy_table">Tabloyu kopyala (TSV)</string>
     <string name="terminal_copy">Kopyala</string>
     <string name="terminal_paste">Yapıştır</string>
     <string name="terminal_more">Diğer…</string>

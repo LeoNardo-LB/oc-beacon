@@ -3,10 +3,26 @@ package dev.leonardo.ocbeacon.ui.screens.chat.markdown
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.selection.DisableSelection
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
@@ -38,17 +54,45 @@ import org.intellij.markdown.ast.ASTNode
 import org.intellij.markdown.flavours.gfm.GFMElementTypes.HEADER as GFMHeader
 import org.intellij.markdown.flavours.gfm.GFMElementTypes.ROW as GFMRow
 import org.intellij.markdown.flavours.gfm.GFMTokenTypes.CELL as GFMCell
+import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.ui.theme.LocalChatDensity
 import dev.leonardo.ocbeacon.ui.theme.spacing
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.util.copyToClipboard
+import kotlinx.coroutines.launch
 
 /** 表示从 AST 解析出的表格行的数据类。 */
-private data class TableRow(
+internal data class TableRow(
     val isHeader: Boolean,
     val rowIndex: Int,
     val cells: List<ASTNode>,
 )
+
+/**
+ * #429 L0-②：单元格纯文本（TSV 导出用）——AST 原文截取 + 轻量行内标记剥离
+ * （加粗/斜体/行内代码/链接取显示文字）。JVM 可单测。
+ */
+internal fun cellPlainText(content: String, cell: ASTNode): String {
+    val raw = if (cell.endOffset > cell.startOffset) {
+        content.substring(
+            cell.startOffset.coerceIn(0, content.length),
+            cell.endOffset.coerceIn(0, content.length),
+        ).trim()
+    } else ""
+    return raw
+        .replace(Regex("\\*\\*(.+?)\\*\\*"), "$1")
+        .replace(Regex("\\*([^*]+?)\\*"), "$1")
+        .replace(Regex("`([^`]*)`"), "$1")
+        .replace(Regex("\\[([^\\]]*)]\\([^)]*\\)"), "$1")
+        .trim()
+}
+
+/** #429 L0-②：整表 TSV（可直接粘贴进表格软件）。JVM 可单测。 */
+internal fun tableTsv(content: String, rows: List<TableRow>, columnCount: Int): String =
+    rows.joinToString("\n") { row ->
+        row.cells.take(columnCount).joinToString("\t") { cellPlainText(content, it) }
+    }
 
 /**
  * #135（D2-L46）：表格测量缓存——探针列宽与行高在"内容、约束、列宽"
@@ -133,6 +177,16 @@ internal fun SimpleMarkdownTable(
     val scrollState = rememberScrollState()
     val minCellWidthPx = with(LocalDensity.current) { 120.dp.toPx() }.roundToInt()
 
+    // #429 L0-②：长按复制（菜单见文件尾 Popup）
+    val clipboard = LocalClipboard.current
+    val clipScope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
+    var copyCellText by remember { mutableStateOf<String?>(null) }
+
+    // #429 L0-②：表格退出逐字选择——240 个可选中文本单元是单帧 2501ms 排版
+    // 风暴的主要成分（MIUIScout 定罪栈）；选择能力由「长按单元格=复制此格/
+    // 整表 TSV」补偿（#429 用户裁决 2026-09-23）。
+    androidx.compose.foundation.text.selection.DisableSelection {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -158,6 +212,12 @@ internal fun SimpleMarkdownTable(
                         val cell = row.cells[colIdx]
                         val isLastCol = colIdx == cellCount - 1
                         val cellStyle = if (row.isHeader) headerStyle else bodyStyle
+                        // AnnotatedString 内嵌 style 颜色，键必须含颜色：主题切换后
+                        // 颜色变化 → 重建 AnnotatedString，避免文字停留旧主题颜色。
+                        val cellResult = remember(content, cell, cellStyle.color, linkColor) {
+                            buildClickableMarkdown(content, cell, cellStyle, annotator, linkColor)
+                        }
+                        val cellText = remember(cellResult) { cellResult.annotatedString.toString() }
                         Box(
                             modifier = Modifier
                                 .background(
@@ -189,13 +249,17 @@ internal fun SimpleMarkdownTable(
                                         }
                                     }
                                 )
+                                .combinedClickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = {},
+                                    onLongClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        copyCellText = cellText
+                                    },
+                                )
                                 .padding(horizontal = pad, vertical = if (row.isHeader) 8.dp else 6.dp)
                         ) {
-                            // AnnotatedString 内嵌 style 颜色，键必须含颜色：主题切换后
-                            // 颜色变化 → 重建 AnnotatedString，避免文字停留旧主题颜色。
-                            val cellResult = remember(content, cell, cellStyle.color, linkColor) {
-                                buildClickableMarkdown(content, cell, cellStyle, annotator, linkColor)
-                            }
                             var cellLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
                             MarkdownBasicText(
                                 text = cellResult.annotatedString,
@@ -334,5 +398,48 @@ internal fun SimpleMarkdownTable(
                 }
             }
         }
+
+        // #429 L0-②：长按单元格复制菜单（复制此格 / 复制整表 TSV）
+        copyCellText?.let { cellText ->
+            Popup(
+                alignment = Alignment.Center,
+                onDismissRequest = { copyCellText = null },
+                properties = PopupProperties(focusable = true),
+            ) {
+                Surface(
+                    shape = ShapeTokens.medium,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    tonalElevation = 6.dp,
+                ) {
+                    Column {
+                        Text(
+                            text = stringResource(R.string.table_copy_cell),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    clipScope.launch { clipboard.copyToClipboard("table-cell", cellText) }
+                                    copyCellText = null
+                                }
+                                .padding(horizontal = 24.dp, vertical = 12.dp),
+                        )
+                        Text(
+                            text = stringResource(R.string.table_copy_table),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    clipScope.launch {
+                                        clipboard.copyToClipboard("table-tsv", tableTsv(content, rows, columnCount))
+                                    }
+                                    copyCellText = null
+                                }
+                                .padding(horizontal = 24.dp, vertical = 12.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
     }
 }
