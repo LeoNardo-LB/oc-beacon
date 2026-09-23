@@ -423,6 +423,13 @@ internal fun CardExpandReveal(
     modifier: Modifier = Modifier,
     /** #423 批次十一:finalH 缓存键(msgId/part.id)——二次展开零延迟预移。 */
     cacheKey: Any? = null,
+    /**
+     * #427 竞态修复:预热资格谓词——false 则本卡永不预热(默认 null=恒资格)。
+     * 切片+账本暖的卡:高度已入账本(展开即时),预热重组窗内怪物片=主线程
+     * 2.5s 长块(真机实测)=「收起后整体卡顿」根因;且重组经 heavyComposed
+     * 占位门=Spacer 首帧 63px 单帧弹跳(「收起后上推再弹回」成分)。
+     */
+    prewarmEligible: (() -> Boolean)? = null,
     content: @Composable () -> Unit,
 ) {
     val listState = LocalCardExpandListState.current
@@ -748,7 +755,9 @@ internal fun CardExpandReveal(
                     androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
                         clock.driveTo(0f)
                     }
-                    if (!anchorKnown) {
+                    if (!anchorKnown && !clock.userScrollCancelled) {
+                        // 用户滚动打断路径不再派发(取消相已反射恢复锚点;fling 中
+                        // 追加派发=与手势竞态,双错位)
                         clock.programmaticShift = true
                         try {
                             val backPx = if (clock.episodeShiftConsumedPx != 0f) {
@@ -870,6 +879,8 @@ internal fun CardExpandReveal(
     // AST 切片(backlog)。
     LaunchedEffect(visible, listState) {
         if (visible || listState == null) return@LaunchedEffect
+        // #427 竞态修复:资格谓词拦截——账本暖的切片组跳过预热(见参数文档)
+        if (prewarmEligible?.invoke() == false) return@LaunchedEffect
         kotlinx.coroutines.delay(PREWARM_IDLE_MS)
         if (visible || listState.isScrollInProgress) return@LaunchedEffect
         // 批次十三b:集进行中让位(真机定案:收起集 4s 爬行期,1.2s 前触发的
@@ -904,6 +915,24 @@ internal fun CardExpandReveal(
                         AppLogger.d("CardExpand", "[DEBUG-420] cancel-on-scroll snap f=" + "%.3f".format(clock.fraction))
                     }
                     clock.userScrollCancelled = true
+                    // #427 竞态修复:收起被滚动打断时,snap(0f) 的即时塌缩此前
+                    // **无任何配对**=内容下方整体跳位(小卡也闪,真机复验定罪);
+                    // 且塌缩集的镜像派发会在用户 fling 中与手势竞争(双重错位)。
+                    // 正解:打断即反射恢复展开前锚点(与 snap 同遍 measure 原子),
+                    // 并消费锚点令集内回退派发让位(防双发)。
+                    if (!currentVisible && clock.episodeAnchorItem >= 0) {
+                        dev.leonardo.ocbeacon.ui.screens.chat.components.LazyListReflection
+                            .requestScrollToItemNoCancel(
+                                listState,
+                                clock.episodeAnchorItem,
+                                clock.episodeAnchorOffset,
+                            )
+                        clock.episodeAnchorItem = -1
+                        clock.episodeShiftConsumedPx = 0f
+                        if (BuildConfig.DEBUG) {
+                            AppLogger.d("CardExpand", "[DEBUG-427] cancel-anchor-restore")
+                        }
+                    }
                     clock.snap(if (currentVisible) 1f else 0f)
                     drawFraction.floatValue = if (currentVisible) 1f else 0f
                 }

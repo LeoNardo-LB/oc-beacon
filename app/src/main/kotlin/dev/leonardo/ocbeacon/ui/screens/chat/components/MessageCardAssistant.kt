@@ -1267,9 +1267,27 @@ private fun StepGroupCard(
         stepGroupNeedsSlicing(step.groups)
     }
     val stepLedger = rememberStepGroupLedger(step.msgId)
+    // #427 竞态修复:重内容门控上提卡体——原在 fraction 门控内容内,收起离树
+    // 即弃置,预热/重展开重入时 Spacer(63px) 首帧与真实内容互换=单帧弹跳
+    // (用户「收起后上推再弹回」成分之一);上提后卡存期内恒真,重入即真实内容
+    // (账本暖时展开即时,占位使命已由账本接管)。
+    var heavyComposed by androidx.compose.runtime.remember(step.msgId) {
+        androidx.compose.runtime.mutableStateOf(false)
+    }
+    androidx.compose.runtime.LaunchedEffect(step.msgId) {
+        androidx.compose.runtime.withFrameNanos { }
+        heavyComposed = true
+    }
     Column(modifier = Modifier.fillMaxWidth()) {
         StepGroupFoldRow(step = step)
-        CardExpandReveal(visible = expanded, cacheKey = step.msgId) {
+        CardExpandReveal(
+            visible = expanded,
+            cacheKey = step.msgId,
+            // #427 竞态修复:仅「小组(无账本概念)或切片但账本冷(首次填账)」
+            // 才预热——切片卡账本暖后预热重组窗内怪物片=主线程 2.5s 长块
+            // (真机 42 帧掉帧定罪)且零收益(高度已在账本)。
+            prewarmEligible = { !stepNeedsSlicing || !stepLedger.isWarm(stepFingerprints) },
+        ) {
             // #422 二轮修复:ChunkAssistantItems 是裸 for(设计为在父 Column 内
             // 调用)——直接放进 Reveal 的 Box 会使各 part 堆叠在 (0,0) 互相叠压
             // (实测:表格/读取卡/标题三层重叠)。包裹同 SegmentedAssistantMessage
@@ -1278,16 +1296,6 @@ private fun StepGroupCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
             ) {
-                // #423 批次三:重内容首帧占位(#430 模式移植)——工具文档组首组合
-                // 实测冻结主线程 623ms(用户「展开卡一下」);延迟一帧组合重内容,
-                // 冻结窗内先见轻占位行(有反馈≠死机)。收起离树→重展开重新延迟。
-                var heavyComposed by androidx.compose.runtime.remember(step.msgId) {
-                    androidx.compose.runtime.mutableStateOf(false)
-                }
-                androidx.compose.runtime.LaunchedEffect(step.msgId) {
-                    androidx.compose.runtime.withFrameNanos { }
-                    heavyComposed = true
-                }
                 if (!heavyComposed) {
                     Spacer(modifier = Modifier.fillMaxWidth().height(24.dp))
                 } else if (!stepNeedsSlicing) {
