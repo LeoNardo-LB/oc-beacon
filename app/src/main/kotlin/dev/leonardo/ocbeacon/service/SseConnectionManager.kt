@@ -53,6 +53,9 @@ private const val PRELOAD_SEED_TIMEOUT_MS = 30_000L
  *  （真机 3/3 确定性复现：867 OkHttp Dispatch、315 线程/s 恒速至 7000+ 后 pthread_create 失败）。 */
 private const val TRANSPORT_KICK_COOLDOWN_MS = 5_000L
 
+/** #436：HTTP 已达但被拒（403/非预期状态码）时的重试下限——配置类问题不 1-2s 空转。 */
+private const val REJECTED_PROBE_RETRY_MS = 30_000L
+
 /**
  * 每服务器的连接状态。
  */
@@ -489,6 +492,12 @@ class SseConnectionManager @Inject constructor(
                     when (handshake.status) {
                         dev.leonardo.ocbeacon.data.adapter.ConnectionStatus.AUTH_REQUIRED -> {
                             updateServerConnected(server.id, false)
+                            // #436：持久化 token 自动重交换——服务器重启/cookie 失效零人工恢复
+                            if (dshConnectionRegistry.recoverAuth(conn.baseUrl)) {
+                                AppLogger.i(TAG, "DSH auth required — persisted token re-exchanged: " + server.displayName)
+                                if (!connections.containsKey(server.id)) break
+                                continue
+                            }
                             markTokenNeeded(server.id, needed = true)
                             AppLogger.w(TAG, "DSH 0.1.2 token required — waiting for token input: " + server.displayName)
                             dshConnectionRegistry.awaitCookie(conn.baseUrl)
@@ -499,9 +508,19 @@ class SseConnectionManager @Inject constructor(
                         }
                         dev.leonardo.ocbeacon.data.adapter.ConnectionStatus.UNREACHABLE -> {
                             updateServerConnected(server.id, false)
-                            if (BuildConfig.DEBUG) AppLogger.d(TAG, "DSH probe unreachable: " + handshake.detail)
+                            // #436：HTTP 已达但被拒（403/非预期状态码）≠ 传输断——重试不能
+                            // 自愈（信任域/网关/token 配置类），长退避下限 + 明确日志，
+                            // 杜绝 1-2s 空转把配置问题伪装成「网络正在恢复」。
+                            val detailText = handshake.detail ?: ""
+                            val httpRejected = detailText.contains("statuses") && !detailText.contains("transport")
+                            if (httpRejected) {
+                                AppLogger.w(TAG, "DSH probe HTTP-rejected (config/auth, not transport): " + detailText)
+                            } else if (BuildConfig.DEBUG) {
+                                AppLogger.d(TAG, "DSH probe unreachable: " + detailText)
+                            }
                             if (!connections.containsKey(server.id)) break
-                            delay(backoffWithSchedule(server.id, attempt))
+                            val scheduled = backoffWithSchedule(server.id, attempt)
+                            delay(if (httpRejected) maxOf(REJECTED_PROBE_RETRY_MS, scheduled) else scheduled)
                             continue
                         }
                         dev.leonardo.ocbeacon.data.adapter.ConnectionStatus.ONLINE -> {

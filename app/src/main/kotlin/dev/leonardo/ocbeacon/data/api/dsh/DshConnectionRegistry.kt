@@ -78,6 +78,13 @@ class DshConnectionRegistry @Inject constructor(
     /** authority → $events ready clientId（0.1.2 应答凭据；连接代际更替时覆写）。 */
     private val clientIdByAuthority = mutableMapOf<String, String>()
 
+    /**
+     * authority → launch token（#436：成功交换时记录、SecretCipher 加密持久化）。
+     * cookie 失效（服务器重启/签名密钥轮换）时 [recoverAuth] 用它自动重交换——
+     * 「断连不能自动重连」的自愈凭据源；token 本体从不外发（仅 /?token= 交换用）。
+     */
+    private val tokenByAuthority = mutableMapOf<String, String>()
+
     /** 持久化 cookie 已加载标记（首次访问时从 DataStore 读一次）。 */
     private var persistedLoaded = false
 
@@ -117,6 +124,25 @@ class DshConnectionRegistry @Inject constructor(
             synchronized(cookieByAuthority) { cookieByAuthority[base] }?.let { return it }
             kotlinx.coroutines.delay(intervalMs)
         }
+    }
+
+    /**
+     * #436：凭据自愈——用持久化 token 重交换 cookie（exchangeToken 内部落盘新 cookie）。
+     * 无 token / 交换失败（token 已失效或服务异常）返回 false，调用方走人工路径。
+     * 线程语义：可从任意连接协程调用（exchangeToken 自带 mutex；防风暴由调用方的
+     * 401/TokenNeeded 分支天然限频——每代连接至多一次）。
+     */
+    override suspend fun recoverAuth(authority: String): Boolean {
+        val base = normalize(authority)
+        loadPersistedOnce()
+        val token = synchronized(tokenByAuthority) { tokenByAuthority[base] } ?: return false
+        val ok = exchangeToken(base, token)
+        if (ok) {
+            AppLogger.i(TAG, "auth recovered via persisted token for " + base)
+        } else {
+            AppLogger.w(TAG, "auth recovery failed (token invalid?) for " + base)
+        }
+        return ok
     }
 
     // ---- 探测与 token 交换 -------------------------------------------------
@@ -193,8 +219,10 @@ class DshConnectionRegistry @Inject constructor(
                 if (it.code == 303 && !setCookie.isNullOrBlank()) {
                     val cookie = setCookie.substringBefore(';')
                     synchronized(cookieByAuthority) { cookieByAuthority[base] = cookie }
+                    // #436：token 随成功交换一并记录——cookie 失效自动重交换的凭据源
+                    synchronized(tokenByAuthority) { tokenByAuthority[base] = token }
                     persistLocked()
-                    AppLogger.i(TAG, "token exchange ok for " + base + " (cookie persisted)")
+                    AppLogger.i(TAG, "token exchange ok for " + base + " (cookie+token persisted)")
                     true
                 } else {
                     AppLogger.w(TAG, "token exchange rejected for " + base + ": HTTP " + it.code)
@@ -234,8 +262,12 @@ class DshConnectionRegistry @Inject constructor(
     private suspend fun persistLocked() {
         val snapshot = synchronized(cookieByAuthority) { cookieByAuthority.toMap() }
         val encrypted = snapshot.mapValues { (_, v) -> runCatching { secretCipher.encrypt(v) }.getOrElse { v } }
+        // #436：token 与 cookie 同批持久化（同款加密）——重交换自愈凭据跨进程存活
+        val tokens = synchronized(tokenByAuthority) { tokenByAuthority.toMap() }
+        val encryptedTokens = tokens.mapValues { (_, v) -> runCatching { secretCipher.encrypt(v) }.getOrElse { v } }
         dataStore.edit { prefs ->
             prefs[COOKIE_KEY] = json.encodeToString(cookieMapSerializer, encrypted)
+            prefs[TOKEN_KEY] = json.encodeToString(cookieMapSerializer, encryptedTokens)
         }
     }
 
@@ -249,6 +281,16 @@ class DshConnectionRegistry @Inject constructor(
                 for (entry in loaded.entries) {
                     cookieByAuthority[entry.key] =
                         runCatching { secretCipher.decrypt(entry.value) }.getOrElse { entry.value }
+                }
+            }
+            // #436：持久化 token 一并恢复
+            dataStore.data.first()[TOKEN_KEY]?.let { tokenRaw ->
+                val tokensLoaded = json.decodeFromString(cookieMapSerializer, tokenRaw)
+                synchronized(tokenByAuthority) {
+                    for (entry in tokensLoaded.entries) {
+                        tokenByAuthority[entry.key] =
+                            runCatching { secretCipher.decrypt(entry.value) }.getOrElse { entry.value }
+                    }
                 }
             }
         }.onFailure { AppLogger.w(TAG, "cookie persistence load failed: " + it.message) }
@@ -299,6 +341,7 @@ class DshConnectionRegistry @Inject constructor(
 
     private companion object {
         val COOKIE_KEY = stringPreferencesKey("dsh_cookies")
+        val TOKEN_KEY = stringPreferencesKey("dsh_tokens")
 
         /** 0.1.2 形态探测样本：session/list + args 包装（journal §2.1）。 */
         const val SLASH_METHOD = "session/list"

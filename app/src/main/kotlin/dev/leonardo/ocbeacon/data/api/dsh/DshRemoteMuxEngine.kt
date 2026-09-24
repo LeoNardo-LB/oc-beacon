@@ -33,6 +33,13 @@ interface DshMuxAuth {
     fun cookieHeader(authority: String): String?
     fun setClientId(authority: String, clientId: String)
     fun markAuthFailure(authority: String)
+
+    /**
+     * #436：以持久化 token 自动重交换 cookie（服务器重启/凭据失效的自愈路径）。
+     * @return true=新 cookie 已就位（调用方立即重连，零人工恢复）；
+     *         false=无持久化 token 或交换失败（回落 TokenNeeded/awaitCookie 人工路径）。
+     */
+    suspend fun recoverAuth(authority: String): Boolean = false
     suspend fun awaitCookie(authority: String, intervalMs: Long = 2_000L): String
 }
 
@@ -246,7 +253,13 @@ class DshRemoteMuxEngine(
             }
             state.value = DshWsConnectionState.Disconnected
             if (unauthorized) {
-                // #317：cookie 缺失/过期——清凭据、挂起等 token（连接层 TokenNeeded 呈现）
+                // #436：cookie 失效自愈——先以持久化 token 重交换（服务器重启场景零人工
+                // 恢复）；成功即 continue 立即重连。失败才回落 #317 人工路径（清凭据、
+                // 挂起等 token——连接层 TokenNeeded 呈现）。
+                if (registry.recoverAuth(baseUrl)) {
+                    AppLogger.i(TAG, "remote.mux 401 — persisted token re-exchanged, reconnecting: " + baseUrl)
+                    continue
+                }
                 registry.markAuthFailure(baseUrl)
                 AppLogger.w(TAG, "remote.mux 401 — 等待 token 交换后重连: " + baseUrl)
                 registry.awaitCookie(baseUrl)
