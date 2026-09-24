@@ -783,17 +783,44 @@ internal fun CardExpandReveal(
                         // #427(终局):记录展开前锚点状态——收起按构造精确恢复
                         clock.episodeAnchorItem = listState.firstVisibleItemIndex
                         clock.episodeAnchorOffset = listState.firstVisibleItemScrollOffset
-                        // #427:配对到全额(残差重试)——单发在跨锚点测量竞态下
-                        // 欠消费残差不等=每周期恒定净漂(真机 -268px 定罪)
-                        clock.episodeShiftConsumedPx =
+                        // #432 贴底免派发:严格贴底(fii==0 ∧ fiso==0)时布局以最新
+                        // item 为锚——卡向上扩展,header 与底部内容天然屏位不变;
+                        // dispatch +H 反而把视口推离贴底 H px(用户正看的最新回复
+                        // 被推出屏=「展开跳转到其他地方」主诉)。跳过派发,steady
+                        // 基线锚 0(否则 flush 会把 +H 当欠账补发,等效跳过失效)。
+                        // 中位构型(fii>0)布局语义不同(锚定翻转需位移抵消),照旧。
+                        val pinnedToBottom = bottomPinnedExpandSkip(
+                            listState.firstVisibleItemIndex,
+                            listState.firstVisibleItemScrollOffset,
+                        )
+                        clock.episodeShiftConsumedPx = if (pinnedToBottom) {
+                            if (BuildConfig.DEBUG) {
+                                AppLogger.d(
+                                    "CardExpand",
+                                    "[DEBUG-432] bottom-pinned expand skip-dispatch H=" + H,
+                                )
+                            }
+                            0f
+                        } else {
+                            // #427:配对到全额(残差重试)——单发在跨锚点测量竞态下
+                            // 欠消费残差不等=每周期恒定净漂(真机 -268px 定罪)
                             applyPairedPreRenderShift(listState, H.toFloat())
+                        }
                     } finally {
                         clock.programmaticShift = false
                     }
                     // #430(修正):欠账 rebase——残量=目标−实消费(transient 0 消费
                     // 的配对义务不丢);基线锚定目标,幕布期增量(report>ledger)逐帧
                     // 记账。steadyHold 放行:增长落地帧 flush 同帧补派,上顶不上屏。
-                    clock.steadyRebaseAfterEpisodeDispatch(H, clock.episodeShiftConsumedPx)
+                    // #432:贴底免派发时欠账也归零(否则 flush 把 +H 补发=跳过失效)。
+                    if (clock.episodeShiftConsumedPx == 0f &&
+                        listState.firstVisibleItemIndex == 0 &&
+                        listState.firstVisibleItemScrollOffset == 0
+                    ) {
+                        clock.steadyRebase()
+                    } else {
+                        clock.steadyRebaseAfterEpisodeDispatch(H, clock.episodeShiftConsumedPx)
+                    }
                     clock.steadyHold = false
                     // 离底解跟随(真机定案:预移后 atBot=false 而 autoOn=true,
                     // 仲裁器集后把整个列表拽回底=「其他元素移动」主诉):
@@ -1502,6 +1529,14 @@ private fun dispatchClosedLoop(
         departure?.invoke()
     }
 }
+
+/**
+ * #432 贴底免派发判定(纯函数可单测):严格贴底=最新 item 锚定(fii==0 ∧ offset==0)。
+ * 此构型布局把塌高向上扩展——header 与底部内容天然屏位不变,dispatch 反而
+ * 把视口推离贴底(「展开跳转到其他地方」)。fii==0 但 offset>0 的半贴底域
+ * 布局语义未取证,保守不启用(待真机日志观察后再放宽)。
+ */
+internal fun bottomPinnedExpandSkip(fii: Int, fiso: Int): Boolean = fii == 0 && fiso == 0
 
 /**
  * #432 settle 判稳帧推进(纯函数可单测):测量计数静止 ∧ 实测高度>0。
