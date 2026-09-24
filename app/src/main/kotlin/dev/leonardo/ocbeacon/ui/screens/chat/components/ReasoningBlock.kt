@@ -233,16 +233,18 @@ internal fun ReasoningBlock(
                         Icon(
                             imageVector = Icons.Default.AllInclusive,
                             contentDescription = null,
-                            modifier = Modifier.size(14.dp),
+                            // #432(用户裁决:卡族垂直节奏一致):16dp 对齐工具卡
+                            // LEADING_ICON_SIZE(原 14dp 行高偏矮);间距 3dp 同步。
+                            modifier = Modifier.size(16.dp),
                             tint = accentColor.copy(alpha = pulseAlpha),
                         )
-                        Spacer(modifier = Modifier.width(5.dp))
+                        Spacer(modifier = Modifier.width(3.dp))
                         Text(
                             text = headerLabel,
-                            // #432:标题=正文+1sp+Medium(原 12sp 比思考正文 14sp 小,
-                            // 无层级;摘要/时长保持小号辅助)
+                            // #432(用户裁决):标题=正文字号+Medium(层级靠字重;
+                            // 摘要/时长保持小号辅助)
                             style = MaterialTheme.typography.labelMedium.copy(
-                                fontSize = (LocalChatDensity.current.typography.bodyFontSize.value + 1f).sp,
+                                fontSize = LocalChatDensity.current.typography.bodyFontSize,
                                 fontWeight = FontWeight.Medium,
                             ),
                             color = textColor.copy(alpha = AlphaTokens.MUTED),
@@ -273,7 +275,7 @@ internal fun ReasoningBlock(
                         if (isStreaming && text.isBlank()) {
                             Spacer(modifier = Modifier.width(6.dp))
                             CircularProgressIndicator(
-                                modifier = Modifier.size(14.dp),
+                                modifier = Modifier.size(16.dp), // #432:与标题图标同槽同尺寸
                                 strokeWidth = 2.dp,
                                 color = accentColor.copy(alpha = AlphaTokens.MUTED)
                             )
@@ -302,9 +304,9 @@ internal fun ReasoningBlock(
                     val guideColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AlphaTokens.FAINT)
                     Box(
                         modifier = Modifier
-                            // 2026-09-20 居中修正:图标与竖线同一起点(内容区 x=0),
-                            // 14dp 图标中心 7dp;线宽 2dp → 锚位 6dp。公式化绑定。
-                            .padding(start = 14.dp / 2 - 1.dp)
+                            // 2026-09-20 居中修正:图标与竖线同一起点(内容区 x=0)。
+                            // #432:16dp 图标中心 8dp;线宽 2dp → 锚位 7dp(工具卡同款公式)。
+                            .padding(start = 16.dp / 2 - 1.dp)
                             .drawBehind {
                                 drawRect(
                                     color = guideColor,
@@ -316,7 +318,8 @@ internal fun ReasoningBlock(
                             .padding(start = SpacingTokens.SM.dp),
                     ) {
                         Column {
-                        Spacer(modifier = Modifier.height(6.dp))
+                        // #432(卡族垂直节奏一致):顶部 6dp 顶距移除——工具卡展开区
+                        // 顶边零距,思考卡多 6dp 使两族展开态首行不同高。
                         // 2026-08-16（用户反馈调整）：高度上限从半屏收紧为固定值——
                         // 思考内容是长 Markdown，半屏上限下总是顶满（其他工具卡片
                         // 内容短、实际远达不到半屏上限），视觉上显著高于其他卡片。

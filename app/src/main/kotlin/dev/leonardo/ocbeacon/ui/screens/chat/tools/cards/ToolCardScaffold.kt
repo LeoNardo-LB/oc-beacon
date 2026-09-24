@@ -193,10 +193,9 @@ internal fun ToolCardScaffold(
                         )
                         Text(
                             text = title,
-                            // #432:标题=正文+1sp+Medium(原 labelMedium 12sp 比正文小,
-                            // 无层级;跟随 ChatDensity)
+                            // #432(用户裁决):标题=正文字号+Medium(层级靠字重;跟随 ChatDensity)
                             style = MaterialTheme.typography.labelMedium.copy(
-                                fontSize = (LocalChatDensity.current.typography.bodyFontSize.value + 1f).sp,
+                                fontSize = LocalChatDensity.current.typography.bodyFontSize,
                                 fontWeight = FontWeight.Medium,
                             ),
                             maxLines = 1,

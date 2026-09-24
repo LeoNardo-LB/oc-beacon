@@ -94,11 +94,11 @@ internal fun ToolCallCard(
     }
     val resolvedIconTint = if (isError) stateColor else toolDisplay.iconTint ?: stateColor
 
-    // #432(用户反馈):卡标题须稍大于正文且带字重——原 labelMedium(12sp) 比
-    // markdown 正文(Normal 密度 14sp)还小,标题/正文无层级。标题=正文+1sp+
-    // Medium 字重,跟随 ChatDensity(Compact 密度自动收缩)。
+    // #432(用户裁决):卡标题=正文字号+Medium 字重(层级靠字重不靠字号;
+    // 原 labelMedium 12sp 比正文小无层级,+1sp 方案已按用户反馈回退)。
+    // 跟随 ChatDensity(Compact 密度自动收缩)。
     val titleStyle = MaterialTheme.typography.labelMedium.copy(
-        fontSize = (LocalChatDensity.current.typography.bodyFontSize.value + 1f).sp,
+        fontSize = LocalChatDensity.current.typography.bodyFontSize,
         fontWeight = FontWeight.Medium,
     )
 
