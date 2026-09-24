@@ -99,6 +99,16 @@ internal fun tableTsv(content: String, rows: List<TableRow>, columnCount: Int): 
 /** #429 时间切片：超过此行数的表走行组装配（首组小保首屏，其余组大）。 */
 internal const val TABLE_GROUPED_MIN_ROWS = 20
 
+/**
+ * #431:表格自然列宽跨回收缓存(模块级 LRU,主线程单写者)。
+ * 键=fontSize+表格全文(内容变即失配重测);容量 24 张表(宽度数组 6-8 int,
+ * 内存可忽略;键复用表内容字符串引用,无额外拷贝)。进程存活期有效——
+ * 回收/离屏/重入零重测;进程重启一次性重付(48 次≈40ms/表)。
+ */
+private object NaturalWidthsLru : LinkedHashMap<String, IntArray>(16, 0.75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, IntArray>?): Boolean = size > 24
+}
+
 /** #429 时间切片：行组边界。JVM 可单测。 */
 internal fun tableGroupBounds(rowCount: Int): List<IntRange> {
     if (rowCount <= 0) return emptyList()
@@ -705,23 +715,30 @@ private fun GroupedTableBody(
     // 在 remember 里同步执行,帧步进器管不到。首组代表测(48 次≈40ms)后宽度
     // 恒定:后续组的超宽单元格走既有多行 wrap 语义(块高度自适应),零重排
     // 零闪烁(区别于 v2 宽度漂移);数据表列内容长度均匀,代表性足够。
+    // #431:结果跨回收 LRU——条目回收/滚动离屏重入时 remember 重算,48 次测量
+    // 每表重付(×4 表 ≈150ms)是滚动穿表冻结的成分之一;命中即零成本(主线程
+    // 单写者,无需锁;键=fontSize+全文,内容变即失配自然重测)。
     val naturalWidths = remember(content, rows, columnCount, bodyStyle.fontSize, tableGroups) {
-        val w = IntArray(columnCount) { 0 }
-        val probeCount = (tableGroups.firstOrNull()?.last ?: (rows.size - 1)) + 1
-        val probeRows = rows.take(probeCount)
-        probeRows.forEach { row ->
-            row.cells.take(columnCount).forEachIndexed { col, cell ->
-                val t = cellPlainText(content, cell)
-                if (t.isNotEmpty()) {
-                    val m = textMeasurer.measure(
-                        androidx.compose.ui.text.AnnotatedString(t),
-                        bodyStyle,
-                    )
-                    if (m.size.width > w[col]) w[col] = m.size.width
+        val cacheKey = bodyStyle.fontSize.toString() + "\u0000" + content
+        NaturalWidthsLru.get(cacheKey) ?: run {
+            val w = IntArray(columnCount) { 0 }
+            val probeCount = (tableGroups.firstOrNull()?.last ?: (rows.size - 1)) + 1
+            val probeRows = rows.take(probeCount)
+            probeRows.forEach { row ->
+                row.cells.take(columnCount).forEachIndexed { col, cell ->
+                    val t = cellPlainText(content, cell)
+                    if (t.isNotEmpty()) {
+                        val m = textMeasurer.measure(
+                            androidx.compose.ui.text.AnnotatedString(t),
+                            bodyStyle,
+                        )
+                        if (m.size.width > w[col]) w[col] = m.size.width
+                    }
                 }
             }
+            NaturalWidthsLru.put(cacheKey, w)
+            w
         }
-        w
     }
     // cap/fill(与原整测路径同语义)
     val effectiveCap = if (containerWidth > 0) {

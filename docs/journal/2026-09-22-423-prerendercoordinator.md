@@ -671,3 +671,25 @@ dy 曲线「渐进上推 4-5 帧 + 复位 +330」经三个子代理互证 = **MI
   批次九退役)/phaseADrain/闭环族(dispatchClosedLoop 等);宿主侧大组条目裂变路径
   (expandedStepGroups 恒空)/StepGroupFoldRow/onExpandComputing+spinner 通路。
 - 优化:#431(滚动穿表);naturalWidths 跨回收 LRU;预热机制对步组失义(对 PartContent 折叠族仍有效)。
+
+## 批次十五:#431 滚动穿表优化——块边界分段+列宽跨回收缓存
+
+**方案澄清**(用户问是否 AST 并行解析):否——①巨型 text part 在 markdown 块边界
+(空行分隔;表格/围栏代码原子)切段,每段独立解析/组合/进窗,滚动按屏付费;
+②表格列宽测量跨回收 LRU;③解析走既有 asyncParse。与 backlog 早年 L3「AST 切片」
+构想同源,本次以块扫描落地(无 AST 依赖,纯字符串扫描,JVM 可单测)。
+
+**实现**:
+- StepGroupSlicing: markdownBlocks(块扫描:表格行/围栏 glue,段落单换行守恒)+
+  splitHeavyTextPart(贪心装段≤STEP_GROUP_BODY_TARGET_WEIGHT;原子块超预算独段;
+  合成 part synthetic=true+id#sgN)→ sliceStepGroupBodies 进 packer 前展开。
+- MarkdownTable: NaturalWidthsLru(模块级 LinkedHashMap accessOrder,容量24,
+  键=fontSize+全文)——条目回收重入零重测。
+- 单测:StepGroupSlicingTest +7 用例(块原子性/预算装段/内容守恒/集成分布)。
+
+**真机前后对比**(houji,同参数 12 次滑动穿表区):
+- 前:Skipped 102/58/60/64/69/47(6 次冻结,累计≈3.4s,用户「卡的要死」主诉)。
+- 后:1 次 Skipped 35(与 SubmitDisplayConfig 刷新率切换系统事件同帧);热轮回滚
+  再 +1 次 45。累计改善≈90%,残余为单次首组合 hitch(~300ms)级。
+- 渲染完整性:多屏表格行序连续单调/列对齐/无断表重复重叠(多模态判读两屏拼接)。
+- 全量单测绿;ANR/crash 0。

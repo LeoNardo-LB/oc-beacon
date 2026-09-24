@@ -182,4 +182,79 @@ class StepGroupSlicingTest {
         assertEquals(sliceFingerprint(small), sliceFingerprint(small))
         assertNotEquals(sliceFingerprint(small), sliceFingerprint(grown))
     }
+
+    // ============ #431:巨型 text part 的 markdown 块边界分段 ============
+
+    private fun rawText(id: String, s: String) =
+        Part.Text(id = id, sessionId = "s", messageId = "m", text = s)
+
+    @Test
+    fun markdownBlocksBlankLinesSeparate() {
+        val src = "第一段第一行\n第一段第二行\n\n第二段\n\n第三段"
+        assertEquals(
+            listOf("第一段第一行\n第一段第二行", "第二段", "第三段"),
+            markdownBlocks(src),
+        )
+    }
+
+    @Test
+    fun markdownBlocksTableAtomic() {
+        val src = "| a | b |\n|---|---|\n| 1 | 2 |\n\n后记"
+        val blocks = markdownBlocks(src)
+        assertEquals(2, blocks.size)
+        assertEquals("| a | b |\n|---|---|\n| 1 | 2 |", blocks[0])
+    }
+
+    @Test
+    fun markdownBlocksFencedCodeAtomic() {
+        val src = "说明\n\n```bash\na=1\n\nb=2\n```\n\n结尾"
+        val blocks = markdownBlocks(src)
+        assertEquals(3, blocks.size)
+        assertEquals("```bash\na=1\n\nb=2\n```", blocks[1])
+    }
+
+    @Test
+    fun splitSmallPartReturnsItself() {
+        val p = rawText("t1", "短内容")
+        val out = splitHeavyTextPart(p, budgetChars = 100)
+        assertEquals(listOf<Part.Text>(p), out) // 原实例零派生
+    }
+
+    @Test
+    fun splitBigPartWithinBudgetAndDerived() {
+        // budget 1100:A(500) 独段;B+C(500+2+500=1002≤1100) 合段
+        val p = rawText("t1", "A".repeat(500) + "\n\n" + "B".repeat(500) + "\n\n" + "C".repeat(500))
+        val out = splitHeavyTextPart(p, budgetChars = 1100)
+        assertEquals(2, out.size)
+        assertTrue(out.all { it.text.length <= 1100 })
+        assertTrue(out.all { it.synthetic == true })
+        assertEquals("t1#sg0", out[0].id)
+        assertEquals("t1#sg1", out[1].id)
+        // 内容守恒(贪心:A+B=1002 先装满, C 独段)
+        assertEquals("A".repeat(500) + "\n\n" + "B".repeat(500), out[0].text)
+        assertEquals("C".repeat(500), out[1].text)
+    }
+
+    @Test
+    fun oversizedAtomicTableStaysWhole() {
+        val row = "| " + "x".repeat(40) + " | " + "y".repeat(40) + " |\n"
+        val table = ("| h1 | h2 |\n|---|---|\n" + row.repeat(30)).trimEnd()
+        val out = splitHeavyTextPart(rawText("t1", table), budgetChars = 1000)
+        assertEquals(1, out.size)
+        assertEquals(table, out[0].text)
+    }
+
+    @Test
+    fun giantBlockyTextDistributesAcrossSlices() {
+        val giant = ("块" + "x".repeat(200) + "\n\n").repeat(20).trimEnd()
+        val slices = sliceStepGroupBodies(listOf(PartGroup.Single(rawText("t1", giant))))
+        assertTrue("切片数 " + slices.size + " 应 >=2", slices.size >= 2)
+        val flat = slices.flatten()
+        assertTrue(
+            flat.all {
+                ((it as PartGroup.Single).part as Part.Text).text.length <= 2200 * 2
+            },
+        )
+        assertEquals("t1#sg0", (flat[0] as PartGroup.Single).part.id)
+    }
 }

@@ -38,15 +38,93 @@ internal fun stepGroupNeedsSlicing(groups: List<PartGroup>): Boolean =
  * 纯函数、幂等（重切扁平化输出结果不变）、守恒（flatten(output)==input）、无空片。
  */
 internal fun sliceStepGroupBodies(groups: List<PartGroup>): List<List<PartGroup>> {
+    // #431:先做巨型 text part 的 markdown 块级分段——PartGroup 边界切不动
+    // 万字符级单 part(独自成片≈5 屏,滚动进窗单帧全量组合=0.4-0.85s 冻结);
+    // 分段后每段≈1 屏,窗口化按屏付费。
+    val expanded = groups.flatMap { g ->
+        val p = (g as? PartGroup.Single)?.part
+        if (p is Part.Text && p.text.length > STEP_GROUP_BODY_TARGET_WEIGHT) {
+            splitHeavyTextPart(p).map { PartGroup.Single(it) }
+        } else {
+            listOf(g)
+        }
+    }
     val out = mutableListOf<MutableList<PartGroup>>()
     var acc = 0
-    for (g in groups) {
+    for (g in expanded) {
         if (out.isEmpty() || acc >= STEP_GROUP_BODY_TARGET_WEIGHT) {
             out += mutableListOf<PartGroup>()
             acc = 0
         }
         out.last() += g
         acc += turnItemWeight(RenderItem.GroupedParts(g))
+    }
+    return out
+}
+
+/**
+ * #431:巨型 Text part 的 markdown 块边界分段(纯函数,JVM 可单测)。
+ * 块扫描规则([markdownBlocks]):空行分隔;表格(连续 | 行)与围栏代码整体
+ * 不可分;段间以空行回接(块语义守恒)。贪心装段至 [budgetChars];原子块
+ * 超预算(如 60 行表)独段保留——表内成本由 v4 行组分帧+列宽 LRU 承接。
+ * 段 part 以 synthetic=true + id 后缀派生(账本指纹一次性转冷,可接受)。
+ */
+internal fun splitHeavyTextPart(
+    part: Part.Text,
+    budgetChars: Int = STEP_GROUP_BODY_TARGET_WEIGHT,
+): List<Part.Text> {
+    if (part.text.length <= budgetChars) return listOf(part)
+    val blocks = markdownBlocks(part.text)
+    val segs = mutableListOf<String>()
+    val cur = StringBuilder()
+    for (b in blocks) {
+        if (cur.isNotEmpty() && cur.length + 2 + b.length > budgetChars) {
+            segs += cur.toString()
+            cur.setLength(0)
+        }
+        if (cur.isNotEmpty()) cur.append("\n\n")
+        cur.append(b)
+        if (cur.length >= budgetChars) { // 单块即超预算:独段(原子性优先)
+            segs += cur.toString()
+            cur.setLength(0)
+        }
+    }
+    if (cur.isNotEmpty()) segs += cur.toString()
+    if (segs.size <= 1) return listOf(part)
+    return segs.mapIndexed { i, s ->
+        part.copy(id = part.id + "#sg" + i, text = s, synthetic = true)
+    }
+}
+
+/**
+ * markdown 块扫描(纯函数):返回块列表(块内保留原始单换行)。
+ * - 围栏代码(trim 后 `'```'` 开头):整体一块(内部空行不切);
+ * - 表格(连续 | 开头行,含分隔行):整体一块;
+ * - 其余:连续非空行且不以 |/``` 开头 = 一块(段落内换行守恒)。
+ */
+internal fun markdownBlocks(src: String): List<String> {
+    val lines = src.split('\n')
+    val out = mutableListOf<String>()
+    var i = 0
+    while (i < lines.size) {
+        val line = lines[i]
+        if (line.isBlank()) {
+            i++
+            continue
+        }
+        val start = i
+        val fence = line.trimStart().startsWith("```")
+        val table = !fence && line.trimStart().startsWith("|")
+        i++
+        when {
+            fence -> while (i < lines.size && !lines[i].trimStart().startsWith("```")) i++
+            table -> while (i < lines.size && lines[i].trimStart().startsWith("|")) i++
+            else -> while (i < lines.size && !lines[i].isBlank() &&
+                !lines[i].trimStart().startsWith("|") &&
+                !lines[i].trimStart().startsWith("```")) i++
+        }
+        if (fence && i < lines.size) i++ // 含闭合围栏
+        out += lines.subList(start, i).joinToString("\n")
     }
     return out
 }
