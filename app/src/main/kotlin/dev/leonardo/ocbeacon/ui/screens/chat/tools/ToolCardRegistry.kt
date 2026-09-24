@@ -142,6 +142,21 @@ internal fun resolveToolDisplay(
                 icon = Icons.Default.Language
             )
         }
+        "run_code" -> {
+            // #432(用户反馈):DSH run_code 的 input 带 description(人类可读动作标题),
+            // 原先落 else 分支被丢弃——卡片标题栏只剩「Run code」。标题栏展示
+            // description;缺失时降级 code 首行(bash 卡同款截断)。
+            val description = input["description"]?.jsonPrimitive?.contentOrNull
+            val code = input["code"]?.jsonPrimitive?.contentOrNull
+            val shortCode = code?.lineSequence()?.firstOrNull()?.let {
+                if (it.length > 60) it.take(57) + "..." else it
+            }
+            ToolDisplayInfo(
+                title = serverTitle?.takeIf { it.isNotBlank() } ?: "Run code",
+                subtitle = description?.takeIf { it.isNotBlank() } ?: shortCode,
+                icon = Icons.Default.Terminal,
+            )
+        }
         "task" -> {
             val description = input["description"]?.jsonPrimitive?.contentOrNull
             ToolDisplayInfo(

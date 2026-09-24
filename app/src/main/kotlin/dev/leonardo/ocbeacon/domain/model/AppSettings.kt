@@ -23,8 +23,8 @@ data class AppSettings(
     val compactMessages: Boolean = false,
     /** 工具卡片默认自动展开（#202 改名自 collapseTools；值语义不变：true=展开）。 */
     val autoExpandTools: Boolean = false,
-    /** #430(2026-09-24 用户裁决「过程默认都展示」):默认 true;用户显式设置仍优先生效。 */
-    val expandReasoning: Boolean = true,
+    /** #432(2026-09-25 用户裁决):默认收起——展开态思考卡占屏过高(覆写 #430 的 true)。 */
+    val expandReasoning: Boolean = false,
     val showTurnDividers: Boolean = true,
 
     // --- 通知 ---
