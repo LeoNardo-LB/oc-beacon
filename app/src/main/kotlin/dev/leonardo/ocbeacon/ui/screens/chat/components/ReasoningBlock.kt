@@ -200,7 +200,8 @@ internal fun ReasoningBlock(
                     // 24px 的 2.6 倍;收敛卡内留白 20→14px(与 ToolCardScaffold 同步)。
                     // 2026-09-20 单行形态:水平 padding 对齐工具卡 scaffold(XS)——
                     // 原 MD(12) 是给 2.5dp 色条让位的档位,色条已移除。
-                    .padding(start = SpacingTokens.XS.dp, end = 10.dp, top = 2.dp, bottom = 2.dp)
+                    // #432(用户反馈):水平缩进归零,与正文同缘(工具卡 scaffold 同步)。
+                    .padding(start = 0.dp, end = 0.dp, top = 2.dp, bottom = 2.dp)
             ) {
                 // 2026-09-20 用户裁决修正:标题行(图标+标签)常驻,展开时仅摘要
                 // 部分(· xxxx)隐藏——正文竖线区出现在下方;摘要显隐同行内无高度

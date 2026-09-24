@@ -146,8 +146,10 @@ internal fun ToolCardScaffold(
         // 空白收敛,卡族互相对齐保持)
         Column(
             modifier = Modifier.padding(
-                start = SpacingTokens.XS.dp,
-                end = SpacingTokens.XS.dp,
+                // #432(用户反馈):水平缩进归零——原 XS(4dp) 使卡片比正文多缩一档,
+                // 「正文与卡片没对齐」根源;卡族与正文现在同缘(垂直 padding 不变)。
+                start = 0.dp,
+                end = 0.dp,
                 top = 2.dp,
                 bottom = 2.dp,
             ),
