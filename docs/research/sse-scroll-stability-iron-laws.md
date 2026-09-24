@@ -33,15 +33,17 @@ SSE token 到达
 
 **位置**：`MessageEventHandler.kt:58`。实现：`if (batchJob?.isActive == true) return`。
 
-### 铁律 3：`layout{}` 高度补偿只作用于 streaming message
+### 铁律 3：流式增长配对只作用于 streaming message（#435 起为 streamingGrowPairing）
 
 对所有 assistant 消息作用会让已完成消息暴露在不稳定测量下 → 已完成消息也跳动。
 
-**位置**：`ChatMessageList.kt` 的 `itemModifier` 条件分支 `if (isStreamingMsg)`。
+**位置**：`ChatMessageList.kt` 的 `itemModifier` 条件分支 `if (isStreamingMsg)`。（#435：延迟揭示 deferredRevealCompensation/COMP 家族已退役，挂载纪律不变——改为 `streamingGrowPairing` 记账入 `StreamingGrowLedger`，由 PreRenderCoordinator pre-draw flush 按「锚即意图」统一规则配对派发，见 spec 2026-09-25-435。）
 
 **注意 multi-message turn**：`isStreamingMsg` 用 `(turnGroups[rawIndex] ?: listOf(msg)).any { it.message.id == streamingMsgId }`（提交 `92a30e48`）。因为 displayItems 的 turn 代表是 **oldest**，而 streaming 是 **newest**，单消息匹配会让 multi-message turn 补偿失效。`.any{}` 是正确的。displayItems 每 turn 只 1 个代表 item，所以 `.any{}` 不会导致补偿泄漏到多个 item。
 
 ### 铁律 4（★ 本次修正）：LaunchedEffect 必须双 key `(isScrollInProgress, isAtBottom)`
+
+> **#435 更新（2026-09-25）**：shouldCompensate 机制已随 COMP 家族退役——流式增长配对改由 StreamingGrowLedger 的「锚即意图」纯几何规则承担（贴底跟随族/读历史免派发，锚上移进入增长源 +Δ 同帧配对），不再依赖任何 LaunchedEffect 旗标。**autoScroll 的双 key 语义不变**（ChatScrollController 的 snapshotFlow 双值流等价式），本铁律对 autoScroll 继续有效。
 
 > **这条铁律曾经写反了**，是 2026-07 本次回归的直接原因。详见第 3 节。
 
@@ -281,6 +283,7 @@ val streamingMsgId = remember(rawMessages) {
 | 2026-07-01 | `668384e3` | streamingMsgId 加 takeIf(sessionMeta.isStreaming)（回归 #2） |
 | 2026-07-09 | 本次 | 恢复双 key（修复 #1）+ 移除 takeIf（修复 #2）+ 修正铁律 + 本文档 |
 | 2026-08-06 | v1-v6 | 滚动性能全链路修复：cache window（跳过）→ 指纹缓存（重算）→ 实例/签名缓存（分配风暴）→ 对称窗口（摩擦/fling）；新增铁律 6-8 与 3.4/5.3 节 |
+| 2026-09-25 | #435 | COMP 家族（DeferredRevealCompensator×5 挂载点）/PreRenderShiftChannel/GUARD stream-instant 退役；流式增长并入高度引擎统一配对（StreamingGrowLedger→pre-draw flush，「锚即意图」规则）；引擎 steady flush 增补 #432 贴底豁免；顺带修复读历史流式拖拽缺陷 |
 
 ---
 
