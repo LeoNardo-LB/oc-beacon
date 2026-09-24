@@ -466,20 +466,12 @@ fun ChatMessageList(
     // 分支引用(sgSwapAtMs 恒 0 = 窗口永闭,零日志)。
     val sgSwapAtMs = remember { androidx.compose.runtime.mutableLongStateOf(0L) }
     val sgHeadTopY = remember { androidx.compose.runtime.mutableIntStateOf(Int.MIN_VALUE) }
-    // 以 streamingMsgId 作为 key，流式 turn 变化（新消息
-    // 或完成）时状态重置。这比 heightMap + 会话级清除更简单、更正确。
-    val compensateState = remember(streamingMsgId) { CompensateState() }
-    // #222 修二强化：延迟揭示补偿器（真·渲染前）——消息流/工具/压缩三路共用
-    // shouldCompensate 门控（在底意图），各自独立基准。
-    val msgReveal = remember(streamingMsgId) { DeferredRevealCompensator() }
-    val toolReveal = remember(streamingMsgId) { DeferredRevealCompensator() }
-    // #221：压缩展开区流式补偿——进行中压缩展开后 delta 增长与普通流式消息同
-    // 待遇（tool_progress 同款：独立 lastHeight + 共享 shouldCompensate 在底意图
-    // + layout{} 注入）。key=进行中压缩 messageId：压缩结束置 null 时重置，下一
-    // 轮首测不注入（lastHeight>0 守卫防冷启动跳变）。
-    val compactionReveal = remember(
-        currentCompaction?.takeIf { it.isActive }?.messageId
-    ) { DeferredRevealCompensator() }
+    // #435 流式增长账本：流式家族(消息/工具横幅/压缩卡)高度增长统一并入高度
+    // 引擎配对体系——measure 相记账 Δ → pre-draw flush 单点按统一规则派发(锚即
+    // 意图:贴底跟随族/读历史免派发,尾段阅读 +Δ 同帧配对)。取代 COMP 家族三补偿器
+    // (#222 延迟揭示)与 PreRenderShiftChannel 帧界运输;挂载点经 streamingGrowPairing
+    // 记账,流式结束/回收时账目随节点卸载自动清(onDetach→forget)。
+    val streamingLedger = remember { StreamingGrowLedger() }
 
     // #215 验收反馈·一（终版裁决 2026-08-25 用户定规）：toggle 锚定修正逻辑
     // 全部撤销——修正窗/toggleAnchorCorrection/注入通道一并不用；卡片动画
@@ -488,24 +480,6 @@ fun ChatMessageList(
     // 为存量机制，定因与矩阵数据存档 journal §验收反馈·一）。
     // 流式分支（isStreamingMsg 铁律补偿）不受影响。
 
-    // 跟踪用户是否已滚离底部。
-    // 重要（铁律等价改写 2026-08-20 B-F5）：原双 key LaunchedEffect 语义 =
-    // isScrollInProgress / isAtBottom 任一变化都要重估（用户通过非拖拽方式
-    // 回到底部时 shouldCompensate 重置 false——fling 惯性、SSE 推送；
-    // 否则每个 SSE token 都触发 requestScrollToItemNoCancel → 视口抖动）。
-    // snapshotFlow 双值流保持相同反应性（任一变化即发射、顺序执行同一
-    // 逻辑体），并把 State 读取移出组合作用域——原先参数是 Boolean，
-    // ChatScreen 在主体读值导致每次阈值跨越整个 ChatScreen 重组。
-    LaunchedEffect(listState, isAtBottomState, compensateState) {
-        snapshotFlow { listState.isScrollInProgress to isAtBottomState.value }
-            .collect { (scrolling, atBottom) ->
-                if (scrolling) {
-                    compensateState.shouldCompensate = true
-                } else if (atBottom) {
-                    compensateState.shouldCompensate = false
-                }
-            }
-    }
 
     // 快速导航：Room 全量 user 消息列表（抽屉打开时异步查询一次）。
     // 数据源为 Room 热表（≤1000 条全量 user），覆盖内存窗口（rawMessages ~30 条）外的更早历史。
@@ -675,6 +649,17 @@ fun ChatMessageList(
     DisposableEffect(flushHostView) {
         PreRenderCoordinator.attachFlushHost(flushHostView)
         onDispose { PreRenderCoordinator.detachFlushHost(flushHostView) }
+    }
+
+    // #435 流式家族 flush 任务：常驻挂接(空账本零成本早退)。流式增长的配对位移
+    // 与卡片 episode/steady 同走 PreRenderCoordinator 单点(单一视口权威);无宿主
+    // (预览/JVM 单测)不派发=降级,与旧通道无泵降级一致。
+    val sgrFlushTask = remember(listState, streamingLedger) {
+        streamingGrowFlushTask(listState, streamingLedger)
+    }
+    DisposableEffect(sgrFlushTask) {
+        PreRenderCoordinator.registerFlushTask(sgrFlushTask)
+        onDispose { PreRenderCoordinator.unregisterFlushTask(sgrFlushTask) }
     }
     val bannerCount = remember(compactionBanners) {
         BANNER_ALWAYS_COUNT +
@@ -869,7 +854,7 @@ fun ChatMessageList(
                     "gesture=" + p + " idx=" + listState.firstVisibleItemIndex +
                         " off=" + listState.firstVisibleItemScrollOffset +
                         " streamingMsgId=" + (streamingMsgId ?: "null") +
-                        " shouldComp=" + compensateState.shouldCompensate
+                        " sgrPending=" + streamingLedger.hasPending
                 )
             }
         }
@@ -1236,20 +1221,6 @@ fun ChatMessageList(
                 }
             }
 
-            // #258 换道手术：渲染前补偿统一通道的帧界排空泵。MonotonicFrameClock
-            // 回调相（Choreographer 动画相）早于当帧 measure 遍历——排空注入的
-            // 待定位置在本帧 measure 遍首应用：注入与应用严格隔帧配对，与旧
-            // scrollToBeConsumed 通道视觉时序逐帧一致（机制见 PreRenderShiftChannel）。
-            // #412：泵改为「待排空信号驱动」——空闲挂起在 awaitPending，仅当本
-            // 列表有未排空增量时才起帧（原 while(true) 每帧必起 → Compose 测试
-            // idling 永不空闲）。时序不变：入队帧 k → 帧 k+1 回调相排空 → 遍首应用。
-            LaunchedEffect(listState) {
-                while (true) {
-                    PreRenderShiftChannel.awaitPending(listState)
-                    withFrameNanos { }
-                    PreRenderShiftChannel.drain(listState)
-                }
-            }
 
             // 2026-08-13 状态机注入（门控读 LocalJumpController）。
             // 2026-08-21 卫生清理：LocalMarkdownStateRegistry 注入已删除（D-10）。
@@ -1600,11 +1571,10 @@ fun ChatMessageList(
                             Modifier
                                 .fillMaxWidth()
                                 .clipToBounds()
-                                .deferredRevealCompensation(
-                                    listState = listState,
-                                    compensator = msgReveal,
-                                    shouldCompensate = { compensateState.shouldCompensate },
-                                    logTag = "COMP-MSG",
+                                .streamingGrowPairing(
+                                    ledger = streamingLedger,
+                                    entryKey = "msg:" + itemKey,
+                                    itemKey = itemKey,
                                 )
                         } else Modifier.fillMaxWidth().clipToBounds()
                         // #215 验收反馈·一（终版裁决）：方案一（offset±delta 补偿）与方案三
@@ -1665,11 +1635,10 @@ fun ChatMessageList(
                                         Modifier
                                             .fillMaxWidth()
                                             .clipToBounds()
-                                            .deferredRevealCompensation(
-                                                listState = listState,
-                                                compensator = compactionReveal,
-                                                shouldCompensate = { compensateState.shouldCompensate },
-                                                logTag = "COMP-CMP(v1)",
+                                            .streamingGrowPairing(
+                                                ledger = streamingLedger,
+                                                entryKey = "cmp_v1:" + itemKey,
+                                                itemKey = itemKey,
                                             )
                                     } else Modifier
                                     CompactionDividerSlot(
@@ -2005,11 +1974,10 @@ fun ChatMessageList(
                                             Modifier
                                                 .fillMaxWidth()
                                                 .clipToBounds()
-                                                .deferredRevealCompensation(
-                                                    listState = listState,
-                                                    compensator = compactionReveal,
-                                                    shouldCompensate = { compensateState.shouldCompensate },
-                                                    logTag = "COMP-CMP(msg)",
+                                                .streamingGrowPairing(
+                                                    ledger = streamingLedger,
+                                                    entryKey = "cmp_msg:" + itemKey,
+                                                    itemKey = itemKey,
                                                 )
                                         } else Modifier
                                         CompactionDividerSlot(
@@ -2236,11 +2204,10 @@ fun ChatMessageList(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clipToBounds()
-                                        .deferredRevealCompensation(
-                                            listState = listState,
-                                            compensator = compactionReveal,
-                                            shouldCompensate = { compensateState.shouldCompensate },
-                                            logTag = "COMP-CMP(tail)",
+                                        .streamingGrowPairing(
+                                            ledger = streamingLedger,
+                                            entryKey = "cmp_tail",
+                                            itemKey = "compaction_banner",
                                         ),
                                     expansionKey = tailCompaction.expansionKey,
                                     state = tailCompaction.state,
@@ -2316,12 +2283,11 @@ fun ChatMessageList(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clipToBounds()
-                                    .deferredRevealCompensation(
-                                        listState = listState,
-                                        compensator = toolReveal,
-                                        shouldCompensate = { compensateState.shouldCompensate },
-                                        logTag = "COMP-TOOL",
-                                    )
+                                    .streamingGrowPairing(
+                                    ledger = streamingLedger,
+                                    entryKey = "tool",
+                                    itemKey = "tool_progress",
+                                )
                             ) {
                                 activeTools.forEach { toolInfo ->
                                     ToolProgressCard(toolInfo = toolInfo)
@@ -2329,10 +2295,6 @@ fun ChatMessageList(
                             }
                             }
                         }
-                    }
-                    if (activeTools.isEmpty()) {
-                        // 无活跃工具时重置
-                        toolReveal.reset()
                     }
 
                     // 步骤进度指示器（#420 B 类恒驻+原地揭示,消失路径同上）

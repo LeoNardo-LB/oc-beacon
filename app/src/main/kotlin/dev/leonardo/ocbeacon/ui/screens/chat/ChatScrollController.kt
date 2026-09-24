@@ -100,8 +100,6 @@ internal fun rememberChatScrollController(
      *  收敛，超时终态=底部——用户点最早消息落点在最新区）。 */
     jumpLockActive: androidx.compose.runtime.State<Boolean> =
         androidx.compose.runtime.mutableStateOf(false),
-    /** #432:流式 turn 激活(streamingMsgId!=null)——守卫跳过去抖(见 GUARD 分支)。 */
-    streamingTurnActive: () -> Boolean = { false },
 ): ChatScrollController {
     val autoScrollEnabled = rememberSaveable { mutableStateOf(true) }
     val forceScrollTick = remember { mutableIntStateOf(0) }
@@ -218,24 +216,9 @@ internal fun rememberChatScrollController(
                     if (!scrolling && autoOn && !atBottom && !jumpLockActive.value &&
                         !PreRenderCoordinator.hasActiveTransactions
                     ) {
-                        // #432(流式震荡根修)：流式 turn 的 part 增长不触发 MSGEFFECT
-                        // (messageCount 不变),推离视口累积 100-444px 后 GUARD 250ms
-                        // 去抖才拉回,下一增量再推=「来回震荡」。流式激活时跳过去抖
-                        // ——增长帧发射→collectLatest 体内立即 requestScrollToItem(0)
-                        // (渲染前请求)与增长同帧落地,视口净位移 0,震荡从构造上消失。
-                        // 去抖本职(防拖动/fling 闪断帧误触)在流式时无对象:拖动即关
-                        // autoOn,本分支不再进入。
-                        if (streamingTurnActive()) {
-                            if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
-                                AppLogger.w(
-                                    TAG,
-                                    "[DEBUG-drift] GUARD reanchor(stream-instant) idx=" + listState.firstVisibleItemIndex +
-                                        " off=" + listState.firstVisibleItemScrollOffset,
-                                )
-                            }
-                            listState.requestScrollToItem(0)
-                            return@collectLatest
-                        }
+                        // #435:stream-instant 退役——流式增长已并入引擎统一配对
+                        // (StreamingGrowLedger:贴底跟随态零派发,锚即意图),震荡根源
+                        // 从构造上消失;守卫回落纯安全网(#301 去抖语义)。
                         // #301：守卫去抖——拖动→fling 交接瞬间 isScrollInProgress
                         // 闪断一帧，原同步开火把上滑用户拉回底部（循环的点火器）。
                         AutoScrollArbiter.reanchorWhenSettledOffBottom(

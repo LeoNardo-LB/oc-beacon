@@ -334,8 +334,6 @@ fun ChatScreen(
         pendingCount = interaction.pendingQuestions.size + interaction.pendingPermissions.size,
         hasMessages = { messageState.messages.isNotEmpty() },
         jumpLockActive = jumpLockActiveState,
-        // #432 流式震荡根修:流式激活期间守卫跳过 250ms 去抖(增长帧同帧锚底)
-        streamingTurnActive = { sessionMeta.isStreaming },
     )
 
     // FileViewer 浮层状态 —— 取代到 FileViewerNav 路由的导航。

@@ -1073,6 +1073,20 @@ internal fun CardExpandReveal(
                 clock.steadyRebase() // 用户滚动:位置归用户,欠账弃配(不与手势竞速)
                 return@PreDrawFlushTask true
             }
+            // #435 贴底豁免(#432 episode 点不变量补齐 steady 相):贴底跟随态
+            // (严格 fii==0∧fiso==0)的迟到增长=追加语义(增长向上自然扩展,源码级
+            // 钉底自动成立,LazyListMeasure),dispatch 反而把视口推离贴底。
+            if (bottomPinnedExpandSkip(
+                    listState.firstVisibleItemIndex,
+                    listState.firstVisibleItemScrollOffset,
+                )
+            ) {
+                if (BuildConfig.DEBUG && clock.steadyPending != 0f) {
+                    AppLogger.d("CardExpand", "[STEADY] drop-at-bottom d=" + clock.steadyPending.toInt())
+                }
+                clock.steadyRebase()
+                return@PreDrawFlushTask true
+            }
             // #430(19:46 定罪):欠账/增量派发门控在「增长已落地」——rep 仍为 0 时
             // 布局里尚无配对容量(dispatch 内测见旧高),派发必 0 消费且欠账被
             // takeSteadyPending 清账=死亡(实测 topY −22969 裸上顶)。落地证据=

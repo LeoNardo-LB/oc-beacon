@@ -29,7 +29,7 @@ import dev.leonardo.ocbeacon.ui.components.ConfirmDialog
  *   滚出视口不丢、离开会话即清）
  * - CompactionCard 参数分发（state/summary/failed/timeMs）
  *
- * 流式增长补偿（deferredRevealCompensation，COMP-CMP）**不在此处**——各认领点
+ * 流式增长配对（streamingGrowPairing，#435 引擎配对体系）**不在此处**——各认领点
  * 原位构造含补偿的 growModifier 传入（SSE 滚动稳定性铁律：挂载点原位不动）。
  *
  * @param revertTargetId 撤销目标消息 id；null（尾部兜底——进行中无消息可撤）
