@@ -28,6 +28,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import dev.leonardo.ocbeacon.ui.theme.LocalChatDensity
+import dev.leonardo.ocbeacon.ui.theme.typography
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material3.CircularProgressIndicator
@@ -234,7 +238,12 @@ internal fun ReasoningBlock(
                         Spacer(modifier = Modifier.width(5.dp))
                         Text(
                             text = headerLabel,
-                            style = MaterialTheme.typography.labelMedium,
+                            // #432:标题=正文+1sp+Medium(原 12sp 比思考正文 14sp 小,
+                            // 无层级;摘要/时长保持小号辅助)
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontSize = (LocalChatDensity.current.typography.bodyFontSize.value + 1f).sp,
+                                fontWeight = FontWeight.Medium,
+                            ),
                             color = textColor.copy(alpha = AlphaTokens.MUTED),
                             maxLines = 1,
                         )

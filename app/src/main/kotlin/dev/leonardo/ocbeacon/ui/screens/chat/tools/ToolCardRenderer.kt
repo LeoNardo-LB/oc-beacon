@@ -27,7 +27,10 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import dev.leonardo.ocbeacon.ui.theme.LocalChatDensity
+import dev.leonardo.ocbeacon.ui.theme.typography
 import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.domain.model.Part
 import dev.leonardo.ocbeacon.domain.model.ToolState
@@ -91,6 +94,14 @@ internal fun ToolCallCard(
     }
     val resolvedIconTint = if (isError) stateColor else toolDisplay.iconTint ?: stateColor
 
+    // #432(用户反馈):卡标题须稍大于正文且带字重——原 labelMedium(12sp) 比
+    // markdown 正文(Normal 密度 14sp)还小,标题/正文无层级。标题=正文+1sp+
+    // Medium 字重,跟随 ChatDensity(Compact 密度自动收缩)。
+    val titleStyle = MaterialTheme.typography.labelMedium.copy(
+        fontSize = (LocalChatDensity.current.typography.bodyFontSize.value + 1f).sp,
+        fontWeight = FontWeight.Medium,
+    )
+
     ToolCardScaffold(
         icon = resolvedIcon,
         iconTint = resolvedIconTint,
@@ -117,7 +128,7 @@ internal fun ToolCallCard(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = toolDisplay.title,
-                            style = MaterialTheme.typography.labelMedium,
+                            style = titleStyle,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -153,7 +164,7 @@ internal fun ToolCallCard(
                     }
                     Text(
                         text = displayText,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = titleStyle,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)

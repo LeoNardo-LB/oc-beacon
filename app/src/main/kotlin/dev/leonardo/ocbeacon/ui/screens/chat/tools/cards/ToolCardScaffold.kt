@@ -38,6 +38,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import dev.leonardo.ocbeacon.ui.theme.LocalChatDensity
+import dev.leonardo.ocbeacon.ui.theme.typography
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -187,7 +191,12 @@ internal fun ToolCardScaffold(
                         )
                         Text(
                             text = title,
-                            style = MaterialTheme.typography.labelMedium,
+                            // #432:标题=正文+1sp+Medium(原 labelMedium 12sp 比正文小,
+                            // 无层级;跟随 ChatDensity)
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontSize = (LocalChatDensity.current.typography.bodyFontSize.value + 1f).sp,
+                                fontWeight = FontWeight.Medium,
+                            ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f)
