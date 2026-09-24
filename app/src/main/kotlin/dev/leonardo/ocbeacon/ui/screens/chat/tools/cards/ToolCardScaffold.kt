@@ -139,8 +139,10 @@ internal fun ToolCardScaffold(
         normalBorder = null,
         normalTonalElevation = 0.dp,
         // 2026-08-30 用户裁决：撤销展开补偿（TC-REVEAL 接线退役）
-        // 方案 B(间距统一第三步):占位底部收缩(与 ReasoningBlock 同步)
-        modifier = modifier.fillMaxWidth().occupyBottomGap()
+        // #432(用户裁决:上下间距一致):occupyBottomGap 移除——底部收缩 8dp 的
+        // 前提是「卡背景溢出占位绘制」,透明卡形态下背景不存在,收缩只剩
+        // 上下不对称。恢复对称占位。
+        modifier = modifier.fillMaxWidth()
     ) {
         // 2026-09-20 间距统一裁决:垂直 4→2dp(与 ReasoningBlock 同步——卡↔正文
         // 空白收敛,卡族互相对齐保持)

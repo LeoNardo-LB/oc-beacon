@@ -97,6 +97,29 @@ internal fun buildClickableMarkdown(
             ranges = emptyList(),
         )
     }
+    // #432:根节点检查不充分——流式瞬态 AST/content 不同源时**子节点**可越界
+    // (真机两崩定罪:heading 子节点 begin3/end29 vs content length0;根节点 0
+    // 通过检查)。整体兜底:任意子节点越界 → 降级全文纯文本一帧,状态收敛后
+    // remember(content,node) 键变化自动恢复富渲染(同 #357 降级语义)。
+    return try {
+        buildClickableMarkdownChecked(content, node, style, annotatorSettings, linkColor)
+    } catch (e: StringIndexOutOfBoundsException) {
+        ClickableMarkdownResult(
+            annotatedString = AnnotatedString(content),
+            items = emptyList(),
+            ranges = emptyList(),
+        )
+    }
+}
+
+/** #432:富渲染主体(由 [buildClickableMarkdown] 以越界兜底包裹)。 */
+private fun buildClickableMarkdownChecked(
+    content: String,
+    node: ASTNode,
+    style: TextStyle,
+    annotatorSettings: AnnotatorSettings,
+    linkColor: Color,
+): ClickableMarkdownResult {
     val rawAnnotated = content.buildMarkdownAnnotatedString(
         textNode = node,
         style = style,

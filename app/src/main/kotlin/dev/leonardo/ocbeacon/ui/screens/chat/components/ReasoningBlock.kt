@@ -183,8 +183,9 @@ internal fun ReasoningBlock(
         shape = ShapeTokens.smallMedium,
         color = Color.Transparent,
         border = null,
-        // 方案 B(间距统一第三步):占位底部收缩——见 occupyBottomGap 文档
-        modifier = Modifier.fillMaxWidth().occupyBottomGap()
+        // #432(用户裁决:上下间距一致):occupyBottomGap 移除(工具卡同步;透明卡
+        // 形态下背景溢出前提消失,收缩只剩上下不对称)。
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column(
                 modifier = Modifier
