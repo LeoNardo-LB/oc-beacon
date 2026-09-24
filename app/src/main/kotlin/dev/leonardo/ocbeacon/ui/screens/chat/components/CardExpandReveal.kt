@@ -1504,14 +1504,26 @@ private fun dispatchClosedLoop(
 }
 
 /**
+ * #432 settle 判稳帧推进(纯函数可单测):测量计数静止 ∧ 实测高度>0。
+ *
+ * H>0 门槛是 #432 真机取证新增:prewarm/展开集的 settle 曾在内容组合完成前
+ * (async parse/表格分批未落地,实测同秒 9 卡 H=0/18/75/264 混杂)以「测量静止
+ * 但 H=0/部分高」判稳——早熟 H 进入 dispatch 后展开足迹偏小,迟到增长全部
+ * 交给 steady 逐帧补派=「展开后高度自己变化/偏移」的直接根源。内容真正
+ * 组合出来的高度恒>0;H<=0 的静止是组合间隙,不得计稳。
+ */
+internal fun settleFrameAdvances(measures: Int, lastMeasures: Int, measuredH: Int): Boolean =
+    measures > 0 && measures == lastMeasures && measuredH > 0
+
+/**
  * #422 内容沉降:展开 tween 前等待「内容驱动的重测」静止。
  *
  * 为什么必须:placeable 缓存只在 tween 窗口生效,而首测往往不是终测——
  * 表格 containerWidth 经 onSizeChanged 回写后第二拍才收敛、async markdown
  * 解析完成后内容突增。若带过期 H 进入缓存窗口,tween 全程锁死在旧高度
  * (展开只有一小截),残差全部堆到 episode 末一次性跳变(原叠压 bug 的
- * 同族根因)。判定:连续 [SETTLE_STABLE_FRAMES] 帧 [CardExpandClock.measureCount]
- * 不增;上限 [MAX_SETTLE_MS] 防无限等。
+ * 同族根因)。判定:连续 [SETTLE_STABLE_FRAMES] 帧 [settleFrameAdvances]
+ * (测量静止 ∧ H>0);上限 [MAX_SETTLE_MS] 防无限等。
  */
 private suspend fun settleUntilContentStable(clock: CardExpandClock) {
     val t0 = withFrameNanos { it }
@@ -1521,7 +1533,7 @@ private suspend fun settleUntilContentStable(clock: CardExpandClock) {
         val now = withFrameNanos { it }
         if ((now - t0) / 1_000_000f >= MAX_SETTLE_MS) break
         val c = clock.measureCount
-        if (c > 0 && c == lastCount) {
+        if (settleFrameAdvances(c, lastCount, clock.lastMeasuredH)) {
             stableFrames++
         } else {
             stableFrames = 0
