@@ -71,6 +71,13 @@ import kotlin.math.abs
  *
  * **降级**:任一 local 缺席(单测/预览/宿主未提供)→ 出厂 CardExpand 过渡,
  * 行为与 2026-08-30 终局完全一致。
+ *
+ * **#430 稳态配对(2026-09-24)**:配对契约从「episode 单时刻」连续化为
+ * 「逐帧」——episode 外的迟到增长(分批表格逐组落地/asyncParse/图片)由
+ * 稳态账本(measure 记账 Δreport)+ pre-draw flush 派发 +Δ 接管;否则
+ * reverseLayout 锚定把每个窗外增量全额转译为上方内容上顶(#429 v4 分批
+ * 使其显性化:大表展开 settle 600ms 窗外 ~31kpx 裸增长=「向上顶」主诉)。
+ * episode 派发点/收起点/取消点 [CardExpandClock.steadyRebase] 防双配对。
  */
 
 /** 宿主 LazyListState;null = 降级裸 AV。 */
@@ -127,6 +134,9 @@ private const val CURTAIN_MS = 200f
  * 组合+测高(大内容「加速」而非拆分,用户裁决 2026-09-22)。
  */
 private const val PREWARM_IDLE_MS = 1_200L
+
+/** #430:steady 0 消费欠账重试窗(真机 19:46 定罪:增长落地帧可比 dispatch 晚 ~400ms)。 */
+private const val STEADY_RETRY_WINDOW_NS = 2_000_000_000L
 
 
 /**
@@ -345,6 +355,9 @@ internal class CardExpandClock(initialFraction: Float) {
         lastReportedH = (target * lastMeasuredH).toInt()
         absorbedF = lastReportedH.toFloat()
         animating = false
+        // #430:取消路径位置归 snap/用户所有,丢弃稳态未派发增量
+        steadyRebase()
+        steadyHold = false
     }
 
     /** 展开预热:ε·H<1px 零视觉,仅驱动 content 入树开始首测。 */
@@ -391,10 +404,97 @@ internal class CardExpandClock(initialFraction: Float) {
      */
     var pinTargetFraction = Float.NaN
 
+    // ===== #430 稳态配对账本(episode 外迟到增长——分批表格逐组落地/asyncParse 完成等) =====
+    // 背景:v4 分批让大表高度增长跨越 settle 窗口(600ms)逐帧落地;此前 episode 只在
+    // 单一时刻(dispatch)配对一次,窗外增长全部裸落地——reverseLayout 锚定下逐帧把
+    // 上方内容顶起(用户主诉「展开向上顶」)。本账本把配对契约从「瞬时」改为「连续」:
+    // measure 相记账(report 变化量),pre-draw flush 相派发,帧内闭合。
+    private var steadyLedger = Int.MIN_VALUE
+
+    /** 稳态待配对位移累计(px,带符号;measure 相写,flush 相 [takeSteadyPending] 取走)。 */
+    var steadyPending = 0f
+        private set
+
+    /**
+     * measure 相调用:稳态(任意 fraction)记账 report 变化量。
+     * 基线语义:MIN_VALUE=未起账,下一次调用静默建立基线(不配对)——rebase 协议
+     * ([steadyRebase])在 episode 派发点/收起点/取消点调用,防 episode 自身的高度
+     * 跳变被重复配对。fraction<=0(收起/未组合)恒清零——无布局足迹即无配对义务。
+     */
+    fun noteSteadyReport(report: Int) {
+        if (fraction <= 0f) {
+            steadyLedger = Int.MIN_VALUE
+            steadyPending = 0f
+            return
+        }
+        if (steadyLedger == Int.MIN_VALUE) {
+            steadyLedger = report
+            return
+        }
+        val d = report - steadyLedger
+        if (d != 0) {
+            steadyPending += d.toFloat()
+            steadyLedger = report
+            // 新生义务的重试窗同步起算(与欠账同语义)
+            steadyRetryDeadlineNs = System.nanoTime() + STEADY_RETRY_WINDOW_NS
+        }
+    }
+
+    /** 配对基线重置:丢弃未派发增量,下次 measure 静默重建基线。episode 边界专用。 */
+    fun steadyRebase() {
+        steadyPending = 0f
+        steadyLedger = Int.MIN_VALUE
+        steadyRetryDeadlineNs = 0L
+    }
+
+    /**
+     * #430 修正:展开集 dispatch 点的**欠账 rebase**——steadyLedger 锚定派发目标,
+     * steadyPending = 目标−实消费。真机定罪(19:34 复现):dispatch 内部测量可能
+     * 看不到下一帧才落地的增长(transient consumed=0),旧协议(rebase→MIN)会把
+     * 该增长静默吸进新基线=永不配对→2852px 裸上顶。欠账模型下:落地帧 report
+     * ==ledger(d=0),欠账由 flush 在幕布期/集后补派(容量已随增长出现)。
+     * k==fii 构型全额消费与零消费视觉等价(19:31 vs exp1 双证),残量补派安全。
+     */
+    fun steadyRebaseAfterEpisodeDispatch(targetRep: Int, consumed: Float) {
+        steadyLedger = targetRep
+        steadyPending = (targetRep - consumed.toInt()).coerceAtLeast(0).toFloat()
+        steadyRetryDeadlineNs = System.nanoTime() + STEADY_RETRY_WINDOW_NS
+    }
+
+    /**
+     * #430:0 消费欠账保留(flush 相调用)——瞬态边缘(增长未随派发落地/容量
+     * 晚一拍出现)下帧重试;[STEADY_RETRY_WINDOW_NS] 窗外不再保留(用户阅读
+     * 位置优先权:迟到的纠正比永久偏移更糟)。
+     */
+    fun restoreSteady(d: Float) {
+        steadyPending += d
+    }
+
+    /**
+     * #430:steady 派发门——true=集内 dispatch 决策点之前(settle/Phase A),
+     * flush 挂起(此时集内配对未定,双发风险);beginEpisode 置 true,展开/收起
+     * dispatch 点置 false(幕布期即可逐帧纠偏——增长落地帧 pre-draw 同帧补派,
+     * 上顶中间态从构造上不上屏)。
+     */
+    var steadyHold = true
+
+    /** #430:0 消费欠账重试窗(ns;新生义务/欠账统一 +2s 起算)。 */
+    var steadyRetryDeadlineNs = 0L
+        private set
+
+    /** flush 相取走全部待配对增量(取后即清——用户滚动让位时直接丢弃同理)。 */
+    fun takeSteadyPending(): Float {
+        val p = steadyPending
+        steadyPending = 0f
+        return p
+    }
+
     fun beginEpisode() {
         episodeDisplacement = 0f
         departureFired = false
         userScrollCancelled = false
+        steadyRebase()
+        steadyHold = true
     }
 
     fun recordDisplacement(d: Float) {
@@ -662,7 +762,11 @@ internal fun CardExpandReveal(
                     // exit-CANCELLED 定案)。缓存的真正价值=跨回收高度预知(floor)。
                     clock.warmup()
                     settleUntilContentStable(clock)
-                    val H = maxOf(clock.lastMeasuredH, finalHCache.value).also { if (it > 0) storeFinalH(it) }
+                    // #430:派发目标=**落地高度**(lastMeasuredH),不再 maxOf 缓存——
+                    // v4 分批下落地≠缓存终值,按缓存超额派发=中位伪滚动(前向容量被
+                    // 提前吃掉)+ 边缘重试白跑;窗外增量由稳态配对(#430)逐帧接管。
+                    // 缓存价值回归"预知 floor"(prewarm/settle 提示),不作位移指令。
+                    val H = clock.lastMeasuredH.also { if (it > 0) storeFinalH(it) }
                     // 布局终态先行且**同步施加**:mutableStateOf 写入是快照批量的,
                     // 裸写后 dispatch 的内部测量仍见旧高(中间态=卡片屏外 4688px
                     // →条目回收→协程被杀,真机 exit-CANCELLED 829ms 定案)。
@@ -686,6 +790,11 @@ internal fun CardExpandReveal(
                     } finally {
                         clock.programmaticShift = false
                     }
+                    // #430(修正):欠账 rebase——残量=目标−实消费(transient 0 消费
+                    // 的配对义务不丢);基线锚定目标,幕布期增量(report>ledger)逐帧
+                    // 记账。steadyHold 放行:增长落地帧 flush 同帧补派,上顶不上屏。
+                    clock.steadyRebaseAfterEpisodeDispatch(H, clock.episodeShiftConsumedPx)
+                    clock.steadyHold = false
                     // 离底解跟随(真机定案:预移后 atBot=false 而 autoOn=true,
                     // 仲裁器集后把整个列表拽回底=「其他元素移动」主诉):
                     // 位移超阈即视为用户意图离底,关 autoScroll(旧引擎同款钩)
@@ -792,6 +901,11 @@ internal fun CardExpandReveal(
                     }
                     clock.episodeShiftConsumedPx = 0f
                     clock.episodeAnchorItem = -1
+                    // #430:收起侧 rebase——driveTo(0) 塌缩的 measure 会以 report=0
+                    // 记账,不 rebase 则集末 flush 会把 −H 再派发一次(双配对)。
+                    // 收起无欠账语义(锚点恢复/镜像已精确落位),plain rebase。
+                    clock.steadyRebase()
+                    clock.steadyHold = false
                     if (BuildConfig.DEBUG) {
                         AppLogger.d(
                             "CardExpand",
@@ -839,22 +953,12 @@ internal fun CardExpandReveal(
                                 " items=" + listState.layoutInfo.visibleItemsInfo.joinToString("|") { it.index.toString() + ":" + it.size },
                         )
                     }
-                    // 迟到增量补偿:残差走与 tween 帧同一 δ 配对(账本 telescoping),
-                    // 上报(report=f·H_new)与位移同帧——不引入 #262 类错位。
-                    if (clock.fraction > 0f && clock.lastMeasuredH != clock.lastReportedH) {
-                        if (BuildConfig.DEBUG) {
-                            AppLogger.d(
-                                "CardExpand",
-                                "[DEBUG-422] late-growth catch-up d=" +
-                                    (clock.lastMeasuredH - clock.lastReportedH) + " H=" + clock.lastMeasuredH,
-                            )
-                        }
-                        // 批次九:迟到增量兜底同走反射逐帧通道(渲染前配对)
-                        val lateDelta = (clock.lastMeasuredH - clock.lastReportedH).toFloat()
-                        if (abs(lateDelta) >= 0.5f) {
-                            LazyListReflection.preRenderScrollBy(listState, lateDelta)
-                        }
-                    }
+                    // #430(修正):迟到增量一次性 catch-up 退役——稳态配对按帧接管
+                    // 全部窗外增量。放行 flush(幕布期欠账/增量可补派);仅取消/异常
+                    // 路径(!completed)防御性 rebase(正常完成集的欠账必须保留——
+                    // transient 0 消费的残量在集后由 flush 继续补派)。
+                    clock.steadyHold = false
+                    if (!completed) clock.steadyRebase()
                 } catch (_: CancellationException) {
                     // 取消(snap)路径:落位已由 snap 完成,无需补偿
                 }
@@ -920,6 +1024,72 @@ internal fun CardExpandReveal(
         clock.lastMeasuredH.takeIf { it > 0 }?.let { storeFinalH(it) }
         if (BuildConfig.DEBUG) {
             AppLogger.d("CardExpand", "[PRD-warm] H=" + clock.lastMeasuredH)
+        }
+    }
+
+    // ===== #430 稳态配对:episode 外迟到增长的渲染前位移(与 #420 同一契约的连续化) =====
+    // 分批表格(MarkdownTable stagedLimit 逐组落地)/asyncParse 完成等增量落在
+    // episode 窗口之外(settle 600ms 上限/幕布期/集后)——此前无任何配对,
+    // reverseLayout 锚定把每个增量全额转译为「上方内容上顶」(用户主诉)。
+    // 机制:measure 相 [CardExpandClock.noteSteadyReport] 记账 Δreport →
+    // pre-draw flush 单点派发 applyPairedPreRenderShift(+Δ)——同帧闭合,
+    // 中间态不上屏(增长帧 draw 前位移已落地)。
+    // 让位矩阵:episode 进行中(animating)挂起不派发(集内自配对,幕布期增量
+    // 累计至集末一并派发);用户滚动(isScrollInProgress)即弃(阅读位置优先权
+    // 铁律,弃配不追补);无 FLUSH 宿主(预览/单测)不注册=降级现状。
+    LaunchedEffect(clock.fraction > 0f, listState) {
+        if (clock.fraction <= 0f) return@LaunchedEffect
+        if (!PreRenderCoordinator.isFlushHostAttached) return@LaunchedEffect
+        val task = PreDrawFlushTask {
+            if (clock.steadyHold) return@PreDrawFlushTask true // 集内 dispatch 决策点前:episode 独占,挂账
+            if (listState.isScrollInProgress) {
+                clock.steadyRebase() // 用户滚动:位置归用户,欠账弃配(不与手势竞速)
+                return@PreDrawFlushTask true
+            }
+            // #430(19:46 定罪):欠账/增量派发门控在「增长已落地」——rep 仍为 0 时
+            // 布局里尚无配对容量(dispatch 内测见旧高),派发必 0 消费且欠账被
+            // takeSteadyPending 清账=死亡(实测 topY −22969 裸上顶)。落地证据=
+            // lastReportedH>0(f=1 首测已上报);未落地等下一 pre-draw。
+            if (clock.lastReportedH <= 0) return@PreDrawFlushTask true
+            val d = clock.takeSteadyPending()
+            if (d == 0f) return@PreDrawFlushTask true
+            clock.programmaticShift = true
+            try {
+                val consumed = applyPairedPreRenderShift(listState, d)
+                // #430:瞬态欠消费(0 消费=增长/容量晚一拍;部分残量=边缘趋近)
+                // 保留残量下帧重试;重试窗外(真物理边缘)丢弃——迟到的纠正比
+                // 永久偏移更糟(位置优先权)。
+                if (abs(d - consumed) >= 0.5f &&
+                    System.nanoTime() < clock.steadyRetryDeadlineNs
+                ) {
+                    clock.restoreSteady(d - consumed)
+                }
+                clock.recordDisplacement(consumed)
+                // 收起镜像账本同步:稳态派发也是"展开位移"的一部分,收起回退须含它
+                clock.episodeShiftConsumedPx += consumed
+                if (!clock.departureFired && abs(clock.episodeDisplacement) > DEPARTURE_THRESHOLD_PX) {
+                    clock.departureFired = true
+                    departure?.invoke()
+                }
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(
+                        "CardExpand",
+                        "[STEADY] pair d=" + d.toInt() + " consumed=" + consumed.toInt() +
+                            " rep=" + clock.lastReportedH +
+                            " fii=" + listState.firstVisibleItemIndex +
+                            " fiso=" + listState.firstVisibleItemScrollOffset,
+                    )
+                }
+            } finally {
+                clock.programmaticShift = false
+            }
+            true
+        }
+        PreRenderCoordinator.registerFlushTask(task)
+        try {
+            snapshotFlow { clock.fraction > 0f }.first { !it }
+        } finally {
+            PreRenderCoordinator.unregisterFlushTask(task)
         }
     }
 
@@ -1440,6 +1610,10 @@ private class CardExpandGeometryNode(
             }
         }
         val report = clock.onMeasure(placeable.height)
+        // #430:稳态记账(measure 相;基线/rebase 协议见 CardExpandClock)——
+        // episode 窗口外的任何 report 变化(分批表格逐组/asyncParse/图片)入账,
+        // pre-draw flush 相派发配对位移。
+        clock.noteSteadyReport(report)
         if (BuildConfig.DEBUG && !clock.animating && report != lastSteadyReport) {
             if (lastSteadyReport != Int.MIN_VALUE) {
                 AppLogger.d(

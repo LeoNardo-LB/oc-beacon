@@ -601,3 +601,45 @@ dy 曲线「渐进上推 4-5 帧 + 复位 +330」经三个子代理互证 = **MI
 - **真机证据(小米 houji 120Hz)**:冷点击(预热未中)Skipped 74/53/33/32/31 五段渐进(v1/v3 单帧 114/116)——分批实证工作,帧间让出主线程;预热命中 266ms 零跳帧;H 精确(items 20:36660,表格 36612);episode 2165ms(冷)vs 266ms(预热命中);ANR/crash 0;TableGroupBoundsTest+全量单测绿。
 - **rig 勘误**:uiautomator dump 持续陈旧(一律截图+多模态定位);heads-up「无线调试」通知遮挡+断连期点击无效;服务器迁移事故(16:47 用户整理,旧 4199 服务数据入回收站)——从 Trash db 迁回目标会话(session_v2+19 message+project 依赖)到新服务库(49374,reverse 重映射),会话列表恢复;滚动落点漂移需视觉闭环;Choreographer「Skipped N frames」分段分布=渐进分批的现成判据。
 - **遗留(V6 人工验收清单)**:spinner 帧级旋转直接证据未捕获(点击落点漂移+248ms~2s 窗口,连拍/录屏两法均被误点打断)——代码逻辑链(onExpandComputing→LocalStepGroupComputing→fold row spinner+advance-frame 修复 cb7cbf47+五段渐进的帧间让出)推证充分,请用户真手指验收「点击大表展开时圈圈是否持续转动」;展开态 fling 专项未跑(组合完成后全保留=零回归 by design)。
+
+## 批次十三:#430 展开向上顶——稳态迟到增长零配对+欠账派发时序
+
+**主诉**(2026-09-24):reverseLayout 下各类卡片展开有时向上顶而非向下。用户点破:同一行为多种表现=状态依赖的确定性结果伪装成随机。
+
+**取证矩阵**(四组真机实验,logcat CardExpand/PRD + 截图判读):
+| 实验 | 构型 | dispatch | 结果 |
+|---|---|---|---|
+| exp1 | 卡在锚点条目内(k==fii) H=278 | consumed=0 | 天然向下 ✓(锚点自愈) |
+| exp2 | 锚点上方(k>fii) H=146 | 全额 | 向下 ✓ |
+| 19:31 | 预热命中 H=36612 | 全额(fiso 35232) | 向下 ✓ |
+| 19:34 | k>fii+切片冷组 H=2852(首组) | **consumed=0** | **上顶 2852**(topY 982→-1870) |
+
+规则:**正确 ⟺ (k==fii) ∨ (全额消费)**。失败=k>fii 且瞬态 0 消费。
+
+**根因链**(三层):
+1. episode 单时刻配对:settle(≤600ms)窗外的一切增长(#429 v4 分批表格逐组落地/asyncParse)无主。
+2. 瞬态 0 消费:增长晚一帧落地 → dispatchRawDelta 内测见旧高(容量 0)→ PairedDispatch
+   按"物理不可消费"放弃。19:34/19:46/22:16 三次冷展开全部命中(consumed=0 tries=0)。
+3. 连锁断粮:上顶把 reveal 顶出视口 → StepGroupWindowedBody(视口±1屏)窗口不覆盖
+   表格切片 → 永不组合 → 表格缺失(v7 截图:折叠行与第三步总结紧邻,无表)。
+
+**修复协议**(CardExpandReveal):
+- 稳态账本:measure 相 noteSteadyReport 记账 Δreport(基线/rebase 协议防双配对);
+- pre-draw flush 任务:steadyHold 门(集内 dispatch 决策点前挂起)→ applyPairedPreRenderShift 同帧派发;
+- 欠账 rebase(steadyRebaseAfterEpisodeDispatch):pending=目标−实消费,基线锚定目标;
+- 派发门控 lastReportedH>0:增长落地才派发(19:46 定罪:欠账死于落地前派发,takeSteadyPending 先清账);
+- 0/欠消费残量 2s 重试窗保留(restoreSteady;窗外丢弃=位置优先权);
+- H 派发目标=落地高度(撤 maxOf finalHCache:v4 分批下落地≠缓存,超额派发=中位伪滚动);
+- episode 末 late-growth catch-up 退役(死代码:measure 后 measured==reported 恒真)。
+
+**真机终验**(houji 120Hz,冷进程+切片卡无预热——原 bug 满配场景):
+- 冷展开:settle 超时 H=17532 → paired-shift 0 → [STEADY] d=25020/7788/3804 全额消费,
+  **Σd=Σconsumed=36612 完美守恒,topY 2051→2051 精确归位**(中间仅重组合帧瞬态,331ms 三帧纠正);
+  表格 36660 完整组合(断粮连锁消失);截图终判:折叠行钉住、表格向下铺、上方旧内容纹丝不动。
+- 收起:close-pre(20,36335)→close-post(19,190) 锚点精确恢复,#427 路径零回归。
+- 冷再展开(收起 21s 后,无预热):同绿,Σ 守恒。
+- ANR/crash 0;单测 CardExpandClockTest 含 5 个 #430 新用例全绿;全量 testDevDebugUnitTest 绿。
+
+**勘误**:先前对 19:31 展开的"引擎工作正常"判断只覆盖预热命中路径;冷路径的瞬态 0 消费
+自 #420 起就存在,被 #429 分批(增长跨越 settle 窗)显性化。k==fii 构型天然自愈掩盖了
+一半样本——"多种情况"的随机观感=两种构型 × 两种消费结果的确定性矩阵。
