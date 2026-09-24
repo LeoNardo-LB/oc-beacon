@@ -65,6 +65,13 @@
   - 调整(2026-09-24 用户裁决):L1-v2 虚拟化因展开后滑动巨卡回退(组入窗组合落滚动帧);恢复原先算高度架构+新增 loading 过渡(引擎 onExpandComputing 信号+折叠行 spinner,计算期可见反馈);滚动流畅复验零长帧;spinner 视觉取证待设备可用
   - loading 修复(2026-09-24):①跨条目接线(LocalStepGroupComputing 共享表,大组#sgh外层行与卡体不同 LazyItem)②先行帧(invoke(true)后等一帧再 warmup——spinner 重组否则与重组合同帧被压 2.3s);终验 state=true→行渲染 10ms,2.4s 窗内圆环像素验证可见;收起回归绿
   - 后台化调研(2026-09-24,用户指示):组合/测量不可后台(WindowRecomposer绑定UI线程,官方源码定罪,1.7-1.12无API);可后台=解析(已做)/列宽StaticLayout预测(PrecomputedText官方路径);官方推荐原语=PausableComposition分帧+movableContentOf保活+Canvas直绘;文档 docs/research/2026-09-24-compose-background-compute-feasibility.md(含本地实证附录);时间切片WIP已stash待裁决
+  - ## 追加批次十一(#429 A+B:时间切片三轮定罪,v4 终案交付)
+  - - **信号方案三轮定罪(全数退役)**:①子树 CompositionLocal——大表 >2048 字符走 async parse(#428),表格实际组合晚于展开计算窗口(settle 提前判稳,items=…:25680 表格独立条目),Local 够不到;②进程级全局信号——toggle→重组→effect 帧序竞态(重组先于 effect),首组合读初值结构性错位;③v3 首组合恒分批——MDT429 定罪日志实证分支已进(60 行表被 markdown 源拆为 4 个 MarkdownTable:62/63/2/61 行,grouped=true)但 Skipped 114 帧仍在:巨帧主源=naturalWidths remember 全表 1116 次 TextMeasurer.measure(×4 表≈950ms)同步执行,帧步进器只分批组合未分批宽度测量。
+  - - **v4 终案(MarkdownTable.kt)**:①stagedLimit=remember(content,tableNode){grouped?1:MAX}——首组合恒分批,每帧+1 组(withFrameNanos 让帧),组合完成全保留(滚动=单体,v2 教训);②naturalWidths 只测首组代表行(表头+8 行=54 次≈40ms),后续组超宽单元格走既有多行 wrap 语义,宽度恒定零重排;③与 PREWARM 既有机制协同——冷启动后空闲预热期渐进完成组合,命中即 266ms 展开。
+  - - **B(movableContentOf)真机否定撤除**:re-expand 实测连续 Skipped 41/40/45/51/53(≈400ms×5)——移回虽免组合,36612px 全量测量仍在单帧执行,组合免了测量没免,收益为负;撤除后 re-expand 走 staged 同冷路径。
+  - - **真机证据(小米 houji 120Hz)**:冷点击(预热未中)Skipped 74/53/33/32/31 五段渐进(v1/v3 单帧 114/116)——分批实证工作,帧间让出主线程;预热命中 266ms 零跳帧;H 精确(items 20:36660,表格 36612);episode 2165ms(冷)vs 266ms(预热命中);ANR/crash 0;TableGroupBoundsTest+全量单测绿。
+  - - **rig 勘误**:uiautomator dump 持续陈旧(一律截图+多模态定位);heads-up「无线调试」通知遮挡+断连期点击无效;服务器迁移事故(16:47 用户整理,旧 4199 服务数据入回收站)——从 Trash db 迁回目标会话(session_v2+19 message+project 依赖)到新服务库(49374,reverse 重映射),会话列表恢复;滚动落点漂移需视觉闭环;Choreographer「Skipped N frames」分段分布=渐进分批的现成判据。
+  - - **遗留(V6 人工验收清单)**:spinner 帧级旋转直接证据未捕获(点击落点漂移+248ms~2s 窗口,连拍/录屏两法均被误点打断)——代码逻辑链(onExpandComputing→LocalStepGroupComputing→fold row spinner+advance-frame 修复 cb7cbf47+五段渐进的帧间让出)推证充分,请用户真手指验收「点击大表展开时圈圈是否持续转动」;展开态 fling 专项未跑(组合完成后全保留=零回归 by design)。
 
 - [~] **#428 大卡收起闭合帧后一帧视口重填 268px 跳变(LazyList 不满视口二遍填)** `perf` `render`
   - 收起锚点恢复后视口 items 总高 1930<2400,下一帧 LazyList 补齐=268px 单帧上移泄露(100%复现,与渲染解析无关——三假设两否一立)

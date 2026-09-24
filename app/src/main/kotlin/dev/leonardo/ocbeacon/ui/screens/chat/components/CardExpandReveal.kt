@@ -486,6 +486,10 @@ internal fun CardExpandReveal(
     /** #423 批次十一:幕布系数(纯 draw 揭示;draw 相读,动画循环写)。 */
     val curtain = remember { androidx.compose.runtime.mutableFloatStateOf(if (visible) 1f else 0f) }
 
+    // #429 时间切片 v3:信号方案退役(两轮定罪:子树 Local 够不到 + async parse
+    // 使表格组合晚于计算窗口,窗口与组合时机结构性错位)——大表首组合恒分批
+    // (MarkdownTable stagedLimit 起步 1),不再依赖任何计算期信号。
+
     // #425 连点竞态:反向 toggle 取消上一集时携带其锚点——否则新集以「漂后
     // 位置」起锚,逐集链式泄漏(真机 24 连点净漂 −73px)。正常完成/用户滚动
     // 取消则清空(下次以当下位置重新起锚)。
@@ -1202,6 +1206,11 @@ internal fun CardExpandReveal(
         // 几何未走完而 AV 已把 content 移出组合 → H 突塌 f·738px 无补偿
         // (实测 flow-b 收起终末 −217px 跳变)。fade 改由分数驱动(前/后 30%),
         // 与几何同起止,杜绝第二时钟。
+        //
+        // #429 B 勘误(2026-09-24 真机否定,撤除):movableContentOf 移回虽免组合,
+        // 但 36612px 全量**测量**仍在单帧执行——re-expand 实测连续 Skipped
+        // 41/40/45/51/53 帧(~400ms×5),劣于纯 staged 路径(266ms 零跳帧,
+        // 分批同样覆盖再展开)。组合免了、测量没免,B 收益为负。
         if (clock.fraction > 0f) {
             Box(
                 modifier = Modifier

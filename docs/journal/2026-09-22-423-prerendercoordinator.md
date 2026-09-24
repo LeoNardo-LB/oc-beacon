@@ -592,3 +592,12 @@ dy 曲线「渐进上推 4-5 帧 + 复位 +330」经三个子代理互证 = **MI
 - **窗内 spinner 静止定性**：计算期主线程在巨帧中，圆环重绘只能穿插于帧间隙（连拍间偶静止）——物理必然，非缺陷；静止圆环仍是明确的 loading 语义。
 - **取证方法沉淀**：adb 逐张 screencap 往返 ~3.3s/张不可用——设备端单壳循环（tap 后同 shell 连续 screencap）首拍 ~0.4s 落窗；帧对齐用「窗内帧 vs 窗后帧 图标区差分」判据。
 - **终验**：清探针终建——双收起回归 POST_CLOSE_RED=0、PID 存活、零崩溃零 ANR、全量单测绿。
+
+## 追加批次十一(#429 A+B:时间切片三轮定罪,v4 终案交付)
+
+- **信号方案三轮定罪(全数退役)**:①子树 CompositionLocal——大表 >2048 字符走 async parse(#428),表格实际组合晚于展开计算窗口(settle 提前判稳,items=…:25680 表格独立条目),Local 够不到;②进程级全局信号——toggle→重组→effect 帧序竞态(重组先于 effect),首组合读初值结构性错位;③v3 首组合恒分批——MDT429 定罪日志实证分支已进(60 行表被 markdown 源拆为 4 个 MarkdownTable:62/63/2/61 行,grouped=true)但 Skipped 114 帧仍在:巨帧主源=naturalWidths remember 全表 1116 次 TextMeasurer.measure(×4 表≈950ms)同步执行,帧步进器只分批组合未分批宽度测量。
+- **v4 终案(MarkdownTable.kt)**:①stagedLimit=remember(content,tableNode){grouped?1:MAX}——首组合恒分批,每帧+1 组(withFrameNanos 让帧),组合完成全保留(滚动=单体,v2 教训);②naturalWidths 只测首组代表行(表头+8 行=54 次≈40ms),后续组超宽单元格走既有多行 wrap 语义,宽度恒定零重排;③与 PREWARM 既有机制协同——冷启动后空闲预热期渐进完成组合,命中即 266ms 展开。
+- **B(movableContentOf)真机否定撤除**:re-expand 实测连续 Skipped 41/40/45/51/53(≈400ms×5)——移回虽免组合,36612px 全量测量仍在单帧执行,组合免了测量没免,收益为负;撤除后 re-expand 走 staged 同冷路径。
+- **真机证据(小米 houji 120Hz)**:冷点击(预热未中)Skipped 74/53/33/32/31 五段渐进(v1/v3 单帧 114/116)——分批实证工作,帧间让出主线程;预热命中 266ms 零跳帧;H 精确(items 20:36660,表格 36612);episode 2165ms(冷)vs 266ms(预热命中);ANR/crash 0;TableGroupBoundsTest+全量单测绿。
+- **rig 勘误**:uiautomator dump 持续陈旧(一律截图+多模态定位);heads-up「无线调试」通知遮挡+断连期点击无效;服务器迁移事故(16:47 用户整理,旧 4199 服务数据入回收站)——从 Trash db 迁回目标会话(session_v2+19 message+project 依赖)到新服务库(49374,reverse 重映射),会话列表恢复;滚动落点漂移需视觉闭环;Choreographer「Skipped N frames」分段分布=渐进分批的现成判据。
+- **遗留(V6 人工验收清单)**:spinner 帧级旋转直接证据未捕获(点击落点漂移+248ms~2s 窗口,连拍/录屏两法均被误点打断)——代码逻辑链(onExpandComputing→LocalStepGroupComputing→fold row spinner+advance-frame 修复 cb7cbf47+五段渐进的帧间让出)推证充分,请用户真手指验收「点击大表展开时圈圈是否持续转动」;展开态 fling 专项未跑(组合完成后全保留=零回归 by design)。

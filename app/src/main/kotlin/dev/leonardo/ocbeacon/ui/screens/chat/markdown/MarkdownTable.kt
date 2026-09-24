@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -93,6 +95,25 @@ internal fun tableTsv(content: String, rows: List<TableRow>, columnCount: Int): 
     rows.joinToString("\n") { row ->
         row.cells.take(columnCount).joinToString("\t") { cellPlainText(content, it) }
     }
+
+/** #429 时间切片：超过此行数的表走行组装配（首组小保首屏，其余组大）。 */
+internal const val TABLE_GROUPED_MIN_ROWS = 20
+
+/** #429 时间切片：行组边界。JVM 可单测。 */
+internal fun tableGroupBounds(rowCount: Int): List<IntRange> {
+    if (rowCount <= 0) return emptyList()
+    val bounds = mutableListOf<IntRange>()
+    var start = 0
+    var first = true
+    while (start < rowCount) {
+        val size = if (first) 8 else 12
+        val end = minOf(start + size, rowCount) - 1
+        bounds.add(start..end)
+        start = end + 1
+        first = false
+    }
+    return bounds
+}
 
 /**
  * #135（D2-L46）：表格测量缓存——探针列宽与行高在"内容、约束、列宽"
@@ -177,6 +198,28 @@ internal fun SimpleMarkdownTable(
     val scrollState = rememberScrollState()
     val minCellWidthPx = with(LocalDensity.current) { 120.dp.toPx() }.roundToInt()
 
+    // ===== #429 时间切片：大表行组装配 + 首组合恒跨帧分批 =====
+    // 计算期组合/测量绑定主线程（Android UI 模型）——2s 级巨帧会冻结同帧排队的
+    // spinner 动画（真机定罪）；改为每组一帧分批组合，帧间让出主线程给动画。
+    // 组合完成后全部保留：滚动行为与单体版一致（区别于已回退的 v2 窗口化）。
+    //
+    // v3 勘误（2026-09-24 两轮真机定罪，信号窗口方案全灭）：
+    // ① 子树 CompositionLocal 够不到表格——大表 >2048 字符走 async parse
+    // （#428 机制），表格实际组合晚于展开计算窗口（引擎 settle 提前判定稳定，
+    // H=4656 不含表格；parse 完成后 Signal 已清）；② 进程级信号同样错位
+    // （首组合读初值的窗口依赖与 toggle→重组→effect 的帧序竞态）。
+    // 改为**首组合恒分批**：grouped 表 stagedLimit 起步 1，stepper 每帧 +1 组，
+    // 完成后全保留（stagedLimit 记忆在 content/tableNode 键上，同一表重组不重置；
+    // movableContent 移回=reuse 状态=瞬显，与 B 方案协同）。
+    // 滚动进入视口的大表同样分批（~136ms/17组@120Hz 渐进），替代 2.4s 单体冻结。
+    val grouped = rowCount > TABLE_GROUPED_MIN_ROWS
+    val tableGroups = remember(rowCount) {
+        if (grouped) tableGroupBounds(rowCount) else emptyList()
+    }
+    val stagedLimit = remember(content, tableNode) {
+        mutableIntStateOf(if (grouped) 1 else Int.MAX_VALUE)
+    }
+
     // #429 L0-②：长按复制（菜单见文件尾 Popup）
     val clipboard = LocalClipboard.current
     val clipScope = rememberCoroutineScope()
@@ -204,6 +247,31 @@ internal fun SimpleMarkdownTable(
                 .onSizeChanged { containerWidth = it.width }
                 .horizontalScroll(scrollState)
         ) {
+            if (grouped) {
+                // #429 时间切片:行组装配体(见文件尾);计算期由 stagedLimit 分批
+                GroupedTableBody(
+                    content = content,
+                    rows = rows,
+                    columnCount = columnCount,
+                    tableGroups = tableGroups,
+                    stagedLimit = stagedLimit,
+                    headerStyle = headerStyle,
+                    bodyStyle = bodyStyle,
+                    headerBg = headerBg,
+                    rowBgOdd = rowBgOdd,
+                    dividerColor = dividerColor,
+                    pad = pad,
+                    linkColor = linkColor,
+                    uriHandler = uriHandler,
+                    containerWidth = containerWidth,
+                    minCellWidthPx = minCellWidthPx,
+                    onCellLongPress = { text ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        copyCellText = text
+                    },
+                )
+                return@Box
+            }
             val cellContent: @Composable () -> Unit = {
                 rows.forEachIndexed { rowIdx, row ->
                     val cellCount = minOf(row.cells.size, columnCount)
@@ -441,5 +509,271 @@ internal fun SimpleMarkdownTable(
             }
         }
     }
+    }
+}
+
+/**
+ * #429 A：单元格行渲染（行组装配路径专用；≤20 行小表仍走原整测路径）。
+ * 与原路径逐像素对齐：背景/网格线/长按复制/可点击链接语义一致。
+ */
+@Composable
+private fun GroupedRow(
+    rowIdx: Int,
+    rows: List<TableRow>,
+    columnCount: Int,
+    content: String,
+    headerStyle: TextStyle,
+    bodyStyle: TextStyle,
+    headerBg: Color,
+    rowBgOdd: Color,
+    dividerColor: Color,
+    pad: androidx.compose.ui.unit.Dp,
+    linkColor: Color,
+    uriHandler: UriHandler,
+    onCellLongPress: (String) -> Unit,
+) {
+    val row = rows[rowIdx]
+    val cellCount = minOf(row.cells.size, columnCount)
+    val isLastRow = rowIdx == rows.lastIndex
+    val annotator = annotatorSettings()
+    repeat(cellCount) { colIdx ->
+        val cell = row.cells[colIdx]
+        val isLastCol = colIdx == cellCount - 1
+        val cellStyle = if (row.isHeader) headerStyle else bodyStyle
+        val cellResult = remember(content, cell, cellStyle.color, linkColor) {
+            buildClickableMarkdown(content, cell, cellStyle, annotator, linkColor)
+        }
+        val cellText = remember(cellResult) { cellResult.annotatedString.toString() }
+        Box(
+            modifier = Modifier
+                .background(
+                    when {
+                        row.isHeader -> headerBg
+                        row.rowIndex % 2 == 1 -> rowBgOdd
+                        else -> Color.Transparent
+                    }
+                )
+                .then(
+                    Modifier.drawBehind {
+                        if (!isLastCol) {
+                            drawLine(
+                                dividerColor,
+                                Offset(size.width, 0f),
+                                Offset(size.width, size.height),
+                                strokeWidth = 1f,
+                            )
+                        }
+                        if (!isLastRow) {
+                            drawLine(
+                                dividerColor,
+                                Offset(0f, size.height),
+                                Offset(size.width, size.height),
+                                strokeWidth = 1f,
+                            )
+                        }
+                    }
+                )
+                .combinedClickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {},
+                    onLongClick = { onCellLongPress(cellText) },
+                )
+                .padding(horizontal = pad, vertical = if (row.isHeader) 8.dp else 6.dp)
+        ) {
+            var cellLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+            MarkdownBasicText(
+                text = cellResult.annotatedString,
+                style = cellStyle,
+                onTextLayout = { cellLayoutResult = it },
+                modifier = Modifier.clickableMarkdown(cellResult, { cellLayoutResult }, uriHandler),
+            )
+        }
+    }
+}
+
+/**
+ * #429 A：行组块——每组的独立 SubcomposeLayout（p1/fin 双槽）。
+ * 组合与测量成本随组粒度落在宿主测量遍；组间零跨遍槽位别名（v1 教训）。
+ */
+@Composable
+private fun TableGroupBlock(
+    rowRange: IntRange,
+    rows: List<TableRow>,
+    columnCount: Int,
+    content: String,
+    finalColWidths: IntArray,
+    headerStyle: TextStyle,
+    bodyStyle: TextStyle,
+    headerBg: Color,
+    rowBgOdd: Color,
+    dividerColor: Color,
+    pad: androidx.compose.ui.unit.Dp,
+    linkColor: Color,
+    uriHandler: UriHandler,
+    onCellLongPress: (String) -> Unit,
+) {
+    val cells: @Composable () -> Unit = {
+        rowRange.forEach { ri ->
+            GroupedRow(
+                rowIdx = ri, rows = rows, columnCount = columnCount, content = content,
+                headerStyle = headerStyle, bodyStyle = bodyStyle,
+                headerBg = headerBg, rowBgOdd = rowBgOdd, dividerColor = dividerColor,
+                pad = pad, linkColor = linkColor, uriHandler = uriHandler,
+                onCellLongPress = onCellLongPress,
+            )
+        }
+    }
+    SubcomposeLayout { constraints ->
+        val nRows = rowRange.last - rowRange.first + 1
+        val pass1 = subcompose("p1", cells).mapIndexed { index, m ->
+            val col = index % columnCount
+            m.measure(
+                Constraints(
+                    minWidth = finalColWidths[col],
+                    maxWidth = finalColWidths[col],
+                    minHeight = 0,
+                    maxHeight = constraints.maxHeight,
+                )
+            )
+        }
+        val rowH = IntArray(nRows) { 0 }
+        pass1.forEachIndexed { index, p ->
+            val r = index / columnCount
+            if (r < nRows) rowH[r] = maxOf(rowH[r], p.height)
+        }
+        val finals = subcompose("fin", cells).mapIndexed { index, m ->
+            val col = index % columnCount
+            val r = index / columnCount
+            m.measure(
+                Constraints(
+                    minWidth = finalColWidths[col],
+                    maxWidth = finalColWidths[col],
+                    minHeight = if (r < nRows) rowH[r] else 0,
+                    maxHeight = constraints.maxHeight,
+                )
+            )
+        }
+        layout(finalColWidths.sum(), rowH.sum()) {
+            var y = 0
+            var idx = 0
+            for (r in 0 until nRows) {
+                var x = 0
+                for (c in 0 until columnCount) {
+                    if (idx < finals.size) {
+                        finals[idx].placeRelative(x, y)
+                    }
+                    x += finalColWidths[c]
+                    idx++
+                }
+                y += rowH[r]
+            }
+        }
+    }
+}
+
+/**
+ * #429 A：行组装配体——Column 装配组块。计算期由 [stagedLimit] 跨帧分批
+ * （帧步进器在下方 LaunchedEffect：每帧 +1 组，帧间让出主线程给动画帧，
+ * spinner 持续转动——组粒度摊销组合+测量两成本，优于官方 PausedPrecomposition
+ * 只摊组合的朴素用法）；组合完成后全部保留：滚动行为与单体版一致
+ * （已回退的 v2 窗口化教训——滚动时零丢弃零重组合）。
+ */
+@Composable
+private fun GroupedTableBody(
+    content: String,
+    rows: List<TableRow>,
+    columnCount: Int,
+    tableGroups: List<IntRange>,
+    stagedLimit: androidx.compose.runtime.MutableIntState,
+    headerStyle: TextStyle,
+    bodyStyle: TextStyle,
+    headerBg: Color,
+    rowBgOdd: Color,
+    dividerColor: Color,
+    pad: androidx.compose.ui.unit.Dp,
+    linkColor: Color,
+    uriHandler: UriHandler,
+    containerWidth: Int,
+    minCellWidthPx: Int,
+    onCellLongPress: (String) -> Unit,
+) {
+    val density = LocalDensity.current
+    val textMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
+    // 自然列宽:#429 v4——只测**首组代表行**(表头+前 8 行)。v3 定罪:全表
+    // 1116 次单行测量(×4 并存表格 ≈950ms)是 Skipped~114 帧巨帧的主源,且它
+    // 在 remember 里同步执行,帧步进器管不到。首组代表测(48 次≈40ms)后宽度
+    // 恒定:后续组的超宽单元格走既有多行 wrap 语义(块高度自适应),零重排
+    // 零闪烁(区别于 v2 宽度漂移);数据表列内容长度均匀,代表性足够。
+    val naturalWidths = remember(content, rows, columnCount, bodyStyle.fontSize, tableGroups) {
+        val w = IntArray(columnCount) { 0 }
+        val probeCount = (tableGroups.firstOrNull()?.last ?: (rows.size - 1)) + 1
+        val probeRows = rows.take(probeCount)
+        probeRows.forEach { row ->
+            row.cells.take(columnCount).forEachIndexed { col, cell ->
+                val t = cellPlainText(content, cell)
+                if (t.isNotEmpty()) {
+                    val m = textMeasurer.measure(
+                        androidx.compose.ui.text.AnnotatedString(t),
+                        bodyStyle,
+                    )
+                    if (m.size.width > w[col]) w[col] = m.size.width
+                }
+            }
+        }
+        w
+    }
+    // cap/fill(与原整测路径同语义)
+    val effectiveCap = if (containerWidth > 0) {
+        maxOf(containerWidth / columnCount, minCellWidthPx)
+    } else {
+        minCellWidthPx
+    }
+    val capped = IntArray(columnCount) { minOf(naturalWidths[it], effectiveCap) }
+    val natural = capped.sum()
+    val finalColWidths = if (natural > 0 && containerWidth > 0 && natural < containerWidth) {
+        val scale = containerWidth.toFloat() / natural.toFloat()
+        val scaled = IntArray(columnCount) { (capped[it] * scale).toInt() }
+        val diff = containerWidth - scaled.sum()
+        for (i in 0 until diff.coerceAtMost(columnCount)) scaled[i] += 1
+        scaled
+    } else {
+        capped
+    }
+    val totalWidthPx = finalColWidths.sum()
+
+    // #429 A 帧步进器:仅当处于分批初值(<组数)时运行;每帧前进一组,
+    // withFrameNanos 等帧=让 choreographer 先渲染(spinner 旋转)再组合下一组
+    androidx.compose.runtime.LaunchedEffect(tableGroups.size) {
+        while (stagedLimit.intValue < tableGroups.size) {
+            withFrameNanos { }
+            stagedLimit.intValue += 1
+        }
+    }
+
+    androidx.compose.foundation.layout.Column(
+        modifier = Modifier.width(with(density) { totalWidthPx.toDp() }),
+    ) {
+        val limit = minOf(stagedLimit.intValue, tableGroups.size)
+        for (gi in 0 until limit) {
+            androidx.compose.runtime.key(gi) {
+                TableGroupBlock(
+                    rowRange = tableGroups[gi],
+                    rows = rows,
+                    columnCount = columnCount,
+                    content = content,
+                    finalColWidths = finalColWidths,
+                    headerStyle = headerStyle,
+                    bodyStyle = bodyStyle,
+                    headerBg = headerBg,
+                    rowBgOdd = rowBgOdd,
+                    dividerColor = dividerColor,
+                    pad = pad,
+                    linkColor = linkColor,
+                    uriHandler = uriHandler,
+                    onCellLongPress = onCellLongPress,
+                )
+            }
+        }
     }
 }
