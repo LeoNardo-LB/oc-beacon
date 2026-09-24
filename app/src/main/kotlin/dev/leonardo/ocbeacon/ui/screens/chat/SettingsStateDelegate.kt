@@ -37,7 +37,7 @@ internal class SettingsStateDelegate(
         scope, WhileSubscribed5s, false
     )
     val expandReasoning = settingsRepository.getSettingsFlow().map { it.expandReasoning }.stateIn(
-        scope, WhileSubscribed5s, false
+        scope, WhileSubscribed5s, true // #430 过程默认展示(与 AppSettings 默认一致,防首帧折叠闪变)
     )
     val showTurnDividers = settingsRepository.getSettingsFlow().map { it.showTurnDividers }.stateIn(
         scope, WhileSubscribed5s, true

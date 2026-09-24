@@ -1249,11 +1249,11 @@ internal fun StepGroupFoldRow(
 }
 
 /**
- * #422 step 折叠组卡：计数行(复用 chat_msg_tail_summary「N steps · M tools」)
- * + CardExpandReveal 展开体(递归调 ChunkAssistantItems 渲染 groups)。
- * 展开态复用工具展开表(key 前缀 step_ 与 part id 不冲突)。
- * 批次十三(2026-09-22 用户裁决):全部步组走本卡引擎路径(裂变退役,大小组
- * 无别);大内容由引擎空闲预热加速(CardExpandReveal PREWARM)。
+ * #422 step 过程组卡——**#430(2026-09-24 用户裁决)过程卡片退役**:折叠行与
+ * CardExpandReveal 包裹撤除,过程内容(思考/工具/文本 parts)默认全展示。
+ * 流式 turn 的平铺路径(见 AssistantMessageCard 分支)语义不变;大组仍走
+ * 切片+窗口化(视口±1 屏才组合,成本与总高无关)+片高账本(跨回收存活)。
+ * 高度设置引擎本体不动——PartContent 折叠族(工具卡/推理块)继续使用。
  */
 @Composable
 private fun StepGroupCard(
@@ -1268,11 +1268,7 @@ private fun StepGroupCard(
     compact: Boolean,
     readinessRegistry: RenderReadinessRegistry,
 ) {
-    val stateKey = stepGroupStateKey(step.msgId)
-    val expanded = toolExpandedOrDefault(stateKey)
-    // #427 P3:切片表+片高账本提升到卡体(收起时引擎会把内容(fraction 门控)
-    // 整体离树——放在内容里的 rememberSaveable 随之弃置,账本每次收起清零,
-    // 二次展开永远冷;卡体随折叠行常驻,账本跨收起/展开存活)。
+    // #427 P3:切片表+片高账本提升到卡体(卡体常驻,账本跨回收存活)。
     val stepSlices = androidx.compose.runtime.remember(step.groups) {
         sliceStepGroupBodies(step.groups)
     }
@@ -1294,37 +1290,15 @@ private fun StepGroupCard(
         androidx.compose.runtime.withFrameNanos { }
         heavyComposed = true
     }
-    // #429:展开集计算期信号——折叠行 spinner 过渡(先算高度+loading,用户裁决)。
-    // 双写:本卡折叠行(小组路径)+ 共享表(外层 #sgh 大组路径跨条目读取)。
-    val expandComputing = androidx.compose.runtime.remember {
-        androidx.compose.runtime.mutableStateOf(false)
-    }
-    val computingSharedLocal =
-        dev.leonardo.ocbeacon.ui.screens.chat.util.LocalStepGroupComputing.current
-    Column(modifier = Modifier.fillMaxWidth()) {
-        StepGroupFoldRow(step = step, expanding = expandComputing.value)
-        CardExpandReveal(
-            visible = expanded,
-            cacheKey = step.msgId,
-            onExpandComputing = { c ->
-                expandComputing.value = c
-                computingSharedLocal.value =
-                    if (c) computingSharedLocal.value + (stateKey to true)
-                    else computingSharedLocal.value - stateKey
-            },
-            // #427 竞态修复:仅「小组(无账本概念)或切片但账本冷(首次填账)」
-            // 才预热——切片卡账本暖后预热重组窗内怪物片=主线程 2.5s 长块
-            // (真机 42 帧掉帧定罪)且零收益(高度已在账本)。
-            prewarmEligible = { !stepNeedsSlicing || !stepLedger.isWarm(stepFingerprints) },
-        ) {
-            // #422 二轮修复:ChunkAssistantItems 是裸 for(设计为在父 Column 内
-            // 调用)——直接放进 Reveal 的 Box 会使各 part 堆叠在 (0,0) 互相叠压
-            // (实测:表格/读取卡/标题三层重叠)。包裹同 SegmentedAssistantMessage
-            // 的 Column(XS 间距)保持视觉一致。
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
-            ) {
+    // #430(用户裁决 2026-09-24):过程卡片退役——过程内容默认全展示,不再经
+    // 折叠行/CardExpandReveal 展开。理由:大内容原地展开的组合成本(36k px
+    // ≈1.6s 冻结)不随位移配对改善,分批只是把冻结拆段;默认展示=滚动接近时
+    // 才组合(窗口化),无展开动作=无瞬态。高度设置引擎本身不动(PartContent
+    // 折叠族仍在用);切片/账本/重组门全保留——它们管的是"接近时才付钱"。
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
+    ) {
                 if (!heavyComposed) {
                     Spacer(modifier = Modifier.fillMaxWidth().height(24.dp))
                 } else if (!stepNeedsSlicing) {
@@ -1371,12 +1345,7 @@ private fun StepGroupCard(
                         readinessRegistry = readinessRegistry,
                     )
                 }
-                // #423 批次三:组尾收起行——多屏内容不必滚回顶部折叠行才能收起
-                // （两渲染路径共用，双轴审查后从分支内提出去重）
-                StepGroupFoldRow(step = step)
-                }
-            }
-        }
+    }
     }
 }
 
