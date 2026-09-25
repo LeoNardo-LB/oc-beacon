@@ -121,3 +121,26 @@
 - ADB=/home/linuxbrew/.linuxbrew/bin/adb；启动 Activity 实名 dev.leonardo.ocbeacon.MainActivity（非 ui.MainActivity）。
 
 待用户真手指验收：震荡体感、压缩卡随消息上推、代码块/表格展示节奏。
+
+## 验收十二轮（2026-09-26 深夜）：步间空窗门控 + 纯文字增量直出 + VTRACE
+
+用户复测反馈：仍有明显来回跳动（像补偿逻辑）；纯文字被整段扣放而非流式直出。用户裁决：精细化分析用日志而非录屏（瞬态闪烁录屏易漏采）；深改期间确认高度配对必须是反射 set 而非补偿。
+
+### 审计确认（用户问题：是反射还是补偿？）
+- 流式文本增长通道确证为反射 set：flush 日志 pair d=.. set(fii,fiso) 即 requestPositionAndForgetLastKnownKey 预定位 + 拒绘一帧 + 下一遍 measure 原子消费（PreRenderCoordinator FLUSH 契约）——非渲染后补偿。
+- 但审计揪出三条漏网/旁路：①MSGEFFECT/GUARD 门控直读 sessionMeta.isStreaming，步间 SseStatus force-complete 闪断（logcat 01:04 实录 Busy/Streaming→Idle [force-complete] → [meta] streaming true→false）放行锚底；②LaunchedEffect(revealBannerCount) 的 requestScrollToItem(0) 完全无流式门控；③ChatMessageList 七处横幅揭示门控用 streamingMsgId!=null，步间闪断会触发 CardExpandReveal episode（dispatchRawDelta 配对族）。
+
+### 三笔根修
+1. **629ce9fa 回合级 turnActive**：ChatViewModel.turnActiveState = isStreaming OR 存在未完结 assistant 消息，下降沿 3s 宽限防抖（flatMapLatest+debounce）。ChatScreen 滚动门控 + 七处横幅门控 + revealBannerCount 锚底全部换用。
+2. **8c1c3b2a 纯文字增量直出**：旧语义（#437 首版行扫描继承）对无换行中文长段落=整段收完才放=整段跳出（用户投诉点）。重写：纯文字行完整行整放、未完行增量放行至快照尾（字面=最终，库第二道防线）；400 预算内联扣减；行首守卫防增量截断后的行续段误判表头/围栏；fenceStateAt 整行读取。31 例用例重钉，3508 全绿。
+3. **3eaf1ac0 VTRACE**：flush 头部变化探针，fii/fiso 每变化打一行，与 pair/drop/MSGEFFECT/GUARD/BANNER 交错可读成因。
+
+### 自测取证（VTRACE 时间线）
+- 拖拽轨迹逐帧单调（526→1926、1926→112），无跳变；
+- 8s 停留（fii=7 fiso=1926）流式期间 VTRACE 全静默=视口冻结无漂移；
+- 全窗口零 MSGEFFECT anchor / GUARD reanchor / BANNER fire（新门控生效）；
+- 单批量子观测：d=888、d=842 ≈ 400 字符预算上限的 CJK 批（~15 行/850px/帧）——relay 突发+预算上限共同决定；若后续仍觉跳感可下调预算或改 px 基。
+- 用户可见的来回跳动在两次合成复现（远滑/轻滑）中未重现；VTRACE 已就位，下一轮用户复测日志可直接定位任何一帧跳动的成因。
+
+### 环境注记
+- 装机会杀 app 进程——录屏期间禁止 install（jump_audit.mp4 白录教训）；日志法为主（用户裁决）。
