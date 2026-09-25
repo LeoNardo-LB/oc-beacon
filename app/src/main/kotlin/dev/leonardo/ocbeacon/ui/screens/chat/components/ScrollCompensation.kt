@@ -27,15 +27,16 @@ import dev.leonardo.ocbeacon.ui.screens.chat.scroll.PreDrawFlushTask
  * ## 统一配对规则(锚即意图,纯几何)
  *
  * `pair(Δ) ⟺ anchorIndex == itemIndex ∧ anchorOffset > 0`
- * - 锚在增长源**之下**(含贴底跟随族 fii=0 与横幅锚):追加语义——增长向上自然扩展,
- *   新内容出现于底缘可见位。免派发(派发反而把新行推出屏外并推离贴底=震荡根源)。
- * - 锚在增长源**之上**(读历史,增长源整体在视口之下):阅读位置神圣,免派发。
- *   (旧 COMP 在此仍注入=「读历史被流式拖拽」缺陷,#435 顺带修复。)
- * - 锚**恰在**增长源且已上移进入(fiso>0):+Δ 同帧配对——fiso+=Δ 使增长点上方内容
- *   纹丝不动,新行留在底缘之下;增长在本 item 内自造 Δ 滚动余量,dispatchRawDelta
- *   消费恒全额。与旧 COMP 的 requestScrollToItemNoCancel(fii, fiso+delta) 数学等价
- *   (#430 标定:正向滚动位前进 δ ⟺ fiso+=δ),无反射。
- * - 收缩(Δ<0)一律不配对(旧 COMP 行为保持:全揭示 rebase)。
+ * - **画面保持公式（#437 验收四轮，用户数学模型定案）**：不变量
+ *   `scrollPos(t) − ΔH(t) = S₀`——settle 后视口相对「settle 时刻内容底」钉死，
+ *   新内容全部在视口下方生长（reverseLayout 主轴正方向=向旧内容滚动补偿）。
+ * - 贴底原点(fii==0 ∧ fiso==0)：S₀=0，LazyList 物理自动跟随——免派发（#435 实证）。
+ * - 增长源在锚之下或即锚自身(itemIndex ≤ anchorIndex，含 fii==itemIndex 的
+ *   深处阅读)：**每帧 +Δ 补偿**——LazyList 默认保持绝对 scrollPos（=跟随），
+ *   主动 +Δ 才能让画面纹丝不动。原「深处免派发」与「视口 offset 锁」都是
+ *   把「绝对位置固定」当不变量——恰是跟随的充要条件，全数撤销。
+ * - 收缩(Δ<0)一律不配对(旧 COMP 行为保持:全揭示 rebase)。防单帧大 Δ 跳变
+ *   由 gate 放行量子化承担(≤400ch/批)。
  *
  * ## 48ms 节奏的结构性继承
  *
@@ -51,7 +52,14 @@ internal object StreamingPairingRule {
      * @param growthPx 本帧累计增长(px);仅正向增长参与配对
      */
     fun pairedDelta(anchorIndex: Int, anchorOffset: Int, itemIndex: Int, growthPx: Float): Float =
-        if (anchorIndex == itemIndex && anchorOffset > 0 && growthPx > 0f) growthPx else 0f
+        if (growthPx > 0f &&
+            itemIndex >= 0 && // 不在可见布局（回收/间隙）→丢弃
+            itemIndex <= anchorIndex && // 增长源在锚之下（reverseLayout 视觉下方）或即锚自身
+            !(anchorIndex == 0 && anchorOffset == 0) // 贴底原点：物理跟随，免派发
+        ) growthPx else 0f
+
+    /** 贴底邻域阈值(px)——与 ChatScrollController.isAtBottom 的 fiso<100 同源。 */
+    const val AT_BOTTOM_PX = 100
 }
 
 /**
@@ -195,6 +203,8 @@ internal fun Modifier.streamingGrowPairing(
  * (引擎配对执行器:配对到全额)。免派发分支(贴底跟随族/读历史)从构造上零派发
  * ——震荡根源(无贴底豁免的 dispatch)在此消失。
  */
+
+
 internal fun streamingGrowFlushTask(
     listState: LazyListState,
     ledger: StreamingGrowLedger,
@@ -212,14 +222,30 @@ internal fun streamingGrowFlushTask(
         AppLogger.d("SGR-435", "drop(append/reading-away) fii=" + fii + " fiso=" + fiso)
     }
     if (total != 0f) {
-        val consumed = applyPairedPreRenderShift(listState, total)
+        // #437 验收五轮（用户裁决，对齐 #427 引擎先例）：渲染前计算目标位+
+        // 反射 requestPosition 写入待定区，由下一遍 measure 原子消费——与
+        // dispatchRawDelta（渲染后滚动修正=先画增长态再跳位，整屏闪烁）的
+        // 本质区别在「计算先行、measure 原子生效」。拒绘一帧：本帧不画
+        // （屏面冻结在增长前帧），下一帧待定位+新高度一次画对。
+        // 目标位=用户公式 scrollPos+Δ：fiso += total（锚 item 内偏移推大），
+        // 溢出沿可见 items 向 index 增大换算（reverseLayout 视觉向上）。
+        var targetFii = fii
+        var targetFiso = fiso + total.toInt()
+        var guard = 0
+        while (guard++ < 64) {
+            val anchor = infos.firstOrNull { it.index == targetFii } ?: break
+            if (targetFiso < anchor.size) break
+            targetFiso -= anchor.size
+            targetFii++
+        }
+        LazyListReflection.requestScrollToItemNoCancel(listState, targetFii, targetFiso)
         if (BuildConfig.DEBUG) {
             AppLogger.d(
                 "SGR-435",
-                "pair d=" + total.toInt() + " consumed=" + consumed.toInt() +
-                    " fii=" + fii + " fiso=" + fiso,
+                "pair d=" + total.toInt() + " set(fii=" + targetFii + ", fiso=" + targetFiso + ")",
             )
         }
+        return@PreDrawFlushTask false // 拒绘一帧：待定位经下一遍 measure 一次画对
     }
     true
 }

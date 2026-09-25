@@ -31,20 +31,32 @@ class StreamingGrowLedgerTest {
 
     @Test
     fun rule_anchorOnSourceOffsetZero_noDispatch() {
-        // 锚恰在增长源底缘(fiso==0)=追加语义边界
-        assertEquals(0f, StreamingPairingRule.pairedDelta(7, 0, 7, 48f))
+        // 锚在增长源 start 边(fiso==0,非贴底原点):增长在视口下方——+Δ 保持画面
+        assertEquals(48f, StreamingPairingRule.pairedDelta(7, 0, 7, 48f))
     }
 
     @Test
     fun rule_anchorOnSourceScrolledIn_pairsFullDelta() {
-        // 尾段阅读(锚上移进入增长源):+Δ 同帧配对(fiso+=Δ)
+        // 尾段阅读(锚上移进入增长源贴底邻域):+Δ 同帧配对(fiso+=Δ)
+        assertEquals(48f, StreamingPairingRule.pairedDelta(7, 60, 7, 48f))
+    }
+
+    @Test
+    fun rule_deepReading_beyondAtBottomPx_exempt() {
+        // #437 验收四轮(用户公式):深处配对(+Δ 保持画面);仅贴底原点免派发
         assertEquals(48f, StreamingPairingRule.pairedDelta(7, 300, 7, 48f))
+        assertEquals(48f, StreamingPairingRule.pairedDelta(7, 100, 7, 48f))
+        assertEquals(48f, StreamingPairingRule.pairedDelta(7, 99, 7, 48f))
+        // 贴底原点:物理跟随免派发
+        assertEquals(0f, StreamingPairingRule.pairedDelta(0, 0, 0, 48f))
+        // 增长源在锚之下(读历史,流式 item 在下方)也配对——画面保持
+        assertEquals(48f, StreamingPairingRule.pairedDelta(7, 300, 0, 48f))
     }
 
     @Test
     fun rule_readingAway_growthBelowViewport_noDispatch() {
-        // 读历史:锚在增长源之上(增长源整体在视口之下)——阅读位置神圣
-        assertEquals(0f, StreamingPairingRule.pairedDelta(20, 500, 7, 48f))
+        // 读历史(增长源在视口之下):+Δ 保持画面(用户公式 scrollPos−ΔH=S₀)
+        assertEquals(48f, StreamingPairingRule.pairedDelta(20, 500, 7, 48f))
     }
 
     @Test
@@ -74,11 +86,11 @@ class StreamingGrowLedgerTest {
         l.note("msg", "k1", 572) // +72
         l.note("msg", "k1", 620) // +48
         assertTrue(l.hasPending)
-        // 锚恰在增长源:全额配对(120=72+48)
-        assertEquals(120f, l.takePaired(1, 300) { if (it == "k1") 1 else -1 })
+        // 锚恰在增长源贴底邻域:全额配对(120=72+48)
+        assertEquals(120f, l.takePaired(1, 60) { if (it == "k1") 1 else -1 })
         // 清账:第二次取为零
         assertFalse(l.hasPending)
-        assertEquals(0f, l.takePaired(1, 300) { if (it == "k1") 1 else -1 })
+        assertEquals(0f, l.takePaired(1, 60) { if (it == "k1") 1 else -1 })
     }
 
     @Test
@@ -101,7 +113,7 @@ class StreamingGrowLedgerTest {
         l.note("msg", "k1", 300) // -200 收缩:不配对
         assertFalse(l.hasPending)
         l.note("msg", "k1", 348) // +48
-        assertEquals(48f, l.takePaired(1, 300) { 1 })
+        assertEquals(48f, l.takePaired(1, 60) { 1 })
     }
 
     @Test
@@ -112,7 +124,7 @@ class StreamingGrowLedgerTest {
         l.note("msg", "t_x", 1048)      // +48(可见锚上)
         l.note("tool", "tool_progress", 272) // +72(增长源在视口之下)
         // 仅锚上增长源配对;不可见源丢弃
-        assertEquals(48f, l.takePaired(5, 300) { k -> if (k == "t_x") 5 else -1 })
+        assertEquals(48f, l.takePaired(5, 60) { k -> if (k == "t_x") 5 else -1 })
         // 工具源基线已随取账 rebase
         l.note("tool", "tool_progress", 300) // +28
         assertEquals(28f, l.takePaired(1, 50) { k -> if (k == "tool_progress") 1 else -1 })
@@ -125,7 +137,7 @@ class StreamingGrowLedgerTest {
         l.note("msg", "k1", 600)
         l.rebaseAll()
         assertFalse(l.hasPending)
-        assertEquals(0f, l.takePaired(1, 300) { 1 })
+        assertEquals(0f, l.takePaired(1, 60) { 1 })
     }
 
     @Test
@@ -145,6 +157,6 @@ class StreamingGrowLedgerTest {
         l.note("cmp_v1:t_x", "t_x", 120)
         l.note("msg:t_x", "t_x", 548)
         l.note("cmp_v1:t_x", "t_x", 168)
-        assertEquals(96f, l.takePaired(1, 300) { 1 })
+        assertEquals(96f, l.takePaired(1, 60) { 1 })
     }
 }

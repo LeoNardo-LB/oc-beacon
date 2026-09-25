@@ -93,7 +93,19 @@ internal object SafePrefixGate {
             // 仅一个换行且在快照末尾：整段扣
             else -> cand
         }
-        return maxOf(floor, boundary)
+        // #437 验收二轮（非贴底震荡+下拉定罪）：单批放行量子上限。空行毕业
+        // 一次可放整段（实测 1366ch→item 单帧 +1830px 暴涨）——LazyList 对
+        // 暴涨的锚定校正产生「吸底→弹回」两态翻转（ScrollDiag LEAP 0↔7 实证）
+        // =用户看到的震荡。限制单批后超出部分留扣留区，下一批（48ms）继续。
+        // 截断点回退换行边界（不放半行；截断构造中部可接受——库 unstable 尾
+        // 按字面渲染，闭合无跳变）。
+        var release = maxOf(floor, boundary)
+        if (release - floor > MAX_RELEASE_PER_BATCH) {
+            val cap = floor + MAX_RELEASE_PER_BATCH
+            val lastNlBefore = snapshot.lastIndexOf('\n', (cap - 1).coerceAtLeast(floor))
+            release = if (lastNlBefore >= floor) lastNlBefore + 1 else floor
+        }
+        return release
     }
 
     /** 放行决策：新放行长度（快照坐标）+ 实际交给 append 的 delta 文本。 */
@@ -147,6 +159,12 @@ internal object SafePrefixGate {
         }
         return out.toString()
     }
+
+    /**
+     * 单批放行上限（字符）——约 6-8 行正文。超出跨批渐进（48ms/批），
+     * 高度流平滑量子化（见 releaseLength 内注释）。
+     */
+    private const val MAX_RELEASE_PER_BATCH = 400
 
     /** 表头行：可选缩进 + | 开头 + | 结尾（含至少一个内部字符）。 */
     private fun isTableHeaderRow(line: String): Boolean {
