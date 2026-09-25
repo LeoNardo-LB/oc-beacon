@@ -344,7 +344,7 @@ internal fun SimpleMarkdownTable(
                                 text = cellResult.annotatedString,
                                 style = cellStyle,
                                 onTextLayout = { cellLayoutResult = it },
-                                modifier = Modifier.clickableMarkdown(cellResult, { cellLayoutResult }, uriHandler),
+                                modifier = Modifier.clickableMarkdown(cellResult, { cellLayoutResult }, uriHandler)
                             )
                         }
                     }

@@ -1,6 +1,8 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.markdown
 
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -234,18 +236,28 @@ internal fun Modifier.clickableMarkdown(
             }
         }
         .pointerInput(result.annotatedString) {
-            detectTapGestures { pos ->
-                val layout = layoutResultProvider() ?: return@detectTapGestures
-                val offset = layout.getOffsetForPosition(pos)
+            // #437 验收修复（2026-09-25「表格不能复制」定罪链）：库 detectTapGestures
+            // 在等待 tap 期间消费 down（consumeUntilUp 家族行为），使同树外层手势
+            // ——表格 cell combinedClickable 的长按菜单、SelectionContainer 的长按
+            // 选择——收到已消费 down 而全部失效（真机探针定罪：cell 层 Main 相
+            // Press consumed=true；移除本手势后长按立即复活）。
+            // 改为等价轻量手势：down 不消费（长按/选择透传外层），仅在 tap 完成
+            // （up 到达且未被取消）时做命中判定——链接/代码路径点击语义不变。
+            awaitEachGesture {
+                awaitFirstDown(requireUnconsumed = false)
+                val up = waitForUpOrCancellation() ?: return@awaitEachGesture
+                val layout = layoutResultProvider() ?: return@awaitEachGesture
+                val offset = layout.getOffsetForPosition(up.position)
                 // 区间倒序查首个命中（嵌套/重叠时取最内层=最晚出现的样式）
-                for (i in result.ranges.indices) {
+                for (i in result.ranges.indices.reversed()) {
                     val r = result.ranges[i]
                     if (offset in r) {
                         when (val item = result.items[i]) {
                             is ClickableItem.Link -> uriHandler.openUri(item.url)
                             is ClickableItem.CodePath -> uriHandler.openUri(item.text)
                         }
-                        return@detectTapGestures
+                        up.consume()
+                        break
                     }
                 }
             }
