@@ -148,6 +148,26 @@ internal object SafePrefixGate {
         return out.toString()
     }
 
+    /**
+     * 扣留文本是否含活动标记（#437 阶段 B 降亮分级依据）。
+     * 纯文字扣留尾（无任何标记字符/有序列表起始/$$）→ 降亮区全亮显示：
+     * 转正瞬间字面渲染=Markdown 渲染（同字体同行高），视觉无缝——纯散文
+     * 流式体感与现状无差（V6）；含标记 → alpha 0.5 降亮（转正按块成型）。
+     */
+    fun heldTailHasActiveMarkers(text: String): Boolean {
+        var lineStart = true
+        var i = 0
+        while (i < text.length) {
+            val c = text[i]
+            if (lineStart && isOrderedListStart(text, i)) return true
+            if (ACTIVE_MARKERS.indexOf(c) >= 0) return true
+            if (c == '$' && i + 1 < text.length && text[i + 1] == '$') return true
+            lineStart = c == '\n'
+            i++
+        }
+        return false
+    }
+
     /** 表头行：可选缩进 + | 开头 + | 结尾（含至少一个内部字符）。 */
     private fun isTableHeaderRow(line: String): Boolean {
         val t = line.trimStart(' ', '\t')

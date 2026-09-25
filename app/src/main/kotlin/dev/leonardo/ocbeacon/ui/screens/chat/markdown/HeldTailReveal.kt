@@ -62,18 +62,21 @@ internal fun HeldTailReveal(
     val naturalRef = remember { intArrayOf(0) }
 
     // 超龄轮询：48ms 步进（与批节奏一致）；tail 清空即复位
+    var agedLogged by remember { mutableStateOf(false) }
     LaunchedEffect(tail) {
         if (tail.isEmpty()) {
             aging.update("", 0)
             visible = false
+            agedLogged = false
         } else {
             while (!aging.visible) {
                 aging.update(tail, aging.lastNaturalHeightPx)
                 visible = aging.visible
                 if (!aging.visible) delay(48)
             }
-            if (visible) {
-                // #437 阶段 D 观测：超龄揭示时长（spec §6 真机矩阵取证）
+            // #437 阶段 D 观测：只在首次超龄转变打一次（spec §6 真机矩阵取证）
+            if (visible && !agedLogged) {
+                agedLogged = true
                 dev.leonardo.ocbeacon.logging.AppLogger.i(
                     "MDPilot",
                     "heldTail aged reveal heldMs=" + aging.heldForMs + " chars=" + tail.length,
@@ -84,7 +87,10 @@ internal fun HeldTailReveal(
 
     if (tail.isEmpty() || !visible) return
 
-    val dimColor = textStyle.color.copy(alpha = textStyle.color.alpha * 0.5f)
+    // 纯文字扣留尾全亮（转正字面无缝，V6 体感）；含标记才降亮（按块成型预期）
+    val hasMarkers = remember(tail) { SafePrefixGate.heldTailHasActiveMarkers(tail) }
+    val contentAlpha = if (hasMarkers) 0.5f else 1f
+    val dimColor = textStyle.color.copy(alpha = textStyle.color.alpha * contentAlpha)
 
     // 呼吸光标（inline 末尾，占位 1em×1.05em 圆角块）
     val transition = rememberInfiniteTransition(label = "srCursor")

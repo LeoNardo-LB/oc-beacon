@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.TextLayoutResult
@@ -37,6 +38,7 @@ import com.mikepenz.markdown.model.markdownPadding
 import com.mikepenz.markdown.model.parseMarkdown
 import com.mikepenz.markdown.model.parseMarkdownFlow
 import org.intellij.markdown.MarkdownTokenTypes
+import org.intellij.markdown.ast.ASTNode
 import com.mikepenz.markdown.utils.getUnescapedTextInNode
 import com.mikepenz.markdown.model.rememberMarkdownState
 import com.mikepenz.markdown.model.MarkdownState
@@ -505,10 +507,10 @@ internal fun MarkdownContent(
                 // TEXT/EMPH/LINK 等）——标题节点产出空串，H1 退化成「只剩分隔
                 // 线」。标题文本直接取节点 ATX_CONTENT 子节点转义文本（与库默认
                 // MarkdownHeader 的 MarkdownText(contentChildType=ATX_CONTENT) 一致）。
+                // #437 崩溃修复：ATX 提取本身走 getTextInNode——流式 snapshot
+                // 失配帧（AST 非空 + content 空）会越界，统一走安全辅助。
                 val h1Text = remember(model.content, model.node) {
-                    val atx = model.node.children.firstOrNull { it.type == MarkdownTokenTypes.ATX_CONTENT }
-                    val raw = (atx ?: model.node).getUnescapedTextInNode(model.content).toString()
-                    raw.trim().trimStart('#').trim()
+                    safeHeadingText(model.content, model.node)
                 }
                 var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
                 Column {
@@ -532,6 +534,16 @@ internal fun MarkdownContent(
             table = { model ->
                 SimpleMarkdownTable(model.content, model.node, model.typography.table, uriHandler, linkColor)
             },
+            // #437 崩溃修复：heading2-6 原走库默认组件（无越界兜底）——真机
+            // 13:59 崩溃栈定罪（MarkdownHeader→buildMarkdownAnnotatedString→
+            // getTextInNode, AST[3,29] vs content len0：流式 snapshot 失配帧）。
+            // 同款兜底覆盖（heading1 同构 + #432 buildClickableMarkdown 内越界
+            // 降级），ATX_CONTENT 提取走安全辅助。
+            heading2 = { model -> SafeHeading(model, typography.h2, linkListener, linkColor, uriHandler) },
+            heading3 = { model -> SafeHeading(model, typography.h3, linkListener, linkColor, uriHandler) },
+            heading4 = { model -> SafeHeading(model, typography.h4, linkListener, linkColor, uriHandler) },
+            heading5 = { model -> SafeHeading(model, typography.h5, linkListener, linkColor, uriHandler) },
+            heading6 = { model -> SafeHeading(model, typography.h6, linkListener, linkColor, uriHandler) },
         )
     }
 
@@ -593,6 +605,11 @@ internal fun MarkdownContent(
         // 置 false（gate 旁路，pilot 原行为）。
         val pilotState = rememberPilotStreamingMarkdownState(markdown)
         androidx.compose.foundation.layout.Column {
+            // #437 崩溃修复：非前缀重建（resetKey++）换 state 实例的同一帧，
+            // 库 Markdown 内部 collectAsState 对流实例的记忆可能残留旧 snapshot
+            // （旧 AST）与新实例空 content 组成失配帧（getTextInNode 越界）。
+            // key(state) 强制实例变化时整个子树重建——失配帧从构造上消失。
+            androidx.compose.runtime.key(pilotState.state) {
             Markdown(
                 streamingMarkdownState = pilotState.state,
                 colors = colors,
@@ -603,6 +620,7 @@ internal fun MarkdownContent(
                 imageTransformer = Coil3ImageTransformerImpl,
                 modifier = Modifier.fillMaxWidth(),
             )
+            }
             if (StreamingMarkdownPilot.stableReveal) {
                 val held by pilotState.heldTail
                 HeldTailReveal(
@@ -848,4 +866,48 @@ private fun chunkSuccessSlot(
             }
         }
     }
+}
+
+/**
+ * #437 崩溃修复：流式 snapshot 失配帧（AST 与 content 不同源的一瞬，真机
+ * 13:59 定罪 AST[3,29] vs content len0）中标题文本的安全提取——越界预检 +
+ * runCatching 双保险，失配帧降级空串一帧，状态收敛后 remember 键变化恢复。
+ */
+private fun safeHeadingText(content: String, node: ASTNode): String = runCatching {
+    val atx = node.children.firstOrNull { it.type == MarkdownTokenTypes.ATX_CONTENT } ?: node
+    if (atx.startOffset > content.length || atx.endOffset > content.length) return ""
+    atx.getUnescapedTextInNode(content).toString().trim().trimStart('#').trim()
+}.getOrDefault("")
+
+/** #437：heading2-6 兜底组件（#432 语义推广——buildClickableMarkdown 内越界降级 + ATX 安全提取）。 */
+@Composable
+private fun SafeHeading(
+    model: com.mikepenz.markdown.compose.components.MarkdownComponentModel,
+    style: TextStyle,
+    linkListener: LinkInteractionListener,
+    linkColor: Color,
+    uriHandler: UriHandler,
+) {
+    val settings = annotatorSettings(linkInteractionListener = linkListener)
+    val result = remember(model.content, model.node, style.color, linkColor) {
+        buildClickableMarkdown(
+            content = model.content,
+            node = model.node,
+            style = style,
+            annotatorSettings = settings,
+            linkColor = linkColor,
+        )
+    }
+    val fallbackText = remember(model.content, model.node) { safeHeadingText(model.content, model.node) }
+    var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+    MarkdownBasicText(
+        text = if (result.annotatedString.isNotBlank()) result.annotatedString else AnnotatedString(fallbackText),
+        style = style,
+        onTextLayout = { layoutResult = it },
+        modifier = Modifier.clickableMarkdown(
+            result = result,
+            layoutResultProvider = { layoutResult },
+            uriHandler = uriHandler,
+        ),
+    )
 }

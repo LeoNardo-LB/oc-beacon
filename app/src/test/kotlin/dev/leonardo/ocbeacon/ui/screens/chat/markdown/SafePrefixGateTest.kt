@@ -1,6 +1,8 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.markdown
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -180,6 +182,22 @@ class SafePrefixGateTest {
         val d = SafePrefixGate.releaseDelta(snap, 0)
         assertEquals("price is 5$\n", d.delta)
         assertEquals(12, d.newReleased) // 换行边界，扣住未完行 next line
+    }
+
+    @Test
+    fun `纯文字扣留尾判定无标记`() {
+        assertFalse(SafePrefixGate.heldTailHasActiveMarkers(""))
+        assertFalse(SafePrefixGate.heldTailHasActiveMarkers("The keeper climbed the winding stairs slowly."))
+        assertFalse(SafePrefixGate.heldTailHasActiveMarkers("line one\nline two continues"))
+    }
+
+    @Test
+    fun `含标记扣留尾判定有标记`() {
+        assertTrue(SafePrefixGate.heldTailHasActiveMarkers("bold *text* here"))
+        assertTrue(SafePrefixGate.heldTailHasActiveMarkers("\u2610 task"))
+        assertTrue(SafePrefixGate.heldTailHasActiveMarkers("math \$\$x\$\$"))
+        assertTrue(SafePrefixGate.heldTailHasActiveMarkers("intro\n1. first"))  // 行首有序列表
+        assertFalse(SafePrefixGate.heldTailHasActiveMarkers("price 5 each"))  // 单 $ 非标记
     }
 
     @Test
