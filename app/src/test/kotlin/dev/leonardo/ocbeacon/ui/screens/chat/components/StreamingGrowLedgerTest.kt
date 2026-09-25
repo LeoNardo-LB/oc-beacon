@@ -30,8 +30,8 @@ class StreamingGrowLedgerTest {
     }
 
     @Test
-    fun rule_anchorOnSourceOffsetZero_noDispatch() {
-        // 锚在增长源 start 边(fiso==0,非贴底原点):增长在视口下方——+Δ 保持画面
+    fun rule_anchorOnSourceOffsetZero_pairs() {
+        // 锚=item 自身 start 边(fiso==0,非贴底原点):锚内增长=跟随,需 +Δ 保持画面
         assertEquals(48f, StreamingPairingRule.pairedDelta(7, 0, 7, 48f))
     }
 
@@ -42,21 +42,22 @@ class StreamingGrowLedgerTest {
     }
 
     @Test
-    fun rule_deepReading_beyondAtBottomPx_exempt() {
-        // #437 验收四轮(用户公式):深处配对(+Δ 保持画面);仅贴底原点免派发
+    fun rule_deepReading_beyondAtBottomPx_pairs() {
+        // 锚=item 自身深处(用户场景:脱离贴底停在流式文本中)——+Δ 配对
         assertEquals(48f, StreamingPairingRule.pairedDelta(7, 300, 7, 48f))
         assertEquals(48f, StreamingPairingRule.pairedDelta(7, 100, 7, 48f))
         assertEquals(48f, StreamingPairingRule.pairedDelta(7, 99, 7, 48f))
         // 贴底原点:物理跟随免派发
         assertEquals(0f, StreamingPairingRule.pairedDelta(0, 0, 0, 48f))
-        // 增长源在锚之下(读历史,流式 item 在下方)也配对——画面保持
-        assertEquals(48f, StreamingPairingRule.pairedDelta(7, 300, 0, 48f))
+        // #437 验收八轮(真机像素证伪 ≤):增长源在锚之下(读历史,流式 item 在下方)
+        // 免派发——LazyList 锚定默认已保持画面,+Δ 属双重补偿(拖拽+LEAP 回吐震荡)
+        assertEquals(0f, StreamingPairingRule.pairedDelta(7, 300, 0, 48f))
     }
 
     @Test
     fun rule_readingAway_growthBelowViewport_noDispatch() {
-        // 读历史(增长源在视口之下):+Δ 保持画面(用户公式 scrollPos−ΔH=S₀)
-        assertEquals(48f, StreamingPairingRule.pairedDelta(20, 500, 7, 48f))
+        // #437 验收八轮:读历史(增长源在锚下方、非锚 item)免派发——默认锚定已保持画面
+        assertEquals(0f, StreamingPairingRule.pairedDelta(20, 500, 7, 48f))
     }
 
     @Test

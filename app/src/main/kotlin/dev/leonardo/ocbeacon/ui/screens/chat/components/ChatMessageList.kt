@@ -1559,7 +1559,11 @@ fun ChatMessageList(
                         val (rawIndex, msg) = displayItems[entry.displayIndex]
                         // #103（M-8）：与 LazyColumn key 同锚点（turn 组首条消息 id）
                         val itemKey = chatEntryKey(turnGroups, rawIndex, msg)
-                        val isStreamingMsg = (turnGroups[rawIndex] ?: listOf(msg)).any { it.message.id == streamingMsgId }
+                        // #437 验收八轮：流式家族判定放宽——组内任一消息 completed==null
+                        // 即视为流式（原「== streamingMsgId 单 id 匹配」在 DSH 多 part 回合中
+                        // 会随 sid 漂移到在飞 call id 而漏配：承载文本增长的 item 修饰符脱落
+                        // → 裸增长拖走视窗，真机 round2 复现）。多挂修饰符无害：无增长=零派发。
+                        val isStreamingMsg = (turnGroups[rawIndex] ?: listOf(msg)).any { it.message.time.completed == null }
                         // #231（2026-08-26 用户再报「还是叠在一起」）：非流式 item 此前
                         // 无 clip——异步内容增长（reasoning 展开/Markdown 迟到解析/
                         // 分片裂变）重排窗口内，越界绘制会压到相邻 item 上（用户

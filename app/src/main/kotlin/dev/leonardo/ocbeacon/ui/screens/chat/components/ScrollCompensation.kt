@@ -31,10 +31,15 @@ import dev.leonardo.ocbeacon.ui.screens.chat.scroll.PreDrawFlushTask
  *   `scrollPos(t) − ΔH(t) = S₀`——settle 后视口相对「settle 时刻内容底」钉死，
  *   新内容全部在视口下方生长（reverseLayout 主轴正方向=向旧内容滚动补偿）。
  * - 贴底原点(fii==0 ∧ fiso==0)：S₀=0，LazyList 物理自动跟随——免派发（#435 实证）。
- * - 增长源在锚之下或即锚自身(itemIndex ≤ anchorIndex，含 fii==itemIndex 的
- *   深处阅读)：**每帧 +Δ 补偿**——LazyList 默认保持绝对 scrollPos（=跟随），
- *   主动 +Δ 才能让画面纹丝不动。原「深处免派发」与「视口 offset 锁」都是
- *   把「绝对位置固定」当不变量——恰是跟随的充要条件，全数撤销。
+ * - 增长源==锚 item 自身（itemIndex == anchorIndex，含 fii==itemIndex 的
+ *   深处阅读）：增长发生在 item 主轴起边侧（reverseLayout=视觉底/新文本侧），
+ *   (fii,fiso) 字面锚定会指向换了身份的新内容（=跟随）——**每帧 +Δ 补偿**
+ *   才能让画面纹丝不动。
+ * - 增长源在锚之下（itemIndex < anchorIndex）：**免派发（#437 验收八轮真机
+ *   像素证伪 ≤ 全域配对）**——LazyList 锚定默认已保持画面（锚 item 字面
+ *   (fii,fiso) 不随其下方 item 增长移动）；此时再 +Δ 是双重补偿：实测画面以
+ *   每批 Δpx 上拖（派发量精确等于漂移量），且大额 set 触发 LazyList 重锚
+ *   回吐（LEAP off 31252→8480，dOff=-22772 恰等于累计派发）→ 乒乓震荡。
  * - 收缩(Δ<0)一律不配对(旧 COMP 行为保持:全揭示 rebase)。防单帧大 Δ 跳变
  *   由 gate 放行量子化承担(≤400ch/批)。
  *
@@ -54,7 +59,7 @@ internal object StreamingPairingRule {
     fun pairedDelta(anchorIndex: Int, anchorOffset: Int, itemIndex: Int, growthPx: Float): Float =
         if (growthPx > 0f &&
             itemIndex >= 0 && // 不在可见布局（回收/间隙）→丢弃
-            itemIndex <= anchorIndex && // 增长源在锚之下（reverseLayout 视觉下方）或即锚自身
+            itemIndex == anchorIndex && // #437 验收八轮（真机像素证伪 ≤）：仅锚=item 自身才配对
             !(anchorIndex == 0 && anchorOffset == 0) // 贴底原点：物理跟随，免派发
         ) growthPx else 0f
 
