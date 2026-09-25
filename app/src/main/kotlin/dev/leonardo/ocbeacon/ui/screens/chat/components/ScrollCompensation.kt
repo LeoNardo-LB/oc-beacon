@@ -48,6 +48,10 @@ import dev.leonardo.ocbeacon.ui.screens.chat.scroll.PreDrawFlushTask
  * 账本输入 = 48ms 批处理(MessageEventHandler.scheduleFlush)驱动的 measure;
  * flush 派发节奏 = 48ms 批节奏。无任何额外定时器层。
  */
+// [VTRACE 2026-09-26] flush 任务的上一帧视口位（变化检测用；主线程独占）
+private var vtraceLastFii = Int.MIN_VALUE
+private var vtraceLastFiso = Int.MIN_VALUE
+
 internal object StreamingPairingRule {
     /**
      * 统一配对规则(纯函数可单测)。
@@ -220,6 +224,20 @@ internal fun streamingGrowFlushTask(
     listState: LazyListState,
     ledger: StreamingGrowLedger,
 ): PreDrawFlushTask = PreDrawFlushTask {
+    // [VTRACE 2026-09-26] 逐帧视口轨迹（仅变化时打点）——任何来回跳动在时间线上
+    // 直接可读（pair/drop/MSGEFFECT/GUARD/BANNER 行给出成因；用户裁决：精细分析
+    // 用日志而非录屏抽帧，瞬态闪烁录屏易漏采）。
+    run {
+        val fii = listState.firstVisibleItemIndex
+        val fiso = listState.firstVisibleItemScrollOffset
+        if (fii != vtraceLastFii || fiso != vtraceLastFiso) {
+            vtraceLastFii = fii
+            vtraceLastFiso = fiso
+            if (BuildConfig.DEBUG) {
+                AppLogger.d("VTRACE", "fii=" + fii + " fiso=" + fiso + " ip=" + listState.isScrollInProgress)
+            }
+        }
+    }
     if (!ledger.hasPending) return@PreDrawFlushTask true
     if (BuildConfig.DEBUG) {
         // [SGR-435 验收七轮·仪表化] flush 相进入取证（含弃配分支可辨）
