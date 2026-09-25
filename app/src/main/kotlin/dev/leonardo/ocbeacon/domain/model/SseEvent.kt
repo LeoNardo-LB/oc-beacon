@@ -490,6 +490,13 @@ sealed class SseEvent {
         val sourceCommandId: String? = null,
         /** 摘要全文（wire ContentBlock[] 的 text 块拼接）。 */
         val summaryText: String,
+        /**
+         * shadowedRange 起点被遮蔽内容区间的时序锚（2026-09-25 DSH 0.1.7 源码调研
+         * docs/research/dsh-compaction-binding.md §3）：压缩卡的流内绑定点不是
+         * summary 信封 seq（那落在日志尾部），而是被替代消息区间的起点——卡随
+         * 后续消息上推。null = wire 缺席（降级回信封 seq）。
+         */
+        val shadowStartSeq: Long? = null,
         val seq: Long = 0L,
         val time: Long = 0L,
     ) : SseEvent()

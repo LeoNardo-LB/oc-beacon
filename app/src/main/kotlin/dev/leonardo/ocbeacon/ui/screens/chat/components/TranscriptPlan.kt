@@ -34,7 +34,9 @@ internal sealed interface TranscriptCardItem {
 
     data class Compaction(val entry: CompactionEntry) : TranscriptCardItem {
         override val planKey: String get() = "compaction_" + entry.compactionId
-        override val sortSeq: Long get() = entry.seq
+        // 2026-09-25 绑定点根修：流内时序位取 shadowedRange 起点（被替代内容区间
+        // 锚），summary 信封 seq 只作降级——否则卡恒落在日志尾部（堆积根因之一）。
+        override val sortSeq: Long get() = entry.shadowStartSeq ?: entry.seq
     }
 }
 
@@ -74,16 +76,25 @@ internal object TranscriptPlan {
     ): Pair<Map<String, TranscriptCardExtras>, List<TranscriptCardItem>> {
         if (cards.isEmpty()) return emptyMap<String, TranscriptCardExtras>() to emptyList()
         val sorted = cards.sortedBy { it.sortSeq }
-        val effective = displaySeqs.map { it ?: Long.MIN_VALUE }
+        // seq 未知(null)的 display 项不参与排序比较——2026-09-25 修复「压缩卡堆积」：
+        // 旧实现把 null 映射成 Long.MIN_VALUE，流式/本地消息(新est 项 id 解不出 seq)
+        // 常驻 index 0，导致「卡比最新消息还新」判定对所有卡恒真 → 全部卡塞进
+        // display 0 组 after 桶(extras=1 实证)。null 项视为「不可比较」，锚点查找
+        // 只在可比较(已知 seq)项中进行。
+        val knownSeqIdx: List<Pair<Int, Long>> =
+            displaySeqs.withIndex().mapNotNull { (i, s) -> s?.let { i to it } }
+        val newestKnownSeq = knownSeqIdx.firstOrNull()?.second
         val before = LinkedHashMap<String, MutableList<TranscriptCardItem>>()
         val after = LinkedHashMap<String, MutableList<TranscriptCardItem>>()
         val trailing = mutableListOf<TranscriptCardItem>()
         for (card in sorted) {
-            val anchor = effective.indexOfFirst { it < card.sortSeq }
             when {
-                // 比最新消息还新（含本地占位）：display 0 组视觉底之下＝视觉尾部；
-                // 无消息（空转录）退化为顶部独立 item（卡即全部内容）。
-                effective.isEmpty() || card.sortSeq > effective[0] -> {
+                // 无任何可比较消息：全部退化为顶部独立 item。
+                knownSeqIdx.isEmpty() -> trailing += card
+                // 卡比「最新已知 seq」还新：贴尾语义保持——display 0 组(无论其
+                // seq 可否解析,它就是视觉最新)视觉底之下。已知 seq 全在场时与
+                // 旧判定(card.sortSeq > effective[0])完全等价。
+                card.sortSeq > (newestKnownSeq ?: Long.MIN_VALUE) -> {
                     val bottomKey = visualBottomEntryKeys.getOrNull(0)
                     if (bottomKey != null) {
                         after.getOrPut(bottomKey) { mutableListOf() } += card
@@ -91,13 +102,18 @@ internal object TranscriptPlan {
                         trailing += card
                     }
                 }
-                // 介于两消息之间：锚组视觉顶之上（流内时序位）
-                anchor >= 0 ->
-                    visualTopEntryKeys.getOrNull(anchor)?.let {
-                        before.getOrPut(it) { mutableListOf() } += card
-                    } ?: run { trailing += card }
-                // 比所有消息都老：视觉顶部独立 item（older page 载入后重锚入组）
-                else -> trailing += card
+                // 介于两消息之间：锚 = 已知 seq 中第一条比卡更旧的消息(其组视觉顶
+                // 之上=流内时序位)。旧实现 indexOfFirst 命中 MIN_VALUE 哨兵会把卡
+                // 锚到 seq 未知的消息组上(同样错误),此处只在已知项中找。
+                else -> {
+                    val anchor = knownSeqIdx.firstOrNull { it.second < card.sortSeq }
+                    val topKey = anchor?.let { visualTopEntryKeys.getOrNull(it.first) }
+                    if (topKey != null) {
+                        before.getOrPut(topKey) { mutableListOf() } += card
+                    } else {
+                        trailing += card
+                    }
+                }
             }
         }
         val extras = (before.keys + after.keys).associateWith { key ->

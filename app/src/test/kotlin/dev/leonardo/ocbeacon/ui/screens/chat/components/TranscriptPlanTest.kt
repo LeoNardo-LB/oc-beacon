@@ -71,13 +71,32 @@ class TranscriptPlanTest {
     }
 
     @Test
-    fun `non dsh message ids treated as oldest`() {
-        // null seq（V1/V2 id）→ MIN：任何卡都「更新于」全部消息 → 视觉尾部挂载
-        //（display 0 组 after；现状兼容——V1/V2 本无卡，仅钉死确定性）
+    fun `non dsh message ids are incomparable not oldest`() {
+        // 2026-09-25 修复「压缩卡堆积」：null seq 不可比较（不再 MIN_VALUE 哨兵）
+        // ——全部 null 时无锚点，退化为 trailing（旧实现把所有卡塞进 display 0 after）
         val (extras, trailing) = plan(listOf(null, null), listOf(cmd("c1", 10)))
-        assertEquals("b0", extras.keys.single())
-        assertEquals(1, extras["b0"]!!.after.size)
-        assertEquals(0, trailing.size)
+        assertTrue(extras.isEmpty())
+        assertEquals(1, trailing.size)
+    }
+
+    @Test
+    fun `null seq newest does not swallow anchor lookup`() {
+        // display 0（流式/本地 id）seq=null，已知 seq 100/50：卡 80 锚到 50 组,
+        // 卡 200（比最新已知还新）贴尾 display 0 after
+        val (extras, trailing) = plan(listOf(null, 100L, 50L), listOf(cmd("c1", 80), cmd("c2", 200)))
+        assertTrue(trailing.isEmpty())
+        assertEquals(listOf("t2", "b0"), extras.keys.toList())
+        assertEquals("c1", (extras["t2"]!!.before.single() as TranscriptCardItem.Command).feedback.commandId)
+    }
+
+    @Test
+    fun `compaction binds to shadowed range start not envelope seq`() {
+        // 2026-09-25 绑定点根修：summary 信封 seq 在日志尾部（5390），
+        // shadowedRange 起点（60）才是流内时序位
+        val entry = CompactionEntry(compactionId = "k1", seq = 5390, shadowStartSeq = 60)
+        val (extras, _) = plan(listOf(100L, 50L), listOf(TranscriptCardItem.Compaction(entry)))
+        assertEquals("t1", extras.keys.single())
+        assertEquals(60L, extras["t1"]!!.before.single().sortSeq)
     }
 
     @Test

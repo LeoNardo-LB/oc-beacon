@@ -23,8 +23,14 @@ data class CompactionEntry(
     val compactionId: String,
     /** 发起命令（手动压缩时的 commandId；缺席为 null）。 */
     val sourceCommandId: String? = null,
-    /** start 信封 seq（流内时序位）。 */
+    /** start 信封 seq（流内时序位；UI 锚定降级用——绑定点权威在 [shadowStartSeq]）。 */
     val seq: Long = 0L,
+    /**
+     * 2026-09-25 绑定点根修（DSH 0.1.7 调研 docs/research/dsh-compaction-binding.md）：
+     * shadowedRange 起点——被替代内容区间的时序锚。压缩卡渲染位绑定于此（随消息
+     * 上推），summary 信封 seq 天然落在日志尾部不能用作位置。null = wire 缺席。
+     */
+    val shadowStartSeq: Long? = null,
     /** start 信封 time（卡时间戳）。 */
     val startedAt: Long = 0L,
     /** 摘要全文（summary 事件到达前为 null；进行中 box 先 indeterminate）。 */
@@ -65,6 +71,7 @@ object CompactionFolder {
             return states.toMutableList().apply {
                 set(index, entry.copy(
                     summaryText = existing.summaryText,
+                    shadowStartSeq = existing.shadowStartSeq,
                     messageId = existing.messageId,
                     finishedAt = existing.finishedAt,
                     error = existing.error,
@@ -77,7 +84,11 @@ object CompactionFolder {
 
     fun onSummary(states: List<CompactionEntry>, event: SseEvent.CompactionSummary): List<CompactionEntry> =
         upgrade(states, event.compactionId, event.seq) {
-            it.copy(summaryText = event.summaryText, sourceCommandId = it.sourceCommandId ?: event.sourceCommandId)
+            it.copy(
+                summaryText = event.summaryText,
+                sourceCommandId = it.sourceCommandId ?: event.sourceCommandId,
+                shadowStartSeq = it.shadowStartSeq ?: event.shadowStartSeq,
+            )
         }
 
     fun onFinished(states: List<CompactionEntry>, event: SseEvent.CompactionFinished): List<CompactionEntry> =

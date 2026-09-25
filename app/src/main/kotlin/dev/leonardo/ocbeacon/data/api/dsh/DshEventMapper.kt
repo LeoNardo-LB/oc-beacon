@@ -802,6 +802,14 @@ object DshEventMapper {
                                 compactionId = cid,
                                 sourceCommandId = data.str("sourceCommandId")?.takeIf { it.isNotBlank() },
                                 summaryText = text,
+                                // 2026-09-25 绑定点根修：卡的流内时序位取被遮蔽区间
+                                // 起点（min 防 wire 先压缩后 start>end 形态）；残缺
+                                // 降级 null → 卡回退信封 seq。
+                                shadowStartSeq = data.obj("shadowedRange")?.let { rg ->
+                                    val a = rg.long("start")
+                                    val b = rg.long("end")
+                                    if (a != null && b != null) minOf(a, b) else null
+                                },
                                 seq = seq,
                                 time = time,
                             )
