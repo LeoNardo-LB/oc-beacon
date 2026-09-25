@@ -1,15 +1,13 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.markdown
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * #437 SafePrefixGate 判定表（spec §5 阶段 A 用例集）。
+ * #437 SafePrefixGate 判定表（2026-09-26 增量直出语义重钉）。
  *
- * 断言的是「放行前缀内不含差终止符构造」——放行长度本身；
- * 渲染层语义（高度单调量子增长）由放行流单调性保证（见单调性用例）。
+ * 纯文字（无活动标记）未完行逐批增量直出（字面=最终）；含标记行/围栏/表格
+ * 按闭合语义；单批预算 400 循环内扣减。
  */
 class SafePrefixGateTest {
 
@@ -23,121 +21,95 @@ class SafePrefixGateTest {
 
     @Test
     fun `已放行超过快照长度时原样返回`() {
-        // 防御语义：alreadyReleased 超长时夹到快照长度（非前缀由 pilot 重建路径拦截）
         assertEquals(3, rel("abc", 5))
     }
 
     @Test
-    fun `纯文字单行未完行全扣`() {
-        // 无换行：行中间前缀有重释义风险（未来同行可能出现标记）
-        assertEquals(0, rel("word1 word2"))
+    fun `纯文字未完行增量直出`() {
+        assertEquals(11, rel("word1 word2"))
     }
 
     @Test
-    fun `纯文字放行至最后换行边界`() {
-        // "line1\n" 放行，末行 "line2" 扣住
-        assertEquals(6, rel("line1\nline2"))
+    fun `纯文字多行含未完行全直出`() {
+        assertEquals(11, rel("line1\nline2"))
     }
 
     @Test
-    fun `末换行等于快照末尾时扣住末行防setext`() {
-        // b=lastNl+1==len → 未来可能来 "---" 升格 line2 → 退倒数第二换行
-        assertEquals(6, rel("line1\nline2\n"))
+    fun `末换行快照全量直出`() {
+        assertEquals(12, rel("line1\nline2\n"))
     }
 
     @Test
-    fun `单行加换行整段扣`() {
-        // 唯一换行在快照末尾：末行 "Title" 有 setext 风险，无倒数第二换行可退
-        assertEquals(0, rel("Title\n"))
+    fun `单行加换行整段直出`() {
+        assertEquals(6, rel("Title\n"))
     }
 
     @Test
     fun `空行毕业放行含空行`() {
-        // "para one\n\n" 定案放行，新段 "next" 扣住
-        assertEquals(10, rel("para one\n\nnext"))
+        assertEquals(14, rel("para one\n\nnext"))
     }
 
     @Test
     fun `标记回退到标记首现前`() {
-        // 区="text\n"（标记 `*` 截断），lastNl+1=5 < len → 放 "text\n"
         assertEquals(5, rel("text\n*bold* more"))
     }
 
     @Test
-    fun `标记段空行闭合后整段毕业`() {
-        // "*bold* done\n\n" 闭合定案全放，"after" 未完行扣
-        assertEquals(13, rel("*bold* done\n\nafter"))
+    fun `标记段空行闭合后整段毕业加尾行直出`() {
+        assertEquals(18, rel("*bold* done\n\nafter"))
     }
 
     @Test
     fun `行首有序列表起始扣住`() {
-        // "intro\n" 放行；行首 "1." 是列表起始——渲染成列表项会重排，扣
         assertEquals(6, rel("intro\n1. first\n2. second"))
     }
 
     @Test
-    fun `行中数字不触发有序列表规则`() {
-        // "version 1.9" 的 1 非行首 → 无标记 → 单行未完 → 全扣（=0，不因数字截断）
-        assertEquals(0, rel("version 1.9 is out"))
+    fun `行中数字不触发有序列表规则且直出`() {
+        assertEquals(18, rel("version 1.9 is out"))
     }
 
     @Test
     fun `代码围栏开标记整段扣留`() {
-        // 反引号是活动标记且在段首 → textLimit=0 → 全扣，等空行闭合按块成型
         assertEquals(0, rel("```kotlin\nval x = 1\n"))
     }
 
     @Test
     fun `围栏代码块空行后整体毕业`() {
         val s = "```kotlin\nval x = 1\n```\n\nafter"
-        // 空行@围栏闭合后："```kotlin\nval x = 1\n```\n\n" 定案全放（25 字符）
-        assertEquals(25, rel(s))
+        assertEquals(30, rel(s))
     }
 
     @Test
     fun `表格完整行逐行放行`() {
-        // 2026-09-25 重写：表头+分隔行整体放行后，完整表行逐行渐显（用户裁决）
-        // 末行无换行=未完行 → 扣住；放行=表头+分隔行整体（10+10=20）
         assertEquals(20, rel("| a | b |\n|---|---|\n| 1 | 2 |"))
     }
 
     @Test
     fun `表格未完行扣住`() {
-        // 末行表行未完（无换行）→ 扣到分隔行为止
         assertEquals(20, rel("| a | b |\n|---|---|\n| 1 | 2"))
     }
 
     @Test
     fun `表格完整行逐行渐显含尾换行`() {
-        // 两行表行均有换行 → 全放（40）；表行是 | 开头,无 setext 回退
         assertEquals(40, rel("| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n"))
     }
 
     @Test
     fun `表头分隔未齐整块扣`() {
-        // 分隔行未到：表头行也不放（零输出等成形）
         assertEquals(0, rel("| a | b |\ntext"))
     }
 
     @Test
     fun `未闭合围栏整块扣留含内容行`() {
-        // 用户裁决「没有内容输出，等闭合符号来了之后再整体输出」：
-        // 开栏即扣，闭栏落地后整块（含开/闭栏行）放行
-        assertEquals(5, rel("text\n```kotlin\nval x = 1\nval y = 2")) // 前置文字行放行,围栏起全扣
-        assertEquals(39, rel("text\n```kotlin\nval x = 1\nval y = 2\n```\n")) // 闭栏落地整块放行(5+34)
+        assertEquals(5, rel("text\n```kotlin\nval x = 1\nval y = 2"))
+        assertEquals(39, rel("text\n```kotlin\nval x = 1\nval y = 2\n```\n"))
     }
 
     @Test
-    fun `表格空行闭合毕业`() {
-        val s = "| a | b |\n|---|---|\n\ntail"
-        // 表格+空行定案（10+10+1=21 字符）放行，"tail" 扣
-        assertEquals(21, rel(s))
-    }
-
-    @Test
-    fun `超长纯文字段不崩溃且全扣`() {
-        val s = buildString { repeat(3000) { append("word$it ") } } // 无换行
-        assertEquals(0, rel(s))
+    fun `超长纯文字段按预算直出`() {
+        val s = buildString { repeat(3000) { append("word") ; append(it) ; append(" ") } }
+        assertEquals(400, rel(s))
     }
 
     @Test
@@ -149,71 +121,80 @@ class SafePrefixGateTest {
         )
         val releases = batches.map { snap ->
             val r = rel(snap, released)
-            assert(r >= released) { "放行回退: $released -> $r @ '$snap'" }
+            assert(r >= released)
             released = r
             r
         }
-        // 第1批单行扣0；第2批放首行；第3批标记前截断仍7；第4批**test**行仍扣（标记行）；
-        // 第5批空行毕业跳到定案整段
-        // 第5批空行毕业：放行 "**test**" 行 + "streaming.\n\n"（12+22+11+1=46）
-        assertEquals(listOf(0, 12, 12, 12, 46), releases)
+        assertEquals(listOf(5, 19, 19, 19, 51), releases)
     }
 
     @Test
     fun `already非零时从边界继续放行`() {
-        // 上批放行到 10（"para one\n\n"）；本批增量 "para one\n\nnext line\nmore"
-        assertEquals(20, rel("para one\n\nnext line\nmore", 10))
+        assertEquals(24, rel("para one\n\nnext line\nmore", 10))
     }
 
     @Test
     fun `表格粘边注入补空行`() {
         val snap = "para\n| a |\n|---|\n| 1 |\n\ntail"
         val d = SafePrefixGate.releaseDelta(snap, 0)
-        assertEquals("para\n\n| a |\n|---|\n| 1 |\n\n", d.delta) // para 与表头间注入空行
-        assertEquals(24, d.newReleased) // 空行毕业到 tail 前
+        assertEquals("para\n\n| a |\n|---|\n| 1 |\n\ntail", d.delta)
+        assertEquals(28, d.newReleased)
     }
 
     @Test
     fun `表格已有空行不注入`() {
         val snap = "para\n\n| a |\n|---|\n\ntail"
         val d = SafePrefixGate.releaseDelta(snap, 0)
-        assertEquals("para\n\n| a |\n|---|\n\n", d.delta) // 已有空行，零注入
-        assertEquals(19, d.newReleased)
+        assertEquals("para\n\n| a |\n|---|\n\ntail", d.delta)
+        assertEquals(23, d.newReleased)
     }
 
     @Test
     fun `表格前行为表格延续不注入`() {
         val snap = "| a |\n|---|\n| 1 |\n\ntail"
         val d = SafePrefixGate.releaseDelta(snap, 0)
-        assertEquals("| a |\n|---|\n| 1 |\n\n", d.delta) // 快照首即表格，无前行不注入
-        assertEquals(19, d.newReleased)
+        assertEquals("| a |\n|---|\n| 1 |\n\ntail", d.delta)
+        assertEquals(23, d.newReleased)
     }
 
     @Test
     fun `tasklist字符扣留`() {
-        val snap = "- ☐ task one\n"
-        // 扣留（tasklist/math 完结变换字符触发差终止符）
-        assertEquals(0, SafePrefixGate.releaseLength(snap, 0))
+        assertEquals(0, SafePrefixGate.releaseLength("- ☐ task one\n", 0))
     }
 
     @Test
     fun `数学块双美元扣留`() {
-        val snap = "formula \$\$x^2\$\$ next"
-        // 扣留（tasklist/math 完结变换字符触发差终止符）
-        assertEquals(0, SafePrefixGate.releaseLength(snap, 0))
+        assertEquals(0, SafePrefixGate.releaseLength("formula \$\$x^2\$\$ next", 0))
     }
 
     @Test
     fun `单美元放行不扣`() {
         val snap = "price is 5$\nnext line"
         val d = SafePrefixGate.releaseDelta(snap, 0)
-        assertEquals("price is 5$\n", d.delta)
-        assertEquals(12, d.newReleased) // 换行边界，扣住未完行 next line
+        assertEquals("price is 5$\nnext line", d.delta)
+        assertEquals(21, d.newReleased)
     }
 
     @Test
     fun `CRLF空行毕业兼容`() {
-        // CR 视作行内空白：空行检测跳过 \r
-        assertEquals(12, rel("para one\r\n\r\nafter"))
+        assertEquals(17, rel("para one\r\n\r\nafter"))
+    }
+
+    @Test
+    fun `预算中点截断续放一致`() {
+        val s = "a".repeat(1000)
+        assertEquals(400, rel(s, 0))
+        assertEquals(800, rel(s, 400))
+        assertEquals(1000, rel(s, 800))
+    }
+
+    @Test
+    fun `行续段不作表头判定`() {
+        assertEquals(3, rel("abc | a |\n|---|\n| 1 |\n", 3))
+    }
+
+    @Test
+    fun `行续段纯文字继续直出`() {
+        assertEquals(7, rel("abc def", 3))
     }
 }
