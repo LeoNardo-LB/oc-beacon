@@ -98,6 +98,55 @@ class HeldTailAgingTest {
     }
 
     @Test
+    fun `超龄首亮量子上限`() {
+        // #437 验收九轮：中继停顿冲刷 → 扣留区瞬时积压数千 px，首亮不得一次落地
+        var t = 0L
+        val s = HeldTailAgingState(now = { t })
+        s.update("停顿冲刷的大段文本", 7378)
+        t = 300; s.update("停顿冲刷的大段文本", 7378)
+        assertTrue(s.visible)
+        assertEquals(HeldTailAgingState.ONSET_REVEAL_CAP_PX, s.lockedHeightPx)
+    }
+
+    @Test
+    fun `首亮后按步进铺开至自然高`() {
+        var t = 0L
+        val s = HeldTailAgingState(now = { t })
+        s.update("burst", 7378)
+        t = 300; s.update("burst", 7378)   // 首亮 800
+        t = 800; s.update("burst", 7378)   // 步进 800+1600
+        assertEquals(2400, s.lockedHeightPx)
+        t = 1300; s.update("burst", 7378)
+        assertEquals(4000, s.lockedHeightPx)
+        t = 1800; s.update("burst", 7378)
+        assertEquals(5600, s.lockedHeightPx)
+        t = 2300; s.update("burst", 7378)
+        assertEquals(7200, s.lockedHeightPx)
+        t = 2800; s.update("burst", 7378)
+        assertEquals(7378, s.lockedHeightPx) // 收敛至自然高（不超过）
+    }
+
+    @Test
+    fun `小尾巴不受量子上限影响`() {
+        var t = 0L
+        val s = HeldTailAgingState(now = { t })
+        s.update("小尾巴", 96)
+        t = 300; s.update("小尾巴+", 150)
+        assertEquals(150, s.lockedHeightPx)
+    }
+
+    @Test
+    fun `步进随自然高收缩`() {
+        // 毕业使扣留变短：自然高回落后锁高不得高于自然高
+        var t = 0L
+        val s = HeldTailAgingState(now = { t })
+        s.update("burst", 7378)
+        t = 300; s.update("burst", 7378)   // 首亮 800
+        t = 800; s.update("short", 300)    // 大批毕业 → 自然高 300
+        assertEquals(300, s.lockedHeightPx)
+    }
+
+    @Test
     fun `自定义阈值注入生效`() {
         var t = 0L
         val s = HeldTailAgingState(now = { t }, revealAfterMs = 100, heightRefreshMs = 50)

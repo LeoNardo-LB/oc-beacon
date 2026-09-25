@@ -56,7 +56,16 @@ internal class HeldTailAgingState(
         if (visible && naturalHeightPx > 0 &&
             (lastRefreshMs < 0 || t - lastRefreshMs >= heightRefreshMs)
         ) {
-            lockedHeightPx = naturalHeightPx
+            // #437 验收九轮：超龄首亮/步进均按量子上限铺开——中继停顿冲刷会使扣留区
+            // 瞬时积压数千 px（真机实测 aged reveal chars=1091 → 单帧 7378px），一次性
+            // 落地会打穿 gate 量子化并迫使配对单帧巨额 set（含锚上方重排时视觉跳变）。
+            // 首亮自 ONSET_REVEAL_CAP_PX 起步，此后每 HEIGHT_REFRESH_MS 步进
+            // STEP_REVEAL_CAP_PX，向自然高单调收敛；小尾巴（正常流速）不受上限影响。
+            lockedHeightPx = if (lastRefreshMs < 0) {
+                naturalHeightPx.coerceAtMost(ONSET_REVEAL_CAP_PX)
+            } else {
+                (lockedHeightPx + STEP_REVEAL_CAP_PX).coerceAtMost(naturalHeightPx)
+            }
             lastRefreshMs = t
         }
     }
@@ -67,5 +76,11 @@ internal class HeldTailAgingState(
 
         /** 锁高刷新节流（降亮区高度量子间隔）。 */
         const val HEIGHT_REFRESH_MS = 500L
+
+        /** #437 验收九轮：超龄首亮高度上限——防停顿冲刷单帧巨额落地。 */
+        const val ONSET_REVEAL_CAP_PX = 800
+
+        /** #437 验收九轮：首亮后锁高步进上限（每 HEIGHT_REFRESH_MS）。 */
+        const val STEP_REVEAL_CAP_PX = 1600
     }
 }
