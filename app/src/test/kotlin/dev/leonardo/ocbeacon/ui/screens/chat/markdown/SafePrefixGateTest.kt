@@ -95,9 +95,36 @@ class SafePrefixGateTest {
     }
 
     @Test
-    fun `表格行扣留`() {
-        // '|' 在标记集 → 段首截断 → 全扣
-        assertEquals(0, rel("| a | b |\n|---|---|\n| 1 | 2 |"))
+    fun `表格完整行逐行放行`() {
+        // 2026-09-25 重写：表头+分隔行整体放行后，完整表行逐行渐显（用户裁决）
+        // 末行无换行=未完行 → 扣住；放行=表头+分隔行整体（10+10=20）
+        assertEquals(20, rel("| a | b |\n|---|---|\n| 1 | 2 |"))
+    }
+
+    @Test
+    fun `表格未完行扣住`() {
+        // 末行表行未完（无换行）→ 扣到分隔行为止
+        assertEquals(20, rel("| a | b |\n|---|---|\n| 1 | 2"))
+    }
+
+    @Test
+    fun `表格完整行逐行渐显含尾换行`() {
+        // 两行表行均有换行 → 全放（40）；表行是 | 开头,无 setext 回退
+        assertEquals(40, rel("| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n"))
+    }
+
+    @Test
+    fun `表头分隔未齐整块扣`() {
+        // 分隔行未到：表头行也不放（零输出等成形）
+        assertEquals(0, rel("| a | b |\ntext"))
+    }
+
+    @Test
+    fun `未闭合围栏整块扣留含内容行`() {
+        // 用户裁决「没有内容输出，等闭合符号来了之后再整体输出」：
+        // 开栏即扣，闭栏落地后整块（含开/闭栏行）放行
+        assertEquals(5, rel("text\n```kotlin\nval x = 1\nval y = 2")) // 前置文字行放行,围栏起全扣
+        assertEquals(39, rel("text\n```kotlin\nval x = 1\nval y = 2\n```\n")) // 闭栏落地整块放行(5+34)
     }
 
     @Test

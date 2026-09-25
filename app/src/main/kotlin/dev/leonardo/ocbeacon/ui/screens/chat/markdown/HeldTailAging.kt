@@ -51,7 +51,10 @@ internal class HeldTailAgingState(
         }
         val t = now()
         if (heldSinceMs < 0) heldSinceMs = t
-        if (t - heldSinceMs >= revealAfterMs) visible = true
+        // 2026-09-25 用户裁决「未闭合构造零输出」：超龄揭示（降亮区）整体关闭——
+        // gate 重写后扣留区只含未闭合块/未完行，任何提前揭示都会展示注定重排的
+        // 中间态。heldForMs 保留计时仅供观测；visible 恒 false。
+        // if (t - heldSinceMs >= revealAfterMs) visible = true
         // naturalHeightPx<=0（可见前无布局观测）不锁高——防止可见瞬间锁 0
         if (visible && naturalHeightPx > 0 &&
             (lastRefreshMs < 0 || t - lastRefreshMs >= heightRefreshMs)

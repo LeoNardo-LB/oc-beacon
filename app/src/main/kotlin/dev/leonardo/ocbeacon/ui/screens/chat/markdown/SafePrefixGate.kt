@@ -1,39 +1,37 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.markdown
 
 /**
- * #437 两级安全放行闸（spec §2，纯函数，零库依赖）。
+ * #437 两级安全放行闸（2026-09-25 块级重写，纯函数，零库依赖）。
  *
- * 使命：把交给 [com.mikepenz.markdown.model.StreamingMarkdownState.append] 的
- * 文本流变成「定案内容」——放行前缀内不含差终止符的构造，从源头消除
- * L4 不稳定尾回溯重释义（跳变主源）。库内 stable/unstable 分裂退居第二道
- * 防线：放行内容里的不稳定尾只能是纯文字（其字面临时排版 = 最终排版）。
+ * 使命：把交给 StreamingMarkdownState.append 的文本流变成「定案内容」。
+ * 用户裁决（2026-09-25）：未闭合构造零输出，闭合符号落地后整体上屏；表格按
+ * 完整行渐显。
  *
  * 放行规则（对快照 S、已放行长度 floor）：
- *  1. **空行毕业**：开放区中最后一个空行块之前的全部内容已定案（段落终结
- *     符落地，标记段的最终解释随之确定）→ 无条件放行至空行块后；
- *  2. **最后开放段**：
- *     a. 段内首个活动标记（`*_~#>|[]!-`` 反引号，或行首有序列表起始
- *        `数字+[.)]`）之前的纯文字区；出现标记 → 其后全部扣留等闭合；
- *     b. 纯文字区放行至**最后一个换行边界**；该边界若等于快照末尾
- *        （未来未知，末行有 setext 升格风险）→ 退至倒数第二个换行边界
- *        （扣住最后一行）。
+ *  1. 空行毕业：开放区中最后一个空行块之前的全部内容已定案 → 无条件放行；
+ *  2. 块级行扫描（最后开放段内逐行状态机）：
+ *     a. 围栏代码块：开栏行起整体扣留（零输出），闭栏行落地后整块放行
+ *        （含开/闭栏行）；扣留跨批时经全文围栏状态扫描恢复状态（phase-0）；
+ *     b. 表格：表头+分隔行两行齐备后整体放行，其后每条完整表行逐行放行
+ *        （GFM 按行增长无重释义——单调安全）；
+ *     c. 普通行：完整行且行内无活动标记 → 放行至行尾；含标记（未闭合
+ *        内联构造）或未完行 → 从该行起扣留，等空行毕业或完结 flush。
  *
  * 不变量：
  *  - 结果单调不回退（>= alreadyReleased）——放行流只增不减，与 #435 高度
  *    引擎「锚即意图」配对天然兼容（单调量子增长）；
- *  - 扣留内容去路恒两条：毕业（空行/换行边界推进）或完结 EOF 全量 flush
- *    （preParsedState 分支接管整串渲染）——一字不丢；
- *  - 放行边界必满足 snapshot[b-1]=='\n' 或 b==段起点：行中间的纯文字
- *    前缀不放（未来同行出现标记字符会重释义已上屏内容）。
+ *  - 扣留内容去路恒两条：毕业（空行/闭栏/换行边界推进）或完结 EOF 全量
+ *    flush——一字不丢；
+ *  - 放行边界必为行边界或块边界：行中间前缀不放。
  */
 internal object SafePrefixGate {
 
     /**
-     * 活动标记字符集：出现即差终止符（其后内容回退扣留等闭合）。
-     * ☐/☑/✅（#437 阶段 C）：normalizeTaskListMarkers 完结变换字符——流中
-     * 字面放行会在完结时替换为 GFM 任务列表（重排），扣留等空行闭合。
+     * 活动标记字符集：行内出现即差终止符（未闭合内联构造，未来行可闭合回溯
+     * 重释义已上屏内容）。☐/☑/✅（#437 阶段 C）：normalizeTaskListMarkers 完结
+     * 变换字符——流中字面放行会在完结时替换为 GFM 任务列表，扣留等空行闭合。
      */
-    private const val ACTIVE_MARKERS = "*_~#>|[]!`\u2610\u2611\u2705"
+    private const val ACTIVE_MARKERS = "*_~#>|[]!\u2610\u2611\u2705"
 
     /** CommonMark 有序列表起始标记的最多位数。 */
     private const val ORDERED_LIST_MAX_DIGITS = 9
@@ -47,58 +45,80 @@ internal object SafePrefixGate {
         if (floor >= snapshot.length) return floor
 
         // —— 第一级：空行毕业——开放区内最后一个空行块之后的起点。
-        // 行首跟踪必不可少：换行符本身落在行尾，若在行中位置判空行会把
-        // 行尾 \n 误当空行行首、把 cand 推到错误位置（放行过多）。
         var cand = floor
         var i = floor
-        var atLineStart = true // floor（上轮放行边界）恒为行首：换行后或空行后
+        var atLineStart = true // floor（上轮放行边界）恒为行首
         while (i < snapshot.length) {
             if (atLineStart && isBlankLineAt(snapshot, i)) {
                 i = skipBlankLines(snapshot, i)
                 cand = i
-                // skipBlankLines 返回处必为行首（或 len）
             } else {
                 atLineStart = snapshot[i] == '\n'
                 i++
             }
         }
 
-        // —— 第二级 a：最后开放段 [cand, end) 内首个活动标记
-        var textLimit = snapshot.length
-        var lineStart = true
+        // —— 第二级：块级行扫描（2026-09-25 用户裁决重写）。
+        var allowed = cand
         var j = cand
+        var inFence = fenceStateAt(snapshot, cand)
         while (j < snapshot.length) {
-            val c = snapshot[j]
-            if (lineStart && isOrderedListStart(snapshot, j)) { textLimit = j; break }
-            if (ACTIVE_MARKERS.indexOf(c) >= 0) { textLimit = j; break }
-            // $$（transformMathFallback 完结变换）——单 $ 是普通文字放行
-            if (c == '$' && j + 1 < snapshot.length && snapshot[j + 1] == '$') { textLimit = j; break }
-            lineStart = c == '\n'
-            j++
+            val nl = snapshot.indexOf('\n', j)
+            val complete = nl >= 0
+            val lineEnd = if (complete) nl else snapshot.length
+            val line = snapshot.substring(j, lineEnd)
+            when {
+                inFence -> {
+                    // 扣留块内部：完整行逐行放行（含闭栏行），闭栏后退出块态
+                    if (!complete) break
+                    allowed = nl + 1
+                    j = nl + 1
+                    if (isFenceClose(line)) inFence = false
+                }
+                isFenceOpen(line) != null -> {
+                    // 未闭合围栏：从开栏行起整体扣留（零输出）
+                    val close = findFenceClose(snapshot, lineEnd + 1, isFenceOpen(line)!!)
+                    if (close < 0) break
+                    allowed = close
+                    j = close
+                }
+                complete && isTableHeaderRow(line) -> {
+                    val sepNl = snapshot.indexOf('\n', nl + 1)
+                    val sep = if (sepNl < 0) "" else snapshot.substring(nl + 1, sepNl)
+                    if (sepNl >= 0 && isTableSeparatorRow(sep)) {
+                        // 表头+分隔行整体放行，其后完整表行逐行渐显
+                        allowed = sepNl + 1
+                        var k = sepNl + 1
+                        while (k < snapshot.length) {
+                            val rNl = snapshot.indexOf('\n', k)
+                            if (rNl < 0) break
+                            if (!isTableRowLine(snapshot.substring(k, rNl))) break
+                            allowed = rNl + 1
+                            k = rNl + 1
+                        }
+                        j = k
+                    } else break // 表未成形（分隔行未到/不完整）：扣留
+                }
+                complete && !lineHasActiveMarker(line) -> { allowed = nl + 1; j = nl + 1 }
+                else -> break // 含活动标记的行 / 未完行：扣留等毕业
+            }
         }
-
-        // —— 第二级 b：纯文字区 [cand, textLimit) 放行至最后换行边界
-        var lastNl = -1
-        var secondNl = -1
-        for (k in cand until textLimit) {
-            if (snapshot[k] == '\n') { secondNl = lastNl; lastNl = k }
+        // setext 守卫（保留旧语义）：快照以换行结束且末条已放行行是普通文字行
+        // → 回退一行（未来 "---"/"===" 会把它升格为 setext 标题=重释义）。
+        if (allowed > cand && snapshot.endsWith("\n") && !inFence) {
+            val prevNl = snapshot.lastIndexOf('\n', allowed - 2)
+            val lineStart = prevNl + 1
+            if (lineStart >= cand) {
+                val prevLine = snapshot.substring(lineStart, allowed - 1)
+                if (prevLine.isNotBlank() && isFenceOpen(prevLine) == null && !isTableRowLine(prevLine)) {
+                    allowed = lineStart
+                }
+            }
         }
-        val boundary = when {
-            // 区内无换行：未完行不放（行中间前缀有重释义风险）
-            lastNl < 0 -> cand
-            // 主规则：最后换行后已有快照内容占位——未来前缀不变，末行安全
-            lastNl + 1 < snapshot.length -> lastNl + 1
-            // 末换行即快照末尾：末行 setext 风险（未来可能来 "---"），扣住退一格
-            secondNl >= 0 -> secondNl + 1
-            // 仅一个换行且在快照末尾：整段扣
-            else -> cand
-        }
-        // #437 验收二轮（非贴底震荡+下拉定罪）：单批放行量子上限。空行毕业
-        // 一次可放整段（实测 1366ch→item 单帧 +1830px 暴涨）——LazyList 对
-        // 暴涨的锚定校正产生「吸底→弹回」两态翻转（ScrollDiag LEAP 0↔7 实证）
-        // =用户看到的震荡。限制单批后超出部分留扣留区，下一批（48ms）继续。
-        // 截断点回退换行边界（不放半行；截断构造中部可接受——库 unstable 尾
-        // 按字面渲染，闭合无跳变）。
+        val boundary = allowed
+        // #437 验收二轮：单批放行量子上限。空行毕业一次可放整段——LazyList 对
+        // 暴涨的锚定校正产生「吸底→弹回」两态翻转（用户看到的震荡）。限制单批后
+        // 超出部分留扣留区，下一批（48ms）继续。截断点回退行边界（不放半行）。
         var release = maxOf(floor, boundary)
         if (release - floor > MAX_RELEASE_PER_BATCH) {
             val cap = floor + MAX_RELEASE_PER_BATCH
@@ -108,6 +128,95 @@ internal object SafePrefixGate {
         return release
     }
 
+    // ===== 块级判定辅助（2026-09-25 行扫描重写） =====
+
+    /** 开栏行：≤3 空白缩进 + ≥3 个反引号或 ~ + info string（反引号栏 info 不得含反引号）。返回 栏字符 to 栏长。 */
+    private fun isFenceOpen(line: String): Pair<Char, Int>? {
+        var i = 0
+        var indent = 0
+        while (i < line.length && indent < 3 && (line[i] == ' ' || line[i] == '\t')) { i++; indent++ }
+        if (i >= line.length) return null
+        val c = line[i]
+        if (c != '`' && c != '~') return null
+        var n = 0
+        while (i + n < line.length && line[i + n] == c) n++
+        if (n < 3) return null
+        val rest = line.substring(i + n)
+        if (c == '`' && rest.indexOf('`') >= 0) return null
+        return c to n
+    }
+
+    /** 闭栏行：仅 ≥3 个同字符 + 可选空白（无 info）。 */
+    private fun isFenceClose(line: String): Boolean {
+        val t = line.trim(' ', '\t')
+        if (t.isEmpty()) return false
+        val c = t[0]
+        if (c != '`' && c != '~') return false
+        var n = 0
+        while (n < t.length && t[n] == c) n++
+        return n >= 3 && n == t.length
+    }
+
+    /** 从 [from] 起找与 [open] 配对的闭栏行，返回放行边界（含闭栏行换行）；未闭合 = -1。 */
+    private fun findFenceClose(snapshot: String, from: Int, open: Pair<Char, Int>): Int {
+        var k = from
+        while (k <= snapshot.length) {
+            val nl = snapshot.indexOf('\n', k)
+            val line = snapshot.substring(k, if (nl < 0) snapshot.length else nl)
+            val t = line.trim(' ', '\t')
+            var n = 0
+            while (n < t.length && t[n] == open.first) n++
+            if (n >= open.second && n == t.length) {
+                return if (nl < 0) snapshot.length else nl + 1
+            }
+            if (nl < 0) break
+            k = nl + 1
+        }
+        return -1
+    }
+
+    /**
+     * [pos] 处是否处于未闭合围栏内部——从快照行首扫描到 pos 恢复围栏状态。
+     * 行扫描批间无状态（cand 会落在上批未放行块内部），每批 O(n) 重建
+     * （n=快照长，数十 KB 量级，48ms 批节奏下成本可忽略）。
+     */
+    private fun fenceStateAt(snapshot: String, pos: Int): Boolean {
+        var inFence = false
+        var openLen = 3
+        var openChar = '`'
+        var k = 0
+        while (k < pos) {
+            val nl = snapshot.indexOf('\n', k)
+            val lineEnd = if (nl < 0) pos else nl
+            val line = snapshot.substring(k, lineEnd)
+            if (inFence) {
+                val t = line.trim(' ', '\t')
+                var n = 0
+                while (n < t.length && t[n] == openChar) n++
+                if (n >= openLen && n == t.length) inFence = false
+            } else {
+                val open = isFenceOpen(line)
+                if (open != null) { inFence = true; openChar = open.first; openLen = open.second }
+            }
+            if (nl < 0 || lineEnd >= pos) break
+            k = lineEnd + 1
+        }
+        return inFence
+    }
+
+    /** 行内含活动标记（未闭合内联构造风险）、双美元（完结数学变换）或行首有序列表起始。单美元是普通文字。 */
+    private fun lineHasActiveMarker(line: String): Boolean {
+        for (k in line.indices) {
+            val c = line[k]
+            if (ACTIVE_MARKERS.indexOf(c) >= 0) return true
+            if (c == '$' && k + 1 < line.length && line[k + 1] == '$') return true
+        }
+        return isOrderedListStart(line, 0)
+    }
+
+    /** 表行：非空白起始为 |（与 GFM 宽松判定一致——逐行渐显足够）。 */
+    private fun isTableRowLine(line: String): Boolean = line.trimStart(' ', '\t').startsWith("|")
+
     /** 放行决策：新放行长度（快照坐标）+ 实际交给 append 的 delta 文本。 */
     internal class ReleaseDecision(val newReleased: Int, val delta: String)
 
@@ -115,13 +224,10 @@ internal object SafePrefixGate {
      * #437 阶段 C：放行决策（含表格粘边空行注入）。
      *
      * 完结归一化 ensureBlankLineBeforeGfmTables 会在「文字行紧贴表头行」处
-     * 补空行——若流中把粘连内容按原样放行，完结帧该内容从字面段落重排为
-     * 表格（已放行内容收缩，引擎不配对收缩=跳变）。此处在放行 delta 内做
-     * 与归一化同判定的增量前移：表头行（| 包裹）+分隔行（|[-:\s|]+|）且前
-     * 行非空非 | 结尾 → 表头前插 \n。注入后归一化幂等（不再命中），流中
-     * 与完结渲染一致。
+     * 补空行——此处在放行 delta 内做与归一化同判定的增量前移（注入后归一化
+     * 幂等，流中与完结渲染一致）。
      *
-     * [newReleased] 是快照坐标；[delta] 可能比快照区间多注入的 \n——
+     * [newReleased] 是快照坐标；[delta] 可能比快照区间多注入的换行——
      * state.content 与快照长度自此解耦（调用方从不比较二者）。
      */
     fun releaseDelta(snapshot: String, alreadyReleased: Int): ReleaseDecision {
@@ -160,10 +266,7 @@ internal object SafePrefixGate {
         return out.toString()
     }
 
-    /**
-     * 单批放行上限（字符）——约 6-8 行正文。超出跨批渐进（48ms/批），
-     * 高度流平滑量子化（见 releaseLength 内注释）。
-     */
+    /** 单批放行上限（字符）——约 6-8 行正文。超出跨批渐进（48ms/批）。 */
     private const val MAX_RELEASE_PER_BATCH = 400
 
     /** 表头行：可选缩进 + | 开头 + | 结尾（含至少一个内部字符）。 */
@@ -192,7 +295,7 @@ internal object SafePrefixGate {
         if (from == 0) return false
         val prevNl = snapshot.lastIndexOf('\n', from - 2)
         val lineStart = prevNl + 1
-        val prevEnd = from - 1 // from 前必是 \n（放行边界恒在换行后）或行中？
+        val prevEnd = from - 1 // from 前必是换行（放行边界恒在行后）或行中
         if (lineStart >= prevEnd) return false
         val line = snapshot.substring(lineStart, prevEnd.coerceAtMost(snapshot.length))
         return line.isNotEmpty() && !line.endsWith("|")
