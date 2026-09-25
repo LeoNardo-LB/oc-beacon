@@ -1255,7 +1255,9 @@ fun ChatMessageList(
                                 "Transcript378",
                                 "plan cmds=" + commandFeedbackRows.size + " compactions=" + compactionEntries.size +
                                     " extras=" + it.first.size + " trailing=" + it.second.size +
-                                    " displaySeqs=" + displayItems.map { d -> dev.leonardo.ocbeacon.domain.model.DshMessageId.seqOf(d.second.message.id) }.take(6),
+                                    " displaySeqs=" + displayItems.map { d -> dev.leonardo.ocbeacon.domain.model.DshMessageId.seqOf(d.second.message.id) }.take(6) +
+                                " lastSeqs=" + displayItems.takeLast(4).map { d -> dev.leonardo.ocbeacon.domain.model.DshMessageId.seqOf(d.second.message.id) } +
+                                " cardSeqs=" + (commandFeedbackRows.map { "cmd:" + it.seq } + compactionEntries.map { "cmp:" + it.seq + "/" + (it.shadowStartSeq ?: -1L) }),
                             )
                         }
                     }

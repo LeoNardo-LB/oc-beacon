@@ -251,14 +251,15 @@ internal fun streamingGrowFlushTask(
         // 溢出沿可见 items 向 index 增大换算（reverseLayout 视觉向上）。
         var targetFii = fii
         var targetFiso = fiso + total.toInt()
+        var targetKey: Any? = null
         var guard = 0
         while (guard++ < 64) {
             val anchor = infos.firstOrNull { it.index == targetFii } ?: break
-            if (targetFiso < anchor.size) break
+            if (targetFiso < anchor.size) { targetKey = anchor.key; break }
             targetFiso -= anchor.size
             targetFii++
         }
-        LazyListReflection.requestScrollToItemNoCancel(listState, targetFii, targetFiso)
+        LazyListReflection.requestScrollToItemNoCancel(listState, targetFii, targetFiso, targetKey)
         if (BuildConfig.DEBUG) {
             AppLogger.d(
                 "SGR-435",
@@ -292,6 +293,13 @@ internal data class LazyListProbes(
     val scrollPositionField: java.lang.reflect.Field,
     val requestPositionMethod: java.lang.reflect.Method,
     val invalidatorField: java.lang.reflect.Field,
+    /**
+     * 2026-09-25 键保持通道（可选）：requestPositionAndForgetLastKnownKey 会遗忘
+     * 锚 item 的 lastKnownKey——其后 item 插入/重排按字面 index 重锚 → 大额 set 后
+     * 视觉跳变（R9 LEAP 实证）。set 同帧回写与目标位一致的 key 即消除。字段缺失
+     * （版本漂移）= 通道降级为旧行为，不影响探针整体可用。
+     */
+    val lastKnownKeyField: java.lang.reflect.Field?,
 )
 
 /**
@@ -313,7 +321,8 @@ internal fun resolveLazyListProbes(
             java.lang.Integer.TYPE,
         ) ?: return null
     val invalidatorField = lookupField(stateClass, "measurementScopeInvalidator") ?: return null
-    return LazyListProbes(scrollPositionField, requestPositionMethod, invalidatorField)
+    val lastKnownKeyField = lookupField(scrollPositionField.type, "lastKnownFirstItemKey")
+    return LazyListProbes(scrollPositionField, requestPositionMethod, invalidatorField, lastKnownKeyField)
 }
 
 private fun defaultResolveClass(name: String): Class<*>? = try {
@@ -361,13 +370,22 @@ internal object LazyListReflection {
      *@ExperimentalFoundationApi;会取消 fling,但保证位置设置生效、不崩溃)。
      */
     @OptIn(ExperimentalFoundationApi::class)
-    fun requestScrollToItemNoCancel(state: LazyListState, index: Int, scrollOffset: Int) {
+    fun requestScrollToItemNoCancel(state: LazyListState, index: Int, scrollOffset: Int, key: Any? = null) {
         // smart-cast 友好:局部非空变量
         val p = probes
         if (p != null) {
             try {
                 val pos = p.scrollPositionField.get(state)
                 p.requestPositionMethod.invoke(pos, index, scrollOffset)
+                // 键保持（2026-09-25）：目标位 item 的 key 回写 lastKnownKey——
+                // 插入/重排后 LazyList 仍按 key 重锚，消除字面 index 失配跳变。
+                if (key != null) {
+                    p.lastKnownKeyField?.let { f ->
+                        try { f.set(pos, key) } catch (t: Throwable) {
+                            AppLogger.w("LazyListReflection", "lastKnownKey set failed: " + t.message)
+                        }
+                    }
+                }
                 @Suppress("UNCHECKED_CAST")
                 (p.invalidatorField.get(state) as MutableState<Unit>).value = Unit
                 return

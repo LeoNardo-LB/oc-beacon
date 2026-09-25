@@ -29,6 +29,18 @@ class LazyListReflectionTest {
         )
     }
 
+    /** 冒烟:键保持通道（lastKnownKey 字段,可选降级）在当前 BOM 上在场。 */
+    @Test
+    fun `lastKnownKey field resolves at current compose BOM`() {
+        val probes = resolveLazyListProbes()
+        assertNotNull(probes)
+        assertNotNull(
+            "lastKnownFirstItemKey 字段缺失（键保持通道降级为旧行为）=2026-09-25 配对 set 键保持降级为旧行为（不崩溃,但" +
+                "重锚跳变回归）；核销=按 ScrollCompensation.kt 反射头注释核销新字段",
+            probes?.lastKnownKeyField,
+        )
+    }
+
     /** 降级①:类解析失败(NoClassDefFound/改名) → null → 官方 API 降级。 */
     @Test
     fun `probes null when class cannot be resolved`() {
