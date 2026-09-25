@@ -100,6 +100,13 @@ internal fun rememberChatScrollController(
      *  收敛，超时终态=底部——用户点最早消息落点在最新区）。 */
     jumpLockActive: androidx.compose.runtime.State<Boolean> =
         androidx.compose.runtime.mutableStateOf(false),
+    /** #437 验收六轮（引擎底层重构，用户授权）：流式输出进行中——
+     * MSGEFFECT 锚底与 GUARD 重锚在此期间完全静默（贴底原点由 reverseLayout
+     * 物理跟随；非贴底由高度引擎配对 set 保持画面）。两者原为「非流式异步
+     * 增长」（打开会话/展开卡片后内容长高漂移）设计；流式期间运行会与配对
+     * set 互搏：MSGEFFECT 每 part 拉底=用户上滑瞬间被拽回；GUARD 把配对位移
+     * 当离底漂移重锚=拉锯震荡。 */
+    streamingActive: () -> Boolean = { false },
 ): ChatScrollController {
     val autoScrollEnabled = rememberSaveable { mutableStateOf(true) }
     val forceScrollTick = remember { mutableIntStateOf(0) }
@@ -133,10 +140,13 @@ internal fun rememberChatScrollController(
                 }
                 if (scrolling) {
                     autoScrollEnabled.value = false
-                } else if (atBottom) {
+                } else if (atBottom && !streamingActive()) {
                     // #301：稳定贴底去抖再武装（原瞬时再武装与下跳守卫组成自持
                     // 拉底循环——拉底→贴底→再武装→闪断帧守卫再拉底；真机 LEAP
                     // 0↔2000px 弹跳签名，用户体感「上滑被高频拽回最底」）。
+                    // #437 验收六轮：流式中不 rearm——贴底原点物理跟随无需 autoOn，
+                    // 提前 rearm 会在流式结束瞬间（streamingActive 翻 false）由
+                    // GUARD 对已非贴底视口补拉一次=「输出完成后拉一段」。
                     AutoScrollArbiter.rearmWhenSettledAtBottom(
                         isScrolling = { listState.isScrollInProgress },
                         isAtBottom = { isAtBottomState.value },
@@ -163,7 +173,8 @@ internal fun rememberChatScrollController(
         // 本周期跳过的锚定由 A4 守卫 catch-up:episode 结束(租约释放)后,持续运行
         // 的守卫 snapshotFlow 见离底即按去抖重锚,消息不丢。
         if (messageCount > 0 && autoScrollEnabled.value && !jumpLockActive.value &&
-            !PreRenderCoordinator.hasActiveTransactions
+            !PreRenderCoordinator.hasActiveTransactions &&
+            !streamingActive() // #437 验收六轮：流式中静默（物理跟随+配对 set 各司其职）
         ) {
             // [probe] msgCount effect n=$messageCount autoScroll=${autoScrollEnabled.value} scrollInProgress=${listState.isScrollInProgress}
             // 2026-08-16 根治：死代码根因。原实现 `!listState.isScrollInProgress`
@@ -213,8 +224,10 @@ internal fun rememberChatScrollController(
                 }.collectLatest { (scrolling, autoOn, atBottom) ->
                     // #423 I3:episode 静默窗(settle≤600ms+PhaseB 240ms)远超 250ms 去抖——
                     // 无租约时去抖到期即在动画中段插入重锚。入口+复查双检查(复查点承重)。
+                    // #437 验收六轮：流式中守卫静默（防与配对 set 拉锯）。
                     if (!scrolling && autoOn && !atBottom && !jumpLockActive.value &&
-                        !PreRenderCoordinator.hasActiveTransactions
+                        !PreRenderCoordinator.hasActiveTransactions &&
+                        !streamingActive()
                     ) {
                         // #435:stream-instant 退役——流式增长已并入引擎统一配对
                         // (StreamingGrowLedger:贴底跟随态零派发,锚即意图),震荡根源

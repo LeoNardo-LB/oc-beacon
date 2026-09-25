@@ -335,6 +335,8 @@ fun ChatScreen(
         pendingCount = interaction.pendingQuestions.size + interaction.pendingPermissions.size,
         hasMessages = { messageState.messages.isNotEmpty() },
         jumpLockActive = jumpLockActiveState,
+        // #437 验收六轮：流式期间 MSGEFFECT/GUARD 静默（配对 set 保画面，物理贴底跟随）
+        streamingActive = { sessionMeta.isStreaming },
     )
 
     // FileViewer 浮层状态 —— 取代到 FileViewerNav 路由的导航。
