@@ -385,6 +385,21 @@ internal fun MessageCardAssistant(
                     // 非流式走 StepGroupCard 折叠(最终回答=最后消息恒平铺,装配层保证);
                     // 历史懒加载拆条目时本 item 由 Head/Body 条目承担,此处整体跳过
                     is RenderItem.StepGroup -> key(item.msgId) {
+                        // [DEBUG-hflick] #437 十三轮仪器：流式平铺↔折叠组分支翻转探针。
+                        // 两分支内容树不同构（平铺=PartContent 直出；折叠=切片+账本+
+                        // heavyComposed 门控），互换即整树重测量——结构性高度跳变源。
+                        if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                            val prevStreaming = HflickProbe.branchStates[item.msgId]
+                            if (prevStreaming != null && prevStreaming != isStreaming) {
+                                dev.leonardo.ocbeacon.logging.AppLogger.w(
+                                    "HFLICK",
+                                    "[DEBUG-hflick] BRANCH id=" + item.msgId.takeLast(12) +
+                                        " streaming " + prevStreaming + "->" + isStreaming +
+                                        " grp=" + item.groups.size,
+                                )
+                            }
+                            HflickProbe.putBranch(item.msgId, isStreaming)
+                        }
                         if (skipStepGroupItem) {
                             // 大组展开态:内容已拆为独立 LazyItem(见 buildChatEntries)
                         } else if (isStreaming) {
@@ -787,6 +802,18 @@ internal fun ChunkAssistantItems(
             // #422:step 折叠组——递归复用本函数渲染 groups(不无限递归:StepGroup
             // 在此解开为 GroupedParts 序列);分片 turn 恒非流式,无流式豁免
             is RenderItem.StepGroup -> key(item.msgId) {
+                // [DEBUG-hflick] #437 十三轮仪器：分片路径 StepGroup 子树重建取证
+                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                    val prevStreaming = HflickProbe.branchStates[item.msgId]
+                    if (prevStreaming != null && prevStreaming != false) {
+                        dev.leonardo.ocbeacon.logging.AppLogger.w(
+                            "HFLICK",
+                            "[DEBUG-hflick] BRANCH(chunk) id=" + item.msgId.takeLast(12) +
+                                " streaming " + prevStreaming + "->false grp=" + item.groups.size,
+                        )
+                    }
+                    HflickProbe.putBranch(item.msgId, false)
+                }
                 StepGroupCard(
                     step = item,
                     textColor = textColor,
@@ -1283,12 +1310,33 @@ private fun StepGroupCard(
     // 即弃置,预热/重展开重入时 Spacer(63px) 首帧与真实内容互换=单帧弹跳
     // (用户「收起后上推再弹回」成分之一);上提后卡存期内恒真,重入即真实内容
     // (账本暖时展开即时,占位使命已由账本接管)。
-    var heavyComposed by androidx.compose.runtime.remember(step.msgId) {
+    // #437 验收十三轮根修一：门控键撤除 step.msgId——组重派生（分页截断/REST
+    // 刷新/回合结束换装）改变组首消息 id 时，remember(msgId){false} 会把数千
+    // px 组体打回桩一帧再逐帧长回（真机 RESIZE 4958→774→5648 塌缩-弹开实证，
+    // 2026-09-26 日志 /tmp/flicker-logcat）。子树存续期间恒保持已组合；子树
+    // 重建（key 变更/分支互换）由账本 Σ 桩高兜底（见下方桩分支根修二）。
+    var heavyComposed by androidx.compose.runtime.remember {
         androidx.compose.runtime.mutableStateOf(false)
     }
-    androidx.compose.runtime.LaunchedEffect(step.msgId) {
+    androidx.compose.runtime.LaunchedEffect(Unit) {
         androidx.compose.runtime.withFrameNanos { }
         heavyComposed = true
+    }
+    // [DEBUG-hflick] #437 十三轮仪器：组身份/账本/门控取证（grep HFLICK 定位/清理）。
+    // fresh=子树重建（分支互换/key 变更）；old->new=同子树内身份漂移。
+    val hflickPrevId = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+        val idNow = step.msgId
+        if (hflickPrevId.value != idNow) {
+            dev.leonardo.ocbeacon.logging.AppLogger.w(
+                "HFLICK",
+                "[DEBUG-hflick] STEP id " + (hflickPrevId.value?.takeLast(12) ?: "fresh") + "->" + idNow.takeLast(12) +
+                    " grp=" + step.groups.size + " slices=" + stepSlices.size +
+                    " warm=" + stepLedger.isWarm(stepFingerprints) + " heavy=" + heavyComposed +
+                    " ledgerTotal=" + stepLedger.totalHeight(stepFingerprints),
+            )
+            hflickPrevId.value = idNow
+        }
     }
     // #430(用户裁决 2026-09-24):过程卡片退役——过程内容默认全展示,不再经
     // 折叠行/CardExpandReveal 展开。理由:大内容原地展开的组合成本(36k px
@@ -1300,7 +1348,28 @@ private fun StepGroupCard(
         verticalArrangement = Arrangement.spacedBy(SpacingTokens.XS.dp),
     ) {
                 if (!heavyComposed) {
-                    Spacer(modifier = Modifier.fillMaxWidth().height(24.dp))
+                    // #437 验收十三轮根修二：桩帧高度 = 账本 Σ+片间距（全暖时），
+                    // 与 StepGroupWindowedBody 总高累加式逐像素对齐——分支互换/
+                    // 子树重建的首帧不再塌到 24dp 固定桩（RESIZE 4958→774 的 774
+                    // 帧即旧桩+气泡 chrome）。全冷（真首组合，通常屏外预取）才
+                    // 退 24dp。
+                    val stubPx = stubHeightPx(
+                        ledger = stepLedger,
+                        fingerprints = stepFingerprints,
+                        sliceCount = stepSlices.size,
+                        spacingPx = with(androidx.compose.ui.platform.LocalDensity.current) {
+                            SpacingTokens.XS.dp.roundToPx()
+                        },
+                    )
+                    Spacer(
+                        modifier = Modifier.fillMaxWidth().height(
+                            if (stubPx != null) {
+                                with(androidx.compose.ui.platform.LocalDensity.current) { stubPx.toDp() }
+                            } else {
+                                24.dp
+                            },
+                        ),
+                    )
                 } else if (!stepNeedsSlicing) {
                 ChunkAssistantItems(
                     items = step.groups.map { RenderItem.GroupedParts(it) },
@@ -1350,19 +1419,29 @@ private fun StepGroupCard(
 }
 
 /**
- * #427:片高账本随卡持久化(rememberSaveable,机制同引擎 finalH 缓存)——
- * 条目回收/滚动离屏后二次展开账本即热(零等待,spec 用户故事 4)。
+ * #427:片高账本随卡持久化——条目回收/滚动离屏后二次展开账本即热(零等待,
+ * spec 用户故事 4)。
+ * #437 验收十三轮根修三：rememberSaveable("sg_ledger_"+msgId) 在
+ * key(item.msgId) 子树重建或流式/折叠分支互换时整本蒸发（saveable 只跨
+ * 配置变更/进程死亡恢复，不跨分支互换）→ 冷账本 → Σ 桩缺失+多帧重测爬升。
+ * 改挂进程级 LRU 店 [StepGroupLedgerStore]——分支互换/回收/组重派生全存活。
  */
 @Composable
-private fun rememberStepGroupLedger(msgId: String): StepGroupHeightLedger {
-    val saver = androidx.compose.runtime.remember {
-        androidx.compose.runtime.saveable.Saver<StepGroupHeightLedger, String>(
-            save = { it.encode() },
-            restore = { StepGroupHeightLedger.fromEncoded(it) },
-        )
+private fun rememberStepGroupLedger(msgId: String): StepGroupHeightLedger =
+    androidx.compose.runtime.remember(msgId) { StepGroupLedgerStore.getOrCreate(msgId) }
+
+/**
+ * [DEBUG-hflick] #437 十三轮：高度闪烁取证探针数据面（grep HFLICK 定位/清理）。
+ * 进程级 map，容量封顶防膨胀；DEBUG 专用，release 由调用点 BuildConfig 门控。
+ */
+internal object HflickProbe {
+    private const val CAP = 256
+    private val branch = HashMap<String, Boolean>()
+
+    fun putBranch(id: String, streaming: Boolean) {
+        if (branch.size >= CAP && !branch.containsKey(id)) branch.remove(branch.keys.first())
+        branch[id] = streaming
     }
-    return androidx.compose.runtime.saveable.rememberSaveable(
-        stateSaver = saver,
-        key = "sg_ledger_" + msgId,
-    ) { androidx.compose.runtime.mutableStateOf(StepGroupHeightLedger()) }.value
+
+    val branchStates: Map<String, Boolean> get() = branch
 }

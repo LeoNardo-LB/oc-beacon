@@ -73,6 +73,7 @@ internal class StepGroupHeightLedger private constructor(
         internal const val WIDTH_UNSET = -1
         private const val US = '\u001F'
 
+
         /** 解码持久化载荷；null/畸形输入一律回冷账本（不抛、不部分恢复）。 */
         fun fromEncoded(encoded: String?): StepGroupHeightLedger {
             if (encoded == null) return StepGroupHeightLedger()
@@ -92,4 +93,45 @@ internal class StepGroupHeightLedger private constructor(
             return StepGroupHeightLedger(width, map)
         }
     }
+}
+
+/**
+ * #437 验收十三轮：进程级片高账本店。
+ *
+ * 原载体 rememberSaveable("sg_ledger_"+msgId) 在 key(item.msgId) 子树重建或
+ * 流式平铺↔折叠组分支互换时整本蒸发（saveable 只跨进程死亡恢复，不跨分支
+ * 互换）→ 冷账本 → Σ 桩缺失 + 多帧重测爬升（真机 ScrollDiag RESIZE
+ * 4958→774→5648 塌缩-弹开实证，2026-09-26 真机日志）。店以 msgId 为键进程
+ * 存活，LRU 上限防膨胀；条目回收/组重派生/分支互换全存活。进程死亡回冷一次
+ * ——冷路径本就正确（整体组合测量），仅多一次屏外测量。
+ */
+internal object StepGroupLedgerStore {
+    private const val MAX_ENTRIES = 128
+    private val cache = object : LinkedHashMap<String, StepGroupHeightLedger>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, StepGroupHeightLedger>): Boolean =
+            size > MAX_ENTRIES
+    }
+
+    fun getOrCreate(key: String): StepGroupHeightLedger = synchronized(cache) {
+        cache.getOrPut(key) { StepGroupHeightLedger() }
+    }
+
+    /** 单测隔离用：清空店。 */
+    fun clearForTest() = synchronized(cache) { cache.clear() }
+}
+
+/**
+ * 桩帧占位高（#437 验收十三轮根修二配套）：全暖 = Σ片高 + 片间间距，与
+ * [StepGroupWindowedBody] 的总高累加式逐像素对齐；任一片冷 = null（调用方
+ * 退固定小桩——真首组合通常发生在屏外预取，桩不可见）。
+ */
+internal fun stubHeightPx(
+    ledger: StepGroupHeightLedger,
+    fingerprints: List<String>,
+    sliceCount: Int,
+    spacingPx: Int,
+): Int? {
+    if (sliceCount <= 0 || fingerprints.size != sliceCount) return null
+    if (!ledger.isWarm(fingerprints)) return null
+    return ledger.totalHeight(fingerprints) + spacingPx * (sliceCount - 1)
 }

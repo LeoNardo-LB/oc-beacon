@@ -733,6 +733,8 @@ fun ChatMessageList(
     val segmentPlans by renderSupply.segmentPlans.collectAsState()
 
     val lastStreamingMsgId = remember { mutableStateOf<String?>(null) }
+    // [DEBUG-hflick] #437 十三轮仪器：计划锚键序列上一次快照（PLAN diff 探针用）
+    val hflickPrevPlanKeys = remember { mutableStateOf<List<String>?>(null) }
     // ===== 2026-08-20 fling 巨帧根治：分片发射表（消息区 entries）=====
     // entries = displayItems 经 chunkPlans 展开（巨型 turn → N 个 chunk item）。
     // 双向索引是 LazyColumn index ↔ displayItems index 的单一真相源。
@@ -751,6 +753,33 @@ fun ChatMessageList(
                         "SGB",
                         "ENTRIES n=" + ents.entries.size,
                     )
+                    // [DEBUG-hflick] #437 十三轮仪器：锚键序列 diff——重建时的插拔/
+                    // 位移定位（键即 LazyColumn item key，键集换血=锚漂移源头）。
+                    val keys = ents.entries.map { it.key }
+                    val prev = hflickPrevPlanKeys.value
+                    if (prev != null && prev != keys) {
+                        var firstDiff = -1
+                        val m = minOf(prev.size, keys.size)
+                        for (i in 0 until m) {
+                            if (prev[i] != keys[i]) {
+                                firstDiff = i
+                                break
+                            }
+                        }
+                        if (firstDiff < 0) firstDiff = m
+                        val prevSet = prev.toHashSet()
+                        val nowSet = keys.toHashSet()
+                        val added = keys.filterNot { it in prevSet }
+                        val removed = prev.filterNot { it in nowSet }
+                        dev.leonardo.ocbeacon.logging.AppLogger.w(
+                            "HFLICK",
+                            "[DEBUG-hflick] PLAN n " + prev.size + "->" + keys.size +
+                                " firstDiff@" + firstDiff +
+                                " add=[" + added.take(3).joinToString(",") { it.takeLast(18) } + "]" +
+                                " rem=[" + removed.take(3).joinToString(",") { it.takeLast(18) } + "]",
+                        )
+                    }
+                    hflickPrevPlanKeys.value = keys
                 }
             }
     }

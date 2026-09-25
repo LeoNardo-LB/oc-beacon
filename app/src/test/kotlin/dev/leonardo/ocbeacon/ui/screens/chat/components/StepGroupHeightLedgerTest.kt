@@ -141,4 +141,60 @@ class StepGroupHeightLedgerTest {
         assertEquals(100, ledger.heightOf("s#p1,t3;"))
         assertEquals(200, ledger.heightOf("s#p2,t3;"))
     }
+
+    // ===== #437 验收十三轮：进程级账本店 + Σ 桩高 =====
+
+    @Test
+    fun storeReturnsSameInstanceAcrossBranchSwap() {
+        // 根修三核心语义：同一 msgId 的账本在"分支互换/子树重建"（等价于丢弃
+        // rememberSaveable 后再次 getOrCreate）后必须还是同一实例——暖度存活。
+        StepGroupLedgerStore.clearForTest()
+        val first = StepGroupLedgerStore.getOrCreate("m1")
+        first.record(1080, "fp1", 100)
+        first.record(1080, "fp2", 200)
+        val second = StepGroupLedgerStore.getOrCreate("m1")
+        assertTrue(first === second)
+        assertTrue(second.isWarm(listOf("fp1", "fp2")))
+    }
+
+    @Test
+    fun storeKeepsSeparateLedgersPerMsgId() {
+        StepGroupLedgerStore.clearForTest()
+        val a = StepGroupLedgerStore.getOrCreate("msgA")
+        val b = StepGroupLedgerStore.getOrCreate("msgB")
+        assertFalse(a === b)
+        a.record(1080, "fp1", 100)
+        assertNull(b.heightOf("fp1"))
+    }
+
+    @Test
+    fun storeEvictsEldestBeyondCap() {
+        StepGroupLedgerStore.clearForTest()
+        // 装满 CAP+1 个键 → 最老键被逐出（LRU 上限防膨胀）
+        for (i in 0..129) StepGroupLedgerStore.getOrCreate("k$i")
+        val eldest = StepGroupLedgerStore.getOrCreate("k0") // 已被逐出 → 新实例
+        assertFalse(eldest.isWarm(listOf("fp1")))
+    }
+
+    @Test
+    fun stubHeightMatchesLedgerSumPlusSpacingWhenWarm() {
+        // 根修二核心语义：全暖时桩高 = Σ片高 + 间距×(n-1)，与窗口宿主总高式对齐
+        val ledger = StepGroupHeightLedger()
+        ledger.record(1080, "fp1", 100)
+        ledger.record(1080, "fp2", 200)
+        ledger.record(1080, "fp3", 300)
+        assertEquals(600 + 4 * 2, stubHeightPx(ledger, fps, sliceCount = 3, spacingPx = 4))
+    }
+
+    @Test
+    fun stubHeightNullWhenColdOrMismatched() {
+        val ledger = StepGroupHeightLedger()
+        ledger.record(1080, "fp1", 100)
+        // 任一片冷 → null（调用方退 24dp 固定桩）
+        assertNull(stubHeightPx(ledger, fps, sliceCount = 3, spacingPx = 4))
+        // 指纹数与片数不一致 → null（防御：切片重派生中间态）
+        assertNull(stubHeightPx(ledger, listOf("fp1"), sliceCount = 3, spacingPx = 4))
+        // 零片 → null
+        assertNull(stubHeightPx(ledger, emptyList(), sliceCount = 0, spacingPx = 4))
+    }
 }

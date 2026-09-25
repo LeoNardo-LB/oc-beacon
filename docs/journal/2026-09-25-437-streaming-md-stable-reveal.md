@@ -144,3 +144,42 @@
 
 ### 环境注记
 - 装机会杀 app 进程——录屏期间禁止 install（jump_audit.mp4 白录教训）；日志法为主（用户裁决）。
+
+## 验收十三轮（2026-09-26 02:0x—02:2x）——日志实锤：闪烁=可见条目高度振荡，非视口通道
+
+**用户裁决与方法论**：视觉仍见闪烁；用日志捕捉"重复性高度变化"；在可疑位置/字段打仪器。
+
+### 证据链（用户复现会话 /tmp/flicker-logcat-2026-09-25T17-56-54.txt，01:54:35–01:55:22）
+- VTRACE 527 帧仅 1 次 1px 回弹签名 → **视口滚动位置全程稳定**，闪烁不在滚动通道；流式中段（01:54:57.6–01:55:07.7）pair d=66/74 锁步零异常。
+- **ScrollDiag RESIZE 异常 5 条**（全 session 仅 5 条非流式项）：
+  - `01:54:35.923 t_dsh-call-call_77 4958→774 (−4184) dispIdx=2`（可见位置塌缩）
+  - `01:54:36.202 t_dsh-call-call_77 774→5648 (+4874)`（280ms 后弹回，**塌缩-弹开对**）
+  - `01:54:36.247 t_dsh-call-call_a0 294→2020 (+1726)`；`01:54:40.666 t_seq-… 3063→7505 (+4442) dispIdx=0`（滚动中单帧暴涨）
+- 触发链：`listMessages 113/237 分页` → `Capped 2719→1000 msgs (dropped 1719)` → 计划重建 `ENTRIES 43→58` → turn 组重派生（grp=42）→ SliceHost `warm=false` 多帧重测（1558→1186→1294→1798）→ `Choreographer Skipped 35 frames` + GC 100MB → `RB-EXP mapHit=false ×16`（思考块展开态集体失配）。
+- 回合结束（01:55:20.175–22.3）：`dsh-t27s1` 被 `MessageRemoved`+换装 `seq-…-275`（条目身份交换）→ L3 REST 双刷新（51→63 msgs，ENTRIES 51→56）继续插条目。
+
+### 根因（代码定位）
+1. `StepGroupCard.heavyComposed = remember(step.msgId){false}`（MessageCardAssistant.kt:1286）——组重派生改组首消息 id 时把数千 px 组体打回 24dp 桩一帧；
+2. 片高账本 `rememberSaveable("sg_ledger_"+msgId)`——key(item.msgId) 子树重建/流式平铺↔折叠分支互换时整本蒸发（saveable 不跨分支互换）→ Σ 桩缺失+多帧重测爬升；
+3. 分支结构不同构（isStreaming 平铺 vs 折叠切片）——互换即整树重测量；
+4. 序数 part id（`{msg}_{kind}_ord_{n}`，PartIdContract）——重排后指纹/展开态全失配（放大 1/2）。
+
+### 修复（本批，均根因向）
+- **根修一**：heavyComposed 撤除 msgId 键（子树存续期恒保持已组合）；
+- **根修二**：桩帧高度=账本 Σ+片间距（stubHeightPx，全暖时逐像素对齐窗口宿主总高式；全冷退 24dp——真首组合通常屏外）；
+- **根修三**：账本改挂进程级 LRU 店 StepGroupLedgerStore（128 键，分支互换/回收/重派生全存活）。
+
+### 仪器（grep HFLICK 一键清理；全部 DEBUG 门控）
+- `[DEBUG-hflick] STEP`：StepGroupCard 身份漂移/子树重建（msgId old→new、grp/slices/warm/heavy/ledgerTotal）；
+- `[DEBUG-hflick] BRANCH(+chunk)`：流式平铺↔折叠分支翻转；
+- `[DEBUG-hflick] PLAN`：计划锚键序列 diff（n、firstDiff@、add/rem——插拔/位移定位）；
+- 既有 ScrollDiag RESIZE（条目高度变化，含正负）与 VTRACE（视口）继续在线。
+
+### 验证
+- 单测 3513 全绿（新增 5：店同实例跨分支互换/按键隔离/LRU 逐出/桩高 Σ 对齐/冷与失配 null）；
+- 装机自测（pid 25343）：翻历史即捕获 `(d=+12928)` 单帧暴涨、`PLAN n3->3 firstDiff@0 add/rem`（底部身份交换，恰在其后 1s）、`t_dsh-call-call_01 +8112→−420→−326→+392` **可见条目反复高度振荡**——仪器与修复均在真机生效；进程零崩溃零 ANR（后台被系统杀为电池限制，与改动无关）。
+
+### 遗留（下一轮仪器收割后定位）
+- 流式大项（平铺路径不分片）在步边界/分页时 ±数百 px 内容级振荡（RESIZE −420/−326/+392 族）——非本批三修覆盖面，属异步解析/内容重派生不稳定；
+- 回合结束 dsh→seq 身份交换的底部整泡换装闪烁；
+- 消息表 Capped 2719→1000 截断时机（分页+截断叠加触发重建风暴）。
