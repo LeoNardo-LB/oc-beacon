@@ -72,6 +72,9 @@ internal fun rememberPilotStreamingMarkdownState(markdown: String): PilotStreami
     var released by remember { mutableIntStateOf(0) }
     val state = key(resetKey) { rememberStreamingMarkdownState() }
     val held = remember { mutableStateOf("") }
+    // #437 §4：非前缀风暴探测（重建限频——冻结放行，旧串回来即恢复）
+    val flap = remember { FlapDetector(now = { android.os.SystemClock.elapsedRealtime() }) }
+    var lastStormCount by remember { mutableIntStateOf(0) }
     val gate = StreamingMarkdownPilot.stableReveal
     LaunchedEffect(markdown, state) {
         val p = prev
@@ -91,12 +94,23 @@ internal fun rememberPilotStreamingMarkdownState(markdown: String): PilotStreami
                 }
                 prev = markdown
             }
-            // 非前缀（重生成/编辑）：下轮新实例走整串重建
+            // 非前缀（重生成/编辑）：下轮新实例走整串重建；
+            // #437 §4 数据层摆动（reconciler vs live 竞态）会高频触发此分支——
+            // 风暴抑制：冻结放行与重建（prev 保持旧值，旧串回来无缝恢复）
             !markdown.startsWith(p) -> {
-                prev = null
-                released = 0
-                held.value = ""
-                resetKey++
+                if (flap.onNonPrefix()) {
+                    if (flap.stormCount != lastStormCount) {
+                        lastStormCount = flap.stormCount
+                        AppLogger.w("MDPilot", "flap suppress #" + flap.stormCount +
+                            " — nonPrefix storm, rebuild frozen")
+                    }
+                    held.value = ""
+                } else {
+                    prev = null
+                    released = 0
+                    held.value = ""
+                    resetKey++
+                }
             }
             markdown.length > p.length -> {
                 if (gate) {

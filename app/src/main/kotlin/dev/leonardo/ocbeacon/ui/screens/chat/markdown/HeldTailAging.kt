@@ -32,6 +32,10 @@ internal class HeldTailAgingState(
     private var heldSinceMs = -1L
     private var lastRefreshMs = -1L
 
+    /** 当前扣留已持续时长（ms）；未扣留为 0——超龄观测日志用。 */
+    val heldForMs: Long
+        get() = if (heldSinceMs < 0) 0L else now() - heldSinceMs
+
     /**
      * 每批扣留更新（含自然高度观测）。
      * [heldText] 为空 = 全部毕业/完结/重建 → 复位。

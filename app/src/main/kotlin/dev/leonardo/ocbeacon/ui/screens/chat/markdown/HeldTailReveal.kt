@@ -71,6 +71,13 @@ internal fun HeldTailReveal(
                 visible = aging.visible
                 if (!aging.visible) delay(48)
             }
+            if (visible) {
+                // #437 阶段 D 观测：超龄揭示时长（spec §6 真机矩阵取证）
+                dev.leonardo.ocbeacon.logging.AppLogger.i(
+                    "MDPilot",
+                    "heldTail aged reveal heldMs=" + aging.heldForMs + " chars=" + tail.length,
+                )
+            }
         }
     }
 
