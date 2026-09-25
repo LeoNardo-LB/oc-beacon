@@ -24,3 +24,11 @@
 - 修复: token 持久化+recoverAuth 自动重交换(WS 401/probe AUTH_REQUIRED 两路径)+HTTP-rejected 探针 30s 下限分类
 - 真机: 垃圾 token 优雅/正确 token (cookie+token persisted)/隧道反弹 19ms 恢复/localhost 真 AUTH_REQUIRED→TokenNeeded UI
 - V6: 用户重启 dsh-web 服务观察 app 自愈;LAN 访问需服务端加 --trusted-host 192.168.110.123:3080
+
+## #435 终判(2026-09-25 12:22,真机三构型全绿)
+
+- 贴底跟随:三轮独立判决(04:49×14/12:07×7/12:22×12 drop@fii=0,fiso=0,累计33条),零震荡,录屏无锯齿
+- 尾段配对:14 条 pair d==consumed 全额(fii=7,fiso 164→642 随批精确推进=增长点上方内容纹丝不动的数学证明)
+- 读历史:锚移出增长源后(idx 7→11→14)零派发零扰动,视口冻结(idx=14 off=200 恒定)
+- 判据修正教训:logcat 判决 grep 必须匹配 'SGR-435 (pid): pair' 带进程号形态,模式漏写导致前期计数假零
+- 三构型+16单测+铁律文档同步=完整证据链;两卡转待用户最终验收

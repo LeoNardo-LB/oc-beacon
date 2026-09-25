@@ -56,6 +56,7 @@
 - [~] **#436 服务器断开后无法自动重连——SSE断连横幅持续2秒后重试不恢复需重启app** `sse,session,bug`
   - 实测(2026-09-25 04:52):DSH web 服务器重启后,app横幅服务器已断开正在重连2秒后重试持续超过1分钟不恢复,需force-stop重启才重连(token未变,服务器健康)。用户指令本轮加入修复。嫌疑:DshWsEventClient/Orchestrator重连退避或401处理;测试向量:adb reverse移除重加tcp3080模拟断连,不触碰真服务器
   - token持久化自愈+探针分类已装机;活体取证:传输级断连恢复本就正常(隧道恢复4s重连);LAN 403=服务端trust fence需--trusted-host;V6:用户重启dsh-web验证自愈
+  - 三级自愈实证+token持久化落盘;LAN 403=服务端trust fence;终态:待用户验收
 
 - [ ] **#434 #432 根因定罪:贴底构型收起镜像dispatch 0消费→上方内容裸下移H px** `chat-ui,bug`
   - 连接态(DSH)实测+录屏双证:贴底(fii=0,fiso=0)收起时镜像dispatch -H在新侧无空间,consumed=0(paired-shift日志实锤),塌缩无补偿→上方旧内容裸下移H涌入视口(录屏帧94→101判读确认'顶部露出更早段落',542px)。中位构型dispatch可消费故守恒(矩阵1-6全绿)。用户流式场景常处贴底=高频触发。修法:consumed==0且贴底时换向dispatch +H(旧侧有空间,补偿上方内容下移;不露底空白——露的是旧内容)。候选实现:PairedDispatch加方向fallback;需真机验证方向+防双发。
@@ -69,6 +70,7 @@
   - 用户裁决:所有高度相关处理统一到高度引擎。现状断层:48ms批流式增长直接改布局绕过引擎→GUARD事后拉回(snapshotFlow版一帧滞后,已作缓解层装机);COMP-MSG补偿(ChatMessageList layout{}注入)与steady配对(引擎dispatchRawDelta)两套并行。目标:流式item增长纳入steady同构配对(dispatchRawDelta同帧,与卡片增长一致),COMP-MSG/GUARD/流式锚定并入PreRenderCoordinator flush体系,单一视口权威。依赖:真机活跃流式窗口验证(本轮两次16s录屏窗口agent均空闲,需用户配合制造流式)。
   - spec 定稿:docs/specs/2026-09-25-435-height-engine-unification-design.md——统一配对规则 pair(Δ)⟺anchor==S∧fiso>0(锚即意图:贴底跟随族/读历史一律免派发,尾段阅读同帧+Δ配对);通道drain无豁免/引擎steady无豁免/stream-instant三层同批封堵;PreRenderShiftChannel+DeferredRevealCompensator+shouldCompensate机器退役
   - 实现+单测+真机核心判决(零GUARD/14次贴底免派发/无锯齿)完成,残余两构型单测已锁待用户真机复核;spec+三篇调研+journal 齐备
+  - 终判(12:22):三构型真机全绿——贴底33条免派发零GUARD/尾段14条pair全额消费fiso精确推进/读历史零派发视口冻结;证据链完整(单测16+录屏+logcat),待用户验收
 
 - [ ] **#432 思考卡收起高度变化/偏移竞态诊断(#432):15轮仪器矩阵未复现主诉,实锤prewarm早熟+滚动锁死** `chat-ui,perf`
   - 用户主诉收起时高度变化+双向偏移竞态。真机矩阵(3卡型×toggle×连点×交替×录屏逐帧)全部判绿(锚点±4px守恒,塌缩单帧)。实锤:①prewarm集体触发(同秒9卡,H=0/18早熟settle→展开偏移根源,已修2da3b6d0);②滚动死锁(fling+tap后列表锁死,跨install -r持久,pm clear毁现场未定位);③环境:opencode服务器API漂移(SSE返HTML)。待用户提供复现录屏/路径。
