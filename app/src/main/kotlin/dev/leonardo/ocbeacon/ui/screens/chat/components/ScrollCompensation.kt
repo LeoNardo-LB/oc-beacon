@@ -92,7 +92,13 @@ internal class StreamingGrowLedger {
         }
         val d = height - e.baseline
         e.baseline = height
-        if (d > 0) e.pending += d.toFloat()
+        if (d > 0) {
+            e.pending += d.toFloat()
+            if (BuildConfig.DEBUG) {
+                // [SGR-435 验收七轮·仪表化] measure 相记账取证
+                AppLogger.d("SGR-435", "note ek=" + entryKey + " d=" + d + " pend=" + e.pending)
+            }
+        }
         // 收缩(d<0):不配对,基线已随上式 rebase(旧 COMP「收缩全揭示」语义)
     }
 
@@ -210,6 +216,15 @@ internal fun streamingGrowFlushTask(
     ledger: StreamingGrowLedger,
 ): PreDrawFlushTask = PreDrawFlushTask {
     if (!ledger.hasPending) return@PreDrawFlushTask true
+    if (BuildConfig.DEBUG) {
+        // [SGR-435 验收七轮·仪表化] flush 相进入取证（含弃配分支可辨）
+        AppLogger.d(
+            "SGR-435",
+            "flush fii=" + listState.firstVisibleItemIndex +
+                " fiso=" + listState.firstVisibleItemScrollOffset +
+                " ip=" + listState.isScrollInProgress,
+        )
+    }
     if (listState.isScrollInProgress) {
         ledger.rebaseAll()
         return@PreDrawFlushTask true

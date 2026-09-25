@@ -1567,6 +1567,16 @@ fun ChatMessageList(
                         // 任何越界绘制转为「暂时裁掉」（内容在界内时零视觉差异），
                         // 跨 item 叠加从构造上不可能再发生。流式 item 原本就有
                         // clip（COMP-MSG 链），此处补齐非流式分支。
+                        // [SGR-435 验收七轮·仪表化] 装配判定取证：key/流式标记变化时打点一次
+                        LaunchedEffect(itemKey, isStreamingMsg) {
+                            if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                AppLogger.d(
+                                    "SGR-435",
+                                    "attach key=" + itemKey + " streaming=" + isStreamingMsg +
+                                        " sid=" + streamingMsgId,
+                                )
+                            }
+                        }
                         val itemModifier = if (isStreamingMsg) {
                             Modifier
                                 .fillMaxWidth()
