@@ -587,9 +587,11 @@ internal fun MarkdownContent(
     // 分支的既有归一化+分片路径接管，跳变由高度补偿吸收（V6 验证项）。
     // 回退 = flavor 的 STREAMING_MD_PILOT 置 false。
     if (overrideState == null && !asyncParse && StreamingMarkdownPilot.enabled && !isUser) {
+        // #437：pilotState.state 只收 SafePrefixGate 放行的定案内容；
+        // 扣留尾部（heldTail）由阶段 B 降亮区消费（锁高+呼吸光标）。
         val pilotState = rememberPilotStreamingMarkdownState(markdown)
         Markdown(
-            streamingMarkdownState = pilotState,
+            streamingMarkdownState = pilotState.state,
             colors = colors,
             typography = typography,
             components = components,

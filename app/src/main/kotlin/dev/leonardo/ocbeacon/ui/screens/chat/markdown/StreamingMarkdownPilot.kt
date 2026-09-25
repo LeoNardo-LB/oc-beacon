@@ -2,6 +2,7 @@ package dev.leonardo.ocbeacon.ui.screens.chat.markdown
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -19,63 +20,118 @@ import dev.leonardo.ocbeacon.logging.AppLogger
  * spec：docs/specs/2026-08-30-streaming-markdown-state-pilot-design.md §5——
  * dev flavor 默认开（先行 A/B），beta/stable 关闭；回退 = 对应 flavor 的
  * buildConfigField 置 false 一行，或 revert 接线 commit。
+ *
+ * #437 [stableReveal]：两级安全放行闸（spec
+ * docs/specs/2026-09-25-437-streaming-md-stable-reveal-design.md）——
+ * 前缀差分与 state.append 之间的 SafePrefixGate，只把定案内容交给库，
+ * 从源头消除 L4 不稳定尾回溯重释义（跳变主源）。回退 = 置 false 一行。
  */
 object StreamingMarkdownPilot {
     val enabled: Boolean = BuildConfig.STREAMING_MD_PILOT
+    val stableReveal: Boolean = BuildConfig.STABLE_REVEAL_PILOT
 }
 
 /**
- * 前缀差分 append 包装（spec §1）。
+ * pilot 揭露状态（#437）：库状态 + 扣留尾部。
+ *
+ * [heldTail] = 快照中未放行部分（差终止符尾部）——去路恒两条：
+ * 毕业（闭合→放行）或完结 EOF 全量 flush（完结切 preParsedState/async
+ * 分支渲染整串，一字不丢）。阶段 B 降亮区（锁高+呼吸光标）消费此值。
+ */
+internal class PilotStreamingState(
+    val state: StreamingMarkdownState,
+    val heldTail: State<String>,
+)
+
+/**
+ * 前缀差分 append 包装（spec §1）+ #437 安全放行闸接线。
  *
  * Part.Text.text 仍以整串快照到达（48ms flush 产物），在此与库状态内部的
  * StringBuilder 做前缀差分，仅把 delta 交给 append()——解析下沉在
  * org.jetbrains:markdown 0.7.9 的 StreamingMarkdownFile，只重解析不稳定尾部，
  * 稳定块 ASTNode 实例跨 append 复用。
  *
- * - 非前缀（重生成/编辑）→ prev 置空 + resetKey++ 经 key() 整体重建状态实例，
- *   新实例首跑整串 append（无残留旧内容）。
+ * #437：stableReveal 开启时，差分出的全量 delta 先经 SafePrefixGate——
+ * 只有定案前缀（空行毕业的闭合构造 + 纯文字安全后缀）进入 append；
+ * 扣留尾部经 [PilotStreamingState.heldTail] 暴露给降亮区。放行流单调
+ * 不回退（gate 不变量），与 #435 高度引擎「锚即意图」配对天然兼容。
+ *
+ * - 非前缀（重生成/编辑）→ prev 置空 + released 清零 + resetKey++ 经 key()
+ *   整体重建状态实例，新实例首跑整串 append（无残留旧内容）。
  * - append 在组合协程（主线程）：与渲染同线程，StringBuilder 无跨线程竞态
- *  （库官方姿势同此；尾部小解析由 48ms flush 节奏摊平）。不为挪后台引入
- *   跨线程读写。
+ *   （库官方姿势同此；尾部小解析由 48ms flush 节奏摊平）。
  * - delta 未经 normalizeForRender（冲突①裁决）：流中放弃归一化，完结时由
- *   preParsedState 分支的既有归一化+分片路径接管，完结跳变由高度补偿吸收
- *  （V6 人工验证项）。
- * - 每次 append 记录稳定块/不稳定尾规模（spec 实施期待验证问题 1 的增长
- *   曲线取证，兼作 P0-b 组件缓存审计的实例复用证据源）。
+ *   preParsedState 分支的既有归一化+分片路径接管——完结切换即 EOF 全量
+ *   flush（扣留内容一字不丢），切换高度差由阶段 C 处理。
  */
 @Composable
-internal fun rememberPilotStreamingMarkdownState(markdown: String): StreamingMarkdownState {
+internal fun rememberPilotStreamingMarkdownState(markdown: String): PilotStreamingState {
     var resetKey by remember { mutableIntStateOf(0) }
     var prev by remember { mutableStateOf<String?>(null) }
+    // gate 放行长度（相对快照坐标）；非前缀重建时清零
+    var released by remember { mutableIntStateOf(0) }
     val state = key(resetKey) { rememberStreamingMarkdownState() }
+    val held = remember { mutableStateOf("") }
+    val gate = StreamingMarkdownPilot.stableReveal
     LaunchedEffect(markdown, state) {
         val p = prev
         when {
-            // 首跑（含重建后的新实例）：整串作为初始增量
+            // 首跑（含重建后的新实例）：整串作为初始增量（gate 后定案前缀）
             p == null -> {
-                if (markdown.isNotEmpty()) appendAndTrace(state, markdown)
+                if (markdown.isNotEmpty()) {
+                    if (gate) {
+                        released = SafePrefixGate.releaseLength(markdown, 0)
+                        if (released > 0) appendAndTrace(state, markdown.substring(0, released))
+                        logGate(markdown, 0, released)
+                    } else {
+                        appendAndTrace(state, markdown)
+                        released = markdown.length
+                    }
+                }
                 prev = markdown
             }
             // 非前缀（重生成/编辑）：下轮新实例走整串重建
             !markdown.startsWith(p) -> {
                 prev = null
+                released = 0
+                held.value = ""
                 resetKey++
             }
             markdown.length > p.length -> {
-                appendAndTrace(state, markdown.substring(p.length))
+                if (gate) {
+                    val r = SafePrefixGate.releaseLength(markdown, released)
+                    if (r > released) appendAndTrace(state, markdown.substring(released, r))
+                    logGate(markdown, released, r)
+                    released = r
+                } else {
+                    appendAndTrace(state, markdown.substring(p.length))
+                    released = markdown.length
+                }
                 prev = markdown
             }
             else -> prev = markdown // 等长：无增量
         }
+        if (gate && prev != null) {
+            held.value = markdown.substring(released.coerceIn(0, markdown.length))
+        }
     }
-    return state
+    return PilotStreamingState(state, held)
+}
+
+/** gate 放行观测日志（#437 阶段 D 仪器最小版：放行量/扣留量）。 */
+private fun logGate(snapshot: String, from: Int, to: Int) {
+    AppLogger.i(
+        "MDPilot",
+        "gate release=" + (to - from) + " held=" + (snapshot.length - to) +
+            " releasedTotal=" + to + " snapshotTotal=" + snapshot.length
+    )
 }
 
 private suspend fun appendAndTrace(state: StreamingMarkdownState, delta: String) {
     val snap = state.append(delta)
     AppLogger.i(
         "MDPilot",
-        "append ${delta.length}ch -> stable=${snap.stableAst.size} " +
-            "tail=${snap.unstableAstTail.size} total=${state.content.length}"
+        "append " + delta.length + "ch -> stable=" + snap.stableAst.size +
+            " tail=" + snap.unstableAstTail.size + " total=" + state.content.length
     )
 }
