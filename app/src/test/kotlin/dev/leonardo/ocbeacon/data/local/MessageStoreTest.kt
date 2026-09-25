@@ -217,6 +217,34 @@ class MessageStoreTest {
     }
 
     @Test
+    fun upsertMessages_overflowBeyondChunk_drainsInChunksWithPreciseTargets() = runTest {
+        // #437 十四轮：overflow 450 > ARCHIVE_CHUNK_MSGS 200 → 三块排水；
+        // 每块 prune 目标 = LIMIT + 未归档剩余（1250/1050/1000 递减），块间
+        // 让出写锁（单块短事务），终块回到 LIMIT 与原终态一致。
+        coEvery { dao.oldestMessageId("ses_1") } returns "msg_0"
+        coEvery { dao.messageCreatedAt("msg_0") } returns 0L
+        // 状态化桩：count 由 prune 目标回写（prune 到 T → 计数=T），与调用序解耦
+        var countNow = 1450
+        coEvery { dao.countForSession("ses_1") } answers { countNow }
+        val m = msg("msg_o", 100)
+        coEvery { dao.oldestMessages("ses_1", any()) } returns
+            listOf(CachedMessageEntity("msg_o", "ses_1", 100, "user", json.encodeToString(m.info)))
+        coEvery { dao.partsForMessagesChunked(any()) } returns emptyList()
+        coEvery { dao.pruneToLimit("ses_1", any()) } answers {
+            countNow = secondArg()
+            1
+        }
+
+        store.upsertMessages("ses_1", listOf(msg("msg_new", 999)), persistOldBeyondWindow = false)
+
+        // 三块 = 三次短事务归档 + 三个精确递减目标
+        coVerify(exactly = 3) { archiveDao.upsertAll(any()) }
+        coVerify(exactly = 1) { dao.pruneToLimit("ses_1", 1000 + 250) }
+        coVerify(exactly = 1) { dao.pruneToLimit("ses_1", 1000 + 50) }
+        coVerify(exactly = 1) { dao.pruneToLimit("ses_1", 1000) }
+    }
+
+    @Test
     fun upsertMessages_noOverflow_doesNotArchiveOrPrune() = runTest {
         coEvery { dao.oldestMessageId("ses_1") } returns null
         coEvery { dao.countForSession("ses_1") } returns 999

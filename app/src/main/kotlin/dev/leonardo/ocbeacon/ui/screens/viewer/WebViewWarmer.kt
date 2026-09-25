@@ -30,6 +30,18 @@ object WebViewWarmer {
     private const val TAG = "WebViewWarmer"
     private const val TIMEOUT_MS = 5_000L
 
+    /**
+     * #437 验收十四轮：空闲窗启动参数。
+     * 原 500ms 固定延迟（调用方）恰落在「进会话/发消息/流式起步」窗口——真机
+     * Davey 1199ms + Skip 80/68 帧实锤（Chromium 引擎装载 830ms 主线程风暴：
+     * WebViewFactory/nativeloader/vulkan/编解码枚举全被拉起，2026-09-26
+     * flicker2 日志）。改为 warm 内部等「初次延迟 4s + 主线程队列空闲点」：
+     * 永不与交互/流式帧争抢；[IDLE_FORCE_MS] 内无空闲（长流式/连续交互）则
+     * 兜底强制——预热不能永远饿死。
+     */
+    private const val INITIAL_DELAY_MS = 4_000L
+    private const val IDLE_FORCE_MS = 8_000L
+
     @Volatile
     private var warmed = false
 
@@ -38,6 +50,24 @@ object WebViewWarmer {
         warmed = true
 
         val handler = Handler(Looper.getMainLooper())
+        handler.postDelayed({
+            var armed = true
+            Looper.myQueue().addIdleHandler {
+                if (!armed) return@addIdleHandler false
+                armed = false
+                handler.post { startWarm(context, handler) }
+                false
+            }
+            handler.postDelayed({
+                if (armed) {
+                    armed = false
+                    startWarm(context, handler)
+                }
+            }, IDLE_FORCE_MS)
+        }, INITIAL_DELAY_MS)
+    }
+
+    private fun startWarm(context: Context, handler: Handler) {
 
         var warmWebView: WebView? = null
 

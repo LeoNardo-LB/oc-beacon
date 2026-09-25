@@ -272,51 +272,77 @@ class MessageStore @Inject constructor(
      *
      * 归档是增强：压缩/入库失败则降级为"仅裁剪"（保持一期"数据丢弃"语义，绝不因归档失败
      * 而让热表无限增长）。返回实际裁剪条数。
+     *
+     * #437 验收十四轮：分块归档——原实现单调用全量（真机 1629 条 → archive=102039ms，单写锁
+     * 期间并行 upsert tx=7072ms 被饿死 → 主线程 Room 读冻结 → Davey 1199ms / Skip 80+68
+     * 帧风暴，2026-09-26 flicker2 日志实证）。改为 ≤[ARCHIVE_CHUNK_MSGS] 条/块：每块独立
+     * 短事务，块间让出写锁；块内语义不变。裁剪目标=「LIMIT + 未归档剩余」精确递减，
+     * 终块即 LIMIT，终态与原实现一致。
      */
     private suspend fun archiveOverflow(sessionId: String, overflow: Int): Int {
-        // 1. 归档增强（best-effort）：查最老 overflow 条 → 组装 DTO → 压缩分桶（事务外）。
-        val buckets = runCatchingCancellable {
-            val candidates = dao.oldestMessages(sessionId, overflow)
-            if (candidates.isEmpty()) return@runCatchingCancellable emptyList()
-            val partsByMsg = partsForMessagesChunked(candidates.map { it.id })
-                .groupBy { it.messageId }
-            // 逐条容错：单条 payload 解码失败只跳过该条（记日志），不影响整批归档。
-            // 否则一条坏消息会导致全部 overflow 消息归档失败 → 整批数据丢失（一期语义降级）。
-            val messages = candidates.mapNotNull { entity ->
-                runCatchingCancellable {
-                    ArchivedMessageDto(
-                        info = json.decodeFromString<Message>(entity.payload),
-                        // #300②：解码经行 type 列注入（decodePartPayload）——裸解码
-                        // 会把 Reasoning 误判为 Text 并**固化**进归档 DTO（冷存无列可依）。
-                        parts = (partsByMsg[entity.id] ?: emptyList()).mapNotNull(::decodePartPayload),
-                    )
-                }.onFailure { e ->
-                    AppLogger.e(TAG, "[archive] session=$sessionId: skip undecodable msg ${entity.id}", e)
-                }.getOrNull()
-            }
-            buildArchiveBuckets(sessionId, messages)
-        }.onFailure { e ->
-            AppLogger.e(TAG, "[archive] session=$sessionId: archive build failed (prune-only fallback)", e)
-        }.getOrDefault(emptyList())
+        var prunedTotal = 0
+        var archivedTotal = 0
+        var bucketCount = 0
+        var remaining = overflow
+        while (remaining > 0) {
+            // 每块重数：并发 upsert 可能已改变总量（重入安全）。
+            val total = dao.countForSession(sessionId)
+            val currentOverflow = (total - SESSION_MESSAGE_LIMIT).coerceAtLeast(0)
+            if (currentOverflow <= 0) break
+            val chunk = minOf(remaining, currentOverflow, ARCHIVE_CHUNK_MSGS)
+            // 1. 归档增强（best-effort）：查最老 overflow 条 → 组装 DTO → 压缩分桶（事务外）。
+            val buckets = runCatchingCancellable {
+                val candidates = dao.oldestMessages(sessionId, chunk)
+                if (candidates.isEmpty()) return@runCatchingCancellable emptyList()
+                val partsByMsg = partsForMessagesChunked(candidates.map { it.id })
+                    .groupBy { it.messageId }
+                // 逐条容错：单条 payload 解码失败只跳过该条（记日志），不影响整批归档。
+                // 否则一条坏消息会导致全部 overflow 消息归档失败 → 整批数据丢失（一期语义降级）。
+                val messages = candidates.mapNotNull { entity ->
+                    runCatchingCancellable {
+                        ArchivedMessageDto(
+                            info = json.decodeFromString<Message>(entity.payload),
+                            // #300②：解码经行 type 列注入（decodePartPayload）——裸解码
+                            // 会把 Reasoning 误判为 Text 并**固化**进归档 DTO（冷存无列可依）。
+                            parts = (partsByMsg[entity.id] ?: emptyList()).mapNotNull(::decodePartPayload),
+                        )
+                    }.onFailure { e ->
+                        AppLogger.e(TAG, "[archive] session=$sessionId: skip undecodable msg ${entity.id}", e)
+                    }.getOrNull()
+                }
+                buildArchiveBuckets(sessionId, messages)
+            }.onFailure { e ->
+                AppLogger.e(TAG, "[archive] session=$sessionId: archive build failed (prune-only fallback)", e)
+            }.getOrDefault(emptyList())
 
-        // 2. 裁剪（必须）：归档成功 → 与 upsertAll 同事务（原子）；归档失败 → 单独裁剪（防无限增长）。
-        val pruned = if (buckets.isNotEmpty()) {
-            database.withTransaction {
-                archiveDao.upsertAll(buckets)
-                dao.pruneToLimit(sessionId, SESSION_MESSAGE_LIMIT)
+            // 2. 裁剪（必须）：归档成功 → 与 upsertAll 同事务（原子）；归档失败 → 单独裁剪（防无限增长）。
+            //    目标行数 = LIMIT + 本块后未归档剩余——精确只删本块（最老 chunk 条）。
+            val pruneTarget = SESSION_MESSAGE_LIMIT + (currentOverflow - chunk)
+            val pruned = if (buckets.isNotEmpty()) {
+                database.withTransaction {
+                    archiveDao.upsertAll(buckets)
+                    dao.pruneToLimit(sessionId, pruneTarget)
+                }
+            } else {
+                dao.pruneToLimit(sessionId, pruneTarget)
             }
-        } else {
-            dao.pruneToLimit(sessionId, SESSION_MESSAGE_LIMIT)
+
+            archivedTotal += buckets.sumOf { it.messageCount }
+            bucketCount += buckets.size
+            prunedTotal += pruned
+            remaining -= chunk
+            // 无可归档且无裁剪（行已被并发路径删除等）→ 防空转。
+            if (buckets.isEmpty() && pruned <= 0) break
         }
 
-        if (buckets.isNotEmpty()) {
+        if (archivedTotal > 0) {
             // #271（2026-08-30 用户裁决）：冷存桶 LRU 淘汰移除——全量保留，
             // 桶无上限；占用统计+手动清理由设置页承担（防失控兜底）。
             if (BuildConfig.DEBUG) {
-                AppLogger.d(TAG, "[archive] session=$sessionId: archived ${buckets.sumOf { it.messageCount }} msgs → ${buckets.size} buckets; pruned $pruned")
+                AppLogger.d(TAG, "[archive] session=$sessionId: archived $archivedTotal msgs → $bucketCount buckets; pruned $prunedTotal")
             }
         }
-        return pruned
+        return prunedTotal
     }
 
     /**
@@ -711,5 +737,8 @@ class MessageStore @Inject constructor(
         const val ARCHIVE_BUCKET_WINDOW_MS = 86_400_000L          // 1 天
         const val ARCHIVE_BUCKET_MAX_BYTES = 512 * 1024           // 512KB（调研约束）
         const val ARCHIVE_BUCKET_MAX_MESSAGES = 200
+
+        /** #437 十四轮：归档分块上限——单块（单事务）最多处理的溢出条数。 */
+        const val ARCHIVE_CHUNK_MSGS = 200
     }
 }

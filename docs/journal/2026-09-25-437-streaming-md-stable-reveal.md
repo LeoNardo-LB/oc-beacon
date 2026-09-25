@@ -183,3 +183,26 @@
 - 流式大项（平铺路径不分片）在步边界/分页时 ±数百 px 内容级振荡（RESIZE −420/−326/+392 族）——非本批三修覆盖面，属异步解析/内容重派生不稳定；
 - 回合结束 dsh→seq 身份交换的底部整泡换装闪烁；
 - 消息表 Capped 2719→1000 截断时机（分页+截断叠加触发重建风暴）。
+
+## 验收十四轮（2026-09-26 02:2x—02:4x）——二次复现归因：主线程冻结风暴（预热+归档），非几何通道
+
+**用户复现**（flicker2 日志，pid 28752 新包）：VTRACE 58 帧零回弹、RESIZE 41 条全正增长且全在流式消息（十三轮三修生效——塌缩-弹开对消失）、MDPilot stable 零回退。**闪烁仍在，但几何/解析通道全净——归因转移到主线程冻结-追帧**：
+
+- `Skipped 80/68 帧` + `Davey! duration=1199ms`（02:21:39.3-40.0，发消息后）；
+- **WebViewWarmer Warm-up**（39.240-40.074）：进会话 500ms 后在主线程装载整个 Chromium（WebViewFactory/nativeloader/vulkan/Adreno/编解码枚举 830ms）；
+- **MessageStore 归档风暴**：`upsert n=2 tx=7072ms archive=102039ms`（1629 条单事务 102s 写锁，并行 replace txTotal=101040ms）→ 主线程 Room 读被饿死；
+- JIT 首开编译 ChatMessageList 16MB + ChatScreen 6.5MB（debug 无 AOT）；
+- 期间 InsetsController show(ime()) 反复——键盘 insets 动画与冻结-追帧叠加 = 用户"来回闪烁"体感。
+
+### 修复
+1. **WebViewWarmer 空闲窗启动**：内部改为「初次延迟 4s + 主线程队列空闲点（addIdleHandler）」才装载；8s 无空闲兜底强制。自测：启动于空闲点、102ms 完成（原 830ms 中途风暴）。
+2. **归档分块短事务**（ARCHIVE_CHUNK_MSGS=200）：每块独立事务（upsertAll+精确 pruneToLimit(LIMIT+剩余)），块间让出写锁；终块回 LIMIT 终态不变。单测：overflow 450 → 3 块、目标 1250/1050/1000 递减（状态化桩与调用序解耦）。
+
+### 验证
+- MessageStoreTest 34 绿（+1 分块排水）；全量 3514 绿 + assemble；
+- 真机自测（pid 30521）：二次进入会话 **0 帧跳过**（稳态全净）；首开仍有 30-57 帧（新进程 JIT 一次性，debug 特有；baseline profile 另行登记）。
+
+### 遗留
+- 首开 JIT 风暴（baseline profile/PGO 批次）；
+- 流式大项内容级 ±300-400px 重测振荡（十三轮遗留，HFLICK/RESIZE 探针持续收割）；
+- 回合结束 dsh→seq 底部整泡换装。
