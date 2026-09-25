@@ -250,6 +250,7 @@ import dev.leonardo.ocbeacon.ui.screens.viewer.FileViewerOverlay
 import dev.leonardo.ocbeacon.ui.screens.viewer.FileViewerParams
 import dev.leonardo.ocbeacon.ui.screens.viewer.FileViewerSource
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.AppMotion
 import dev.leonardo.ocbeacon.ui.util.eventTimeString
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
@@ -1083,10 +1084,10 @@ fun ChatScreen(
                                   // 绘制层 alpha 变化的根源场景（半透明挂全影）直接消除；
                                   // 按钮带原生 6dp 投影整体滑入/滑出，阴影全程跟随。
                                   enter = androidx.compose.animation.slideInVertically(
-                                      animationSpec = androidx.compose.animation.core.tween(durationMillis = 220),
+                                      animationSpec = androidx.compose.animation.core.tween(durationMillis = AppMotion.MEDIUM),
                                   ) { fullHeight -> fullHeight },
                                   exit = androidx.compose.animation.slideOutVertically(
-                                      animationSpec = androidx.compose.animation.core.tween(durationMillis = 220),
+                                      animationSpec = androidx.compose.animation.core.tween(durationMillis = AppMotion.MEDIUM),
                                   ) { fullHeight -> fullHeight },
                               ) {
                                   androidx.compose.foundation.layout.Column(

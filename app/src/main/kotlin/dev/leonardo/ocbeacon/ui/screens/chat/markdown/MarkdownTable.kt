@@ -61,6 +61,7 @@ import dev.leonardo.ocbeacon.ui.theme.LocalChatDensity
 import dev.leonardo.ocbeacon.ui.theme.spacing
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import dev.leonardo.ocbeacon.util.copyToClipboard
 import kotlinx.coroutines.launch
 
@@ -499,7 +500,7 @@ internal fun SimpleMarkdownTable(
                                     clipScope.launch { clipboard.copyToClipboard("table-cell", cellText) }
                                     copyCellText = null
                                 }
-                                .padding(horizontal = 24.dp, vertical = 12.dp),
+                                .padding(horizontal = SpacingTokens.XL.dp, vertical = SpacingTokens.MD.dp),
                         )
                         Text(
                             text = stringResource(R.string.table_copy_table),
@@ -512,7 +513,7 @@ internal fun SimpleMarkdownTable(
                                     }
                                     copyCellText = null
                                 }
-                                .padding(horizontal = 24.dp, vertical = 12.dp),
+                                .padding(horizontal = SpacingTokens.XL.dp, vertical = SpacingTokens.MD.dp),
                         )
                     }
                 }

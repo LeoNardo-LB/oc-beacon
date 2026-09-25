@@ -72,6 +72,7 @@ import dev.leonardo.ocbeacon.R
 import dev.leonardo.ocbeacon.logging.AppLogger
 import kotlin.math.roundToInt
 import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
+import dev.leonardo.ocbeacon.ui.theme.AppMotion
 
 /** 工具栏入口 id（沿用第十轮四入口独立 sheet 语义）。 */
 internal enum class ChatToolbarEntry { TODO, AGENT, SHELL, GOAL, QUEUE }
@@ -575,7 +576,7 @@ internal fun FabSlotHeightReveal(
     val progress = remember { Animatable(if (visible) 1f else 0f) }
     LaunchedEffect(visible) {
         if (fullHeightPx.floatValue > 0f) {
-            progress.animateTo(if (visible) 1f else 0f, tween(durationMillis = 220))
+            progress.animateTo(if (visible) 1f else 0f, tween(durationMillis = AppMotion.MEDIUM))
         } else {
             progress.snapTo(if (visible) 1f else 0f)
         }

@@ -32,6 +32,7 @@ import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import dev.leonardo.ocbeacon.ui.theme.AppMotion
 import kotlinx.coroutines.delay
 
 /**
@@ -90,7 +91,7 @@ internal fun HeldTailReveal(
     val cursorAlpha by transition.animateFloat(
         initialValue = 0.15f,
         targetValue = 0.85f,
-        animationSpec = infiniteRepeatable(tween(640), RepeatMode.Reverse),
+        animationSpec = infiniteRepeatable(tween(AppMotion.BREATH_CYCLE), RepeatMode.Reverse),
         label = "srCursorAlpha",
     )
     val cursorId = "sr_cursor"

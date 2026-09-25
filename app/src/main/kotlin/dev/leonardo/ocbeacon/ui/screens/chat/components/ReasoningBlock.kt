@@ -67,9 +67,9 @@ import dev.leonardo.ocbeacon.ui.screens.chat.util.halfScreenHeight
 import dev.leonardo.ocbeacon.ui.screens.chat.util.performHaptic
 import dev.leonardo.ocbeacon.ui.theme.ShapeTokens
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
+import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 import dev.leonardo.ocbeacon.ui.theme.AppMotion
 import kotlinx.coroutines.delay
-import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 /**
  * #263 round2：完结思考卡的显示时长合成。优先服务器可信时长（>0）；未知
@@ -307,7 +307,7 @@ internal fun ReasoningBlock(
                         modifier = Modifier
                             // 2026-09-20 居中修正:图标与竖线同一起点(内容区 x=0)。
                             // #432:16dp 图标中心 8dp;线宽 2dp → 锚位 7dp(工具卡同款公式)。
-                            .padding(start = 16.dp / 2 - 1.dp)
+                            .padding(start = (SpacingTokens.LG / 2 - 1).dp)
                             .drawBehind {
                                 drawRect(
                                     color = guideColor,
