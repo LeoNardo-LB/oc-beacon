@@ -80,8 +80,9 @@ internal fun rememberPilotStreamingMarkdownState(markdown: String): PilotStreami
             p == null -> {
                 if (markdown.isNotEmpty()) {
                     if (gate) {
-                        released = SafePrefixGate.releaseLength(markdown, 0)
-                        if (released > 0) appendAndTrace(state, markdown.substring(0, released))
+                        val d = SafePrefixGate.releaseDelta(markdown, 0)
+                        released = d.newReleased
+                        if (d.delta.isNotEmpty()) appendAndTrace(state, d.delta)
                         logGate(markdown, 0, released)
                     } else {
                         appendAndTrace(state, markdown)
@@ -99,10 +100,12 @@ internal fun rememberPilotStreamingMarkdownState(markdown: String): PilotStreami
             }
             markdown.length > p.length -> {
                 if (gate) {
-                    val r = SafePrefixGate.releaseLength(markdown, released)
-                    if (r > released) appendAndTrace(state, markdown.substring(released, r))
-                    logGate(markdown, released, r)
-                    released = r
+                    val d = SafePrefixGate.releaseDelta(markdown, released)
+                    if (d.newReleased > released && d.delta.isNotEmpty()) {
+                        appendAndTrace(state, d.delta)
+                    }
+                    logGate(markdown, released, d.newReleased)
+                    released = d.newReleased
                 } else {
                     appendAndTrace(state, markdown.substring(p.length))
                     released = markdown.length

@@ -588,18 +588,29 @@ internal fun MarkdownContent(
     // 回退 = flavor 的 STREAMING_MD_PILOT 置 false。
     if (overrideState == null && !asyncParse && StreamingMarkdownPilot.enabled && !isUser) {
         // #437：pilotState.state 只收 SafePrefixGate 放行的定案内容；
-        // 扣留尾部（heldTail）由阶段 B 降亮区消费（锁高+呼吸光标）。
+        // 扣留尾部（heldTail）超龄后由降亮区呈现（锁高裁剪+呼吸光标，
+        // 高度流=低频量子，与 #435 引擎配对兼容）。回退 = STABLE_REVEAL_PILOT
+        // 置 false（gate 旁路，pilot 原行为）。
         val pilotState = rememberPilotStreamingMarkdownState(markdown)
-        Markdown(
-            streamingMarkdownState = pilotState.state,
-            colors = colors,
-            typography = typography,
-            components = components,
-            padding = padding,
-            animations = animations,
-            imageTransformer = Coil3ImageTransformerImpl,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        androidx.compose.foundation.layout.Column {
+            Markdown(
+                streamingMarkdownState = pilotState.state,
+                colors = colors,
+                typography = typography,
+                components = components,
+                padding = padding,
+                animations = animations,
+                imageTransformer = Coil3ImageTransformerImpl,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (StreamingMarkdownPilot.stableReveal) {
+                val held by pilotState.heldTail
+                HeldTailReveal(
+                    tail = held,
+                    textStyle = typography.paragraph.copy(fontFamily = null),
+                )
+            }
+        }
         return
     }
 

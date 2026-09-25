@@ -137,6 +137,52 @@ class SafePrefixGateTest {
     }
 
     @Test
+    fun `表格粘边注入补空行`() {
+        val snap = "para\n| a |\n|---|\n| 1 |\n\ntail"
+        val d = SafePrefixGate.releaseDelta(snap, 0)
+        assertEquals("para\n\n| a |\n|---|\n| 1 |\n\n", d.delta) // para 与表头间注入空行
+        assertEquals(24, d.newReleased) // 空行毕业到 tail 前
+    }
+
+    @Test
+    fun `表格已有空行不注入`() {
+        val snap = "para\n\n| a |\n|---|\n\ntail"
+        val d = SafePrefixGate.releaseDelta(snap, 0)
+        assertEquals("para\n\n| a |\n|---|\n\n", d.delta) // 已有空行，零注入
+        assertEquals(19, d.newReleased)
+    }
+
+    @Test
+    fun `表格前行为表格延续不注入`() {
+        val snap = "| a |\n|---|\n| 1 |\n\ntail"
+        val d = SafePrefixGate.releaseDelta(snap, 0)
+        assertEquals("| a |\n|---|\n| 1 |\n\n", d.delta) // 快照首即表格，无前行不注入
+        assertEquals(19, d.newReleased)
+    }
+
+    @Test
+    fun `tasklist字符扣留`() {
+        val snap = "- ☐ task one\n"
+        // 扣留（tasklist/math 完结变换字符触发差终止符）
+        assertEquals(0, SafePrefixGate.releaseLength(snap, 0))
+    }
+
+    @Test
+    fun `数学块双美元扣留`() {
+        val snap = "formula \$\$x^2\$\$ next"
+        // 扣留（tasklist/math 完结变换字符触发差终止符）
+        assertEquals(0, SafePrefixGate.releaseLength(snap, 0))
+    }
+
+    @Test
+    fun `单美元放行不扣`() {
+        val snap = "price is 5$\nnext line"
+        val d = SafePrefixGate.releaseDelta(snap, 0)
+        assertEquals("price is 5$\n", d.delta)
+        assertEquals(12, d.newReleased) // 换行边界，扣住未完行 next line
+    }
+
+    @Test
     fun `CRLF空行毕业兼容`() {
         // CR 视作行内空白：空行检测跳过 \r
         assertEquals(12, rel("para one\r\n\r\nafter"))

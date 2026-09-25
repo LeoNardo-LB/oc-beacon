@@ -28,8 +28,12 @@ package dev.leonardo.ocbeacon.ui.screens.chat.markdown
  */
 internal object SafePrefixGate {
 
-    /** 活动标记字符集：出现即差终止符（其后内容回退扣留等闭合）。 */
-    private const val ACTIVE_MARKERS = "*_~#>|[]!`"
+    /**
+     * 活动标记字符集：出现即差终止符（其后内容回退扣留等闭合）。
+     * ☐/☑/✅（#437 阶段 C）：normalizeTaskListMarkers 完结变换字符——流中
+     * 字面放行会在完结时替换为 GFM 任务列表（重排），扣留等空行闭合。
+     */
+    private const val ACTIVE_MARKERS = "*_~#>|[]!`\u2610\u2611\u2705"
 
     /** CommonMark 有序列表起始标记的最多位数。 */
     private const val ORDERED_LIST_MAX_DIGITS = 9
@@ -67,6 +71,8 @@ internal object SafePrefixGate {
             val c = snapshot[j]
             if (lineStart && isOrderedListStart(snapshot, j)) { textLimit = j; break }
             if (ACTIVE_MARKERS.indexOf(c) >= 0) { textLimit = j; break }
+            // $$（transformMathFallback 完结变换）——单 $ 是普通文字放行
+            if (c == '$' && j + 1 < snapshot.length && snapshot[j + 1] == '$') { textLimit = j; break }
             lineStart = c == '\n'
             j++
         }
@@ -88,6 +94,90 @@ internal object SafePrefixGate {
             else -> cand
         }
         return maxOf(floor, boundary)
+    }
+
+    /** 放行决策：新放行长度（快照坐标）+ 实际交给 append 的 delta 文本。 */
+    internal class ReleaseDecision(val newReleased: Int, val delta: String)
+
+    /**
+     * #437 阶段 C：放行决策（含表格粘边空行注入）。
+     *
+     * 完结归一化 ensureBlankLineBeforeGfmTables 会在「文字行紧贴表头行」处
+     * 补空行——若流中把粘连内容按原样放行，完结帧该内容从字面段落重排为
+     * 表格（已放行内容收缩，引擎不配对收缩=跳变）。此处在放行 delta 内做
+     * 与归一化同判定的增量前移：表头行（| 包裹）+分隔行（|[-:\s|]+|）且前
+     * 行非空非 | 结尾 → 表头前插 \n。注入后归一化幂等（不再命中），流中
+     * 与完结渲染一致。
+     *
+     * [newReleased] 是快照坐标；[delta] 可能比快照区间多注入的 \n——
+     * state.content 与快照长度自此解耦（调用方从不比较二者）。
+     */
+    fun releaseDelta(snapshot: String, alreadyReleased: Int): ReleaseDecision {
+        val r = releaseLength(snapshot, alreadyReleased)
+        val from = alreadyReleased.coerceIn(0, snapshot.length)
+        val delta = snapshot.substring(from, r)
+        return ReleaseDecision(r, injectTableBlankLines(snapshot, from, delta))
+    }
+
+    /** 放行 delta 内的表格粘边空行注入（判定与 TABLE_AFTER_TEXT_REGEX 同语义）。 */
+    private fun injectTableBlankLines(snapshot: String, from: Int, delta: String): String {
+        if (delta.indexOf('|') < 0 || delta.length < 4) return delta
+        val out = StringBuilder(delta.length + 4)
+        var lineStart = 0
+        var prevNonEmptyTextLine = false // 前行=非空且非 | 结尾（注入条件）
+        var first = true
+        while (lineStart <= delta.length) {
+            val nl = delta.indexOf('\n', lineStart)
+            val lineEnd = if (nl < 0) delta.length else nl
+            val line = delta.substring(lineStart, lineEnd)
+            if (isTableHeaderRow(line)) {
+                val nextStart = if (nl < 0) -1 else nl + 1
+                val nextNl = if (nextStart < 0) -1 else delta.indexOf('\n', nextStart)
+                val nextEnd = if (nextNl < 0) delta.length else nextNl
+                val sep = if (nextStart < 0) "" else delta.substring(nextStart, nextEnd)
+                val prevIsText = if (first) prevLineBeforeIsTextRow(snapshot, from) else prevNonEmptyTextLine
+                if (isTableSeparatorRow(sep) && prevIsText) out.append('\n')
+            }
+            if (lineStart >= delta.length) break
+            out.append(line)
+            if (nl >= 0) out.append('\n')
+            prevNonEmptyTextLine = line.isNotEmpty() && !line.endsWith("|")
+            first = false
+            lineStart = lineEnd + 1
+        }
+        return out.toString()
+    }
+
+    /** 表头行：可选缩进 + | 开头 + | 结尾（含至少一个内部字符）。 */
+    private fun isTableHeaderRow(line: String): Boolean {
+        val t = line.trimStart(' ', '\t')
+        return t.length >= 2 && t.startsWith('|') && t.endsWith('|') && t.length > 2
+    }
+
+    /** 分隔行：可选缩进 + | 包裹，内部仅 - : 空格 | 且含 -。 */
+    private fun isTableSeparatorRow(line: String): Boolean {
+        val t = line.trimStart(' ', '\t')
+        if (t.length < 3 || !t.startsWith('|') || !t.endsWith('|')) return false
+        var hasDash = false
+        for (c in t.substring(1, t.length - 1)) {
+            when {
+                c == '-' -> hasDash = true
+                c == ':' || c == ' ' || c == '\t' || c == '|' -> Unit
+                else -> return false
+            }
+        }
+        return hasDash
+    }
+
+    /** delta 首行前的快照行（上批末行）是否为文字行（非空、非 | 结尾、存在）。 */
+    private fun prevLineBeforeIsTextRow(snapshot: String, from: Int): Boolean {
+        if (from == 0) return false
+        val prevNl = snapshot.lastIndexOf('\n', from - 2)
+        val lineStart = prevNl + 1
+        val prevEnd = from - 1 // from 前必是 \n（放行边界恒在换行后）或行中？
+        if (lineStart >= prevEnd) return false
+        val line = snapshot.substring(lineStart, prevEnd.coerceAtMost(snapshot.length))
+        return line.isNotEmpty() && !line.endsWith("|")
     }
 
     /** [i] 是行首且该行是空行（仅空白字符直到换行/结尾）。 */
