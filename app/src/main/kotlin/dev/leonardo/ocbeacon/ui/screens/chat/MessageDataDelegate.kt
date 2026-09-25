@@ -176,6 +176,12 @@ internal class MessageDataDelegate(
     /**
      * 消息列表状态 —— 从 V1 chatRepository flow 派生。
      * 组合消息、parts 和工具展开状态。以 [sessionIdFlow] 为 key。
+     *
+     * #437 验收十五轮（发射隔离）：十源 combine 的任一源滴答都会整体重算——
+     * 发射频率由下方 partsByMessageId 收窄（本会话消息投影）+ StateFlow equals
+     * 去重共同收敛：内存 parts 本就按 48ms 批处理（MessageEventHandler delta
+     * 批），可见内容无变化 → 结构相等 → 零发射；后台会话噪音被投影隔离。
+     * （曾试 sample(48) 节流——破坏测试缝且属节流补丁，撤销；根因在作用域泄漏。）
      */
     val messageListState: StateFlow<MessageListState> = sessionIdFlow.flatMapLatest { sid ->
         combine(
@@ -283,7 +289,19 @@ internal class MessageDataDelegate(
                 // #44：原始消息与 parts 映射由唯一 combine 管道统一提供，
                 // sseJob 投影（messagesList/rawMessagesList）不再独立观察数据源。
                 rawMessages = sessionMessages,
-                partsByMessageId = allParts,
+                // #437 验收十五轮（发射隔离根修）：原样携带全局 parts 映射
+                //（getAllPartsMap=裸 eventDispatcher.parts，无会话过滤无 distinct——
+                // 对比同仓库 getParts(sessionId) 有过滤+distinct）。后台会话流式落库
+                // 时其 parts 持续增长 → MessageListState 结构不等 → StateFlow 的
+                // equals 去重被击穿 → 可见会话 UI 以「全局写库速率」整体重组
+                //（真机 flicker3 实证：回合结束后 MDappend=0/ENTRIES=0，而
+                // ItemDiag/InjCard 仍 ~30 次/秒，同一用户气泡 35s 重组 524 次）。
+                // 收窄为本会话消息的 parts 投影（稀疏：仅含非空 parts 的消息）：
+                // 唯一消费者 startObservingMessages 仅按 rawMessages（本会话）id 做
+                // isNotEmpty 查询，语义不变；后台噪音发射归零。
+                partsByMessageId = sessionMessages.mapNotNull { msg ->
+                    allParts[msg.id]?.takeIf { it.isNotEmpty() }?.let { msg.id to it }
+                }.toMap(),
             )
             // DIAG 已移除（2026-08-10）：combine 每 48ms 触发的 MsgDiag 日志（每秒 ~80 条 logcat 写入）
             // 是真机掉帧的根因之一——debug 版 BuildConfig.DEBUG=true 时门控无效，必须彻底删除。

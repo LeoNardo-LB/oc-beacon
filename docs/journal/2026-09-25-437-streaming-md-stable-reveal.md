@@ -206,3 +206,25 @@
 - 首开 JIT 风暴（baseline profile/PGO 批次）；
 - 流式大项内容级 ±300-400px 重测振荡（十三轮遗留，HFLICK/RESIZE 探针持续收割）；
 - 回合结束 dsh→seq 底部整泡换装。
+
+## 验收十五轮（2026-09-26 02:5x—03:2x）——第三轮复现·四路子代理系统分析：发射隔离 + pending 幽灵写序竞态
+
+**用户指令**：委派多 subagent 多方向系统分析；修复必须根因性质，拒绝打补丁。
+
+### 四路并行分析结论（glm-5.3-flash ×4）
+- **UI 失效链**：chatEntries remember 以 displayItems 实例为键 → 每批全量重建 entries → item lambda 全体重执行；叠加 lambda 内直读每批必变状态 + 未 memo 回调，击穿 renderableTurns 实例缓存（修复位置已登记卡）。
+- **日志指纹**：SGB ENTRIES 每秒次数 == MDPilot append 每秒次数（逐秒恒等）；93% append 为 1-5ch；同 id 气泡 35s 重组 524 次；回合结束后 append=0 而重组仍 24-34/s（全局噪音路径）。
+- **渲染幂等性**：流式 Markdown 逐帧像素幂等（前缀差分 append、stable 单调、无 Loading↔Success 翻转）——**闪烁不在渲染层**。
+- **视觉元素枚举**：S1 QuestionCard 锚迁移（本会话无 question 事件，排除）；S2 推理脉冲/S3/S4 计时文本=设计内活动指示；**证伪注入卡/压缩卡展开态与 qEntered**。
+
+### 本轮两个实锤根因与根修
+1. **发射隔离（L1）**：`MessageListState.partsByMessageId` 原样携带全局 parts 映射（`getAllPartsMap()=裸 eventDispatcher.parts`，无过滤无 distinct）——后台会话流式落库 → 状态结构不等 → StateFlow equals 去重被击穿 → 可见会话以全局写库速率整体发射重组。**根修**：收窄为本会话消息稀疏投影（唯一消费者语义不变）。曾试 sample(48) 节流——破坏测试缝且属节流补丁，撤销（根因在作用域泄漏，内存 parts 本就 48ms 批处理）。
+2. **pending 幽灵写序竞态（L5）**：播种 upsert（合并缓冲，250ms 时延批）与拆除 delete（旁路并行协程，batchScope=Dispatchers.Default 多线程）无顺序保证——真机铁证：delete 42:57.519 先行、upsert 事务 42:57.686 后到重插 → 幽灵行留存热表 → REST 刷新回灌复活（`u_pending-…f74` 挂屏 6 分钟，1956 行日志）。**根修**：删除并入单写协程 + 事件时间最后操作语义（拆除先从合并缓冲撤下未写行；同 id 再到达撤销待删）——写序竞态构造性消除。
+
+### 验证
+- 单测 +4（撤下未写行/删除后重到达复活/in-flight 后串行删除/既有异步删除保持）+ 既有 Delegate 投影测试按稀疏语义修正；3517 全绿。
+- 真机装机（L1）：20s 空闲窗口 InjCard=0、ENTRIES=0、attachmentScan 0.15/s（风暴期 12-17/s → 归零量级）。
+
+### 遗留（已登记/沿用）
+- L3 重组隔离卡（P2，见 backlog）——性能债非闪烁源；
+- 首开 JIT（baseline profile）；流式大项内容级 ±300-400px 重测振荡；回合结束 dsh→seq 底部换装。

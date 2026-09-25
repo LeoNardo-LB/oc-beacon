@@ -151,6 +151,18 @@ class MessageEventHandler @Inject constructor(
     private var oldestPendingUpsertAt = 0L
 
     /**
+     * #437 验收十五轮：待删行队列（sessionId → messageId 集合；与 [pendingUpserts]
+     * 同锁域）。原拆除删除走旁路并行协程（batchScope=Dispatchers.Default 多线程），
+     * 与合并缓冲的时延批 upsert 无顺序保证——真机 flicker3 实证：pending-* 播种
+     * upsert 事务 42:57.686 才提交，拆除 delete 42:57.519 先行 → 后到 upsert 重插
+     * 已删行 → 幽灵行留存热表 → REST 刷新/分页合并回灌复活为可见重复气泡
+     * （u_pending-…f74 挂屏 6 分钟，1956 行日志取证）。并入单写协程后天然串行：
+     * 拆除先从合并缓冲撤下未写行（重放安全），删除在既有写入之后执行——写序
+     * 竞态构造性消除；同 id 再到达时 enqueueUpsert 撤销待删（事件时间最后操作胜出）。
+     */
+    private val pendingDeletes = HashMap<String, HashSet<String>>()
+
+    /**
      * #338：会话时间域基准——最近观察到的该会话「消息/事件时刻」（DSH=服务器
      * 信封时刻、V2=本地构造时刻——与该会话消息 created 腿**同钟域**）。
      * [markSessionIdle] 回填 completed 时优先取该值，杜绝跨钟域回填：
@@ -210,6 +222,8 @@ class MessageEventHandler @Inject constructor(
                         drainDeltaPersistQueue()
                     }
                 }
+                // #437 十五轮：删除并入同一写协程——与既有 upsert 事务天然串行
+                flushPendingDeletes()
             }
         }
     }
@@ -236,9 +250,33 @@ class MessageEventHandler @Inject constructor(
             val byMsg = pendingUpserts.getOrPut(sessionId) { HashMap() }
             for (mwp in payload) {
                 if (byMsg.put(mwp.info.id, mwp) == null) pendingUpsertCount++
+                // #437 十五轮：同 id 到达撤销待删（事件时间最后操作=upsert 胜出）
+                pendingDeletes[sessionId]?.remove(mwp.info.id)
             }
         }
         persistWakeups.trySend(Unit)
+    }
+
+    /** #437 十五轮：排空待删队列（单写协程内串行——晚于本协程既有 upsert 执行）。 */
+    internal suspend fun flushPendingDeletes() {
+        val store = messageStore ?: return
+        val batches: Map<String, List<String>>
+        synchronized(pendingUpsertsLock) {
+            if (pendingDeletes.isEmpty()) return
+            batches = pendingDeletes.mapValues { (_, ids) -> ids.toList() }
+            pendingDeletes.clear()
+        }
+        for ((sessionId, ids) in batches) {
+            for (id in ids) {
+                try {
+                    store.deleteMessage(sessionId, id)
+                } catch (ce: CancellationException) {
+                    throw ce
+                } catch (_: Exception) {
+                    // 写失败静默（同 persist 纪律；内存视图不受影响）
+                }
+            }
+        }
     }
 
     /** #340：刷洗合并缓冲——每会话单次批量写（单事务）。 */
@@ -632,12 +670,20 @@ class MessageEventHandler @Inject constructor(
         assistantMessageIds.remove(event.messageId)
         // 四层根修（2026-09-09）：Room 行同删——echo 拆除此前只清内存，pending-*
         // 幽灵行留存热表，任何 Room 回灌都会复活（实测：压缩后幽灵气泡重回 UI、
-        // 快速定位列出不可跳转条目）。fire-and-forget（batchScope，同 persist 纪律）。
-        val store = messageStore ?: return
-        batchScope.launch {
-            runCatching { store.deleteMessage(event.sessionId, event.messageId) }
-                .onFailure { AppLogger.w(TAG, "[removed] persist delete failed: " + it.message) }
+        // 快速定位列出不可跳转条目）。
+        // #437 验收十五轮（写序根修）：原 batchScope 并行 launch 删除与合并缓冲的
+        // 时延批 upsert 无顺序保证（真机：upsert 事务晚 167ms 提交重插已删行 → 幽灵
+        // 复活挂屏 6 分钟）。改记入待删队列：先从合并缓冲撤下未写行（该行从未落库），
+        // 删除由单写协程在既有写入之后串行执行。
+        synchronized(pendingUpsertsLock) {
+            val byMsg = pendingUpserts[event.sessionId]
+            if (byMsg?.remove(event.messageId) != null && pendingUpsertCount > 0) {
+                pendingUpsertCount--
+                if (pendingUpsertCount == 0) oldestPendingUpsertAt = 0L
+            }
+            pendingDeletes.getOrPut(event.sessionId) { HashSet() }.add(event.messageId)
         }
+        persistWakeups.trySend(Unit)
     }
 
     // ============ #378 表面区间折叠（surfaceOp.replace 消费面） ============
