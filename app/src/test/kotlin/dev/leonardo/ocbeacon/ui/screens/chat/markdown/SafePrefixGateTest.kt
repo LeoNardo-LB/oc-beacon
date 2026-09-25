@@ -185,22 +185,6 @@ class SafePrefixGateTest {
     }
 
     @Test
-    fun `纯文字扣留尾判定无标记`() {
-        assertFalse(SafePrefixGate.heldTailHasActiveMarkers(""))
-        assertFalse(SafePrefixGate.heldTailHasActiveMarkers("The keeper climbed the winding stairs slowly."))
-        assertFalse(SafePrefixGate.heldTailHasActiveMarkers("line one\nline two continues"))
-    }
-
-    @Test
-    fun `含标记扣留尾判定有标记`() {
-        assertTrue(SafePrefixGate.heldTailHasActiveMarkers("bold *text* here"))
-        assertTrue(SafePrefixGate.heldTailHasActiveMarkers("\u2610 task"))
-        assertTrue(SafePrefixGate.heldTailHasActiveMarkers("math \$\$x\$\$"))
-        assertTrue(SafePrefixGate.heldTailHasActiveMarkers("intro\n1. first"))  // 行首有序列表
-        assertFalse(SafePrefixGate.heldTailHasActiveMarkers("price 5 each"))  // 单 $ 非标记
-    }
-
-    @Test
     fun `CRLF空行毕业兼容`() {
         // CR 视作行内空白：空行检测跳过 \r
         assertEquals(12, rel("para one\r\n\r\nafter"))

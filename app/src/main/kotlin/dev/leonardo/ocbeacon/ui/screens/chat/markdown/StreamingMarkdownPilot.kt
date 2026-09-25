@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import com.mikepenz.markdown.model.StreamingMarkdownState
 import com.mikepenz.markdown.model.rememberStreamingMarkdownState
 import dev.leonardo.ocbeacon.BuildConfig
@@ -129,7 +130,16 @@ internal fun rememberPilotStreamingMarkdownState(markdown: String): PilotStreami
             else -> prev = markdown // 等长：无增量
         }
         if (gate && prev != null) {
-            held.value = markdown.substring(released.coerceIn(0, markdown.length))
+            val newHeld = markdown.substring(released.coerceIn(0, markdown.length))
+            // #437 崩溃批次后续修（2026-09-25 用户报「闪烁后视窗回位」）：
+            // 转正（毕业放行）时降亮区收缩与 Markdown 正文扩张存在两帧错位
+            // ——held 同帧缩短→item 净高先减一帧→正文下一帧长回=视口单次往返
+            // 闪烁。收缩侧延一帧（等扩张帧落地），增长侧不延（降亮区晚一帧
+            // 无感）。净高度变化从此单调。
+            if (newHeld.length < held.value.length) {
+                withFrameNanos { }
+            }
+            held.value = newHeld
         }
     }
     return PilotStreamingState(state, held)

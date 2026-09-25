@@ -36,13 +36,15 @@ import dev.leonardo.ocbeacon.ui.theme.AppMotion
 import kotlinx.coroutines.delay
 
 /**
- * #437 扣留尾部降亮区（spec §2 超龄通道 / §5 阶段 B）。
+ * #437 扣留尾部呈现区（spec §2 超龄通道 / §5 阶段 B；2026-09-25 用户
+ * 验收裁决：透明度正常化——废弃降亮分级）。
  *
- * 流中扣留超 [HeldTailAgingState.REVEAL_AFTER_MS] 后可见的定高降亮纯文本区：
+ * 流中扣留超 [HeldTailAgingState.REVEAL_AFTER_MS] 后可见的定高纯文本区：
  * - 锁高裁剪：显示高度 = min(自然高, 锁高)，锁高每
  *   [HeldTailAgingState.HEIGHT_REFRESH_MS] 刷新一次——期间文本增长被裁剪，
  *   不触布局（高度流=低频量子，与 #435 引擎配对无冲突）；
- * - alpha 0.5 降亮 + 末尾呼吸光标——扣留内容的活性指示；
+ * - 文字以调用方基调直接呈现（普通消息全亮/思考块 MUTED 继承）+
+ *   末尾呼吸光标——扣留内容的活性指示；
  * - 毕业（gate 放行）时扣留变短 → min 立即收缩，与正文扩张同帧，
  *   净高度变化单调不减；
  * - 扣留清空（完结/全部毕业）→ 不占位。
@@ -87,10 +89,9 @@ internal fun HeldTailReveal(
 
     if (tail.isEmpty() || !visible) return
 
-    // 纯文字扣留尾全亮（转正字面无缝，V6 体感）；含标记才降亮（按块成型预期）
-    val hasMarkers = remember(tail) { SafePrefixGate.heldTailHasActiveMarkers(tail) }
-    val contentAlpha = if (hasMarkers) 0.5f else 1f
-    val dimColor = textStyle.color.copy(alpha = textStyle.color.alpha * contentAlpha)
+    // 用户验收裁决（2026-09-25）：扣留尾一律以调用方基调直接呈现——普通消息
+    // 全亮（不降亮，不与正文形成「思考感」断层）；思考块继承 MUTED 半透明
+    // （与已放行思考内容一致）。降亮分级（纯文字全亮/含标记 0.5）已废弃。
 
     // 呼吸光标（inline 末尾，占位 1em×1.05em 圆角块）
     val transition = rememberInfiniteTransition(label = "srCursor")
@@ -108,7 +109,7 @@ internal fun HeldTailReveal(
         }
     }
     val density = LocalDensity.current
-    val inlineContent = remember(cursorId, dimColor) {
+    val inlineContent = remember(cursorId, textStyle.color) {
         mapOf(
             cursorId to InlineTextContent(
                 Placeholder(0.85f.em, 1.05f.em, PlaceholderVerticalAlign.TextCenter),
@@ -116,7 +117,7 @@ internal fun HeldTailReveal(
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .background(dimColor.copy(alpha = cursorAlpha), RoundedCornerShape(2.dp)),
+                        .background(textStyle.color.copy(alpha = cursorAlpha), RoundedCornerShape(2.dp)),
                 )
             },
         )
@@ -124,7 +125,7 @@ internal fun HeldTailReveal(
 
     Text(
         text = annotated,
-        style = textStyle.copy(color = dimColor),
+        style = textStyle,
         inlineContent = inlineContent,
         overflow = TextOverflow.Clip,
         onTextLayout = { result ->
