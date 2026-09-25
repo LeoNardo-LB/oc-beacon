@@ -95,3 +95,29 @@
 **R9（量子化验证+人为停顿）**：阶梯现身（pair d=1600=步进上限精确出现）；小批段 f12→f17 **逐像素零漂**。**残差登记**：① catch-up 期 gate 仍按 400ch/48ms 释放而 measure 滞后聚合（观测 442ms 聚合 7 批=单 note d=6236）；② 大额 set 用 requestPositionAndForgetLastKnownKey 核销锚 key，突发期新 item 插入+重排后 LazyList 按字面 index 重锚（LEAP -7562 视觉大跳，f17→f26 混沌）。两处为下一卡片：「流式突发路径收尾——gate 时间限速与配对 set 保 key」。
 
 **净结论**：用户三症状的主链（全域+Δ 双重补偿拖拽/震荡、sid 漂移裸增长、超龄单帧倾泻）均已修复且有真机证据；稳态小批场景（贴底跟随/历史锚定/锚内深读）三类像素冻结达标。突发路径残差已定位到两个具体机制，待下一轮。
+
+## 验收十一轮（2026-09-26 凌晨）：三问题根修（压缩卡堆积 / 震荡残留 / 块级展示）
+
+用户报三问题：①压缩卡一堆堆在一起；②仍上下震荡闪烁；③块展示应「未闭合零输出、闭合整体出、表格按行」。
+
+### ① 压缩卡堆积（27642dac）
+- 真机 Transcript378 实证 `compactions=8 extras=1`：全部卡塞进 display0 after 桶。
+- 根因 A：displaySeqs null → Long.MIN_VALUE 哨兵使「比最新消息还新」恒真（流式/本地 id 解不出 seq 常驻 index0）。
+- 根因 B（DSH 0.1.7 源码调研 docs/research/dsh-compaction-binding.md）：压缩绑定是 shadowedRange 区间而非信封 seq；卡按信封 seq 排恒落日志尾部。
+- 修：TranscriptPlan 只在已知 seq 项中找锚（贴尾语义保持）；CompactionEntry/Summary 事件增 shadowStartSeq（mapper 解析 shadowedRange.start，min 防 start>end），卡片 sortSeq 优先取之。
+- 真机复验（新 pid 4688）：`cardSeqs=[cmp:1717/9, cmp:5402/1723, ..., cmp:19904/18321]` shadowStart 全解析、随页加载渐次重锚；底部堆积消失（视觉子代理两屏 0 卡片于中下部）。
+
+### ③ 块级展示（a421410a）
+- SafePrefixGate 第二级逐行状态机重写：围栏块开栏整体扣留、闭栏整块放行（跨批 fenceStateAt O(n) 恢复状态）；表格表头+分隔行整体放行后逐行渐显；普通完整行放行；超龄降亮区（HeldTailAging reveal）整体关闭。
+- 3582→3506 单测全绿（表格/围栏/aging 用例按新语义重钉）。
+
+### ② 震荡残留（817607b4）
+- R9 LEAP -7562 根因落锤：requestPositionAndForgetLastKnownKey 丢 lastKnownFirstItemKey（javap 钉死实名），插入/重排按字面 index 重锚。
+- 修：反射探针增可选字段，flush 相溢出换算落点可见时同帧回写 key；缺失自动降级。LazyListReflectionTest 冒烟钉死。
+- 真机冒烟：贴底流式全部走 drop（免派发物理跟随）分支，零 LEAP、零大额 set。
+
+### 环境备注
+- gradle 需 LANG=en_US.utf8（默认 locale 使 kotlinc 中文类名乱码 → NoClassDefFoundError 假失败）；JAVA_HOME=/home/linuxbrew/.linuxbrew/opt/openjdk@21。
+- ADB=/home/linuxbrew/.linuxbrew/bin/adb；启动 Activity 实名 dev.leonardo.ocbeacon.MainActivity（非 ui.MainActivity）。
+
+待用户真手指验收：震荡体感、压缩卡随消息上推、代码块/表格展示节奏。
