@@ -48,7 +48,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.map
@@ -698,6 +700,26 @@ class ChatViewModel @Inject constructor(
     )
 
     val sessionMetaState: StateFlow<SessionMetaState> get() = stateAggregator.sessionMetaState
+
+    /**
+     * 2026-09-26 回合级活动信号（流式滚动门控专用，宽限期防抖）：
+     * 真机取证（journal 验收十二轮）多步回合的步与步之间 SessionStateService 被
+     * SseStatus force-complete 打成 Idle（[meta] streaming true→false 闪断），
+     * 若门控直读 isStreaming，守卫/锚底在步间空窗被放行 → 用户观感「视窗被拖走/
+     * 像补偿逻辑」的闪烁。本信号上升沿立即为 true（isStreaming OR 存在未完结
+     * assistant 消息），下降沿延迟 [TURN_ACTIVE_GRACE_MS] 落地——步间空窗
+     * （实测 <2s）从构造上免疫；真实回合结束最多延迟 3s 静默。
+     */
+    @kotlinx.coroutines.FlowPreview
+    val turnActiveState: StateFlow<Boolean> = combine(
+        stateAggregator.sessionMetaState,
+        messageListState,
+    ) { meta, msgs ->
+        meta.isStreaming || msgs.messages.any { it.isAssistant && it.message.time.completed == null }
+    }.flatMapLatest { active ->
+        if (active) flowOf(true) else flowOf(false).debounce(TURN_ACTIVE_GRACE_MS)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     val tokenStatsState: StateFlow<TokenStatsState> get() = stateAggregator.tokenStatsState
     val directoryState: StateFlow<String> get() = stateAggregator.directoryState
 
@@ -1540,6 +1562,8 @@ class ChatViewModel @Inject constructor(
 
 
     companion object {
+        /** 回合级活动信号下降沿宽限（ms）——覆盖多步回合的步间 Idle 空窗。 */
+        private const val TURN_ACTIVE_GRACE_MS = 3_000L
         /** #182：Task 卡片全量输出翻页拉取——单页条数与页数上限（老卡片防漏）。 */
         private const val TASK_FETCH_PAGE_LIMIT = 50
         private const val TASK_FETCH_MAX_PAGES = 10

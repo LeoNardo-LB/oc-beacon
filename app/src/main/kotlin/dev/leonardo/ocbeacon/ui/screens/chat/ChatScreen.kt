@@ -292,6 +292,7 @@ fun ChatScreen(
 ) {
     val messageState by viewModel.conversation.messageListState.collectAsStateWithLifecycle()
     val sessionMeta by viewModel.sessionMetaState.collectAsStateWithLifecycle()
+    val turnActive by viewModel.turnActiveState.collectAsStateWithLifecycle()
     val interaction by viewModel.conversation.interactionState.collectAsStateWithLifecycle()
     val tokenStats by viewModel.tokenStatsState.collectAsStateWithLifecycle()
     val modelConfig by viewModel.modelConfigState.collectAsStateWithLifecycle()
@@ -336,7 +337,9 @@ fun ChatScreen(
         hasMessages = { messageState.messages.isNotEmpty() },
         jumpLockActive = jumpLockActiveState,
         // #437 验收六轮：流式期间 MSGEFFECT/GUARD 静默（配对 set 保画面，物理贴底跟随）
-        streamingActive = { sessionMeta.isStreaming },
+        // 2026-09-26 根修：改用回合级 turnActive（3s 宽限防抖）——步间 force-Idle
+        // 空窗（streaming true→false 闪断，真机 01:04 实录）不再放行守卫/锚底。
+        streamingActive = { turnActive },
     )
 
     // FileViewer 浮层状态 —— 取代到 FileViewerNav 路由的导航。

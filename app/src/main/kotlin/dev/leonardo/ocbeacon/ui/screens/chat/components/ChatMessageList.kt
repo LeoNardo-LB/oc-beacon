@@ -371,6 +371,9 @@ fun ChatMessageList(
     val toolProgress by viewModel.chatRepositoryExposed.getActiveToolProgressForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
     val stepProgress by viewModel.chatRepositoryExposed.getStepProgressForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
     val compactionState by viewModel.chatRepositoryExposed.getCompactionStateForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
+    // 2026-09-26 回合级活动信号（3s 宽限防抖）——横幅揭示门控用：步间 force-Idle
+    // 空窗不再触发 episode（dispatchRawDelta 配对）=步间闪烁根除。
+    val turnActive by viewModel.turnActiveState.collectAsStateWithLifecycle()
     // #309 批1⑤：max-tokens 通知（turn 非空即显示；新一轮 Busy 自动清）
     val turnMaxTokens by viewModel.chatRepositoryExposed.getTurnMaxTokensForSession(currentSessionId).collectAsStateWithLifecycle(initialValue = null)
     // #323：斜杠命令执行反馈行（command/run|done 折叠，commandId 配对原位更新）——
@@ -691,7 +694,10 @@ fun ChatMessageList(
             )
         }
         // #423 I3(视口租约):在途渲染前事务期间让位,防锚底与 episode 配对位移互搏。
-        if (revealBannerCount > 0 && autoScrollState.value &&
+        // 2026-09-26 根修：补回合级流式静默（与 MSGEFFECT/GUARD 同款）——步间
+        // force-Idle 空窗或流式中兜底横幅出现/消失时，此锚底曾把视口拽到底
+        // =「来回跳动」通路之一（漏门控审计发现）。
+        if (revealBannerCount > 0 && autoScrollState.value && !turnActive &&
             !PreRenderCoordinator.hasActiveTransactions
         ) {
             // fling 等待 + 重校验（msgCount effect 同款防「快照后用户开始拖动」竞态）
@@ -2183,7 +2189,7 @@ fun ChatMessageList(
                         BannerReveal(
                             listState = listState,
                             onExpandDeparture = onExpandDeparture,
-                            streamingActive = streamingMsgId != null,
+                            streamingActive = turnActive,
                             visible = revertSupported && sessionMeta.revert != null,
                         ) {
                             Box(modifier = Modifier.padding(bottom = messageSpacing)) {
@@ -2241,7 +2247,7 @@ fun ChatMessageList(
                         BannerReveal(
                             listState = listState,
                             onExpandDeparture = onExpandDeparture,
-                            streamingActive = streamingMsgId != null,
+                            streamingActive = turnActive,
                             visible = retryStatus is SessionStatus.Retry,
                         ) {
                             Box(modifier = Modifier.padding(bottom = messageSpacing)) {
@@ -2260,7 +2266,7 @@ fun ChatMessageList(
                         BannerReveal(
                             listState = listState,
                             onExpandDeparture = onExpandDeparture,
-                            streamingActive = streamingMsgId != null,
+                            streamingActive = turnActive,
                             visible = turnMaxTokens != null,
                         ) {
                             Box(modifier = Modifier.padding(bottom = messageSpacing)) {
@@ -2291,7 +2297,7 @@ fun ChatMessageList(
                         BannerReveal(
                             listState = listState,
                             onExpandDeparture = onExpandDeparture,
-                            streamingActive = streamingMsgId != null,
+                            streamingActive = turnActive,
                             visible = activeTools.isNotEmpty(),
                         ) {
                             Box(modifier = Modifier.padding(bottom = messageSpacing)) {
@@ -2318,7 +2324,7 @@ fun ChatMessageList(
                         BannerReveal(
                             listState = listState,
                             onExpandDeparture = onExpandDeparture,
-                            streamingActive = streamingMsgId != null,
+                            streamingActive = turnActive,
                             visible = currentStep != null,
                         ) {
                             Box(modifier = Modifier.padding(bottom = messageSpacing)) {
@@ -2338,7 +2344,7 @@ fun ChatMessageList(
                         BannerReveal(
                             listState = listState,
                             onExpandDeparture = onExpandDeparture,
-                            streamingActive = streamingMsgId != null,
+                            streamingActive = turnActive,
                             visible = question != null,
                         ) {
                             if (question != null) {
@@ -2366,7 +2372,7 @@ fun ChatMessageList(
                         BannerReveal(
                             listState = listState,
                             onExpandDeparture = onExpandDeparture,
-                            streamingActive = streamingMsgId != null,
+                            streamingActive = turnActive,
                             visible = permission != null,
                         ) {
                             if (permission != null) {
