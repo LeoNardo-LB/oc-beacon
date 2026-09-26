@@ -302,7 +302,10 @@ internal fun streamingGrowFlushTask(
             firstVisibleIndex = listState.firstVisibleItemIndex,
             firstVisibleOffset = listState.firstVisibleItemScrollOffset,
             isScrollInProgress = listState.isScrollInProgress,
-            anchorKey = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.key,
+            // vd9 实证：条目增删窗口内 firstOrNull 与 firstVisibleItemIndex 短暂错位
+            // 导致锚键误判（该配对的释放落 paired=false）——按 index 反查锚键。
+            anchorKey = listState.layoutInfo.visibleItemsInfo
+                .firstOrNull { it.index == listState.firstVisibleItemIndex }?.key,
             growthKey = reserve.itemKey,
         )
         if (plan != null) {

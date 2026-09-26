@@ -21,7 +21,7 @@ import org.junit.Test
 class StepGroupLazySplitTest {
 
     private fun assistantMsg(id: String) = ChatMessage(
-        message = Message.Assistant(id = id, sessionId = "s1", time = TimeInfo(2), parentId = "p0"),
+        message = Message.Assistant(id = id, sessionId = "s1", time = TimeInfo(2, 2), parentId = "p0"),
         parts = listOf(Part.Text(id = id + "_p", sessionId = "s1", messageId = id, text = "x")),
     )
 

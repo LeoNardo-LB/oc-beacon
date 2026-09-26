@@ -347,8 +347,12 @@ internal fun buildChatEntries(
         // 全局粒度（任一消息流式 → 全表 chunked turn 合并为单 item；流式结束
         // → 全表再裂变）——视口内 key 双向翻转无门控 = 叠放竞态源 + 流式期长
         // turn 巨帧回归。改为 turn 粒度：仅流式 turn 不分片，其余照常。
-        val isStreamingTurn = streamingMsgId != null &&
-            (turnGroups[displayIdx] ?: listOf(msg)).any { it.message.id == streamingMsgId }
+        // #437 八轮同源放宽（vd9 实证）：DSH 路径 streamingMsgId 恒 null，旧判定
+        // 会把流式轮当历史轮分片——增长落在 chunk 臂绕过帽协议=裸推帧。组内任一
+        // 消息 completed==null 即流式（与渲染端 isStreamingMsg 同判据）。
+        val isStreamingTurn = (turnGroups[displayIdx] ?: listOf(msg)).any {
+            it.message.id == streamingMsgId || it.message.time.completed == null
+        }
         // #422 历史懒加载:大组展开态拆条目(先于一切旧分片路径——MdChunkPlan 对
         // 多消息轮次已抑制,segPlan 让位)。发射序 = 视觉自底向上(reverseLayout
         // 索引 0 在屏幕底部,同 #246 逆文档序先例):尾 Turn(末消息+统计栏)先入列,

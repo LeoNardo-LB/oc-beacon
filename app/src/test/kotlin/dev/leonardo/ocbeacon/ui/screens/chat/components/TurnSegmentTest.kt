@@ -28,7 +28,7 @@ import org.junit.Test
 class TurnSegmentTest {
 
     private fun assistantMsg(id: String, parts: List<Part>) = ChatMessage(
-        message = Message.Assistant(id = id, sessionId = "s1", time = TimeInfo(2), parentId = "p0"),
+        message = Message.Assistant(id = id, sessionId = "s1", time = TimeInfo(2, 2), parentId = "p0"),
         parts = parts,
     )
 

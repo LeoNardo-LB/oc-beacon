@@ -1694,9 +1694,12 @@ fun ChatMessageList(
                                 )
                             }
                         }
-                        val itemModifier = if (isStreamingMsg) {
-                            // [#437 引擎①] 流式消息换帽协议（一帧缓冲+同 pass 原子释放），
-                            // 旧 pairing 路径在此退役（reject-draw 对 item 层重绘无效）。
+                        // [#437 引擎①] 帽协议（一帧缓冲+同 pass 原子释放）；旧 pairing 路径
+                        // 在此退役（reject-draw 对 item 层重绘无效）。
+                        // 宽限（#440 完成跳变）：流结束后帽在物主 item 上保持——终态渲染
+                        // 高度差经帽原子补放/单调保持，卸帽零位移；新流式项出现自动重置。
+                        val reserveOwner = heightReserve.itemKey == itemKey
+                        val itemModifier = if (isStreamingMsg || reserveOwner) {
                             Modifier
                                 .fillMaxWidth()
                                 .clipToBounds()
