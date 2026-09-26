@@ -725,7 +725,7 @@ fun ChatMessageList(
                 }
             }
             if (autoScrollState.value && !PreRenderCoordinator.hasActiveTransactions) {
-                listState.requestScrollToItem(0)
+                ViewportDispatchGateway.bottomFollow(listState, "BANNER", "reveal")
             }
         }
     }

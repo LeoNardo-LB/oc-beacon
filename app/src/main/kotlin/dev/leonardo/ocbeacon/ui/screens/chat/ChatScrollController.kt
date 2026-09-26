@@ -202,7 +202,8 @@ internal fun rememberChatScrollController(
                             listState.firstVisibleItemScrollOffset
                     )
                 }
-                listState.requestScrollToItem(0)
+                dev.leonardo.ocbeacon.ui.screens.chat.components.ViewportDispatchGateway
+                    .bottomFollow(listState, "MSGEFFECT", "autoOn=" + autoScrollEnabled.value)
                 // 2026-08-30 下跳回归根修：requestScrollToItem 是一次性锚定——
                 // 打开时默认展开的卡（shell/事件卡）+ RB/TC/Markdown 异步内容
                 // 在打开后持续长高（实测 600ms-数秒不等），把 item0 渐渐顶离
@@ -251,7 +252,8 @@ internal fun rememberChatScrollController(
                                             " off=" + listState.firstVisibleItemScrollOffset
                                     )
                                 }
-                                listState.requestScrollToItem(0)
+                                dev.leonardo.ocbeacon.ui.screens.chat.components.ViewportDispatchGateway
+                                    .bottomFollow(listState, "GUARD", "settled-reanchor")
                             },
                         )
                     }
