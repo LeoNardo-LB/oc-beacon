@@ -238,3 +238,10 @@
 - 回合结束换装跳变（唯一 I2' 违规，实锤）：13:32:03.307 流式临时 item t_dsh-t2s1 高度 4961->0（移除），PLAN add=[cf-...-23] rem=[t_dsh-t2s1]（终态键换装为 remove+add 非原子）；锚点在流式 item 上，LazyList lastKnownKey 重锚 idx7->9、fiso 4858->4466，可见位移 -392px 单次跳变（终态渲染与流式渲染高度差）。
 - 附带发现：贴底跟随期 13:31:36 一记 230ms 动画滚动（off 18->134，GUARD/animateScrollToItem 族嫌疑）。用户主诉的每新行推-回弹在本轮（DSH+纯文本+当前构建）未复现；嫌疑收敛至：工具/推理卡高度行为、chunk 分裂期阅读、opencode 管线路径（服务器修复后测）。
 - 固化 scripts/stream-flicker-test.sh（用户裁决）：发送消息->等10s->快拖无fling上滑1/5屏 一键执行，后续验收复用。
+
+## 验收十七轮：高度引擎三件套全绿——阅读态泄漏清零+换装跳变归零
+
+- 引擎三件套落码全绿：①一帧缓冲帽（增长当帧 clip、pre-draw 单事务 {帽+滚动} 同 pass 原子释放；VDRAW 实证 reject-draw 对 item 层重绘无效后弃用）②槽位锚键（turnKey 锚轮 user 消息，dsh 宿主/终态换装零漂移）③视口写入单点网关（GUARD/MSGEFFECT/BANNER 收编，SGR-GATE 打点）。
+- 关键修复链（真机迭代）：DSH 流式轮被旧 isStreamingTurn 判定分片绕过帽（streamingMsgId 恒 null）→ 组内 completed==null 同源放宽；锚键 firstOrNull 与 fii 错位 → 按 index 反查；完成跳变 → 帽宽限保持至新流式项。
+- 验收取证（stream-flicker-test.sh + VDRAW 绘制相位分类判决）：vd10 阅读态 H_ONLY/O_ONLY=0/0（基线 62/62）、paired=true 原子配对实证；vd13 全文 293 appends 至 2914px 自然收尾，回合末 PLAN/LEAP/RESIZE/杂释放全部为 0（修前 rem+add+塌0+LEAP-392）。贴底跟随全程健康。
+- 单测 3529 全绿（新增 TurnSlotKeyStabilityTest 5 例 + ReserveReleasePlanTest 7 例；分片夹具补 completed 位）。commit：5537ebd2→(帽)→(补修+宽限)→(③网关)。
