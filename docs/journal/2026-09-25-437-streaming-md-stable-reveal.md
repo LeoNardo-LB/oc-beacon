@@ -279,3 +279,10 @@
 - 收口裁夺（ai-acceptance-workflow §1：验收按仪器可断言性分类）：本弧判据全部为仪器可断言面（VDRAW 帧级泄漏计数、回合末结构事件、单测、贴底回归），AI 真机验证即收——证据链见十六至二十轮。#440 依此迁入 journal。
 - 人工验证清单（V6，主观体感残余项，供用户日常使用中复核，不阻塞收口）：①流式长文浅滑阅读的体感平滑度；②深滑读历史手感；③贴底跟随与 FAB 吸附手感；④跨日长会话稳定性。若有异样：报位置与时刻，探针（VDRAW/RESERVE/SGR-GATE）复检路径已固化在 scripts/stream-flicker-test.sh。
 - 探针留存说明：VDRAW（壳层绘制相位）/RESERVE（帽 measure/flush）/SGR-GATE（网关派发）为 DEBUG-only 常驻，生产零开销。
+
+## 验收二十一轮：用户反馈两回归——底对齐+滚动暂缓双修
+
+
+- 用户验收反馈两回归定罪与修复：①贴底统计栏一跳一跳=帽 child 顶对齐致 clip 溢出朝屏底（统计栏恰在内容底，每 48ms 裁一帧弹回）——改底对齐 place(0, h-childHeight)，溢出朝上裁视口外旧文本、内容底钉死；②流式滑动 fling 卡顿=单体流式项 48ms 全量重排版与滚动帧抢主线程（输出完毕延迟分片后即顺）——ScrollHold 暂缓：isScrollInProgress 期间 pilot 不 append（prev 不动），settle 后 LaunchedEffect 复触发整段一次追平（一次重排版）。
+- 仪器判决（会话H /tmp/vi.txt）：手势窗内 appends=0、settle 后即刻恢复 372 次、无积压异常；贴底帧序正常。统计栏体感待用户肉眼复核。
+- commit：fix: 帽child底对齐(贴底统计栏弹跳)+流式滚动暂缓(fling卡顿——settle后整段追平)。全量单测 3529 绿。
