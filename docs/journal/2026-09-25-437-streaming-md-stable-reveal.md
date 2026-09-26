@@ -251,3 +251,8 @@
 - 终局三连修（日志逐一定罪）：①流式判据排除 user 消息（completed 恒 null 致 user 项与流式项双帽共 state 互踩 reset，「附而不释」真因，RESERVE 双 measure 交替实锤）②贴底原点阈值 100->8px ③配对锚 index 语义（锚≤增长项即配对——横幅区浅滑位 fii=0 为 banner 条目键失配致漏配对；读历史位免配对防原生保持+配对双重修正下坠）。
 - 双姿态终验清零：浅滑位（z3：READ 0/0，修前 66-69）＋深滑位（vd10：READ 0/0 + paired=true d=364 原子配对）；回合末（vd13）PLAN/LEAP/RESIZE 全零；贴底/手势帧全程正常。单测 3529 绿（ReserveReleasePlanTest 扩至 8 例锚语义）。
 - commit 链：ddad975c（互搏根修）→ 阈值 8px → 锚 index 语义终修。
+
+## 验收十九轮：壳层探针破幻影——三姿态泄漏全清零
+
+- 深读位「泄漏」破案：VDRAW/RESIZE 探针原挂帽内层（padding 内侧），读到内容全高而非帽后壳高——被 clip 的不可见增长被误计为推帧（vd4th 70/70 实为幻影）。探针移至链首壳层后：深读位（半屏上滑）READ=0/0 且 ATOMIC=7（壳高与 offset 同帧落地，I1 契约直接可见）。
+- 三姿态终态：浅滑（z3 0/0）、中滑（vd10 0/0+paired）、深读（vshell 0/0+ATOMIC）全清零；回合末（vd13）全零；贴底/手势正常。单测 3529 绿。
