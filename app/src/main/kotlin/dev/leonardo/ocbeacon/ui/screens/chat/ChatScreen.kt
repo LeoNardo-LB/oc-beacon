@@ -981,8 +981,17 @@ fun ChatScreen(
                         // 2026-09-12 扁平化（US#22）：撤销 UI 层「×N」连续同内容合并——
                         // 改为装配层按**事件身份键**（子会话 id / shell id / 消息 id）
                         // 收敛为一条并原位更新状态（rowmodel.dedupeByEventIdentity）。
-                        val displayItems = remember(rawMessages) {
-                            dedupeByEventIdentity(
+                        // [R4-B3 步2] displayItems 承载 SnapshotStateList + 差量写入：
+                        // get(i) 为 index 级依赖，set(i) 只失效读该槽的 item——流式期
+                        // 列表长度不变、仅尾槽内容变 → 重组收敛到流式 item 本体
+                        // （原每 flush 新 List 实例 = 全 item content 失效的根因收口）。
+                        val displayItemsState = remember {
+                            androidx.compose.runtime.mutableStateListOf<Pair<Int, ChatMessage>>()
+                        }
+                        remember(rawMessages) {
+                            diffDisplayItemsInto(
+                                displayItemsState,
+                                dedupeByEventIdentity(
                                 rawMessages.mapIndexedNotNull { index, msg ->
                                     when {
                                         msg.isUser && !msg.isSynthetic -> index to msg
@@ -1007,7 +1016,9 @@ fun ChatScreen(
                                         else -> null
                                     }
                                 },
-                            ) { pair -> syntheticEventIdentityKey(pair.second) }
+                                ) { pair -> syntheticEventIdentityKey(pair.second) },
+                            )
+                            true
                         }
 
                     // #137（D2-L65）：此处原重复定义 onViewToolLambda（死代码——
@@ -1022,7 +1033,7 @@ fun ChatScreen(
                         sessionMeta = sessionMeta,
                         interaction = interaction,
                         rawMessages = rawMessages,
-                        displayItems = displayItems,
+                        displayItems = displayItemsState,
                         isAtBottomState = scrollController.isAtBottomState,
                         autoScrollState = scrollController.autoScrollState,
                         isAmoled = isAmoled,
