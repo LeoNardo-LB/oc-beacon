@@ -56,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -1350,6 +1351,9 @@ fun ChatMessageList(
                                 val (rawIndex, msg) = displayItems[entry.displayIndex]
                                 val nextRealIsAssistant = nextRealIsAssistantByMsgId[msg.message.id]
                                 val isTurnLast = nextRealIsAssistant != true
+                                // [VDRAW] 绘制相位去重状态（见 drawBehind 探针注释）
+                                val vdrawLastH = remember { mutableStateOf(-1) }
+                                val vdrawLastFiso = remember { mutableStateOf(-1) }
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -1362,13 +1366,35 @@ fun ChatMessageList(
                                         .onSizeChanged { size ->
                                             if (dev.leonardo.ocbeacon.BuildConfig.DEBUG &&
                                                 (entry.key.startsWith("t_msg_0383e79ba") ||
-                                                    msg.message.id == streamingMsgId)
+                                                    entry.key.startsWith("t_dsh-"))
                                             ) {
                                                 android.util.Log.w(
                                                     "ChunkDiag",
                                                     "PLACE t=" + android.os.SystemClock.elapsedRealtime() +
                                                         " key=" + entry.key + " h=" + size.height + " w=" + size.width
                                                 )
+                                            }
+                                        }
+                                        // [VDRAW 2026-09-26] 绘制相位取证：状态原子≠渲染原子——
+                                        // reject-draw 挡帧失败时屏幕会先画「新高度+旧偏移」再画
+                                        // 「新高度+新偏移」（用户主诉的上推→回弹中间帧，VPT 状态
+                                        // 探针对此全盲）。本探针在 draw 相位记录 (高度, fiso)。
+                                        .drawBehind {
+                                            if (dev.leonardo.ocbeacon.BuildConfig.DEBUG &&
+                                                entry.key.startsWith("t_dsh-")
+                                            ) {
+                                                val h = size.height.toInt()
+                                                val fiso = listState.firstVisibleItemScrollOffset
+                                                if (h != vdrawLastH.value || fiso != vdrawLastFiso.value) {
+                                                    android.util.Log.d(
+                                                        "VDRAW",
+                                                        "t=" + android.os.SystemClock.elapsedRealtime() +
+                                                            " h=" + h + " fiso=" + fiso +
+                                                            " key=" + entry.key.take(20)
+                                                    )
+                                                    vdrawLastH.value = h
+                                                    vdrawLastFiso.value = fiso
+                                                }
                                             }
                                         }
                                 ) {
