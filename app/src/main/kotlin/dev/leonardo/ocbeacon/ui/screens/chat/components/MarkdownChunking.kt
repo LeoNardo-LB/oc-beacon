@@ -298,6 +298,9 @@ internal fun buildChatEntries(
     /** #422→#423 批次六:turnKey → 展开态 StepGroup(权重门槛已拆,全量裂变)。
      *  命中的 turn 拆条目发射(尾 Turn + StepGroupBody×N + StepGroupHead)。 */
     expandedStepGroups: Map<String, dev.leonardo.ocbeacon.ui.screens.chat.tools.RenderItem.StepGroup> = emptyMap(),
+    /** #440 槽位锚（computeTurnAnchors）——turnKey 锚到轮 user 消息，换装零漂移；
+     *  置于参数表末尾（带默认值），既有位置传参调用零改动。 */
+    turnAnchors: Map<Int, String> = emptyMap(),
 ): ChatEntries {
     val entries = mutableListOf<ChatEntry>()
     val displayEntryStart = IntArray(displayItems.size)
@@ -338,11 +341,8 @@ internal fun buildChatEntries(
                 }
             }
         }
-        val turnKey = if (msg.isUser) {
-            "u_" + msg.message.id
-        } else {
-            "t_" + (turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: msg.message.id)
-        }
+        // #440：turnKey 单一真相源收敛到 chatEntryKey（三处同式拷贝至此归一）。
+        val turnKey = chatEntryKey(turnGroups, rawIndex, msg, turnAnchors)
         // C-R3 修复（2026-08-20 spec/impl 背离）：原条件 streamingMsgId == null 是
         // 全局粒度（任一消息流式 → 全表 chunked turn 合并为单 item；流式结束
         // → 全表再裂变）——视口内 key 双向翻转无门控 = 叠放竞态源 + 流式期长

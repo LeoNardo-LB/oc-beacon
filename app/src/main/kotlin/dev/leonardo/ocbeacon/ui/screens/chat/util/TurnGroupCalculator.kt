@@ -16,6 +16,41 @@ import dev.leonardo.ocbeacon.ui.screens.chat.ChatMessage
  *         用户消息索引不在映射中。
  */
 internal fun computeTurnGroups(messages: List<ChatMessage>): Map<Int, List<ChatMessage>> {
+    val indexToGroup = mutableMapOf<Int, List<ChatMessage>>()
+    for ((range, group) in buildAssistantTurnGroups(messages)) {
+        for (i in range) {
+            indexToGroup[i] = group
+        }
+    }
+    return indexToGroup
+}
+
+/**
+ * #440 在位键（槽位锚）：turn 键的稳定锚 = 该轮 Older 侧相邻的非 assistant 消息
+ * （即提问的 user 消息——流式开始前已持久存在）。流式宿主（dsh-t{turn}s{step}）
+ * 与终态消息（seq-*）在同一轮内互换时，锚不变 → turnKey 不变 → LazyColumn 零
+ * remove+add（消除换装跳变）。
+ *
+ * 排除 pending-* 临时锚（乐观播种的 user 气泡 id 尚未持久，落库后会换装——
+ * 期间回退旧公式，代价是该窗口内沿用旧行为）；开放尾组（列表 Older 端无终结者）
+ * 无锚，同样回退。
+ */
+internal fun computeTurnAnchors(messages: List<ChatMessage>): Map<Int, String> {
+    val indexToAnchor = mutableMapOf<Int, String>()
+    for ((range, _) in buildAssistantTurnGroups(messages)) {
+        val terminator = messages.getOrNull(range.last + 1)
+        val anchor = terminator?.takeIf { !it.isAssistant && !it.message.id.startsWith("pending-") }?.message?.id
+        if (anchor != null) {
+            for (i in range) {
+                indexToAnchor[i] = anchor
+            }
+        }
+    }
+    return indexToAnchor
+}
+
+/** 共享走查：assistant 连续段成组（synthetic 独立成泡，2026-08-12 用户决策）。 */
+private fun buildAssistantTurnGroups(messages: List<ChatMessage>): List<Pair<IntRange, List<ChatMessage>>> {
     val groups = mutableListOf<Pair<IntRange, List<ChatMessage>>>()
     var currentStart = -1
     val currentGroup = mutableListOf<ChatMessage>()
@@ -25,8 +60,6 @@ internal fun computeTurnGroups(messages: List<ChatMessage>): Map<Int, List<ChatM
             if (currentStart == -1) currentStart = index
             currentGroup.add(msg)
         } else {
-            // 2026-08-12 用户决策：synthetic 是独立消息 → 独立气泡渲染，
-            // 不再并入 assistant turn（原 isAdjacentToAssistant 嵌入规则移除）。
             if (currentGroup.isNotEmpty()) {
                 groups.add((currentStart until index) to currentGroup.toList())
                 currentGroup.clear()
@@ -37,12 +70,5 @@ internal fun computeTurnGroups(messages: List<ChatMessage>): Map<Int, List<ChatM
     if (currentGroup.isNotEmpty()) {
         groups.add((currentStart until messages.size) to currentGroup.toList())
     }
-
-    val indexToGroup = mutableMapOf<Int, List<ChatMessage>>()
-    for ((range, group) in groups) {
-        for (i in range) {
-            indexToGroup[i] = group
-        }
-    }
-    return indexToGroup
+    return groups
 }

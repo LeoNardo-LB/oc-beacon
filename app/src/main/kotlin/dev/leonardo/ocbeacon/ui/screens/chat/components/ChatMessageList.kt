@@ -113,6 +113,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.tools.computeRenderableTurn
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.turnOrdinalByAnchorId
 import dev.leonardo.ocbeacon.ui.screens.chat.util.JumpTarget
 import dev.leonardo.ocbeacon.ui.screens.chat.util.LocalToolExpandedStates
+import dev.leonardo.ocbeacon.ui.screens.chat.util.computeTurnAnchors
 import dev.leonardo.ocbeacon.ui.screens.chat.util.computeTurnGroups
 import dev.leonardo.ocbeacon.ui.screens.chat.util.extractJumpTargets
 import dev.leonardo.ocbeacon.ui.screens.chat.util.findCurrentAnchorTimestamp
@@ -291,6 +292,19 @@ fun ChatMessageList(
         } else {
             turnGroupsSigRef[0] = sig
             computeTurnGroups(rawMessages).also { turnGroupsRef[0] = it }
+        }
+    }
+    // #440 槽位锚缓存（与 turnGroups 同签名同走查——同一 rawMessages 快照派生）。
+    val turnAnchorsSigRef = remember { intArrayOf(Int.MIN_VALUE) }
+    val turnAnchorsRef = remember { arrayOfNulls<Map<Int, String>>(1) }
+    val turnAnchors: Map<Int, String> = remember(rawMessages) {
+        val sig = MessageFingerprints.messagesSignature(rawMessages)
+        val cached = turnAnchorsRef[0]
+        if (cached != null && sig == turnAnchorsSigRef[0]) {
+            cached
+        } else {
+            turnAnchorsSigRef[0] = sig
+            computeTurnAnchors(rawMessages).also { turnAnchorsRef[0] = it }
         }
     }
 
@@ -739,7 +753,7 @@ fun ChatMessageList(
     // ===== 2026-08-20 fling 巨帧根治：分片发射表（消息区 entries）=====
     // entries = displayItems 经 chunkPlans 展开（巨型 turn → N 个 chunk item）。
     // 双向索引是 LazyColumn index ↔ displayItems index 的单一真相源。
-    val chatEntries = remember(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans) {
+    val chatEntries = remember(displayItems, turnGroups, turnAnchors, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans) {
         dev.leonardo.ocbeacon.debug.RaceProbe.probe {
             "ENTRIES rebuild n=" + displayItems.size +
                 " chunkPlans=" + chunkPlans.size +
@@ -747,7 +761,7 @@ fun ChatMessageList(
                 " streaming=" + (streamingMsgId != null) +
                 " recentN=" + recentStreamedTurnKeys.size
         }
-        buildChatEntries(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans)
+        buildChatEntries(displayItems, turnGroups, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans, turnAnchors = turnAnchors)
             .also { ents ->
                 if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                     dev.leonardo.ocbeacon.logging.AppLogger.d(
@@ -812,7 +826,7 @@ fun ChatMessageList(
             val found = displayItems.indexOfFirst { (_, m) -> m.message.id == lastStreamingMsgId.value }
             if (found >= 0) {
                 val (ri, m) = displayItems[found]
-                val tk = "t_" + (turnGroups[ri]?.firstOrNull()?.message?.id ?: m.message.id)
+                val tk = chatEntryKey(turnGroups, ri, m, turnAnchors)
                 renderSupply.noteStreamTurnEnded(tk)
             }
         }
@@ -841,9 +855,9 @@ fun ChatMessageList(
     // 同源 entryKeyFor），修「assistant 目标 t_ 键公式漂移」与「异步路径 displayItems
     // 尚未含目标 → 查空静默不设键」两处失效。
     var highlightedMsgId by remember { mutableStateOf<String?>(null) }
-    val highlightedTurnKey = remember(highlightedMsgId, displayItems, turnGroups) {
+    val highlightedTurnKey = remember(highlightedMsgId, displayItems, turnGroups, turnAnchors) {
         highlightedMsgId?.let { tid ->
-            displayItems.firstOrNull { it.second.message.id == tid }?.let { (ri, m) -> chatEntryKey(turnGroups, ri, m) }
+            displayItems.firstOrNull { it.second.message.id == tid }?.let { (ri, m) -> chatEntryKey(turnGroups, ri, m, turnAnchors) }
         }
     }
     LaunchedEffect(highlightedTurnKey) {
@@ -1366,7 +1380,8 @@ fun ChatMessageList(
                                         .onSizeChanged { size ->
                                             if (dev.leonardo.ocbeacon.BuildConfig.DEBUG &&
                                                 (entry.key.startsWith("t_msg_0383e79ba") ||
-                                                    entry.key.startsWith("t_dsh-"))
+                                                    entry.key.startsWith("t_dsh-") ||
+                                                    msg.message.id.startsWith("dsh-"))
                                             ) {
                                                 android.util.Log.w(
                                                     "ChunkDiag",
@@ -1654,7 +1669,7 @@ fun ChatMessageList(
                         val displayItemIndex = entry.displayIndex
                         val (rawIndex, msg) = displayItems[entry.displayIndex]
                         // #103（M-8）：与 LazyColumn key 同锚点（turn 组首条消息 id）
-                        val itemKey = chatEntryKey(turnGroups, rawIndex, msg)
+                        val itemKey = chatEntryKey(turnGroups, rawIndex, msg, turnAnchors)
                         // #437 验收八轮：流式家族判定放宽——组内任一消息 completed==null
                         // 即视为流式（原「== streamingMsgId 单 id 匹配」在 DSH 多 part 回合中
                         // 会随 sid 漂移到在飞 call id 而漏配：承载文本增长的 item 修饰符脱落
@@ -1729,7 +1744,7 @@ fun ChatMessageList(
                             }
                             .drawBehind {
                                 if (dev.leonardo.ocbeacon.BuildConfig.DEBUG &&
-                                    itemKey.startsWith("t_dsh-")
+                                    (itemKey.startsWith("t_dsh-") || msg.message.id.startsWith("dsh-"))
                                 ) {
                                     val h = size.height.toInt()
                                     val fiso = listState.firstVisibleItemScrollOffset
@@ -2730,9 +2745,13 @@ internal fun chatEntryKey(
     turnGroups: Map<Int, List<ChatMessage>>,
     rawIndex: Int,
     message: ChatMessage,
+    /** #440 槽位锚（computeTurnAnchors）——命中时键锚到该轮 user 消息 id（跨流式/终态换装稳定）。 */
+    turnAnchors: Map<Int, String> = emptyMap(),
 ): String =
     if (message.isUser) "u_" + message.message.id
-    else "t_" + (turnGroups[rawIndex]?.firstOrNull()?.message?.id ?: message.message.id)
+    else "t_" + (turnAnchors[rawIndex]
+        ?: turnGroups[rawIndex]?.firstOrNull()?.message?.id
+        ?: message.message.id)
 
 /**
  * 跳转定位 loading 蒙版（2026-08-21 D-11-2 从主体下沉为小组件）：
