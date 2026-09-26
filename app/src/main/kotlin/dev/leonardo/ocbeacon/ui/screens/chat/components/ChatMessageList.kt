@@ -756,6 +756,9 @@ fun ChatMessageList(
     // entries = displayItems 经 chunkPlans 展开（巨型 turn → N 个 chunk item）。
     // 双向索引是 LazyColumn index ↔ displayItems index 的单一真相源。
     val chatEntries = remember(displayItems, turnGroups, turnAnchors, streamingMsgId, chunkPlans, recentStreamedTurnKeys, segmentPlans) {
+        // [DEBUG-jk] #437 卡顿诊断：chatEntries 全量重建计时——确证「48ms 快照重组
+        // 风暴」归因（每行含耗时/规模/滚动状态）；确证并固化冻结修复后整块移除。
+        val jkT0 = android.os.SystemClock.elapsedRealtime()
         dev.leonardo.ocbeacon.debug.RaceProbe.probe {
             "ENTRIES rebuild n=" + displayItems.size +
                 " chunkPlans=" + chunkPlans.size +
@@ -770,6 +773,15 @@ fun ChatMessageList(
                         "SGB",
                         "ENTRIES n=" + ents.entries.size,
                     )
+                    // [DEBUG-jk] 全链重建耗时（含 buildChatEntries 主体）+ 滚动状态
+                    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                        dev.leonardo.ocbeacon.logging.AppLogger.d(
+                            "DEBUG-jk",
+                            "entries ms=" + (android.os.SystemClock.elapsedRealtime() - jkT0) +
+                                " n=" + displayItems.size +
+                                " holding=" + dev.leonardo.ocbeacon.ui.screens.chat.markdown.StreamingScrollHold.holding,
+                        )
+                    }
                     // [DEBUG-hflick] #437 十三轮仪器：锚键序列 diff——重建时的插拔/
                     // 位移定位（键即 LazyColumn item key，键集换血=锚漂移源头）。
                     val keys = ents.entries.map { it.key }
