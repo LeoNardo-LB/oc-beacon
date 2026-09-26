@@ -228,3 +228,13 @@
 ### 遗留（已登记/沿用）
 - L3 重组隔离卡（P2，见 backlog）——性能债非闪烁源；
 - 首开 JIT（baseline profile）；流式大项内容级 ±300-400px 重测振荡；回合结束 dsh→seq 底部换装。
+
+## 验收十六轮：VPT 帧级取证——稳态配对原子性证实 + 回合结束换装跳变实锤
+
+- 帧级探针落地（commit 13812110）：VPT 无阈值视口轨迹（含锚 item 身份）、RESIZE/SGR-435/VTRACE 统一 elapsedRealtime 时间戳、ChunkDiag 放开流式门控；补齐 LEAP 350px 阈值与 VTRACE flush 帧采样两个盲区。
+- 环境修复：opencode2.service 因包名迁移（9/24）二进制路径断裂崩溃循环，且 2.0.16 已无 /api/health（应用 V1/V2 双探针皆败）；用户裁决切 3080 DSH 服务器，经 scripts/dsh-pair.sh（debug_server_type=dsh + debug_token）配对成功。服务文件已指向 linuxbrew bin 符号链接并停止（opencode 版本待议）。
+- 协议执行：DSH 会话 session-8fcf8e25，glm-5.3-flash 纯文本，快拖无 fling 上滑 1/5 屏（T+10.9s），logcat /tmp/vpt-log.txt 共 1488 行。
+- 稳态判读（I2' 契约逐事件核验）：手势后稳态窗 53 次 RESIZE 对 54 VPT 对 52 pair，全部 17ms 内同帧、d 值精确一致（66/74/62/147…），PAIR_vs_VPT 失配 0，fiso 单调。纯文本流式配对是原子的，先渲染后补偿在此场景被证伪。
+- 回合结束换装跳变（唯一 I2' 违规，实锤）：13:32:03.307 流式临时 item t_dsh-t2s1 高度 4961->0（移除），PLAN add=[cf-...-23] rem=[t_dsh-t2s1]（终态键换装为 remove+add 非原子）；锚点在流式 item 上，LazyList lastKnownKey 重锚 idx7->9、fiso 4858->4466，可见位移 -392px 单次跳变（终态渲染与流式渲染高度差）。
+- 附带发现：贴底跟随期 13:31:36 一记 230ms 动画滚动（off 18->134，GUARD/animateScrollToItem 族嫌疑）。用户主诉的每新行推-回弹在本轮（DSH+纯文本+当前构建）未复现；嫌疑收敛至：工具/推理卡高度行为、chunk 分裂期阅读、opencode 管线路径（服务器修复后测）。
+- 固化 scripts/stream-flicker-test.sh（用户裁决）：发送消息->等10s->快拖无fling上滑1/5屏 一键执行，后续验收复用。
