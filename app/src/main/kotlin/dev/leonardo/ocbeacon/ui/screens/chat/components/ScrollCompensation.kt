@@ -234,7 +234,11 @@ internal fun streamingGrowFlushTask(
             vtraceLastFii = fii
             vtraceLastFiso = fiso
             if (BuildConfig.DEBUG) {
-                AppLogger.d("VTRACE", "fii=" + fii + " fiso=" + fiso + " ip=" + listState.isScrollInProgress)
+                AppLogger.d(
+                    "VTRACE",
+                    "t=" + android.os.SystemClock.elapsedRealtime() +
+                        " fii=" + fii + " fiso=" + fiso + " ip=" + listState.isScrollInProgress
+                )
             }
         }
     }
@@ -243,7 +247,8 @@ internal fun streamingGrowFlushTask(
         // [SGR-435 验收七轮·仪表化] flush 相进入取证（含弃配分支可辨）
         AppLogger.d(
             "SGR-435",
-            "flush fii=" + listState.firstVisibleItemIndex +
+            "flush t=" + android.os.SystemClock.elapsedRealtime() +
+                " fii=" + listState.firstVisibleItemIndex +
                 " fiso=" + listState.firstVisibleItemScrollOffset +
                 " ip=" + listState.isScrollInProgress,
         )
@@ -257,7 +262,11 @@ internal fun streamingGrowFlushTask(
     val infos = listState.layoutInfo.visibleItemsInfo
     val total = ledger.takePaired(fii, fiso) { ik -> infos.firstOrNull { it.key == ik }?.index ?: -1 }
     if (BuildConfig.DEBUG && total == 0f && infos.isNotEmpty()) {
-        AppLogger.d("SGR-435", "drop(append/reading-away) fii=" + fii + " fiso=" + fiso)
+        AppLogger.d(
+            "SGR-435",
+            "drop(append/reading-away) t=" + android.os.SystemClock.elapsedRealtime() +
+                " fii=" + fii + " fiso=" + fiso
+        )
     }
     if (total != 0f) {
         // #437 验收五轮（用户裁决，对齐 #427 引擎先例）：渲染前计算目标位+
@@ -281,7 +290,8 @@ internal fun streamingGrowFlushTask(
         if (BuildConfig.DEBUG) {
             AppLogger.d(
                 "SGR-435",
-                "pair d=" + total.toInt() + " set(fii=" + targetFii + ", fiso=" + targetFiso + ")",
+                "pair t=" + android.os.SystemClock.elapsedRealtime() +
+                    " d=" + total.toInt() + " set(fii=" + targetFii + ", fiso=" + targetFiso + ")",
             )
         }
         return@PreDrawFlushTask false // 拒绘一帧：待定位经下一遍 measure 一次画对

@@ -893,6 +893,37 @@ fun ChatMessageList(
                 )
             }
         }
+        // [VPT 2026-09-26] 帧级视口轨迹（无阈值、逐变化全量）——LEAP 的 350px 阈值
+        // 吞掉小幅「上推→回弹」（行粒度、幅度≈行高），本探针不设阈值；含锚 item
+        // 身份（reverseLayout 首可见项=视口底边项，判定锚=流式消息 or 更旧消息）；
+        // 与 RESIZE/ChunkDiag/SGR-435/VTRACE 同用 elapsedRealtime 对齐帧序。
+        LaunchedEffect(listState) {
+            var vptFii = -1
+            var vptFiso = -1
+            var vptIp: Boolean? = null
+            snapshotFlow {
+                Triple(
+                    listState.firstVisibleItemIndex,
+                    listState.firstVisibleItemScrollOffset,
+                    listState.isScrollInProgress
+                )
+            }.collect { (fii, fiso, ip) ->
+                if (fii != vptFii || fiso != vptFiso || ip != vptIp) {
+                    val anchorKey = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.key
+                    AppLogger.d(
+                        "VPT",
+                        "t=" + android.os.SystemClock.elapsedRealtime() +
+                            " fii=" + fii + " fiso=" + fiso +
+                            " d=" + (if (vptFiso >= 0) fiso - vptFiso else 0) +
+                            " ip=" + ip + " anchor=" + (anchorKey?.toString()?.take(14) ?: "null") +
+                            " pend=" + streamingLedger.hasPending
+                    )
+                    vptFii = fii
+                    vptFiso = fiso
+                    vptIp = ip
+                }
+            }
+        }
     }
 
     // 2026-08-13 架构根治（状态机）：跳转定位状态机——蒙版/门控/锁从状态派生
@@ -1330,11 +1361,13 @@ fun ChatMessageList(
                                         }
                                         .onSizeChanged { size ->
                                             if (dev.leonardo.ocbeacon.BuildConfig.DEBUG &&
-                                                entry.key.startsWith("t_msg_0383e79ba")
+                                                (entry.key.startsWith("t_msg_0383e79ba") ||
+                                                    msg.message.id == streamingMsgId)
                                             ) {
                                                 android.util.Log.w(
                                                     "ChunkDiag",
-                                                    "PLACE key=" + entry.key + " h=" + size.height + " w=" + size.width
+                                                    "PLACE t=" + android.os.SystemClock.elapsedRealtime() +
+                                                        " key=" + entry.key + " h=" + size.height + " w=" + size.width
                                                 )
                                             }
                                         }
@@ -1656,7 +1689,8 @@ fun ChatMessageList(
                                     if (prev != androidx.compose.ui.unit.IntSize.Zero && s.height != prev.height) {
                                         AppLogger.w(
                                             "ScrollDiag",
-                                            "RESIZE key=" + itemKey.take(18) + " h " + prev.height + "->" + s.height +
+                                            "RESIZE t=" + android.os.SystemClock.elapsedRealtime() +
+                                                " key=" + itemKey.take(18) + " h " + prev.height + "->" + s.height +
                                                 " (d=" + (s.height - prev.height) + ") dispIdx=" + displayItemIndex +
                                                 " inProgress=" + listState.isScrollInProgress
                                         )
