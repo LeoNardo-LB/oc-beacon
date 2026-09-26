@@ -73,6 +73,8 @@ class MessageEventHandler @Inject constructor(
         internal const val UPSERT_BATCH_THRESHOLD = 128
         internal const val UPSERT_BATCH_MAX_LATENCY_MS = 250L
         internal const val UPSERT_BATCH_TICK_MS = 25L
+        /** #437 cadence 裁决：SSE→UI flush 间隔 48→100ms（重帧频率减半；见 scheduleFlush 注释） */
+        internal const val STREAM_FLUSH_INTERVAL_MS = 100L
 
         /**
          * #338：历史残留 completed 的物理不可能阈值——超会话域水位此时长
@@ -312,12 +314,33 @@ class MessageEventHandler @Inject constructor(
     private fun oldestPendingUpsertAtSnapshot(): Long = synchronized(pendingUpsertsLock) { oldestPendingUpsertAt }
 
     private fun scheduleFlush() {
-        // 不要取消进行中的定时器——那会在 token 到达速率 > 1/48ms 时
+        // 不要取消进行中的定时器——那会在 token 到达速率 > 1/flush 间隔 时
         // 饿死 flush。让 delta 累积；运行中的定时器触发时会一次性 flush 它们。
         if (batchJob?.isActive == true) return
         batchJob = batchScope.launch {
-            delay(48)
+            delay(streamFlushIntervalMs())
             flushPendingDeltas()
+        }
+    }
+
+    /**
+     * #437 高度引擎 cadence（spec 2026-09-26 裁决：引擎接管 SSE 节奏 48ms→100ms
+     * tunable）。二十四世轮真机取证：48ms 批的「append→markdown 排版→cap 全子树
+     * 测量→布局→配对滚动」全链成本压在单帧主线程——贴底跟随帧 p50=18ms、伴随
+     * append/measure 的帧间隙 p50=72ms，即用户体感「流式高度变化一顿一顿」；
+     * 间隔翻倍 → 重帧频率减半。后续单帧成本根修（测量增量化）另行批次。
+     *
+     * 可调（仅 DEBUG）：adb shell setprop debug.ocbeacon.streamflush <ms>（16-500）。
+     */
+    private fun streamFlushIntervalMs(): Long {
+        if (!BuildConfig.DEBUG) return STREAM_FLUSH_INTERVAL_MS
+        return try {
+            @Suppress("PrivateApi")
+            val sp = Class.forName("android.os.SystemProperties")
+            (sp.getMethod("get", String::class.java).invoke(null, "debug.ocbeacon.streamflush") as? String)
+                ?.toLongOrNull()?.coerceIn(16L, 500L) ?: STREAM_FLUSH_INTERVAL_MS
+        } catch (_: Throwable) {
+            STREAM_FLUSH_INTERVAL_MS
         }
     }
 
