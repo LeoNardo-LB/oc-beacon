@@ -807,6 +807,19 @@ fun ChatMessageList(
                                 " add=[" + added.take(3).joinToString(",") { it.takeLast(18) } + "]" +
                                 " rem=[" + removed.take(3).joinToString(",") { it.takeLast(18) } + "]",
                         )
+                        // [CONTENT-BLINK 新bug探针] 「上方内容闪烁消失」定罪观测：
+                        // removed ≥2 且新增为 0/裂变族（key 1→N 换血或列表骤缩形态）时
+                        // 显式打点——用户复现时刻与此行对齐即定罪。
+                        if (removed.size >= 2 && added.size < removed.size) {
+                            dev.leonardo.ocbeacon.logging.AppLogger.w(
+                                "CONTENT-BLINK",
+                                "suspect t=" + android.os.SystemClock.elapsedRealtime() +
+                                    " removed=" + removed.size + " added=" + added.size +
+                                    " n " + prev.size + "->" + keys.size +
+                                    " rem=[" + removed.take(5).joinToString(",") { it.takeLast(24) } + "]" +
+                                    " displayItems=" + displayItems.size,
+                            )
+                        }
                     }
                     hflickPrevPlanKeys.value = keys
                 }
