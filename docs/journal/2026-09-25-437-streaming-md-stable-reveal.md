@@ -359,3 +359,29 @@ setprop debug.ocbeacon.streamflush <ms>（16-500）。
 （今晚每会话第 3 turn 起必挂），待队列空闲补采或以用户体感验收。
 
 **遗留（下批）**：单帧成本根修（cap 测量增量化/排版异步化）——登记 backlog。
+
+## 二十四世轮终：冻结语义补全
+
+
+### 二十四世轮·终（同晚）：用户裁决「要根因不要补丁」→ 冻结语义补全 + 观测去效应
+
+**推理修正**（关键）：Exp-2「冻结 rawMessages 无效」并未证伪重组假设——冻结实验
+漏了 messageState 传参旁路（每 flush 新实例 → ChatMessageList 整体重组，三千行
+函数体顶层重跑）。滚动期快照静止语义此前只冻了 rawMessages/displayItems，
+主通道 messageState 一直裸奔。贴底跟随帧 p50=18ms（holding=false 时冻结不生效）
+与滚动帧 trav 8-11ms 同源于此通道 + append 渲染链。
+
+**根修落地**（默认启用）：
+1. messageState 纳入滚动期冻结（ChatScreen jkMsgState；settle 后原子追平）
+2. JankHoldGate 默认开（回退通道 setprop debug.ocbeacon.jankhold 0）
+3. VTRACE 观测者效应消除：滚动中每帧一条 logcat 写（主线程 I/O）→ fiso 变化
+   限频 200ms（fii 跃迁即时保分析能力）
+4. （前节）SSE flush cadence 48→100ms
+
+**待验证**（DSH 队列今晚全线 stall，仪器验证顺延）：
+- 贴底跟随帧 p50 期望 18ms → 显著回落
+- 滚动帧 p90 期望 24-46ms → 8-12ms
+- 若冻结补全后仍慢 → 主犯转入 append 渲染链本身（cap 测量/markdown 排版），
+  届时 Perfetto 定罪后走「增量高度协议」重工程（稳定块高度缓存+尾块单测）
+
+**装机**：完整根修版已 install；flag=1。
