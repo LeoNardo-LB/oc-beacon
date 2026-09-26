@@ -339,3 +339,23 @@
 ### 状态
 - 冻结修复 f32e6a7e 保留（默认关，语义正确无害，诊断价值）；[DEBUG-jk] 探针 741a5dc1 保留待 Perfetto 轮
 - 下轮：Perfetto trace（stdin 配置）采主线程占用源 → 定罪 → 修复 → 移除 DEBUG-jk
+
+## 二十四世轮续：cadence裁决落地
+
+
+### 二十四世轮·续（同晚）：用户假设确证 + cadence 裁决落地
+
+**用户裁决性观察**：「像是流式输出导致高度变化的时候卡顿」——与仪器数据吻合：
+- 伴随 append/measure 的帧间隙 p50=72ms（无伴随 12ms）——高度变化帧确为重帧
+- 贴底跟随帧 p50=18ms（EXP2 gfxinfo）=「一顿一顿」的直接来源
+
+**根因定性**：每 48ms 批的「append→markdown 排版→cap 全子树测量→布局→配对滚动」全链成本压在单帧主线程。
+
+**落地**（spec 2026-09-26 已裁决「引擎接管 SSE cadence 48ms→100ms tunable」）：
+MessageEventHandler.streamFlushIntervalMs()——默认 100ms（重帧频率减半），DEBUG 可调
+setprop debug.ocbeacon.streamflush <ms>（16-500）。
+
+**验证状态**：装机完成；append 间隔仪器验证与贴底跟随帧对比被 DSH 队列 stall 阻断
+（今晚每会话第 3 turn 起必挂），待队列空闲补采或以用户体感验收。
+
+**遗留（下批）**：单帧成本根修（cap 测量增量化/排版异步化）——登记 backlog。
