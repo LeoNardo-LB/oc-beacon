@@ -569,3 +569,21 @@ setprop debug.ocbeacon.streamflush <ms>（16-500）。
 **导航修正固化**：/tmp/jk-goto-session.sh（任意屏态→目标会话：服务器页切
 "会话"入口、列表页直接顶行**不 back**、聊天屏 back）——84,302 back 在列表页
 会退回服务器页（本轮流程 bug 教训）。
+
+## 三十三世轮：B3步2落地
+
+
+### 三十三世轮（goal轮8）：R4-B3 步2 落地——displayItems 快照列表差量承载
+
+**TDD**：diffDisplayItemsInto 纯函数（4 例：零写快路径/单槽写/rawIndex 变化/
+长度变化全量重置）→ SnapshotStateList 接线（ChatScreen displayItemsState +
+remember-key 差量写入，传参改 state list）。机制：get(i) index 级依赖，
+set(i) 只失效读该槽的 item——流式期长度不变、仅尾槽内容变 → 重组收敛到
+流式 item 本体（原每 flush 新 List 实例=全 item content 失效的收口）。
+全量回归 BUILD SUCCESSFUL。
+
+**三修版数据**（S16 单 turn，起跑即采——非稳态）：
+- 滑动 p50=6ms ✓ / p90=**19ms**（趋势 46→17→24→19，接近 12 目标）/ janky 22.7%↓
+- 贴底 25ms=起跑期数据（reasoning+首批密集），稳态复测留下轮（上轮稳态已证 6ms）
+
+**剩余**：稳态标准采样 → R5 网关强制化 → A3 VDRAW → A5 终审。
