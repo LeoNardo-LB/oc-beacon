@@ -253,7 +253,10 @@ internal fun Modifier.streamingHeightReserve(state: HeightReserveState, itemKey:
                 AppLogger.d("RESERVE", "measure h=" + child.height + " reserved=" + state.reserved)
             }
             val h = if (state.reserved < 0) child.height else minOf(child.height, state.reserved)
-            return layout(constraints.maxWidth, h) { child.place(0, 0) }
+            // 底对齐（用户验收二十一轮：顶对齐时帽 clip 溢出朝下=屏底方向，贴底统计栏
+            // 每 48ms 被裁一帧再弹回=一跳一跳）。底对齐后溢出朝上=裁视口外旧文本；
+            // 贴底时内容底（统计栏）钉死、新行即时可见；阅读态帽帧内容底固定=零推帧。
+            return layout(constraints.maxWidth, h) { child.place(0, h - child.height) }
         }
     }
 }
@@ -349,6 +352,11 @@ internal fun streamingGrowFlushTask(
                 )
             }
         }
+    }
+    // 用户验收二十一轮：滚动/惯性期置位流式暂缓（fling 卡顿修复——settle 后追平）
+    val scrollingNow = listState.isScrollInProgress
+    if (dev.leonardo.ocbeacon.ui.screens.chat.markdown.StreamingScrollHold.holding != scrollingNow) {
+        dev.leonardo.ocbeacon.ui.screens.chat.markdown.StreamingScrollHold.holding = scrollingNow
     }
     if (!ledger.hasPending) return@PreDrawFlushTask true
     if (BuildConfig.DEBUG) {

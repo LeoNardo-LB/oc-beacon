@@ -65,6 +65,12 @@ internal class PilotStreamingState(
  *   preParsedState 分支的既有归一化+分片路径接管——完结切换即 EOF 全量
  *   flush（扣留内容一字不丢），切换高度差由阶段 C 处理。
  */
+/** 用户验收二十一轮：fling 卡顿修复——滚动/惯性期暂停流式增量 append（单体巨项
+ *  48ms 全量重排版与滚动帧抢主线程）；settle 后 LaunchedEffect 复触发一次性追平。 */
+internal object StreamingScrollHold {
+    var holding: Boolean by androidx.compose.runtime.mutableStateOf(false)
+}
+
 @Composable
 internal fun rememberPilotStreamingMarkdownState(markdown: String): PilotStreamingState {
     var resetKey by remember { mutableIntStateOf(0) }
@@ -77,8 +83,12 @@ internal fun rememberPilotStreamingMarkdownState(markdown: String): PilotStreami
     val flap = remember { FlapDetector(now = { android.os.SystemClock.elapsedRealtime() }) }
     var lastStormCount by remember { mutableIntStateOf(0) }
     val gate = StreamingMarkdownPilot.stableReveal
-    LaunchedEffect(markdown, state) {
+    LaunchedEffect(markdown, state, StreamingScrollHold.holding) {
         val p = prev
+        // 滚动/惯性中：暂缓增长增量（prev 不动，settle 后整段一次追平=一次重排版）
+        if (StreamingScrollHold.holding && p != null && markdown.length > p.length) {
+            return@LaunchedEffect
+        }
         when {
             // 首跑（含重建后的新实例）：整串作为初始增量（gate 后定案前缀）
             p == null -> {
