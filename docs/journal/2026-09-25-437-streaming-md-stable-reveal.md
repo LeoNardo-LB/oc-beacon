@@ -427,3 +427,16 @@ setprop debug.ocbeacon.streamflush <ms>（16-500）。
 - R4 flush 任务拆职责+探针注入化（release 零成本）
 - R5 网关强制化（视口写入全经引擎 API）
 - backlog：app SSE 长连接断连（电池优化嫌疑）独立修复
+
+## 二十六世轮：R1统一谓词红绿
+
+
+### 二十六世轮（R1 完成）：统一配对谓词 TDD 红绿
+
+- 红：StreamingAnchorRuleTest 决策表（穷举 9×9×3×2 格）
+- TDD 关键发现：两轨语义大部分同源；唯一真分歧格「锚<增长源」由**源类型**决定
+  （ledger 族有 BANNER bottomFollow 通道覆盖→免；帽族消息 item 增长无通道→配对）——
+  coveredByFollowFamily 参数显式化，两个真机证据（#435 八轮 vs #437 z3）同时保留
+- 绿：StreamingAnchorRule 单一谓词；StreamingPairingRule/reserveReleasePlan 均为薄委托
+- A1 全量回归 BUILD SUCCESSFUL（3539+ 用例）
+- 待续轮：A2 单出口、R2 高度表（核心）、R3-R5、真机验收、终审
