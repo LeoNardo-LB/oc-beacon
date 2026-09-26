@@ -73,8 +73,10 @@ class MessageEventHandler @Inject constructor(
         internal const val UPSERT_BATCH_THRESHOLD = 128
         internal const val UPSERT_BATCH_MAX_LATENCY_MS = 250L
         internal const val UPSERT_BATCH_TICK_MS = 25L
-        /** #437 cadence 裁决：SSE→UI flush 间隔 48→100ms（重帧频率减半；见 scheduleFlush 注释） */
-        internal const val STREAM_FLUSH_INTERVAL_MS = 100L
+        // #437 cadence 裁决 3 收编：常量归引擎域（ScrollCompensation.STREAM_FLUSH_INTERVAL_MS）——
+        // 数据层消费引擎节奏（spec「引擎接管 SSE cadence」的结构落位）
+        private const val STREAM_FLUSH_INTERVAL_MS =
+            dev.leonardo.ocbeacon.ui.screens.chat.components.STREAM_FLUSH_INTERVAL_MS
 
         /**
          * #338：历史残留 completed 的物理不可能阈值——超会话域水位此时长

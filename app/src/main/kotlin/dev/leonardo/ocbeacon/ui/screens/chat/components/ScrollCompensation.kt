@@ -71,6 +71,12 @@ private var vtraceLastFiso = Int.MIN_VALUE
  *
  * 贴底原点（fii==0 ∧ fiso<[AT_BOTTOM_ORIGIN_PX]）：物理自动跟随，一律免派发。
  */
+/**
+ * #437 spec 裁决 3 收编（终审 S4）：SSE→UI flush cadence 常量归引擎域定义
+ * （高度引擎对节奏的单一真相源；数据层 MessageEventHandler 消费）。
+ */
+internal const val STREAM_FLUSH_INTERVAL_MS = 100L
+
 internal object StreamingAnchorRule {
     /** 贴底原点阈值(px)——GUARD/MSGEFFECT 微抖 ≤5px 内视为原点（原帽轨 z3 修正语义）。 */
     const val AT_BOTTOM_ORIGIN_PX = 8
