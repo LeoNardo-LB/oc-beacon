@@ -351,7 +351,7 @@ internal fun buildChatEntries(
         // 会把流式轮当历史轮分片——增长落在 chunk 臂绕过帽协议=裸推帧。组内任一
         // 消息 completed==null 即流式（与渲染端 isStreamingMsg 同判据）。
         val isStreamingTurn = (turnGroups[displayIdx] ?: listOf(msg)).any {
-            it.message.id == streamingMsgId || it.message.time.completed == null
+            it.message.id == streamingMsgId || (!it.isUser && it.message.time.completed == null)
         }
         // #422 历史懒加载:大组展开态拆条目(先于一切旧分片路径——MdChunkPlan 对
         // 多消息轮次已抑制,segPlan 让位)。发射序 = 视觉自底向上(reverseLayout

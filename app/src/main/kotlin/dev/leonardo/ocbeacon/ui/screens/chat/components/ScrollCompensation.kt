@@ -225,6 +225,8 @@ internal fun Modifier.streamingGrowPairing(
 
 /** 流式项的帽状态（单活流式项，列表级单例）。 */
 internal class HeightReserveState {
+    /** [RESERVE 诊断] 上次打点高度（非协议态）。 */
+    var diagLastMeasuredH: Int = -2
     /** 已上屏帽高 px（单调只增）；-1=未初始化（首帧直通）。快照态：flush 单事务写。 */
     var reserved: Int by androidx.compose.runtime.mutableStateOf(-1)
     /** measure 相记录的当前真高（非快照，仅 flush 读）。 */
@@ -243,6 +245,11 @@ internal fun Modifier.streamingHeightReserve(state: HeightReserveState, itemKey:
         ): androidx.compose.ui.layout.MeasureResult {
             val child = measurable.measure(constraints.copy(minHeight = 0))
             state.trueHeight = child.height
+            // [RESERVE 诊断] vc 实证「附而不释」——区分 measure 未写/flush 未跑/实例分裂
+            if (BuildConfig.DEBUG && child.height != state.diagLastMeasuredH) {
+                state.diagLastMeasuredH = child.height
+                AppLogger.d("RESERVE", "measure h=" + child.height + " reserved=" + state.reserved)
+            }
             val h = if (state.reserved < 0) child.height else minOf(child.height, state.reserved)
             return layout(constraints.maxWidth, h) { child.place(0, 0) }
         }
@@ -296,6 +303,10 @@ internal fun streamingGrowFlushTask(
     // [#437 引擎①] 一帧缓冲帽释放：measure 相已得真高（增量当帧被帽裁掉不可见），
     // 此处单事务原子施加。reject-draw 对 item 层重绘无效（VDRAW 实证），故不依赖。
     if (reserve != null) {
+        if (BuildConfig.DEBUG && reserve.trueHeight != vdrLastTrue) {
+            vdrLastTrue = reserve.trueHeight
+            AppLogger.d("RESERVE", "flush reserved=" + reserve.reserved + " true=" + reserve.trueHeight)
+        }
         val plan = reserveReleasePlan(
             reserved = reserve.reserved,
             trueHeight = reserve.trueHeight,
@@ -392,6 +403,8 @@ internal fun streamingGrowFlushTask(
 }
 
 /** 帽释放执行器：单事务 {帽→真高 + （需配对时）滚动待定位 +Δ}。 */
+private var vdrLastTrue = -2
+
 private fun applyReserveRelease(listState: LazyListState, reserve: HeightReserveState, plan: ReserveReleasePlan) {
     val target = reserve.trueHeight
     androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
