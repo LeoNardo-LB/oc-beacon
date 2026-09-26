@@ -499,3 +499,27 @@ setprop debug.ocbeacon.streamflush <ms>（16-500）。
 
 **导航修正固化**：会话行 tap 判定窗 530-780 + 排除电池横幅词（电池/连接）；
 断连毒害依旧（S10/S11 第一 turn 均静默完成于服务端，重连后渲染终稿）。
+
+## 三十世轮：贴底定罪+R2光标根修
+
+
+### 三十世轮（goal轮5）：贴底定罪 + R2 光标根修（首项落地）
+
+**贴底静止 framestats 定罪**（S12，p50=20.6ms top41ms）：
+- trav 11-16ms + draw 3-10ms + swap 8-15ms（基线 1.4）——**每帧持续负载**（非批节奏）
+- 机制链：呼吸光标原以 **Text inline content** 实现——动画值每帧变化 → inline
+  重组/失效放大为整段尾块 Text 重排+重绘（trav+draw）；VDRAW 探针 drawBehind 读
+  fiso（每批变）再叠加 item 级 draw 重放（swap 段）。
+
+**R2 根修落地**（TDD 红绿，commit 链）：
+- cursorOffsetFromLayout 纯函数缝（HeldTailCursorTest 3 例：末端放置/溢出回绕/
+  基线对齐光标底部）
+- HeldTailReveal 光标移出 Text inline → 独立叠加 Box（offset 定位 onTextLayout
+  100ms 一更新；动画失效只作用光标小方块）；锁高裁剪迁移容器层（光标随尾溢出
+  被裁，视觉语义保持）
+- 预期：贴底跟随每帧 trav/draw 大幅回落（动画失效面从整段 Text → 数十 px 方块）
+
+**装机完成**；效果复测被流式通道阻断（S13 断连/未渲染——backlog 断连 bug 毒害
+依旧）。验证顺延下轮（通道窗口一开即采）。
+
+**剩余**：R2 效果验证 → R4-B3步2/R4-flush 拆分 → R5 → A3 VDRAW → A5 终审。
