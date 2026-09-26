@@ -298,3 +298,44 @@
 
 - 三问题闭环（用户验收反馈）：A 阅读态闪烁回归=底对齐引入（底钉增长每 append 全块上推，配对释放才补偿=中间帧推-回）——修为对齐随态切换（贴底=底对齐保统计栏钉死；阅读/读历史=顶对齐=二十轮验证几何），flush 逐帧按 fii==0&&fiso<8 置位。B 思考计时不停=DSH reasoning part time.end 等整轮 idle 才落——轮级 textUnderwayInTurn（任一 Text part 有内容且未完结）穿线 PartContent，正文接替即停计时。C 回合结束跳消息=累积修复链治愈（当前构建双位判零）。
 - 终验证据：会话J（/tmp/vm.txt 贴底短回复回合末全零；/tmp/vn.txt 阅读位 READ 0/0+ATOMIC=52、settle 后零事件）。单测 3529 绿。B 视觉确认留 V6（下次思考回复肉眼核）。
+
+## 二十四世轮：流式滚动卡顿归因取证（进行中）
+
+
+
+## 二十四世轮（2026-09-26 晚）：流式中非贴底滑动卡顿——归因取证（进行中）
+
+**用户报告**：闪烁已修复（对齐翻转零位移化验收通过）；新问题=assistant 输出期间非贴底滑动"有点卡顿"。
+
+### 已确证（仪器证据，gfxinfo p90 / framestats 阶段分布）
+
+| 条件 | p50 | p90 | p95 | janky(legacy) |
+|---|---|---|---|---|
+| 非流式·浅处 | 6ms | 8ms | 9ms | 6.78% |
+| 非流式·深处（fii 同实验组） | 6ms | 8ms | 9ms | 6.32% |
+| 流式（2500字·慢速） | 7ms | 24ms | 28ms | 36.7% |
+| 流式（3000字·活跃） | 8-18ms | 46ms | 57ms | 47.3% |
+
+- 位置排除（深处非流式与浅处一致）→ **流式状态是劣化必要条件**
+- 慢帧锁定 SSE 48ms 批节奏（重帧占比 ≈ 1/6 帧 ≈ 更新节律）
+- framestats：**input(帧开始延迟) 6-12ms + traversal 8-11ms 暴涨；draw/sync/swap 全部与基线持平 → 绘制/GPU 无辜**
+- 滚动窗口内探针全静默：MDPilot append=0（ScrollHold 生效）、RESERVE measure=0、DEBUG-jk entries 重算=0（flag on 时）
+
+### 已证伪假设（重要负结论）
+1. ~~chatEntries 全量重建成本~~：探针实测 buildChatEntries 0-1ms（n=77, max=1ms）
+2. ~~UI 快照重组链~~：滚动期快照冻结（rawMessages 冻结，commit f32e6a7e，A/B 开关 debug.ocbeacon.jankhold）机制完美生效（holding 期间 entries 重算=0）但**帧率无改善**（p50 反而 8→18，速率混淆下无差异）
+3. ~~绘制/GPU 层~~：framestats 三阶段持平基线
+
+### 剩余主嫌疑（下轮 Perfetto 定位）
+- **SSE 48ms 批管线的主线程涟漪**：MessageEventHandler 批处理本身在 Dispatchers.Default（不占主线程），但 StateFlow 发射→collectAsStateWithLifecycle（主线程）→ messageState 新实例 → **ChatMessageList 因 messageState 参数未冻结每 48ms 重组**（3000 行函数体顶层重跑）——冻结实验只冻了 rawMessages/displayItems，messageState 旁路未冻
+- Default 线程 CPU 竞争（input 段=帧开始延迟 6-12ms 最像调度让位）
+- AppLogger 观测成本（flush task 滚动中每帧 1-3 行日志）
+
+### 工具与固障
+- framestats 解析器 /tmp/jk-fs.py（FrameTimeline 24 列格式）；滑动序列 /tmp/jank-seq.sh
+- DSH 会话队列不稳：每会话第 3 turn 起 stall（续写类 prompt 必挂）；新会话首 turn 秒起——测试轮换用新会话
+- debuggerd -j 权限拒；perfetto 配置文件 SELinux 拒（改 stdin 未及验证）
+
+### 状态
+- 冻结修复 f32e6a7e 保留（默认关，语义正确无害，诊断价值）；[DEBUG-jk] 探针 741a5dc1 保留待 Perfetto 轮
+- 下轮：Perfetto trace（stdin 配置）采主线程占用源 → 定罪 → 修复 → 移除 DEBUG-jk
