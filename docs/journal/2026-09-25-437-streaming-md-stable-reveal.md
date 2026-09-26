@@ -523,3 +523,26 @@ setprop debug.ocbeacon.streamflush <ms>（16-500）。
 依旧）。验证顺延下轮（通道窗口一开即采）。
 
 **剩余**：R2 效果验证 → R4-B3步2/R4-flush 拆分 → R5 → A3 VDRAW → A5 终审。
+
+## 三十一世轮：探针非快照化+协议教训
+
+
+### 三十一世轮（goal轮6）：VDRAW 探针非快照化 + 验证协议教训
+
+**落地**：三处 VDRAW drawBehind 去重态 mutableStateOf → IntArray（R4 探针注入化
+实战）——draw 阶段写快照是 item 级 display list 重放的放大器（滚动/贴底每帧 draw
+成本）。commit 已推送，装机。
+
+**通道真相补充**：连续 STALL 的重要原因之一=**app 停在错误服务器视图**
+（Host-4199 配置页，214,706 是 Host 条目）——dsh-pair 后需确认落在 DSH 会话列表
+（DSH-Paired 条目"会话"入口 y~1420 可切回）。
+
+**验证协议缺陷教训（S14 数据无效）**：采样时 fiso=1974-2048（深阅读位非贴底）+
+第 2 turn 上下文含第 1 turn 全文（内容翻倍，h 2166→2288）——贴底 p50=42ms 是
+深位配对帧数据，无效。**标准化协议（下轮执行）**：
+1. 进会话 → 触发贴底（FAB/滑到底）→ logcat 确认 VTRACE fii=0 fiso<8
+2. 单 turn 会话（避免上下文累积）
+3. 贴底 6s → 滑动序列 → VDRAW 泄漏检查
+
+**O(总内容) 证据链再+1**：滑动 p50 6ms(单turn) → 12ms(双turn)、深位流式 42ms
+——成本随视口附近内容量增长，R2 分片/稳定块缓存的必要性确凿。
