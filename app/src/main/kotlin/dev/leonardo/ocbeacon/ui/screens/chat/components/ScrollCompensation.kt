@@ -317,10 +317,26 @@ internal fun streamingGrowFlushTask(
     // [#437 引擎①] 一帧缓冲帽释放：measure 相已得真高（增量当帧被帽裁掉不可见），
     // 此处单事务原子施加。reject-draw 对 item 层重绘无效（VDRAW 实证），故不依赖。
     if (reserve != null) {
-        // 对齐随态：贴底原点=底对齐；其余（阅读/读历史）=顶对齐（二十二世回归修正）
+        // 对齐随态（二十四世刀锋修正）：翻转仅允许在「追平态」（reserved==trueHeight
+        // 时 place 偏移=0，两种对齐像素等价=零位移翻转）或「手势进行中」（拖拽自身
+        // 掩盖一次性位移）。贴底跟随期 fiso 在 0~20 抖动，无条件切换会在 8px 刀锋上
+        // 高频翻转＝振荡闪烁；滚动 settle 批量 append 若落在底对齐态＝大推+补偿大闪。
         val wantBottom = listState.firstVisibleItemIndex == 0 &&
             listState.firstVisibleItemScrollOffset < 8
-        if (reserve.alignBottom != wantBottom) reserve.alignBottom = wantBottom
+        if (reserve.alignBottom != wantBottom &&
+            (reserve.reserved == reserve.trueHeight || listState.isScrollInProgress)
+        ) {
+            if (BuildConfig.DEBUG) {
+                AppLogger.d(
+                    "RESERVE",
+                    "align-flip bottom=" + wantBottom +
+                        " caughtUp=" + (reserve.reserved == reserve.trueHeight) +
+                        " overflow=" + (reserve.trueHeight - reserve.reserved) +
+                        " fiso=" + listState.firstVisibleItemScrollOffset,
+                )
+            }
+            reserve.alignBottom = wantBottom
+        }
         if (BuildConfig.DEBUG && reserve.trueHeight != vdrLastTrue) {
             vdrLastTrue = reserve.trueHeight
             AppLogger.d("RESERVE", "flush reserved=" + reserve.reserved + " true=" + reserve.trueHeight)
