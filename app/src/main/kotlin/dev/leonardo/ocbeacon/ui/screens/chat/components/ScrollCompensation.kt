@@ -92,7 +92,12 @@ internal object StreamingAnchorRule {
     }
 }
 
-/** 兼容缝（R1 后由 [StreamingAnchorRule] 统一；ledger 源族=跟随通道覆盖语义）。 */
+/**
+ * 兼容缝（R1 后由 [StreamingAnchorRule] 统一；ledger 源族=跟随通道覆盖语义）。
+ * [终审 S3] 退役判据：当 StreamingGrowLedger 的四个挂载点（banner/压缩卡）迁移至
+ * 直接调用 StreamingAnchorRule.pairedDelta(coveredByFollowFamily=true) 后删除本缝。
+ */
+@Deprecated("迁移挂载点后删除；直接使用 StreamingAnchorRule.pairedDelta", level = DeprecationLevel.WARNING)
 internal object StreamingPairingRule {
     fun pairedDelta(anchorIndex: Int, anchorOffset: Int, itemIndex: Int, growthPx: Float): Float =
         StreamingAnchorRule.pairedDelta(
@@ -496,7 +501,10 @@ internal fun streamingGrowFlushTask(
                     " h->" + (if (writtenReserve) reserve?.trueHeight.toString() else "-"),
             )
         }
-        return@PreDrawFlushTask total != 0f // ledger 派发才拒绘（帽路径画增长前态，语义保持）
+        // [终审 P1 修复] false=拒绘（PreRenderCoordinator 契约）。ledger 派发帧必须拒绘
+        // ——StreamingGrowNode 直报真高（无裁剪），「新高度+旧偏移」中间帧全靠拒绘挡
+        // （I1′ 契约）；帽路径画增长前态（旧帽高布局）无需拒绘。原 total!=0f 方向写反。
+        return@PreDrawFlushTask ledgerTotal == 0f
     }
     true
 }
