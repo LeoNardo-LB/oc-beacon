@@ -894,3 +894,16 @@ adb-e69a99d8-yzT17Y._adb-tls-connect._tcp 稳定可用）。
 **定罪路径（收束到用户现场）**：用户稳定复现场景+时刻 → 我对齐 DEBUG-flng
 （enter/exit/STOPPED 全链）+ 同窗录屏逐帧。工具链全备（帧差分/互相关平移
 估计脚本就位 /tmp/jk-jumps.py）。
+
+## 四十九世轮：转用户现场模式
+
+
+### 四十九世轮（goal轮27）：fling 自动取证三连败——转纯用户现场模式
+
+三连败（通道断连/屏态漂移/IP 漂移交替毒害）——自动盲扫在该偶发症状上不可行。
+**固化资产**：设备 mDNS 名直连配方（adb-e69a99d8-yzT17Y._adb-tls-connect._tcp，
+IP 漂移对策；dsh-pair.sh 支持 DSH_PAIR_SERIAL 参数化传名）。
+**定罪协议（用户现场版）**：用户复现时报「会话+方向+时刻」→
+1) logcat -d | grep DEBUG-flng（enter/STOPPED/exit 全链）
+2) 同窗录屏 ffmpeg 抽帧 + /tmp/jk-jumps.py 互相关平移（突跳帧定位）
+工具链全备零改动。
