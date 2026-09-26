@@ -851,3 +851,28 @@ fling 复发取证两轮（S22 双向序列）：零异常、零 LEAP、零巨�
 - HeldTail 锁高迁移：容器层裁剪含叠加光标（视觉等价，实现时已论证）✓
 **终审「不能默认无恙」清单全部解除。** 复发两 bug（fling/闪烁消失）仍待用户
 现场信息。
+
+## 四十七世轮：fling调研措施图景
+
+
+### 四十七世轮（goal轮25）：fling 跳过复发调研——措施图景与嫌疑清单
+
+**用户澄清定义**：fling 状态下遇大消息体，无法立刻渲染→直接跳过（LazyColumn
+框架特性；官方 issuetracker 172029355 即预加载 API 需求同源）。
+
+**既有措施图景（代码核实）**：
+1. SafeFlingBehavior 限速 fling——每帧 ≤视口/8，穿越任何内容 ≥8 帧（2026-08-20
+   修「fling 下跳」正主，注释原文与用户症状一致）——**接线在**（ChatMessageList
+   L2301 flingBehavior=）✓ 未丢
+2. ScrollSpeedPrefetchStrategy——fling 高速段 6 项宽窗预组合（pausable 崩溃
+   已用 performFullComposition 旧路径保活）
+3. #258 分段（完结长 turn 拆 TurnSegmentPlan）+ RenderSupply 预解析
+
+**嫌疑清单（下轮真机定罪，DEBUG-flng/VTRACE 探针现成）**：
+A. 巨型 item 预组合超预算（prefetch measure max 150ms 装不下 3000+字 item →
+   进入视口未成型 → 跳过感）——分段门槛外的巨项面
+B. 限速 1/8 对多视口高巨项（4-8 屏）仍给不够预组合时间（需 32-64 帧穿越 vs
+   6×150ms 预算）
+C. 流式中 turn 不分段（isStreamingTurn 抑制）= fling 扫过面
+D. 崩溃防御 retries 路径吞位移（低概率）
+**取证中断**：设备 adb 瞬断（bash 后台提升）——下轮重连补采。
