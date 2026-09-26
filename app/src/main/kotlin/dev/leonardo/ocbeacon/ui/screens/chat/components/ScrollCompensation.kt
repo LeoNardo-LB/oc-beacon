@@ -54,6 +54,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.scroll.PreDrawFlushTask
 private var vtraceLastFii = Int.MIN_VALUE
 private var vtraceLastLogAt = 0L
 private var sgrDropLastLogAt = 0L
+private var sgrLastTrue = -2
 private var vtraceLastFiso = Int.MIN_VALUE
 
 /**
@@ -345,6 +346,7 @@ internal fun streamingGrowFlushTask(
     ledger: StreamingGrowLedger,
     reserve: HeightReserveState? = null,
 ): PreDrawFlushTask = PreDrawFlushTask {
+    var pendingReserveRelease: ReserveReleasePlan? = null
     // [#437 引擎①] 一帧缓冲帽释放：measure 相已得真高（增量当帧被帽裁掉不可见），
     // 此处单事务原子施加。reject-draw 对 item 层重绘无效（VDRAW 实证），故不依赖。
     if (reserve != null) {
@@ -368,8 +370,8 @@ internal fun streamingGrowFlushTask(
             }
             reserve.alignBottom = wantBottom
         }
-        if (BuildConfig.DEBUG && reserve.trueHeight != vdrLastTrue) {
-            vdrLastTrue = reserve.trueHeight
+        if (BuildConfig.DEBUG && reserve.trueHeight != sgrLastTrue) {
+            sgrLastTrue = reserve.trueHeight
             AppLogger.d("RESERVE", "flush reserved=" + reserve.reserved + " true=" + reserve.trueHeight)
         }
         val plan = reserveReleasePlan(
@@ -383,8 +385,11 @@ internal fun streamingGrowFlushTask(
             growthIndex = listState.layoutInfo.visibleItemsInfo
                 .firstOrNull { it.key == reserve.itemKey }?.index,
         )
+        // [R1-A2] 单出口：帽 plan 延后与 ledger 配对合并为同帧单次滚动 set——
+        // 原先帽 set 先落、ledger set 覆盖（requestPosition 覆盖写非叠加），同帧
+        // 双补偿只活一笔；合并后两笔叠加一次原子生效。
         if (plan != null) {
-            applyReserveRelease(listState, reserve, plan)
+            pendingReserveRelease = plan
         } else if (reserve.reserved < 0 && reserve.trueHeight >= 0) {
             androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
                 reserve.reserved = reserve.trueHeight
@@ -422,7 +427,7 @@ internal fun streamingGrowFlushTask(
     if (dev.leonardo.ocbeacon.ui.screens.chat.markdown.StreamingScrollHold.holding != scrollingNow) {
         dev.leonardo.ocbeacon.ui.screens.chat.markdown.StreamingScrollHold.holding = scrollingNow
     }
-    if (!ledger.hasPending) return@PreDrawFlushTask true
+    if (!ledger.hasPending && pendingReserveRelease == null) return@PreDrawFlushTask true
     if (BuildConfig.DEBUG) {
         // [SGR-435 验收七轮·仪表化] flush 相进入取证（含弃配分支可辨）
         AppLogger.d(
@@ -440,7 +445,11 @@ internal fun streamingGrowFlushTask(
     val fii = listState.firstVisibleItemIndex
     val fiso = listState.firstVisibleItemScrollOffset
     val infos = listState.layoutInfo.visibleItemsInfo
-    val total = ledger.takePaired(fii, fiso) { ik -> infos.firstOrNull { it.key == ik }?.index ?: -1 }
+    val ledgerTotal = ledger.takePaired(fii, fiso) { ik -> infos.firstOrNull { it.key == ik }?.index ?: -1 }
+    // [R1-A2] 单出口：帽配对 shift 与 ledger 配对 shift 同帧叠加，单事务一次 set。
+    val pendingPlan = pendingReserveRelease
+    val reserveShift = if (pendingPlan?.scrollPaired == true) pendingPlan.delta.toFloat() else 0f
+    val total = reserveShift + ledgerTotal
     // 二十四世轮审查（B4 观测者效应）：贴底跟随时此分支每 flush 一条 logcat——限频 500ms
     if (BuildConfig.DEBUG && total == 0f && infos.isNotEmpty() &&
         android.os.SystemClock.elapsedRealtime() - sgrDropLastLogAt >= 500
@@ -452,12 +461,11 @@ internal fun streamingGrowFlushTask(
                 " fii=" + fii + " fiso=" + fiso
         )
     }
-    if (total != 0f) {
+    if (total != 0f || pendingPlan != null) {
         // #437 验收五轮（用户裁决，对齐 #427 引擎先例）：渲染前计算目标位+
         // 反射 requestPosition 写入待定区，由下一遍 measure 原子消费——与
         // dispatchRawDelta（渲染后滚动修正=先画增长态再跳位，整屏闪烁）的
-        // 本质区别在「计算先行、measure 原子生效」。拒绘一帧：本帧不画
-        // （屏面冻结在增长前帧），下一帧待定位+新高度一次画对。
+        // 本质区别在「计算先行、measure 原子生效」。
         // 目标位=用户公式 scrollPos+Δ：fiso += total（锚 item 内偏移推大），
         // 溢出沿可见 items 向 index 增大换算（reverseLayout 视觉向上）。
         var targetFii = fii
@@ -470,53 +478,29 @@ internal fun streamingGrowFlushTask(
             targetFiso -= anchor.size
             targetFii++
         }
-        LazyListReflection.requestScrollToItemNoCancel(listState, targetFii, targetFiso, targetKey)
-        if (BuildConfig.DEBUG) {
+        var writtenReserve = false
+        androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
+            // 帽释放（若有）：与滚动待定位同一事务——高度扩展与位移下一遍 measure 同 pass 消费
+            if (pendingPlan != null && reserve != null) {
+                reserve.reserved = reserve.trueHeight
+                writtenReserve = true
+            }
+            if (total != 0f) {
+                LazyListReflection.requestScrollToItemNoCancel(listState, targetFii, targetFiso, targetKey)
+            }
+        }
+        if (BuildConfig.DEBUG && (total != 0f || writtenReserve)) {
             AppLogger.d(
                 "SGR-435",
-                "pair t=" + android.os.SystemClock.elapsedRealtime() +
-                    " d=" + total.toInt() + " set(fii=" + targetFii + ", fiso=" + targetFiso + ")",
+                "release t=" + android.os.SystemClock.elapsedRealtime() +
+                    " capd=" + (pendingPlan?.delta ?: 0) + " led=" + ledgerTotal.toInt() +
+                    " set(fii=" + targetFii + ",fiso=" + targetFiso + ")" +
+                    " h->" + (if (writtenReserve) reserve?.trueHeight.toString() else "-"),
             )
         }
-        return@PreDrawFlushTask false // 拒绘一帧：待定位经下一遍 measure 一次画对
+        return@PreDrawFlushTask total != 0f // ledger 派发才拒绘（帽路径画增长前态，语义保持）
     }
     true
-}
-
-/** 帽释放执行器：单事务 {帽→真高 + （需配对时）滚动待定位 +Δ}。 */
-private var vdrLastTrue = -2
-
-private fun applyReserveRelease(listState: LazyListState, reserve: HeightReserveState, plan: ReserveReleasePlan) {
-    val target = reserve.trueHeight
-    var writtenTarget: String? = null
-    androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
-        reserve.reserved = target
-        if (plan.scrollPaired) {
-            var tFii = listState.firstVisibleItemIndex
-            var tFiso = listState.firstVisibleItemScrollOffset + plan.delta
-            var tKey: Any? = null
-            val infos = listState.layoutInfo.visibleItemsInfo
-            var guard = 0
-            while (guard++ < 64) {
-                val anchor = infos.firstOrNull { it.index == tFii } ?: break
-                if (tFiso < anchor.size) { tKey = anchor.key; break }
-                tFiso -= anchor.size
-                tFii++
-            }
-            LazyListReflection.requestScrollToItemNoCancel(listState, tFii, tFiso, tKey)
-            writtenTarget = "set(fii=" + tFii + ",fiso=" + tFiso + ",key=" + (tKey?.toString()?.take(14) ?: "null") + ")"
-        }
-    }
-    if (BuildConfig.DEBUG) {
-        AppLogger.d(
-            "SGR-435",
-            "reserve-release t=" + android.os.SystemClock.elapsedRealtime() +
-                " d=" + plan.delta + " paired=" + plan.scrollPaired +
-                " h->" + target + " fii=" + listState.firstVisibleItemIndex +
-                " fiso=" + listState.firstVisibleItemScrollOffset +
-                " " + (writtenTarget ?: "no-set"),
-        )
-    }
 }
 
 // --- 反射:绕过官方 requestScrollToItem 的 scroll{} 互斥锁取消机制 ---
