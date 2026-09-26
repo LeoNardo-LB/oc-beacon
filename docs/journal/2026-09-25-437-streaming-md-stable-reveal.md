@@ -837,3 +837,17 @@ C. 其他（如 fling 被「吸」住/减速异常）。
 
 fling 复发取证两轮（S22 双向序列）：零异常、零 LEAP、零巨额 set、align-flip 全
 零位移。**复现依赖用户场景信息**（症状形态 A/B/C 确认或复现时刻）。
+
+## 四十六世轮：待复核清单解除
+
+
+### 四十六世轮（goal轮24）：终审待复核清单四项+两项——全部复核无恙
+
+- ScrollQuiescence 单例：快照态+私有 setter+唯一写口 ✓（单列表假设与
+  PreRenderCoordinator 同款，可接受）
+- SSE 铁律四条：scheduleFlush 不取消（isActive 早退）✓ / rememberMarkdownState
+  保留 ✓ / autoScroll 双键在位 ✓ / 流式配对 isStreamingMsg 门控 ✓
+- diffDisplayItemsInto 边界：中间插删→长度变化→全量重置（语义安全）✓
+- HeldTail 锁高迁移：容器层裁剪含叠加光标（视觉等价，实现时已论证）✓
+**终审「不能默认无恙」清单全部解除。** 复发两 bug（fling/闪烁消失）仍待用户
+现场信息。
