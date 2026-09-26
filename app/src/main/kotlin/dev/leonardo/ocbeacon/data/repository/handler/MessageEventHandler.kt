@@ -333,8 +333,10 @@ class MessageEventHandler @Inject constructor(
      * 可调（仅 DEBUG）：adb shell setprop debug.ocbeacon.streamflush <ms>（16-500）。
      */
     private fun streamFlushIntervalMs(): Long {
-        if (!BuildConfig.DEBUG) return STREAM_FLUSH_INTERVAL_MS
-        return try {
+        // 反射读 SystemProperties 每 flush 一次无谓开销——缓存（setprop 调优本就要求重启进程）
+        cachedFlushIntervalMs?.let { return it }
+        val v = if (!BuildConfig.DEBUG) STREAM_FLUSH_INTERVAL_MS
+        else try {
             @Suppress("PrivateApi")
             val sp = Class.forName("android.os.SystemProperties")
             (sp.getMethod("get", String::class.java).invoke(null, "debug.ocbeacon.streamflush") as? String)
@@ -342,7 +344,10 @@ class MessageEventHandler @Inject constructor(
         } catch (_: Throwable) {
             STREAM_FLUSH_INTERVAL_MS
         }
+        cachedFlushIntervalMs = v
+        return v
     }
+    @Volatile private var cachedFlushIntervalMs: Long? = null
 
     private fun flushPendingDeltas() {
         val batch: List<PendingDelta>

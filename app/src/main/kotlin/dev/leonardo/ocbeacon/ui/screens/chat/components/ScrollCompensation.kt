@@ -53,6 +53,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.scroll.PreDrawFlushTask
 // [VTRACE 2026-09-26] flush 任务的上一帧视口位（变化检测用；主线程独占）
 private var vtraceLastFii = Int.MIN_VALUE
 private var vtraceLastLogAt = 0L
+private var sgrDropLastLogAt = 0L
 private var vtraceLastFiso = Int.MIN_VALUE
 
 internal object StreamingPairingRule {
@@ -411,7 +412,11 @@ internal fun streamingGrowFlushTask(
     val fiso = listState.firstVisibleItemScrollOffset
     val infos = listState.layoutInfo.visibleItemsInfo
     val total = ledger.takePaired(fii, fiso) { ik -> infos.firstOrNull { it.key == ik }?.index ?: -1 }
-    if (BuildConfig.DEBUG && total == 0f && infos.isNotEmpty()) {
+    // 二十四世轮审查（B4 观测者效应）：贴底跟随时此分支每 flush 一条 logcat——限频 500ms
+    if (BuildConfig.DEBUG && total == 0f && infos.isNotEmpty() &&
+        android.os.SystemClock.elapsedRealtime() - sgrDropLastLogAt >= 500
+    ) {
+        sgrDropLastLogAt = android.os.SystemClock.elapsedRealtime()
         AppLogger.d(
             "SGR-435",
             "drop(append/reading-away) t=" + android.os.SystemClock.elapsedRealtime() +

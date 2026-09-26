@@ -26,3 +26,20 @@
 - Q3 换装=在位键：流式尾巴自出生用轮次槽位键（非 temp/final id）；正式 id 落库仅做 temp 到 final 映射，键不动；LazyList 视角零结构事件。
 - Q4 旁路无特例：GUARD/MSGEFFECT/BANNER/ForceScroll 全收编引擎单点，离底零派发。
 - 下一阶段：引擎实现（预留区占位 + 同 pass 原子施加 + 在位键换装），验收判据 VDRAW 泄漏=0、#440 跳变=0（stream-flicker-test.sh）。
+
+
+## 实现裁决变更记录（2026-09-26 二十四世轮双轴审查后补，用户要求根修时固化）
+
+1. **架构 2「预测量管线（离屏测高+预留高度表）」未按字面落地**——实现为「一帧缓冲帽」
+   （streamingHeightReserve：增长当帧帽裁+pre-draw 单事务释放+配对）。效果等价（I1′ 原子性
+   有 VPT/VDRAW 帧级证据链），但字面偏离「只允许预测量」。**已知协议性代价：帽每批需
+   全子树重测真高（增量测量与「当帧真高」结构性冲突）= 贴底跟随帧 18ms 的主源。**
+   后续 R2 重构（预留高度表：稳定块高度缓存+增量 chunk 离屏预测量+多槽 per-item）
+   将回到本 spec 架构 2 原案，帽退役为表的消费者。
+2. **裁决 6「单一引擎点无例外」现状**：列名族经 ViewportDispatchGateway 收口；跳转族/
+   snapToBottom 强推/CardExpandReveal episode 为网关白名单例外（KDoc 自认）；网关本质是
+   logging 门面无强制力。R5（视口写入全经引擎 API）为目标态。
+3. **裁决 4 cadence**：间隔已 100ms（STREAM_FLUSH_INTERVAL_MS），但住 MessageEventHandler
+   （数据层）非引擎内部策略——结构收编留待 R1/R4。
+4. **配对规则双轨**（ledger itemIndex==anchorIndex vs 帽 firstVisibleIndex<=growthIndex）与
+   同帧双滚动 set 覆盖风险——R1 合并为单一纯函数。
