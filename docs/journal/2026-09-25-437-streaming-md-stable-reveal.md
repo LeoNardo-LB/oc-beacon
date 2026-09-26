@@ -455,3 +455,20 @@ setprop debug.ocbeacon.streamflush <ms>（16-500）。
 - 执行顺序调整（数据驱动）：B3 重组链收口（R4）性价比先于 R2 测量增量化——R4 后
   真机复测再定 R2 深度（分片唤醒 vs 双容器分离）。
 - 下轮：R4（flush 拆职责+B3 收口）→ 真机复测 → R2/R5 → 终审。
+
+## 二十八世轮：B3步1+复测受阻
+
+
+### 二十八世轮（goal轮3）：R4-B3 步1 + 真机复测窗口受阻
+
+- B3 步1 TDD 完整：ChatEntry.Turn 身份字段（isUser/isStreaming）构建时编码
+  （buildChatEntries 已有 isStreamingTurn 判定，零增量计算）；items lambda 的
+  contentType/entryStreaming 改读 entry 字段——消除 displayItems/turnGroups/
+  streamingMsgId 三项每 flush 新实例捕获（全部可见 item 重组的根因之一）。
+  语义等价论证：仅 Turn 条目可能流式（Chunk/StepGroup 构建时已排除流式 turn）。
+- 装机完成（B3步1+R1+R3+A2 累积版本，flag=1）。
+- 真机 A2 验收窗口受阻两因：tap 判定窗 500-720 误含电池优化横幅（点到"修复"
+  跳设置页）——下轮收紧至 560-720；流式仍未起跑（S10 新会话 18s 静默——
+  断连 backlog 未修前测试通道不稳定）。
+- 下轮：修 tap 窗口 → A2/A3 验收采样（贴底 6s + jank-seq + VDRAW）→ 数据定
+  B3 步2（displayItems state 化）/R2 深度。
