@@ -22,7 +22,8 @@ class HeldTailCursorTest {
             cursorGap = 4f,
         )
         assertEquals(300f + 4f, off.x, 0.01f)
-        assertEquals(88f, off.y, 0.01f)
+        // y 语义=光标 top（基线对齐光标底部）→ baseline - cursorHeight
+        assertEquals(88f - 20f, off.y, 0.01f)
     }
 
     @Test
