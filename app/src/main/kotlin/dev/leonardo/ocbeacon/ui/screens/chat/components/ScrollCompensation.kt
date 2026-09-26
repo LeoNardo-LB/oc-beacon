@@ -3,6 +3,8 @@ package dev.leonardo.ocbeacon.ui.screens.chat.components
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.MeasureResult
@@ -210,6 +212,72 @@ internal fun Modifier.streamingGrowPairing(
     itemKey: Any,
 ): Modifier = this.then(StreamingGrowElement(ledger, entryKey, itemKey))
 
+// ===================== #437 引擎①：一帧缓冲帽（HeightReserve） =====================
+//
+// 缺陷链（VDRAW 62 帧实证）：增长帧先画「新高度+旧偏移」，偏移下一帧才追上——
+// reject-draw 只挡宿主 View 绘制，item 层 RenderNode 重绘不经它，中间帧必然上屏。
+//
+// 协议：增长当帧帽保持旧高（增量被外层 clipToBounds 裁掉，零可见变化）；
+// measure 相已得真高真值；pre-draw flush 单事务 {帽→真高 + 滚动待定位 +Δ}——
+// 下一遍 measure **同 pass** 消费两者（reserved 为快照态，measure 读它=订阅重测），
+// 中间帧构造性不存在。帽高单调只增（已上屏永不回改）；手势进行中持帽不放
+// （增量保持不可见，手势零位移无豁免）；贴底原点/读历史（锚上方）免滚动配对。
+
+/** 流式项的帽状态（单活流式项，列表级单例）。 */
+internal class HeightReserveState {
+    /** 已上屏帽高 px（单调只增）；-1=未初始化（首帧直通）。快照态：flush 单事务写。 */
+    var reserved: Int by androidx.compose.runtime.mutableStateOf(-1)
+    /** measure 相记录的当前真高（非快照，仅 flush 读）。 */
+    var trueHeight: Int = -1
+    /** 帽归属 item key（attach 相登记；换流式项自动重置）。 */
+    var itemKey: Any? = null
+}
+
+/** 帽修饰符：测真高、报帽高；增量越界由外层 clipToBounds 裁剪。 */
+internal fun Modifier.streamingHeightReserve(state: HeightReserveState, itemKey: Any): Modifier {
+    state.resetIfOwnerChanged(itemKey)
+    return this then object : androidx.compose.ui.layout.LayoutModifier {
+        override fun MeasureScope.measure(
+            measurable: androidx.compose.ui.layout.Measurable,
+            constraints: androidx.compose.ui.unit.Constraints,
+        ): androidx.compose.ui.layout.MeasureResult {
+            val child = measurable.measure(constraints.copy(minHeight = 0))
+            state.trueHeight = child.height
+            val h = if (state.reserved < 0) child.height else minOf(child.height, state.reserved)
+            return layout(constraints.maxWidth, h) { child.place(0, 0) }
+        }
+    }
+}
+
+private fun HeightReserveState.resetIfOwnerChanged(itemKey: Any) {
+    if (this.itemKey != itemKey) {
+        this.itemKey = itemKey
+        reserved = -1
+        trueHeight = -1
+    }
+}
+
+/** 释放决策（纯函数，单测缝）。null=本帧不释放（未初始化/无增量/手势持帽）。 */
+internal data class ReserveReleasePlan(val delta: Int, val scrollPaired: Boolean)
+
+internal fun reserveReleasePlan(
+    reserved: Int,
+    trueHeight: Int,
+    firstVisibleIndex: Int,
+    firstVisibleOffset: Int,
+    isScrollInProgress: Boolean,
+    anchorKey: Any?,
+    growthKey: Any?,
+): ReserveReleasePlan? {
+    if (reserved < 0) return null                       // 未初始化（首帧直通由 flush 初始化）
+    if (trueHeight <= reserved) return null             // 无增量（或收缩：帽不回改）
+    if (isScrollInProgress) return null                 // 手势持帽（零位移无豁免）
+    val delta = trueHeight - reserved
+    val atBottomOrigin = firstVisibleIndex == 0 && firstVisibleOffset < 100
+    val anchorIsGrowth = anchorKey != null && anchorKey == growthKey
+    return ReserveReleasePlan(delta = delta, scrollPaired = !atBottomOrigin && anchorIsGrowth)
+}
+
 /**
  * 流式家族 flush 任务(#435):挂 PreRenderCoordinator 单点(ChatMessageList 常驻注册,
  * 空账本零成本早退;无宿主=预览/单测降级为零配对,与旧通道无泵降级一致)。
@@ -223,7 +291,28 @@ internal fun Modifier.streamingGrowPairing(
 internal fun streamingGrowFlushTask(
     listState: LazyListState,
     ledger: StreamingGrowLedger,
+    reserve: HeightReserveState? = null,
 ): PreDrawFlushTask = PreDrawFlushTask {
+    // [#437 引擎①] 一帧缓冲帽释放：measure 相已得真高（增量当帧被帽裁掉不可见），
+    // 此处单事务原子施加。reject-draw 对 item 层重绘无效（VDRAW 实证），故不依赖。
+    if (reserve != null) {
+        val plan = reserveReleasePlan(
+            reserved = reserve.reserved,
+            trueHeight = reserve.trueHeight,
+            firstVisibleIndex = listState.firstVisibleItemIndex,
+            firstVisibleOffset = listState.firstVisibleItemScrollOffset,
+            isScrollInProgress = listState.isScrollInProgress,
+            anchorKey = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.key,
+            growthKey = reserve.itemKey,
+        )
+        if (plan != null) {
+            applyReserveRelease(listState, reserve, plan)
+        } else if (reserve.reserved < 0 && reserve.trueHeight >= 0) {
+            androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
+                reserve.reserved = reserve.trueHeight
+            }
+        }
+    }
     // [VTRACE 2026-09-26] 逐帧视口轨迹（仅变化时打点）——任何来回跳动在时间线上
     // 直接可读（pair/drop/MSGEFFECT/GUARD/BANNER 行给出成因；用户裁决：精细分析
     // 用日志而非录屏抽帧，瞬态闪烁录屏易漏采）。
@@ -297,6 +386,37 @@ internal fun streamingGrowFlushTask(
         return@PreDrawFlushTask false // 拒绘一帧：待定位经下一遍 measure 一次画对
     }
     true
+}
+
+/** 帽释放执行器：单事务 {帽→真高 + （需配对时）滚动待定位 +Δ}。 */
+private fun applyReserveRelease(listState: LazyListState, reserve: HeightReserveState, plan: ReserveReleasePlan) {
+    val target = reserve.trueHeight
+    androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
+        reserve.reserved = target
+        if (plan.scrollPaired) {
+            var tFii = listState.firstVisibleItemIndex
+            var tFiso = listState.firstVisibleItemScrollOffset + plan.delta
+            var tKey: Any? = null
+            val infos = listState.layoutInfo.visibleItemsInfo
+            var guard = 0
+            while (guard++ < 64) {
+                val anchor = infos.firstOrNull { it.index == tFii } ?: break
+                if (tFiso < anchor.size) { tKey = anchor.key; break }
+                tFiso -= anchor.size
+                tFii++
+            }
+            LazyListReflection.requestScrollToItemNoCancel(listState, tFii, tFiso, tKey)
+        }
+    }
+    if (BuildConfig.DEBUG) {
+        AppLogger.d(
+            "SGR-435",
+            "reserve-release t=" + android.os.SystemClock.elapsedRealtime() +
+                " d=" + plan.delta + " paired=" + plan.scrollPaired +
+                " h->" + target + " fii=" + listState.firstVisibleItemIndex +
+                " fiso=" + listState.firstVisibleItemScrollOffset,
+        )
+    }
 }
 
 // --- 反射:绕过官方 requestScrollToItem 的 scroll{} 互斥锁取消机制 ---

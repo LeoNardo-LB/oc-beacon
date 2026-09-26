@@ -490,6 +490,8 @@ fun ChatMessageList(
     // (#222 延迟揭示)与 PreRenderShiftChannel 帧界运输;挂载点经 streamingGrowPairing
     // 记账,流式结束/回收时账目随节点卸载自动清(onDetach→forget)。
     val streamingLedger = remember { StreamingGrowLedger() }
+    // [#437 引擎①] 一帧缓冲帽状态（单活流式项；换流式项自动重置）。
+    val heightReserve = remember { HeightReserveState() }
 
     // #215 验收反馈·一（终版裁决 2026-08-25 用户定规）：toggle 锚定修正逻辑
     // 全部撤销——修正窗/toggleAnchorCorrection/注入通道一并不用；卡片动画
@@ -672,8 +674,8 @@ fun ChatMessageList(
     // #435 流式家族 flush 任务：常驻挂接(空账本零成本早退)。流式增长的配对位移
     // 与卡片 episode/steady 同走 PreRenderCoordinator 单点(单一视口权威);无宿主
     // (预览/JVM 单测)不派发=降级,与旧通道无泵降级一致。
-    val sgrFlushTask = remember(listState, streamingLedger) {
-        streamingGrowFlushTask(listState, streamingLedger)
+    val sgrFlushTask = remember(listState, streamingLedger, heightReserve) {
+        streamingGrowFlushTask(listState, streamingLedger, heightReserve)
     }
     DisposableEffect(sgrFlushTask) {
         PreRenderCoordinator.registerFlushTask(sgrFlushTask)
@@ -1693,14 +1695,12 @@ fun ChatMessageList(
                             }
                         }
                         val itemModifier = if (isStreamingMsg) {
+                            // [#437 引擎①] 流式消息换帽协议（一帧缓冲+同 pass 原子释放），
+                            // 旧 pairing 路径在此退役（reject-draw 对 item 层重绘无效）。
                             Modifier
                                 .fillMaxWidth()
                                 .clipToBounds()
-                                .streamingGrowPairing(
-                                    ledger = streamingLedger,
-                                    entryKey = "msg:" + itemKey,
-                                    itemKey = itemKey,
-                                )
+                                .streamingHeightReserve(heightReserve, itemKey)
                         } else Modifier.fillMaxWidth().clipToBounds()
                         // #215 验收反馈·一（终版裁决）：方案一（offset±delta 补偿）与方案三
                         //（修正窗+注入通道）均已撤销——用户定规不用任何补偿逻辑，动画回
