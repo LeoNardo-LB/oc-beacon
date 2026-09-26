@@ -304,7 +304,7 @@ internal fun rememberChatScrollController(
                 // 2026-08-30 问题卡方向修复：snapToBottom 的瞬跳把整个对话
                 // 一把推上去（用户观感「向上展开」）；animateScrollToItem 平滑
                 // 下滑揭示，问题卡随视口自头部下方逐帧展开 = 向下展开。
-                listState.animateScrollToItem(0)
+                dev.leonardo.ocbeacon.ui.screens.chat.components.ViewportDispatchGateway.explicitAnimatePin(listState, "PENDING")
             }
         }
     }
@@ -400,14 +400,14 @@ internal class ForceScrollExecutor(
             }
         }
 
-        gate.requestScrollToItem(0)
+        dev.leonardo.ocbeacon.ui.screens.chat.components.ViewportDispatchGateway.explicitPinAction("ForceScroll", "primary") { gate.requestScrollToItem(0) }
 
         // 滚后校验：超时兜底路径（grew==null，消息未到/发送失败）与补偿后未到位时重滚一次
         waitOneFrame()
         if (!atBottom()) {
             withTimeoutOrNull(VERIFY_TIMEOUT_MS) {
                 snapshotFlow { atBottom() }.first { it }
-            } ?: gate.requestScrollToItem(0)
+            } ?: dev.leonardo.ocbeacon.ui.screens.chat.components.ViewportDispatchGateway.explicitPinAction("ForceScroll", "verify-retry") { gate.requestScrollToItem(0) }
         }
 
         if (grew == null) {

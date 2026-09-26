@@ -5,32 +5,52 @@ import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.logging.AppLogger
 
 /**
- * #437 引擎③：视口写入单点派发网关（贴底跟随族收编）。
+ * #437 引擎③：视口写入单点派发网关。
  *
- * 收编前（侦察 2026-09-26 全景）：GUARD / MSGEFFECT / BANNER 三族各自调用
- * requestScrollToItem(0)，门控原语（autoScroll/租约/流式静默/去抖）散落三处。
- * 收编后：写入经本网关单点，family 打点（SGR-GATE）——任何未经网关的程序化
- * 视口写入在日志时间线上立即可辨（VPT 变化无对应 GATE 行=旁路泄漏）。
+ * 跟随族（GUARD/MSGEFFECT/BANNER）与显式意图族（ForceScroll/PENDING/SNAP）
+ * 全部经此写入并打点（SGR-GATE）——任何未经网关的程序化视口写入在日志
+ * 时间线上立即可辨。配对/揭示族（pre-draw 反射通道、episode、跳转、
+ * 手势守卫切片）为引擎内部/用户手势通道，不在本网关面。
  *
- * 语义保持：本网关不改任何门控（各调用点原有判定不变），只收拢写入与观测；
- * 引擎后续协调（如流式相位的写入互斥）在此扩展。显式意图族（ForceScroll/
- * PENDING/snapToBottom/跳转）与配对/揭示族（pre-draw 反射通道、episode）为
- * 引擎内部/用户显式通道，不在跟随族收编面（spec §③ 裁决：无特例全收编——
- * 显式族逐点迁移随后续批次，行为已符合「离底零派发仅限跟随族」语义）。
+ * 语义保持：不改任何门控（各调用点原有判定不变），只收拢写入与观测。
  */
 internal object ViewportDispatchGateway {
 
-    /** 贴底跟随族单点写入：锚定列表原点（reverseLayout 索引 0=最底）。 */
-    fun bottomFollow(listState: LazyListState, family: String, gate: String) {
+    private fun log(kind: String, listState: LazyListState, family: String, gate: String) {
         if (BuildConfig.DEBUG) {
             AppLogger.d(
                 "SGR-GATE",
-                "bottom-follow t=" + android.os.SystemClock.elapsedRealtime() +
+                kind + " t=" + android.os.SystemClock.elapsedRealtime() +
                     " family=" + family + " gate=" + gate +
                     " fii=" + listState.firstVisibleItemIndex +
                     " fiso=" + listState.firstVisibleItemScrollOffset,
             )
         }
+    }
+
+    /** 贴底跟随族：锚定列表原点（reverseLayout 索引 0=最底）；离底静默由调用点门控。 */
+    fun bottomFollow(listState: LazyListState, family: String, gate: String) {
+        log("bottom-follow", listState, family, gate)
         listState.requestScrollToItem(0)
+    }
+
+    /** 显式意图族（发送/压缩跟随、FAB 吸附）——离底放行是语义本身。 */
+    fun explicitPin(listState: LazyListState, family: String, gate: String) {
+        log("explicit-pin", listState, family, gate)
+        listState.requestScrollToItem(0)
+    }
+
+    /** 显式意图族·无状态句柄变体（ScrollListGate 包装层——ForceScroll 校验重滚）。 */
+    fun explicitPinAction(family: String, gate: String, action: () -> Unit) {
+        if (BuildConfig.DEBUG) {
+            AppLogger.d("SGR-GATE", "explicit-pin t=" + android.os.SystemClock.elapsedRealtime() + " family=" + family + " gate=" + gate)
+        }
+        action()
+    }
+
+    /** 显式意图族·动画通道（PENDING 问题卡平滑揭示）。 */
+    suspend fun explicitAnimatePin(listState: LazyListState, family: String) {
+        log("explicit-animate", listState, family, "")
+        listState.animateScrollToItem(0)
     }
 }

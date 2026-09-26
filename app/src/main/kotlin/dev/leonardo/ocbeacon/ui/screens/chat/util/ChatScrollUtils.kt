@@ -34,7 +34,7 @@ internal suspend fun LazyListState.smoothScrollToBottom() {
  */
 internal suspend fun LazyListState.snapToBottom() {
     if (layoutInfo.totalItemsCount == 0) return
-    scrollToItem(0)
+    dev.leonardo.ocbeacon.ui.screens.chat.components.ViewportDispatchGateway.explicitPin(this, "SNAP", "fab-error")
     repeat(3) {
         delay(120)
         scroll { scrollBy(-10_000f) }
