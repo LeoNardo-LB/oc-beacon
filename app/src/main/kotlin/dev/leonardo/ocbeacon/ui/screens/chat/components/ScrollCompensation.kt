@@ -93,6 +93,24 @@ internal object StreamingAnchorRule {
 }
 
 /**
+ * 新bug根修缝：配对让位判定——读位 ≠ 上批 set 目标 ⇒ 存在未被 measure 消费的
+ * 外部 pending（GUARD/ForceScroll 显式意图的 requestScrollToItem 写入）——配对
+ * requestPosition 是覆盖写，此时配对会**抵消显式意图**（取证：GUARD 触底 pending(0)
+ * 被配对 set(7, 66) 覆盖 → 触底失败 + 每批 +Δ 持续推走视口 = 「上方内容闪烁消失」）。
+ * 让位语义：位置神圣——显式意图 > 引擎配对。null 目标=首批不让位。
+ */
+internal fun shouldYieldPairing(
+    readFii: Int,
+    readFiso: Int,
+    lastSetFii: Int?,
+    lastSetFiso: Int?,
+): Boolean = if (lastSetFii == null || lastSetFiso == null) {
+    false
+} else {
+    readFii != lastSetFii || readFiso != lastSetFiso
+}
+
+/**
  * 兼容缝（R1 后由 [StreamingAnchorRule] 统一；ledger 源族=跟随通道覆盖语义）。
  * [终审 S3] 退役判据：当 StreamingGrowLedger 的四个挂载点（banner/压缩卡）迁移至
  * 直接调用 StreamingAnchorRule.pairedDelta(coveredByFollowFamily=true) 后删除本缝。
@@ -352,6 +370,8 @@ internal fun streamingGrowFlushTask(
     reserve: HeightReserveState? = null,
 ): PreDrawFlushTask = PreDrawFlushTask {
     var pendingReserveRelease: ReserveReleasePlan? = null
+    var lastSetFii: Int? = null
+    var lastSetFiso: Int? = null
     // [#437 引擎①] 一帧缓冲帽释放：measure 相已得真高（增量当帧被帽裁掉不可见），
     // 此处单事务原子施加。reject-draw 对 item 层重绘无效（VDRAW 实证），故不依赖。
     if (reserve != null) {
@@ -448,6 +468,16 @@ internal fun streamingGrowFlushTask(
     val fii = listState.firstVisibleItemIndex
     val fiso = listState.firstVisibleItemScrollOffset
     val infos = listState.layoutInfo.visibleItemsInfo
+    // 新bug根修：外部 pending 未消费（读位≠上批目标）→ 让位（配对覆盖写会抵消显式意图）
+    if (shouldYieldPairing(fii, fiso, lastSetFii, lastSetFiso)) {
+        ledger.rebaseAll()
+        pendingReserveRelease = null
+        if (BuildConfig.DEBUG) {
+            AppLogger.d("SGR-435", "yield(external-pending) t=" + android.os.SystemClock.elapsedRealtime() +
+                " read(fii=" + fii + ",fiso=" + fiso + ") last(fii=" + lastSetFii + ",fiso=" + lastSetFiso + ")")
+        }
+        return@PreDrawFlushTask true
+    }
     val ledgerTotal = ledger.takePaired(fii, fiso) { ik -> infos.firstOrNull { it.key == ik }?.index ?: -1 }
     // [R1-A2] 单出口：帽配对 shift 与 ledger 配对 shift 同帧叠加，单事务一次 set。
     val pendingPlan = pendingReserveRelease
@@ -490,6 +520,8 @@ internal fun streamingGrowFlushTask(
             }
             if (total != 0f) {
                 LazyListReflection.requestScrollToItemNoCancel(listState, targetFii, targetFiso, targetKey)
+                lastSetFii = targetFii
+                lastSetFiso = targetFiso
             }
         }
         if (BuildConfig.DEBUG && (total != 0f || writtenReserve)) {
