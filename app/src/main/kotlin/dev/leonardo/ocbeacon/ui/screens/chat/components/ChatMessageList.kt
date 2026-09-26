@@ -1703,8 +1703,30 @@ fun ChatMessageList(
                         // 宽限（#440 完成跳变）：流结束后帽在物主 item 上保持——终态渲染
                         // 高度差经帽原子补放/单调保持，卸帽零位移；新流式项出现自动重置。
                         val reserveOwner = heightReserve.itemKey == itemKey
+                        // [VDRAW 壳层] 移至链首（最外层）——读帽后真实上屏高度；内层探针
+                        // 只见内容全高（含被 clip 的不可见增长），会把裁剪内绘制误计为推帧
+                        // （vd4th 深读位 70/70 泄漏实为幻影，PAIR 解剖实证）。
+                        val vdrawShellLastH = remember { mutableStateOf(-1) }
+                        val vdrawShellLastFiso = remember { mutableStateOf(-1) }
+                        val vdrawProbe = Modifier.drawBehind {
+                            if (dev.leonardo.ocbeacon.BuildConfig.DEBUG &&
+                                (itemKey.startsWith("t_dsh-") || msg.message.id.startsWith("dsh-") || reserveOwner)
+                            ) {
+                                val h = size.height.toInt()
+                                val fiso = listState.firstVisibleItemScrollOffset
+                                if (h != vdrawShellLastH.value || fiso != vdrawShellLastFiso.value) {
+                                    dev.leonardo.ocbeacon.logging.AppLogger.d(
+                                        "VDRAW",
+                                        "t=" + android.os.SystemClock.elapsedRealtime() +
+                                            " h=" + h + " fiso=" + fiso + " key=" + itemKey.take(20)
+                                    )
+                                    vdrawShellLastH.value = h
+                                    vdrawShellLastFiso.value = fiso
+                                }
+                            }
+                        }
                         val itemModifier = if (isStreamingMsg || reserveOwner) {
-                            Modifier
+                            vdrawProbe
                                 .fillMaxWidth()
                                 .clipToBounds()
                                 .streamingHeightReserve(heightReserve, itemKey)
