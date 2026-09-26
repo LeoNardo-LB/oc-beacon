@@ -1695,6 +1695,9 @@ fun ChatMessageList(
                         // 临时诊断（ScrollDiag，DEBUG-only）：item 初次测量后的高度变化
                         //（渐进测量/异步重排检测——跳变根因取证）
                         val diagLastSize = remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+                        // [VDRAW] Turn 臂绘制相位探针（DSH 流式尾 t_dsh-* 走此分支）
+                        val vdrawTurnLastH = remember { mutableStateOf(-1) }
+                        val vdrawTurnLastFiso = remember { mutableStateOf(-1) }
                         Box(
                             modifier = itemModifier.then(
                                 if (isHighlighted) {
@@ -1723,6 +1726,23 @@ fun ChatMessageList(
                                     }
                                 }
                                 diagLastSize.value = s
+                            }
+                            .drawBehind {
+                                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG &&
+                                    itemKey.startsWith("t_dsh-")
+                                ) {
+                                    val h = size.height.toInt()
+                                    val fiso = listState.firstVisibleItemScrollOffset
+                                    if (h != vdrawTurnLastH.value || fiso != vdrawTurnLastFiso.value) {
+                                        AppLogger.d(
+                                            "VDRAW",
+                                            "t=" + android.os.SystemClock.elapsedRealtime() +
+                                                " h=" + h + " fiso=" + fiso + " key=" + itemKey.take(20)
+                                        )
+                                        vdrawTurnLastH.value = h
+                                        vdrawTurnLastFiso.value = fiso
+                                    }
+                                }
                             }
                         ) {
                         when {
