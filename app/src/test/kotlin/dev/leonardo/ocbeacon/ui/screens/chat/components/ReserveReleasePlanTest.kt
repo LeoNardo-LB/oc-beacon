@@ -5,9 +5,8 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
- * #437 引擎①「一帧缓冲帽」释放决策回归：
- * 增长当帧帽保持旧高（增量不可见）→ pre-draw 单事务 {帽→真高 + 配对滚动} →
- * 下一 measure 同 pass 原子生效。决策门：手势持帽 / 贴底免配对 / 锚上方免配对。
+ * #437 引擎①「一帧缓冲帽」释放决策回归（z3 锚 index 语义：横幅区浅滑位配对、
+ * 读历史位免配对、贴底原点免配对、手势持帽、单调不回改）。
  */
 class ReserveReleasePlanTest {
 
@@ -17,9 +16,8 @@ class ReserveReleasePlanTest {
         fii: Int = 7,
         fiso: Int = 900,
         scrolling: Boolean = false,
-        anchorKey: Any? = "t_anchor",
-        growthKey: Any? = "t_anchor",
-    ) = reserveReleasePlan(reserved, trueHeight, fii, fiso, scrolling, anchorKey, growthKey)
+        growthIndex: Int? = 7,
+    ) = reserveReleasePlan(reserved, trueHeight, fii, fiso, scrolling, growthIndex)
 
     @Test
     fun `未初始化不释放`() {
@@ -38,7 +36,7 @@ class ReserveReleasePlanTest {
     }
 
     @Test
-    fun `锚等于增长源且非贴底配对滚动`() {
+    fun `锚等于增长项配对滚动`() {
         assertEquals(
             ReserveReleasePlan(delta = 66, scrollPaired = true),
             plan(reserved = 1000, trueHeight = 1066),
@@ -46,26 +44,34 @@ class ReserveReleasePlanTest {
     }
 
     @Test
+    fun `横幅区浅滑位锚在增长项下方也配对`() {
+        assertEquals(
+            ReserveReleasePlan(delta = 66, scrollPaired = true),
+            plan(reserved = 1000, trueHeight = 1066, fii = 0, fiso = 21, growthIndex = 7),
+        )
+    }
+
+    @Test
     fun `贴底原点免配对只放帽`() {
         assertEquals(
             ReserveReleasePlan(delta = 66, scrollPaired = false),
-            plan(reserved = 1000, trueHeight = 1066, fii = 0, fiso = 20),
+            plan(reserved = 1000, trueHeight = 1066, fii = 0, fiso = 5),
         )
     }
 
     @Test
-    fun `锚在增长源上方免配对只放帽`() {
+    fun `读历史位锚在增长项上方免配对`() {
         assertEquals(
             ReserveReleasePlan(delta = 66, scrollPaired = false),
-            plan(reserved = 1000, trueHeight = 1066, anchorKey = "t_older", growthKey = "t_anchor"),
+            plan(reserved = 1000, trueHeight = 1066, fii = 9, growthIndex = 7),
         )
     }
 
     @Test
-    fun `锚键缺失免配对保守放帽`() {
+    fun `增长项不可见免配对保守放帽`() {
         assertEquals(
             ReserveReleasePlan(delta = 66, scrollPaired = false),
-            plan(reserved = 1000, trueHeight = 1066, anchorKey = null),
+            plan(reserved = 1000, trueHeight = 1066, growthIndex = null),
         )
     }
 }

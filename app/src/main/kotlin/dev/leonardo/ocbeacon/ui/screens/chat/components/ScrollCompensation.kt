@@ -273,8 +273,7 @@ internal fun reserveReleasePlan(
     firstVisibleIndex: Int,
     firstVisibleOffset: Int,
     isScrollInProgress: Boolean,
-    anchorKey: Any?,
-    growthKey: Any?,
+    growthIndex: Int?,
 ): ReserveReleasePlan? {
     if (reserved < 0) return null                       // 未初始化（首帧直通由 flush 初始化）
     if (trueHeight <= reserved) return null             // 无增量（或收缩：帽不回改）
@@ -283,8 +282,11 @@ internal fun reserveReleasePlan(
     // vz 终验修正：旧阈值 <100 把「离底 21px 的阅读位」误判贴底→释放落 unpaired→推帧。
     // 贴底跟随族由 GUARD/MSGEFFECT 保持 fiso≈0（微抖 ≤5px）；8px 内视为原点。
     val atBottomOrigin = firstVisibleIndex == 0 && firstVisibleOffset < 8
-    val anchorIsGrowth = anchorKey != null && anchorKey == growthKey
-    return ReserveReleasePlan(delta = delta, scrollPaired = !atBottomOrigin && anchorIsGrowth)
+    // z3 锚 index 语义（横幅区终修）：锚 index ≤ 增长项 index（锚在增长项下方或自身）
+    // 时原生锚定不跟随、增长推移可见内容→配对；锚在其上方（读历史）锚位含增长
+    // 高度、原生保持已稳→免配对（防双重修正下坠）。
+    val pair = growthIndex != null && firstVisibleIndex <= growthIndex
+    return ReserveReleasePlan(delta = delta, scrollPaired = !atBottomOrigin && pair)
 }
 
 /**
@@ -317,9 +319,8 @@ internal fun streamingGrowFlushTask(
             isScrollInProgress = listState.isScrollInProgress,
             // vd9 实证：条目增删窗口内 firstOrNull 与 firstVisibleItemIndex 短暂错位
             // 导致锚键误判（该配对的释放落 paired=false）——按 index 反查锚键。
-            anchorKey = listState.layoutInfo.visibleItemsInfo
-                .firstOrNull { it.index == listState.firstVisibleItemIndex }?.key,
-            growthKey = reserve.itemKey,
+            growthIndex = listState.layoutInfo.visibleItemsInfo
+                .firstOrNull { it.key == reserve.itemKey }?.index,
         )
         if (plan != null) {
             applyReserveRelease(listState, reserve, plan)
