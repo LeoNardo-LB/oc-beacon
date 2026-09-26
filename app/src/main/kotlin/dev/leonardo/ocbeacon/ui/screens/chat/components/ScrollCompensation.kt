@@ -244,7 +244,9 @@ internal fun Modifier.streamingHeightReserve(state: HeightReserveState, itemKey:
             constraints: androidx.compose.ui.unit.Constraints,
         ): androidx.compose.ui.layout.MeasureResult {
             val child = measurable.measure(constraints.copy(minHeight = 0))
-            state.trueHeight = child.height
+            // vr 终判：宽限项与新一轮流式项共主互抢（measure 7907/8658 交替）——
+            // 所有权主张制：仅物主写真高；非物主（宽限/换主窗口）只读帽高。
+            if (state.itemKey == itemKey) state.trueHeight = child.height
             // [RESERVE 诊断] vc 实证「附而不释」——区分 measure 未写/flush 未跑/实例分裂
             if (BuildConfig.DEBUG && child.height != state.diagLastMeasuredH) {
                 state.diagLastMeasuredH = child.height
@@ -410,6 +412,7 @@ private var vdrLastTrue = -2
 
 private fun applyReserveRelease(listState: LazyListState, reserve: HeightReserveState, plan: ReserveReleasePlan) {
     val target = reserve.trueHeight
+    var writtenTarget: String? = null
     androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
         reserve.reserved = target
         if (plan.scrollPaired) {
@@ -425,6 +428,7 @@ private fun applyReserveRelease(listState: LazyListState, reserve: HeightReserve
                 tFii++
             }
             LazyListReflection.requestScrollToItemNoCancel(listState, tFii, tFiso, tKey)
+            writtenTarget = "set(fii=" + tFii + ",fiso=" + tFiso + ",key=" + (tKey?.toString()?.take(14) ?: "null") + ")"
         }
     }
     if (BuildConfig.DEBUG) {
@@ -433,7 +437,8 @@ private fun applyReserveRelease(listState: LazyListState, reserve: HeightReserve
             "reserve-release t=" + android.os.SystemClock.elapsedRealtime() +
                 " d=" + plan.delta + " paired=" + plan.scrollPaired +
                 " h->" + target + " fii=" + listState.firstVisibleItemIndex +
-                " fiso=" + listState.firstVisibleItemScrollOffset,
+                " fiso=" + listState.firstVisibleItemScrollOffset +
+                " " + (writtenTarget ?: "no-set"),
         )
     }
 }
