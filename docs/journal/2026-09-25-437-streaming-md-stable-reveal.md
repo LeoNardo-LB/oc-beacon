@@ -686,3 +686,22 @@ fiso+Δ 配对是**正确行为**（画面保持公式）。特此勘误。
 3. diffDisplayItemsInto 长度抖动全量重置路径
 **需要用户协助**：复现条件（什么内容/多长输出/哪个时刻——闪烁消失是整段不见
 还是部分内容？转瞬即逝还是持续？）
+
+## 三十九世轮：候选排查+定罪探针
+
+
+### 三十九世轮（goal轮14）：三候选代码排查 + CONTENT-BLINK 定罪探针装机
+
+**候选排查**：
+① 完结分片裂变——recentStreamedTurnKeys 保护只在 turn 离开视口窗口后解除
+（RenderSupply L415-426 有界清理）→ 裂变发生在「离开-回来看」时刻，与用户
+「SSE 输出时」不吻合（弱化不排除）。
+② STEP id fresh→dsh-t0s0 换代——item key 均为 turnKey 前缀派生（#sgb/#sgh
+等），step id 不进 key；换代只致 StepGroup 实例变化（重组非消失）——除非展开
+状态按 id 键（待查 CardExpandReveal 展开态存储，下轮）。
+③ displayItems 长度抖动全量重置——clear+addAll 组合期写（同帧原子性存疑），
+流式中长度抖动源未定位（下轮：dedupe 输出长度日志）。
+
+**定罪探针装机**：CONTENT-BLINK——chatEntries 键序列 diff 中 removed≥2 且
+added<removed（上方内容消失形态）时显式打点（含时刻/键/displayItems 长度）。
+**用户复现时刻与此行对齐即定罪**——比盲猜候选高效。设备已是探针版。
