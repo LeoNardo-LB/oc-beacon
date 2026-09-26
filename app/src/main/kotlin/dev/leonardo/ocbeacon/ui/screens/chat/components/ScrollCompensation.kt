@@ -280,7 +280,9 @@ internal fun reserveReleasePlan(
     if (trueHeight <= reserved) return null             // 无增量（或收缩：帽不回改）
     if (isScrollInProgress) return null                 // 手势持帽（零位移无豁免）
     val delta = trueHeight - reserved
-    val atBottomOrigin = firstVisibleIndex == 0 && firstVisibleOffset < 100
+    // vz 终验修正：旧阈值 <100 把「离底 21px 的阅读位」误判贴底→释放落 unpaired→推帧。
+    // 贴底跟随族由 GUARD/MSGEFFECT 保持 fiso≈0（微抖 ≤5px）；8px 内视为原点。
+    val atBottomOrigin = firstVisibleIndex == 0 && firstVisibleOffset < 8
     val anchorIsGrowth = anchorKey != null && anchorKey == growthKey
     return ReserveReleasePlan(delta = delta, scrollPaired = !atBottomOrigin && anchorIsGrowth)
 }
