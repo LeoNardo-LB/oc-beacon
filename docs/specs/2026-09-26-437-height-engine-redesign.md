@@ -19,3 +19,10 @@
 
 ## 验收
 - 协议：scripts/stream-flicker-test.sh（位置 A）；判据：VDRAW 泄漏帧（H_ONLY/O_ONLY）= 0、#440 跳变 = 0、贴底跟随回归不破。
+
+## 设计拷问轮裁决（2026-09-26）
+- Q1 预测量开销：接受（每增量一次离屏 measure）。
+- Q2 误差兜底撤销：同约束测量确定性、零误差；异步内容（图片/高亮）就绪时补预测量、作为新预留增量前加；已上屏高度永不回改。
+- Q3 换装=在位键：流式尾巴自出生用轮次槽位键（非 temp/final id）；正式 id 落库仅做 temp 到 final 映射，键不动；LazyList 视角零结构事件。
+- Q4 旁路无特例：GUARD/MSGEFFECT/BANNER/ForceScroll 全收编引擎单点，离底零派发。
+- 下一阶段：引擎实现（预留区占位 + 同 pass 原子施加 + 在位键换装），验收判据 VDRAW 泄漏=0、#440 跳变=0（stream-flicker-test.sh）。
