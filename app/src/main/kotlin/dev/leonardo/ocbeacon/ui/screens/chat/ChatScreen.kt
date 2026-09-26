@@ -942,14 +942,21 @@ fun ChatScreen(
                         // 零重算零重组），settle 后首个新快照一次追平（与 append 追平同帧）。
                         // A/B 开关 JankHoldGate（debug.ocbeacon.jankhold），确证后转默认开。
                         val jkFrozenRef = remember { arrayOfNulls<List<ChatMessage>>(1) }
-                        val jkMsgs = if (
-                            dev.leonardo.ocbeacon.ui.screens.chat.markdown.JankHoldGate.enabled &&
-                            dev.leonardo.ocbeacon.ui.screens.chat.markdown.StreamingScrollHold.holding &&
-                            jkFrozenRef[0] != null
-                        ) {
+                        val jkFrozenStateRef = remember { arrayOfNulls<dev.leonardo.ocbeacon.ui.screens.chat.MessageListState>(1) }
+                        val jkHold = dev.leonardo.ocbeacon.ui.screens.chat.markdown.JankHoldGate.enabled &&
+                            dev.leonardo.ocbeacon.ui.screens.chat.markdown.StreamingScrollHold.holding
+                        // messageState 一并冻结（二十四世轮终修）：否则其每 48ms 新实例
+                        // 经传参旁路触发 ChatMessageList 整体重组（三千行函数体重跑），
+                        // 冻结 rawMessages 无效的实证正源于此洞——滚动期快照静止语义补全。
+                        val jkMsgState = if (jkHold && jkFrozenStateRef[0] != null) {
+                            jkFrozenStateRef[0]!!
+                        } else {
+                            messageState.also { jkFrozenStateRef[0] = it }
+                        }
+                        val jkMsgs = if (jkHold && jkFrozenRef[0] != null) {
                             jkFrozenRef[0]!!
                         } else {
-                            messageState.messages.also { jkFrozenRef[0] = it }
+                            jkMsgState.messages.also { jkFrozenRef[0] = it }
                         }
                         val rawMessages = remember(jkMsgs, shadowedRangesForSession, compactionBoundIds) {
                             jkMsgs.reversed().filterNot { m ->
@@ -1011,7 +1018,7 @@ fun ChatScreen(
                     val isMainSession = sessionMeta.sessionParentId == null
                     ChatMessageList(
                         listState = listState,
-                        messageState = messageState,
+                        messageState = jkMsgState,
                         sessionMeta = sessionMeta,
                         interaction = interaction,
                         rawMessages = rawMessages,

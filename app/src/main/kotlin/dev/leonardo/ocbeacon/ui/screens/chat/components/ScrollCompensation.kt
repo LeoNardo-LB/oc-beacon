@@ -52,6 +52,7 @@ import dev.leonardo.ocbeacon.ui.screens.chat.scroll.PreDrawFlushTask
  */
 // [VTRACE 2026-09-26] flush 任务的上一帧视口位（变化检测用；主线程独占）
 private var vtraceLastFii = Int.MIN_VALUE
+private var vtraceLastLogAt = 0L
 private var vtraceLastFiso = Int.MIN_VALUE
 
 internal object StreamingPairingRule {
@@ -367,15 +368,23 @@ internal fun streamingGrowFlushTask(
         val fii = listState.firstVisibleItemIndex
         val fiso = listState.firstVisibleItemScrollOffset
         if (fii != vtraceLastFii || fiso != vtraceLastFiso) {
+            // 二十四世轮终修：观测者效应——滚动中 fiso 逐帧变化，无门限=每帧一条
+            // logcat 写（主线程 I/O）计入帧成本。限频：纯 fiso 变化 ≥200ms 一条；
+            // fii 跃迁（item 边界，分析关键）即时打。
+            val now = android.os.SystemClock.elapsedRealtime()
+            val fiiJump = fii != vtraceLastFii
+            if (fiiJump || now - vtraceLastLogAt >= 200) {
+                vtraceLastLogAt = now
+                if (BuildConfig.DEBUG) {
+                    AppLogger.d(
+                        "VTRACE",
+                        "t=" + now +
+                            " fii=" + fii + " fiso=" + fiso + " ip=" + listState.isScrollInProgress
+                    )
+                }
+            }
             vtraceLastFii = fii
             vtraceLastFiso = fiso
-            if (BuildConfig.DEBUG) {
-                AppLogger.d(
-                    "VTRACE",
-                    "t=" + android.os.SystemClock.elapsedRealtime() +
-                        " fii=" + fii + " fiso=" + fiso + " ip=" + listState.isScrollInProgress
-                )
-            }
         }
     }
     // 用户验收二十一轮：滚动/惯性期置位流式暂缓（fling 卡顿修复——settle 后追平）

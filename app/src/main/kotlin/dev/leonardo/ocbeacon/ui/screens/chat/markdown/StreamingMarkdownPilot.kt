@@ -72,22 +72,24 @@ internal object StreamingScrollHold {
 }
 
 /**
- * [#437 卡顿诊断批次] 滚动期 UI 快照冻结 A/B 开关——验证「48ms 快照重组风暴」
- * 假设：流式期间 messageState.messages 每 48ms 新实例 → rawMessages/displayItems/
- * chatEntries 全链重算 + LazyColumn 全可见 item 重组，组合成本落在滚动帧
- * （实测 p90 8ms→24ms、janky 6%→37%）。ScrollHold 已挡 pilot append，本开关把
- * 同语义补到快照层（ChatScreen rawMessages 派生处）。
+ * [#437 二十四世轮终修] 滚动期 UI 快照冻结——默认启用。
  *
- * 开启：adb shell setprop debug.ocbeacon.jankhold 1 后重启进程；缺省关闭。
+ * 根因：流式期间 messageState/messages 每 flush 间隔新实例 → 经传参旁路触发
+ * ChatMessageList 整体重组（三千行函数体顶层重跑）+ chatEntries 全链重算 +
+ * LazyColumn 全可见 item 重组，组合成本落在滚动帧。ScrollHold 挡 pilot append
+ * 之外，本冻结把同一「滚动期静止」语义补全到快照层（rawMessages + messageState
+ * 一并冻结，settle 后首个新快照原子追平）。
+ *
+ * 关闭（回退通道）：adb shell setprop debug.ocbeacon.jankhold 0 后重启进程。
  */
 internal object JankHoldGate {
     val enabled: Boolean by lazy {
         try {
             @Suppress("PrivateApi")
             val sp = Class.forName("android.os.SystemProperties")
-            "1" == sp.getMethod("get", String::class.java).invoke(null, "debug.ocbeacon.jankhold")
+            "0" != sp.getMethod("get", String::class.java).invoke(null, "debug.ocbeacon.jankhold")
         } catch (_: Throwable) {
-            false
+            true
         }
     }
 }
