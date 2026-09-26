@@ -440,3 +440,18 @@ setprop debug.ocbeacon.streamflush <ms>（16-500）。
 - 绿：StreamingAnchorRule 单一谓词；StreamingPairingRule/reserveReleasePlan 均为薄委托
 - A1 全量回归 BUILD SUCCESSFUL（3539+ 用例）
 - 待续轮：A2 单出口、R2 高度表（核心）、R3-R5、真机验收、终审
+
+## 二十七世轮：A2单出口+R3静止单点
+
+
+### 二十七世轮（goal轮2）：R1-A2 单出口 + R3 静止单点
+
+- A2：flush task 同帧双滚动 set（帽先落、ledger 覆盖——requestPosition 覆盖写非叠加，
+  双补偿只活一笔）合并为单事务单出口，两笔 shift 叠加原子生效；applyReserveRelease
+  退役（净 -16 行）。拒绘语义保持（仅 ledger 派发拒绘；帽路径画增长前态）。
+- R3：ScrollQuiescence 单信号源（快照态），flush task 唯一写点；StreamingScrollHold
+  退役为委托缝（pilot/ChatScreen 读点零改动）；TDD 红（ScrollQuiescenceTest 语义锁
+  +兼容缝一致性）绿（BUILD SUCCESSFUL）。
+- 执行顺序调整（数据驱动）：B3 重组链收口（R4）性价比先于 R2 测量增量化——R4 后
+  真机复测再定 R2 深度（分片唤醒 vs 双容器分离）。
+- 下轮：R4（flush 拆职责+B3 收口）→ 真机复测 → R2/R5 → 终审。
