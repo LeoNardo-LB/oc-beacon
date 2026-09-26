@@ -422,11 +422,9 @@ internal fun streamingGrowFlushTask(
             vtraceLastFiso = fiso
         }
     }
-    // 用户验收二十一轮：滚动/惯性期置位流式暂缓（fling 卡顿修复——settle 后追平）
-    val scrollingNow = listState.isScrollInProgress
-    if (dev.leonardo.ocbeacon.ui.screens.chat.markdown.StreamingScrollHold.holding != scrollingNow) {
-        dev.leonardo.ocbeacon.ui.screens.chat.markdown.StreamingScrollHold.holding = scrollingNow
-    }
+    // R3 单信号源写点（唯一）：滚动/惯性期置「活跃」，settle 置「静止」——
+    // 消费者（pilot append 暂缓/快照冻结/ledger rebaseAll/帽持帽）全部只读。
+    dev.leonardo.ocbeacon.ui.screens.chat.markdown.ScrollQuiescence.onScrollStateChanged(listState.isScrollInProgress)
     if (!ledger.hasPending && pendingReserveRelease == null) return@PreDrawFlushTask true
     if (BuildConfig.DEBUG) {
         // [SGR-435 验收七轮·仪表化] flush 相进入取证（含弃配分支可辨）

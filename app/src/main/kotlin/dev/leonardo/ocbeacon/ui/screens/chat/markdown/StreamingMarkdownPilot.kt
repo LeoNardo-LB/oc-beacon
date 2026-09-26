@@ -65,10 +65,28 @@ internal class PilotStreamingState(
  *   preParsedState 分支的既有归一化+分片路径接管——完结切换即 EOF 全量
  *   flush（扣留内容一字不丢），切换高度差由阶段 C 处理。
  */
-/** 用户验收二十一轮：fling 卡顿修复——滚动/惯性期暂停流式增量 append（单体巨项
- *  48ms 全量重排版与滚动帧抢主线程）；settle 后 LaunchedEffect 复触发一次性追平。 */
+/**
+ * R3 滚动静止单信号源（#437 二十五世轮根修，架构审查 C1）：「滚动期静止」语义
+ * 单一真相源。写点唯一（streamingGrowFlushTask 每帧驱动），四处消费者只读：
+ * pilot append 暂缓 / ChatScreen 快照冻结（JankHoldGate）/ ledger rebaseAll /
+ * 帽持帽。快照态（mutableStateOf）——消费侧读它即订阅失效。
+ */
+internal object ScrollQuiescence {
+    /** 快照态：true=静止（可安全施加流式增量）；false=滚动/惯性中（一切让位）。 */
+    var isQuiescent: Boolean by androidx.compose.runtime.mutableStateOf(true)
+        private set
+
+    /** 唯一写口（flush task 每帧以 isScrollInProgress 驱动）。 */
+    fun onScrollStateChanged(scrolling: Boolean) {
+        isQuiescent = !scrolling
+    }
+}
+
+/** 迁移期兼容缝（R3）：旧消费者的 holding 读——委托单点信号，行为恒一致。 */
 internal object StreamingScrollHold {
-    var holding: Boolean by androidx.compose.runtime.mutableStateOf(false)
+    var holding: Boolean
+        get() = !ScrollQuiescence.isQuiescent
+        set(_) { /* 写点已统一至 ScrollQuiescence.onScrollStateChanged；保留签名仅为源兼容 */ }
 }
 
 /**
