@@ -907,3 +907,15 @@ IP 漂移对策；dsh-pair.sh 支持 DSH_PAIR_SERIAL 参数化传名）。
 1) logcat -d | grep DEBUG-flng（enter/STOPPED/exit 全链）
 2) 同窗录屏 ffmpeg 抽帧 + /tmp/jk-jumps.py 互相关平移（突跳帧定位）
 工具链全备零改动。
+
+## 五十世轮：工具链固化
+
+
+### 五十世轮（goal轮28）：取证工具链固化入库 + 终验回归绿
+
+- scripts/dev-nav-goto.sh（任意屏态→会话导航，mDNS 名支持+IP 漂移说明）
+- scripts/frame-jump-analyze.py（录屏抽帧互相关突跳检测——fling 跳变定罪器）
+- scripts/scroll-seq.sh（标准滑动取证序列——贴底/卡顿对比协议）
+- 终验全量回归 BUILD SUCCESSFUL（3500+ 用例）
+- 两待复现 bug（fling 跳变/闪烁消失）保持用户现场模式：复现报「会话+方向+
+  时刻」，工具链零改动直接定罪。
