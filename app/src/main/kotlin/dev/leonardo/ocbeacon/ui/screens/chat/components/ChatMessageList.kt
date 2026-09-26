@@ -2577,8 +2577,7 @@ fun ChatMessageList(
                                 is ChatEntry.UserChunk -> "user_chunk"
                                 is ChatEntry.StepGroupHead -> "assistant_sg_head"
                                 is ChatEntry.StepGroupBody -> "assistant_sg_body"
-                                is ChatEntry.Turn ->
-                                    if (displayItems[entry.displayIndex].second.isUser) "user" else "assistant"
+                                is ChatEntry.Turn -> if (entry.isUser) "user" else "assistant"
                             }
                         },
                     ) { _, entry ->
@@ -2596,9 +2595,10 @@ fun ChatMessageList(
                         // #420:卡片原地揭示补偿的逐 item 上下文(挂 itemsIndexed 层——
                         // renderTranscriptEntry 内部的早退 return 不受 Provider 包裹影响;
                         // 流式 turn 降级裸 AV,由 item 级 COMP-MSG 补偿独占,杜绝双重注入)
-                        val entryStreaming = (turnGroups[displayItems[entry.displayIndex].first]
-                            ?: listOf(displayItems[entry.displayIndex].second))
-                            .any { it.message.id == streamingMsgId }
+                        // [R4-B3] 身份读 entry 字段（构建时编码）——不再捕获
+                        // displayItems/turnGroups/streamingMsgId（每 flush 新实例捕获替换
+                        // = 全部可见 item 每 flush 重组的根因之一）。
+                        val entryStreaming = entry is ChatEntry.Turn && entry.isStreaming
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()

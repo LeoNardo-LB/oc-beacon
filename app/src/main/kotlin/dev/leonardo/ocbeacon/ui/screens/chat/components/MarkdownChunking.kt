@@ -182,6 +182,11 @@ internal sealed interface ChatEntry {
         /** #422 历史懒加载:大组拆条目发射时,尾片跳过 StepGroup 渲染
          * (折叠行由 [StepGroupHead] 条目承担,内容由 [StepGroupBody] 承担)。 */
         val skipStepGroupItem: Boolean = false,
+        /** [R4-B3] 身份构建时编码（user 侧）——items lambda 不再捕获 displayItems。 */
+        val isUser: Boolean = false,
+        /** [R4-B3] 身份构建时编码（所属 turn 正在流式）——items lambda 不再捕获
+         *  turnGroups/streamingMsgId（每 flush 新实例捕获替换=全部 item 重组根因）。 */
+        val isStreaming: Boolean = false,
     ) : ChatEntry
 
     /**
@@ -361,7 +366,7 @@ internal fun buildChatEntries(
         val splitStepGroup =
             if (!msg.isUser && !isStreamingTurn) expandedStepGroups[turnKey] else null
         if (splitStepGroup != null) {
-            entries += ChatEntry.Turn(displayIdx, turnKey, skipStepGroupItem = true)
+            entries += ChatEntry.Turn(displayIdx, turnKey, skipStepGroupItem = true, isUser = msg.isUser, isStreaming = isStreamingTurn)
             // 键序号=文档序,发射逆序(底部=文档最旧片)——同 #246 chunk 键语义
             val bodies = sliceStepGroupBodies(splitStepGroup.groups)
             for (bi in bodies.indices.reversed()) {
@@ -452,7 +457,7 @@ internal fun buildChatEntries(
             }
             displayEntryStart[displayIdx] = entries.size - 1
         } else {
-            entries += ChatEntry.Turn(displayIdx, turnKey)
+            entries += ChatEntry.Turn(displayIdx, turnKey, isUser = msg.isUser, isStreaming = isStreamingTurn)
         }
     }
     return ChatEntries(
