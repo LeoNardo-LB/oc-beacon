@@ -9,8 +9,20 @@ import dev.leonardo.ocbeacon.logging.AppLogger
  *
  * 跟随族（GUARD/MSGEFFECT/BANNER）与显式意图族（ForceScroll/PENDING/SNAP）
  * 全部经此写入并打点（SGR-GATE）——任何未经网关的程序化视口写入在日志
- * 时间线上立即可辨。配对/揭示族（pre-draw 反射通道、episode、跳转、
- * 手势守卫切片）为引擎内部/用户手势通道，不在本网关面。
+ * 时间线上立即可辨。
+ *
+ * ## [R5] 网关外写入显式登记（二十五世轮审查裁决：从 KDoc 自我豁免改为显式清单）
+ *
+ * | 写入族 | 通道 | 豁免依据 |
+ * |---|---|---|
+ * | 引擎配对/帽释放 | LazyListReflection.requestScrollToItemNoCancel（单出口事务） | 引擎本体（ScrollCompensation 单出口） |
+ * | 卡片展开 episode | dispatchRawDelta / requestScrollToItemNoCancel | 引擎配对机器（CardExpandReveal） |
+ * | 跳转族 | JumpNavigationController / QuickNavigateSheet scrollToItem | 用户显式意图（位置神圣铁律） |
+ * | snapToBottom 强推 | ChatScrollUtils scrollBy ×3 | 显式意图的钉底兜底（首跳已打点） |
+ * | ScrollIsland 手势分块 | dispatchRawDelta | 手势通道（巨帧重整形） |
+ *
+ * 新增网关外写入必须在本表登记并给出豁免依据（review 检查项）；强制化
+ * （封装 LazyListState / lint 禁裸调用）为后续批次。
  *
  * 语义保持：不改任何门控（各调用点原有判定不变），只收拢写入与观测。
  */
