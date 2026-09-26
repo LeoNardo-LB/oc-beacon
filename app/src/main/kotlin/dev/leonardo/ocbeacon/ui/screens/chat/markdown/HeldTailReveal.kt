@@ -7,6 +7,8 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -25,11 +27,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.Text
-import androidx.compose.foundation.text.InlineTextContent
-import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.text.Placeholder
-import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import dev.leonardo.ocbeacon.ui.theme.AppMotion
@@ -52,6 +50,34 @@ import kotlinx.coroutines.delay
  * [tail] 是快照原始字符（含未完标记字面，如 "*bold"）——按字面显示
  * 正是「未定案原文」语义；定案后由 Markdown 正文按最终解释渲染。
  */
+/** 光标叠加位置（R2 根修缝：纯函数）。 */
+internal data class CursorOffset(val x: Float, val y: Float)
+
+/**
+ * [R2 侦察定罪根修] 呼吸光标叠加位置：从末行布局结果计算——光标作为独立叠加层
+ * （Box + offset），动画值变化只失效光标自身；不再用 Text inline content
+ * （每帧动画被放大为整段 Text 重排+重绘 = 贴底跟随每帧 trav 13ms/draw 重放的根因）。
+ *
+ * @param lastLineRight 末行内容右端 x（layoutResult.getLineRight(lastLine)）
+ * @param lastLineBaseline 末行基线 y
+ * @param maxWidth 可用宽（行末溢出回绕保护）
+ */
+internal fun cursorOffsetFromLayout(
+    lastLineRight: Float,
+    lastLineBaseline: Float,
+    cursorWidth: Float,
+    cursorHeight: Float,
+    cursorGap: Float,
+    maxWidth: Float = Float.MAX_VALUE,
+): CursorOffset {
+    val x = if (lastLineRight + cursorGap + cursorWidth > maxWidth) {
+        (maxWidth - cursorWidth).coerceAtLeast(0f)
+    } else {
+        lastLineRight + cursorGap
+    }
+    return CursorOffset(x = x, y = lastLineBaseline - cursorHeight)
+}
+
 @Composable
 internal fun HeldTailReveal(
     tail: String,
@@ -93,7 +119,9 @@ internal fun HeldTailReveal(
     // 全亮（不降亮，不与正文形成「思考感」断层）；思考块继承 MUTED 半透明
     // （与已放行思考内容一致）。降亮分级（纯文字全亮/含标记 0.5）已废弃。
 
-    // 呼吸光标（inline 末尾，占位 1em×1.05em 圆角块）
+    // [R2 根修] 呼吸光标：独立叠加层（原 Text inline content 实现把每帧动画放大为
+    // 整段 Text 重排+重绘——贴底跟随每帧 trav 13ms/draw 重放根因，framestats 定罪）。
+    // 位置来自末行布局结果（onTextLayout 100ms 一更新）；动画失效只作用光标小 Box。
     val transition = rememberInfiniteTransition(label = "srCursor")
     val cursorAlpha by transition.animateFloat(
         initialValue = 0.15f,
@@ -101,52 +129,60 @@ internal fun HeldTailReveal(
         animationSpec = infiniteRepeatable(tween(AppMotion.BREATH_CYCLE), RepeatMode.Reverse),
         label = "srCursorAlpha",
     )
-    val cursorId = "sr_cursor"
-    val annotated = remember(tail) {
-        buildAnnotatedString {
-            append(tail)
-            appendInlineContent(cursorId, " ")
-        }
-    }
+    var cursorOffset by remember { mutableStateOf<CursorOffset?>(null) }
     val density = LocalDensity.current
-    val inlineContent = remember(cursorId, textStyle.color) {
-        mapOf(
-            cursorId to InlineTextContent(
-                Placeholder(0.85f.em, 1.05f.em, PlaceholderVerticalAlign.TextCenter),
-            ) {
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .background(textStyle.color.copy(alpha = cursorAlpha), RoundedCornerShape(2.dp)),
-                )
-            },
-        )
-    }
 
-    Text(
-        text = annotated,
-        style = textStyle,
-        inlineContent = inlineContent,
-        overflow = TextOverflow.Clip,
-        onTextLayout = { result ->
-            // 自然高度观测（Text 不受高度约束）→ 驱动锁高状态机
-            val natural = result.size.height
-            naturalRef[0] = natural
-            aging.update(tail, natural)
-            if (aging.lockedHeightPx >= 0 && aging.lockedHeightPx != lockedPx) {
-                lockedPx = aging.lockedHeightPx
-            }
-        },
-        modifier = modifier
+    Box(
+        modifier
             .clipToBounds()
             .layout { measurable, constraints ->
                 // 自然测（高度不受限）→ 显示高 = min(自然高, 锁高)——顶部对齐，
-                // 尾部增长溢出被裁（内部变化不触布局）
+                // 尾部增长溢出被裁（内部变化不触布局）。锁高在容器层：光标叠加
+                // 一并受裁（尾溢出时光标随内容被裁，视觉语义与原 inline 一致）。
                 val p = measurable.measure(
                     constraints.copy(minHeight = 0, maxHeight = androidx.compose.ui.unit.Constraints.Infinity),
                 )
                 val shown = if (lockedPx >= 0) lockedPx.coerceAtMost(p.height) else p.height
                 layout(p.width, shown) { p.place(0, 0) }
             },
-    )
+    ) {
+        Text(
+            text = remember(tail) { buildAnnotatedString { append(tail) } },
+            style = textStyle,
+            overflow = TextOverflow.Clip,
+            softWrap = true,
+            onTextLayout = { result ->
+                // 自然高度观测（Text 不受高度约束）→ 驱动锁高状态机
+                val natural = result.size.height
+                naturalRef[0] = natural
+                aging.update(tail, natural)
+                if (aging.lockedHeightPx >= 0 && aging.lockedHeightPx != lockedPx) {
+                    lockedPx = aging.lockedHeightPx
+                }
+                // [R2] 光标叠加位置（纯函数缝：HeldTailCursorTest）
+                val lr = result
+                val lastLine = lr.lineCount - 1
+                cursorOffset = cursorOffsetFromLayout(
+                    lastLineRight = lr.getLineRight(lastLine),
+                    lastLineBaseline = lr.getLineBaseline(lastLine),
+                    cursorWidth = with(density) { 0.85f.em.toPx() },
+                    cursorHeight = with(density) { 1.05f.em.toPx() },
+                    cursorGap = with(density) { 1.dp.toPx() },
+                    maxWidth = lr.multiParagraph.width,
+                )
+            },
+        )
+        // [R2] 独立叠加光标：动画失效只作用本 Box（每帧重绘 ~小方块）
+        cursorOffset?.let { off ->
+            Box(
+                Modifier
+                    .offset { androidx.compose.ui.unit.IntOffset(off.x.toInt(), off.y.toInt()) }
+                    .size(
+                        width = with(density) { 0.85f.em.toDp() },
+                        height = with(density) { 1.05f.em.toDp() },
+                    )
+                    .background(textStyle.color.copy(alpha = cursorAlpha), RoundedCornerShape(2.dp)),
+            )
+        }
+    }
 }
