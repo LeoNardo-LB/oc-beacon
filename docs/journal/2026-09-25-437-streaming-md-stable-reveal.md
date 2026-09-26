@@ -705,3 +705,16 @@ fiso+Δ 配对是**正确行为**（画面保持公式）。特此勘误。
 **定罪探针装机**：CONTENT-BLINK——chatEntries 键序列 diff 中 removed≥2 且
 added<removed（上方内容消失形态）时显式打点（含时刻/键/displayItems 长度）。
 **用户复现时刻与此行对齐即定罪**——比盲猜候选高效。设备已是探针版。
+
+## 四十世轮：候选排除
+
+
+### 四十世轮（goal轮15）：候选②③排除——定罪完全依赖 CONTENT-BLINK 复现
+
+- **②排除**：expandedStepGroups 恒空（裂变退役，ChatMessageList L479）——无展开态
+  存储，STEP id 换代无折叠通道。
+- **③理论排除**：clear+addAll 同组合 pass 双写，失效传播时已是终态（无空帧）；
+  长度抖动的全 item 重组一帧仍在（成本项非消失项）。
+- **①存疑**（时刻弱吻合）+ banner index 平移（key 复用无闪烁，理论排除）。
+- **结论**：静态分析穷尽，定罪依赖 CONTENT-BLINK 探针 × 用户复现时刻对齐。
+  设备已是探针版；用户报时刻即收网。
