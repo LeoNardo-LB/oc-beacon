@@ -132,6 +132,9 @@ internal object SafePrefixGate {
                     }
                     j = k
                 }
+                // #441 粒度扩展：≥4 空格缩进行扣留——缩进代码块/列表延续的歧义形态
+                // （半行放行的重释义面不可控），保守等闭合。置于纯文字之前。
+                lineStartReal && isIndentedCodeLine(line) -> break
                 !lineHasActiveMarker(line) -> {
                     // 纯文字（完整或未完）：字面=最终——整行/增量直出
                     val want = if (complete) nl + 1 else lineEnd
@@ -143,6 +146,19 @@ internal object SafePrefixGate {
                 // 本行块类型），完整行整行放行（半行扣留：续接内容未定）。'*' 后非空格
                 // （强调构造开头）不进本分支，维持扣留。
                 lineStartReal && complete && isStarBulletItemLine(line) -> {
+                    if (nl + 1 - allowed > budgetLeft) break
+                    allowed = nl + 1
+                    j = nl + 1
+                }
+                // #441 粒度扩展：引用块行——行级定案（引用行本身不被后续行重释义；
+                // 懒延续行（无 > 前缀）仍走扣留分支等空行毕业）。
+                lineStartReal && complete && isBlockQuoteLine(line) -> {
+                    if (nl + 1 - allowed > budgetLeft) break
+                    allowed = nl + 1
+                    j = nl + 1
+                }
+                // #441 粒度扩展：ATX 标题行（#{1,6}+空格/行尾）——完整行定案。
+                lineStartReal && complete && isAtxHeadingLine(line) -> {
                     if (nl + 1 - allowed > budgetLeft) break
                     allowed = nl + 1
                     j = nl + 1
@@ -167,6 +183,38 @@ internal object SafePrefixGate {
         if (lineEnd <= lineStart) return false
         val prevLine = snapshot.substring(lineStart, lineEnd)
         return isTableHeaderRow(prevLine) || isTableSeparatorRow(prevLine) || isTableRowLine(prevLine)
+    }
+
+    /** #441 粒度扩展：引用块行——≤3 缩进 + '>' 起始。 */
+    private fun isBlockQuoteLine(line: String): Boolean {
+        var i = 0
+        var indent = 0
+        while (i < line.length && indent < 4 && (line[i] == ' ' || line[i] == '\t')) { i++; indent++ }
+        return i < line.length && line[i] == '>'
+    }
+
+    /** #441 粒度扩展：ATX 标题行——≤3 缩进 + 1..6 个 '#' + 空格或行尾。 */
+    private fun isAtxHeadingLine(line: String): Boolean {
+        var i = 0
+        var indent = 0
+        while (i < line.length && indent < 4 && (line[i] == ' ' || line[i] == '\t')) { i++; indent++ }
+        var h = 0
+        while (i < line.length && h < 6 && line[i] == '#') { i++; h++ }
+        if (h == 0) return false
+        return i >= line.length || line[i] == ' ' || line[i] == '\t'
+    }
+
+    /** #441 粒度扩展：≥4 空格缩进行（缩进代码块/列表延续歧义形态）。 */
+    private fun isIndentedCodeLine(line: String): Boolean {
+        var sp = 0
+        for (k in 0 until line.length.coerceAtMost(8)) {
+            when (line[k]) {
+                ' ' -> sp++
+                '\t' -> return true
+                else -> return sp >= 4
+            }
+        }
+        return sp >= 4
     }
 
     /**
