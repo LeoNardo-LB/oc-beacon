@@ -245,3 +245,9 @@
 - 关键修复链（真机迭代）：DSH 流式轮被旧 isStreamingTurn 判定分片绕过帽（streamingMsgId 恒 null）→ 组内 completed==null 同源放宽；锚键 firstOrNull 与 fii 错位 → 按 index 反查；完成跳变 → 帽宽限保持至新流式项。
 - 验收取证（stream-flicker-test.sh + VDRAW 绘制相位分类判决）：vd10 阅读态 H_ONLY/O_ONLY=0/0（基线 62/62）、paired=true 原子配对实证；vd13 全文 293 appends 至 2914px 自然收尾，回合末 PLAN/LEAP/RESIZE/杂释放全部为 0（修前 rem+add+塌0+LEAP-392）。贴底跟随全程健康。
 - 单测 3529 全绿（新增 TurnSlotKeyStabilityTest 5 例 + ReserveReleasePlanTest 7 例；分片夹具补 completed 位）。commit：5537ebd2→(帽)→(补修+宽限)→(③网关)。
+
+## 验收十八轮：锚 index 语义终修——浅滑/深滑双姿态泄漏清零
+
+- 终局三连修（日志逐一定罪）：①流式判据排除 user 消息（completed 恒 null 致 user 项与流式项双帽共 state 互踩 reset，「附而不释」真因，RESERVE 双 measure 交替实锤）②贴底原点阈值 100->8px ③配对锚 index 语义（锚≤增长项即配对——横幅区浅滑位 fii=0 为 banner 条目键失配致漏配对；读历史位免配对防原生保持+配对双重修正下坠）。
+- 双姿态终验清零：浅滑位（z3：READ 0/0，修前 66-69）＋深滑位（vd10：READ 0/0 + paired=true d=364 原子配对）；回合末（vd13）PLAN/LEAP/RESIZE 全零；贴底/手势帧全程正常。单测 3529 绿（ReserveReleasePlanTest 扩至 8 例锚语义）。
+- commit 链：ddad975c（互搏根修）→ 阈值 8px → 锚 index 语义终修。

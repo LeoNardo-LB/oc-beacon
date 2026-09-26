@@ -71,6 +71,7 @@
   - 修法方向（对齐 I2 底原点预留契约）：换装须键稳定原位切换或帧前预留终态高度，禁止 remove+add 裸落地；与 #435 配对机器同域
   - 设计文档：docs/specs/2026-09-26-437-height-engine-redesign.md（VDRAW 绘制泄漏 83 帧证据基线）
   - 终验遗留边界（2026-09-26 vz/z2 取证）：浅滑阅读位（离底≈横幅区高度）时 fii=0 为 banner 条目，锚键比对失配、释放落 unpaired、可见推帧仍存；深滑位（fiso≈360，vd10）READ=0+paired=true 已达标。修法方向：锚语义按增长项 index==fii 或横幅区高度感知。会话 C（session-27446362）可复现。
+  - 十八轮终修后双姿态清零（浅滑 z3 READ=0/0、深滑 vd10 READ=0/0+paired），遗留边界已消除——待用户验收迁移。
 
 - [ ] **#438 流式突发路径收尾：gate 时间限速与配对 set 保 key** `streaming` `scroll` `#437`
   - 真机 R9 实证两残差：①catch-up 期 gate 按 400ch/48ms 释放而 measure 滞后聚合（442ms 聚 7 批=单 note d=6236）；②大额配对 set 走 requestPositionAndForgetLastKnownKey 核销锚 key，突发期新 item 插入+重排后 LazyList 按字面 index 重锚（LEAP -7562 视觉大跳）
