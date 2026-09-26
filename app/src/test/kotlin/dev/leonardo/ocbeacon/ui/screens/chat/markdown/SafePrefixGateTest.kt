@@ -61,8 +61,10 @@ class SafePrefixGateTest {
     }
 
     @Test
-    fun `行首有序列表起始扣住`() {
-        assertEquals(6, rel("intro\n1. first\n2. second"))
+    fun `有序列表项逐行放行_裁决441修订`() {
+        // #441 用户裁决修订：有序列表项行级定案逐行放行（原整块扣留语义废止）
+        // intro 行放行 + 两条完整列表项行放行 = 全量
+        assertEquals(15, rel("intro\n1. first\n2. second"))
     }
 
     @Test

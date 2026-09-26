@@ -169,14 +169,31 @@ internal object SafePrefixGate {
         return isTableHeaderRow(prevLine) || isTableSeparatorRow(prevLine) || isTableRowLine(prevLine)
     }
 
-    /** #441：'* ' 无序列表项行（≤3 缩进 + '*' + 空格或行尾）。 */
+    /**
+     * #441：列表项行（≤3 缩进）——'* '/'- '/'+ ' 无序或 数字+'.'/')' 有序开头。
+     * 列表项行级定案（后续行不重释义本行块类型）；'- '/'+ ' 本就无标记走纯文字，
+     * 此处覆盖 '*' 与有序两形态（原二者整块扣留 = 用户「列表整块出」根因）。
+     */
     private fun isStarBulletItemLine(line: String): Boolean {
         var i = 0
         var indent = 0
         while (i < line.length && indent < 4 && (line[i] == ' ' || line[i] == '\t')) { i++; indent++ }
-        if (i >= line.length || line[i] != '*') return false
-        val next = i + 1
-        return next >= line.length || line[next] == ' ' || line[next] == '\t'
+        if (i >= line.length) return false
+        val c = line[i]
+        if (c == '*') {
+            val next = i + 1
+            return next >= line.length || line[next] == ' ' || line[next] == '\t'
+        }
+        // 有序：1-9 位数字 + '.'或')' + 空格/行尾
+        if (c.isDigit()) {
+            var d = i
+            while (d < line.length && d - i < ORDERED_LIST_MAX_DIGITS && line[d].isDigit()) d++
+            if (d > i && d < line.length && (line[d] == '.' || line[d] == ')')) {
+                val next = d + 1
+                return next >= line.length || line[next] == ' ' || line[next] == '\t'
+            }
+        }
+        return false
     }
 
     /** 开栏行：≤3 空白缩进 + ≥3 个反引号或 ~ + info string（反引号栏 info 不得含反引号）。返回 栏字符 to 栏长。 */
