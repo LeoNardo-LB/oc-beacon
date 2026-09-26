@@ -56,20 +56,48 @@ private var vtraceLastLogAt = 0L
 private var sgrDropLastLogAt = 0L
 private var vtraceLastFiso = Int.MIN_VALUE
 
+/**
+ * R1 统一配对谓词（#437 二十五世轮根修，架构审查 A1/A5）：合并 ledger 轨与帽轨的
+ * 配对决策为单一规则代数，决策表穷举见 StreamingAnchorRuleTest。
+ *
+ * TDD 收敛：两轨大部分格子同源，唯一真实分歧在「锚在增长源之下」（anchor < growth）：
+ * - 锚 == 增长源：增长推移锚所见内容 → +Δ 同帧配对（两轨真机共识）；
+ * - 锚 > 增长源（读历史）：LazyList 默认锚定已保持画面 → 免配对（八轮真机像素证据）；
+ * - 锚 < 增长源：**源类型决定**——ledger 族（banner/压缩卡）增长由跟随通道
+ *   （BANNER bottomFollow/GUARD）派发补偿，引擎再 +Δ = 双重补偿（#435 八轮震荡证据）；
+ *   帽族（流式消息 item）增长无任何通道覆盖（GUARD 仅贴底邻域 8px），必须引擎配对
+ *   （#437 z3 横幅区浅滑真机证据）。[coveredByFollowFamily] 由挂载点按源类型声明。
+ *
+ * 贴底原点（fii==0 ∧ fiso<[AT_BOTTOM_ORIGIN_PX]）：物理自动跟随，一律免派发。
+ */
+internal object StreamingAnchorRule {
+    /** 贴底原点阈值(px)——GUARD/MSGEFFECT 微抖 ≤5px 内视为原点（原帽轨 z3 修正语义）。 */
+    const val AT_BOTTOM_ORIGIN_PX = 8
+
+    fun pairedDelta(
+        anchorIndex: Int,
+        anchorOffset: Int,
+        growthIndex: Int?,
+        growthPx: Float,
+        coveredByFollowFamily: Boolean = false,
+    ): Float = when {
+        growthPx <= 0f -> 0f                                        // 收缩/零增量：不配对
+        anchorIndex == 0 && anchorOffset < AT_BOTTOM_ORIGIN_PX -> 0f // 贴底原点：物理跟随
+        growthIndex == null || growthIndex < 0 -> 0f                // 增长源不可见：丢弃
+        anchorIndex == growthIndex -> growthPx                      // 锚==增长源：同帧配对
+        anchorIndex < growthIndex ->                                // 锚在源之下：源类型决定
+            if (coveredByFollowFamily) 0f else growthPx
+        else -> 0f                                                  // 读历史：免
+    }
+}
+
+/** 兼容缝（R1 后由 [StreamingAnchorRule] 统一；ledger 源族=跟随通道覆盖语义）。 */
 internal object StreamingPairingRule {
-    /**
-     * 统一配对规则(纯函数可单测)。
-     * @param anchorIndex 列表锚(firstVisibleItemIndex)
-     * @param anchorOffset 锚偏移(firstVisibleItemScrollOffset)
-     * @param itemIndex 增长源 item 的 lazy index;-1=不在当前可见布局(回收/间隙)→丢弃
-     * @param growthPx 本帧累计增长(px);仅正向增长参与配对
-     */
     fun pairedDelta(anchorIndex: Int, anchorOffset: Int, itemIndex: Int, growthPx: Float): Float =
-        if (growthPx > 0f &&
-            itemIndex >= 0 && // 不在可见布局（回收/间隙）→丢弃
-            itemIndex == anchorIndex && // #437 验收八轮（真机像素证伪 ≤）：仅锚=item 自身才配对
-            !(anchorIndex == 0 && anchorOffset == 0) // 贴底原点：物理跟随，免派发
-        ) growthPx else 0f
+        StreamingAnchorRule.pairedDelta(
+            anchorIndex, anchorOffset, itemIndex, growthPx,
+            coveredByFollowFamily = true, // ledger 源族（banner/压缩卡）：BANNER bottomFollow 通道覆盖
+        )
 
     /** 贴底邻域阈值(px)——与 ChatScrollController.isAtBottom 的 fiso<100 同源。 */
     const val AT_BOTTOM_PX = 100
@@ -291,14 +319,15 @@ internal fun reserveReleasePlan(
     if (trueHeight <= reserved) return null             // 无增量（或收缩：帽不回改）
     if (isScrollInProgress) return null                 // 手势持帽（零位移无豁免）
     val delta = trueHeight - reserved
-    // vz 终验修正：旧阈值 <100 把「离底 21px 的阅读位」误判贴底→释放落 unpaired→推帧。
-    // 贴底跟随族由 GUARD/MSGEFFECT 保持 fiso≈0（微抖 ≤5px）；8px 内视为原点。
-    val atBottomOrigin = firstVisibleIndex == 0 && firstVisibleOffset < 8
-    // z3 锚 index 语义（横幅区终修）：锚 index ≤ 增长项 index（锚在增长项下方或自身）
-    // 时原生锚定不跟随、增长推移可见内容→配对；锚在其上方（读历史）锚位含增长
-    // 高度、原生保持已稳→免配对（防双重修正下坠）。
-    val pair = growthIndex != null && firstVisibleIndex <= growthIndex
-    return ReserveReleasePlan(delta = delta, scrollPaired = !atBottomOrigin && pair)
+    // R1 统一配对谓词（原 z3 锚 index 语义+贴底原点判定合并入 StreamingAnchorRule）：
+    // 贴底原点物理跟随免派发；跟随区免双重补偿；锚≤增长源同帧配对；读历史免。
+    val paired = StreamingAnchorRule.pairedDelta(
+        anchorIndex = firstVisibleIndex,
+        anchorOffset = firstVisibleOffset,
+        growthIndex = growthIndex,
+        growthPx = delta.toFloat(),
+    ) != 0f
+    return ReserveReleasePlan(delta = delta, scrollPaired = paired)
 }
 
 /**
