@@ -110,22 +110,6 @@ internal fun shouldYieldPairing(
     readFii != lastSetFii || readFiso != lastSetFiso
 }
 
-/**
- * 兼容缝（R1 后由 [StreamingAnchorRule] 统一；ledger 源族=跟随通道覆盖语义）。
- * [终审 S3] 退役判据：当 StreamingGrowLedger 的四个挂载点（banner/压缩卡）迁移至
- * 直接调用 StreamingAnchorRule.pairedDelta(coveredByFollowFamily=true) 后删除本缝。
- */
-@Deprecated("迁移挂载点后删除；直接使用 StreamingAnchorRule.pairedDelta", level = DeprecationLevel.WARNING)
-internal object StreamingPairingRule {
-    fun pairedDelta(anchorIndex: Int, anchorOffset: Int, itemIndex: Int, growthPx: Float): Float =
-        StreamingAnchorRule.pairedDelta(
-            anchorIndex, anchorOffset, itemIndex, growthPx,
-            coveredByFollowFamily = true, // ledger 源族（banner/压缩卡）：BANNER bottomFollow 通道覆盖
-        )
-
-    /** 贴底邻域阈值(px)——与 ChatScrollController.isAtBottom 的 fiso<100 同源。 */
-    const val AT_BOTTOM_PX = 100
-}
 
 /**
  * 每列表单一流式账本(ChatMessageList remember;主线程专用——measure/flush 均在 UI 线程)。
@@ -186,7 +170,12 @@ internal class StreamingGrowLedger {
         entries.values.forEach { e ->
             if (e.pending != 0f) {
                 val idx = visibleIndex(e.itemKey)
-                total += StreamingPairingRule.pairedDelta(anchorIndex, anchorOffset, idx, e.pending)
+                // R2 批缝退役迁移：ledger 源族直调统一谓词（covered=true——BANNER
+                // bottomFollow 通道覆盖语义，原 StreamingPairingRule 兼容缝删除）。
+                total += StreamingAnchorRule.pairedDelta(
+                    anchorIndex, anchorOffset, idx, e.pending,
+                    coveredByFollowFamily = true,
+                )
                 e.pending = 0f
             }
         }

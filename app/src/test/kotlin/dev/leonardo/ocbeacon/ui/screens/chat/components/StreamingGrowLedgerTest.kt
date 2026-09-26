@@ -20,54 +20,54 @@ class StreamingGrowLedgerTest {
     @Test
     fun rule_pinnedBottom_appendFamily_noDispatch() {
         // 贴底跟随族:锚=0(banner 区),增长源=消息 item 7——追加语义,免派发
-        assertEquals(0f, StreamingPairingRule.pairedDelta(0, 0, 7, 48f))
+        assertEquals(0f, StreamingAnchorRule.pairedDelta(0, 0, 7, 48f, coveredByFollowFamily = true))
     }
 
     @Test
     fun rule_anchorBelowGrowthSource_noDispatch() {
         // 锚在增长源之下(横幅锚,非零 fiso 仍属跟随族)
-        assertEquals(0f, StreamingPairingRule.pairedDelta(2, 140, 7, 48f))
+        assertEquals(0f, StreamingAnchorRule.pairedDelta(2, 140, 7, 48f, coveredByFollowFamily = true))
     }
 
     @Test
     fun rule_anchorOnSourceOffsetZero_pairs() {
         // 锚=item 自身 start 边(fiso==0,非贴底原点):锚内增长=跟随,需 +Δ 保持画面
-        assertEquals(48f, StreamingPairingRule.pairedDelta(7, 0, 7, 48f))
+        assertEquals(48f, StreamingAnchorRule.pairedDelta(7, 0, 7, 48f, coveredByFollowFamily = true))
     }
 
     @Test
     fun rule_anchorOnSourceScrolledIn_pairsFullDelta() {
         // 尾段阅读(锚上移进入增长源贴底邻域):+Δ 同帧配对(fiso+=Δ)
-        assertEquals(48f, StreamingPairingRule.pairedDelta(7, 60, 7, 48f))
+        assertEquals(48f, StreamingAnchorRule.pairedDelta(7, 60, 7, 48f, coveredByFollowFamily = true))
     }
 
     @Test
     fun rule_deepReading_beyondAtBottomPx_pairs() {
         // 锚=item 自身深处(用户场景:脱离贴底停在流式文本中)——+Δ 配对
-        assertEquals(48f, StreamingPairingRule.pairedDelta(7, 300, 7, 48f))
-        assertEquals(48f, StreamingPairingRule.pairedDelta(7, 100, 7, 48f))
-        assertEquals(48f, StreamingPairingRule.pairedDelta(7, 99, 7, 48f))
+        assertEquals(48f, StreamingAnchorRule.pairedDelta(7, 300, 7, 48f, coveredByFollowFamily = true))
+        assertEquals(48f, StreamingAnchorRule.pairedDelta(7, 100, 7, 48f, coveredByFollowFamily = true))
+        assertEquals(48f, StreamingAnchorRule.pairedDelta(7, 99, 7, 48f, coveredByFollowFamily = true))
         // 贴底原点:物理跟随免派发
-        assertEquals(0f, StreamingPairingRule.pairedDelta(0, 0, 0, 48f))
+        assertEquals(0f, StreamingAnchorRule.pairedDelta(0, 0, 0, 48f, coveredByFollowFamily = true))
         // #437 验收八轮(真机像素证伪 ≤):增长源在锚之下(读历史,流式 item 在下方)
         // 免派发——LazyList 锚定默认已保持画面,+Δ 属双重补偿(拖拽+LEAP 回吐震荡)
-        assertEquals(0f, StreamingPairingRule.pairedDelta(7, 300, 0, 48f))
+        assertEquals(0f, StreamingAnchorRule.pairedDelta(7, 300, 0, 48f, coveredByFollowFamily = true))
     }
 
     @Test
     fun rule_readingAway_growthBelowViewport_noDispatch() {
         // #437 验收八轮:读历史(增长源在锚下方、非锚 item)免派发——默认锚定已保持画面
-        assertEquals(0f, StreamingPairingRule.pairedDelta(20, 500, 7, 48f))
+        assertEquals(0f, StreamingAnchorRule.pairedDelta(20, 500, 7, 48f, coveredByFollowFamily = true))
     }
 
     @Test
     fun rule_shrink_neverPaired() {
-        assertEquals(0f, StreamingPairingRule.pairedDelta(7, 300, 7, -48f))
+        assertEquals(0f, StreamingAnchorRule.pairedDelta(7, 300, 7, -48f, coveredByFollowFamily = true))
     }
 
     @Test
     fun rule_itemNotInLayout_dropped() {
-        assertEquals(0f, StreamingPairingRule.pairedDelta(7, 300, -1, 48f))
+        assertEquals(0f, StreamingAnchorRule.pairedDelta(7, 300, -1, 48f, coveredByFollowFamily = true))
     }
 
     // ---- StreamingGrowLedger:账本协议 ----
