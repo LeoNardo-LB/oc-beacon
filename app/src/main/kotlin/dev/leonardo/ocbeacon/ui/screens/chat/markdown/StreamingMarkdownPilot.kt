@@ -71,6 +71,27 @@ internal object StreamingScrollHold {
     var holding: Boolean by androidx.compose.runtime.mutableStateOf(false)
 }
 
+/**
+ * [#437 卡顿诊断批次] 滚动期 UI 快照冻结 A/B 开关——验证「48ms 快照重组风暴」
+ * 假设：流式期间 messageState.messages 每 48ms 新实例 → rawMessages/displayItems/
+ * chatEntries 全链重算 + LazyColumn 全可见 item 重组，组合成本落在滚动帧
+ * （实测 p90 8ms→24ms、janky 6%→37%）。ScrollHold 已挡 pilot append，本开关把
+ * 同语义补到快照层（ChatScreen rawMessages 派生处）。
+ *
+ * 开启：adb shell setprop debug.ocbeacon.jankhold 1 后重启进程；缺省关闭。
+ */
+internal object JankHoldGate {
+    val enabled: Boolean by lazy {
+        try {
+            @Suppress("PrivateApi")
+            val sp = Class.forName("android.os.SystemProperties")
+            "1" == sp.getMethod("get", String::class.java).invoke(null, "debug.ocbeacon.jankhold")
+        } catch (_: Throwable) {
+            false
+        }
+    }
+}
+
 @Composable
 internal fun rememberPilotStreamingMarkdownState(markdown: String): PilotStreamingState {
     var resetKey by remember { mutableIntStateOf(0) }

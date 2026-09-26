@@ -934,8 +934,25 @@ fun ChatScreen(
                         val compactionBoundIds = remember(compactionEntriesForSession) {
                             compactionEntriesForSession.mapNotNull { it.messageId }.toSet()
                         }
-                        val rawMessages = remember(messageState.messages, shadowedRangesForSession, compactionBoundIds) {
-                            messageState.messages.reversed().filterNot { m ->
+                        // [#437 卡顿诊断批次] 滚动期 UI 快照冻结：流式中 messageState.messages
+                        // 每 48ms 新实例 → rawMessages/displayItems/chatEntries 全链重算 +
+                        // LazyColumn 全可见 item 重组（组合风暴落在滚动帧 = 非贴底滑动卡顿）。
+                        // ScrollHold 已在 pilot 层挡 append，此处把同一语义补到快照层：
+                        // holding 期间派生冻结在最近快照（实例相等 → 下游 remember 全命中 →
+                        // 零重算零重组），settle 后首个新快照一次追平（与 append 追平同帧）。
+                        // A/B 开关 JankHoldGate（debug.ocbeacon.jankhold），确证后转默认开。
+                        val jkFrozenRef = remember { arrayOfNulls<List<ChatMessage>>(1) }
+                        val jkMsgs = if (
+                            dev.leonardo.ocbeacon.ui.screens.chat.markdown.JankHoldGate.enabled &&
+                            dev.leonardo.ocbeacon.ui.screens.chat.markdown.StreamingScrollHold.holding &&
+                            jkFrozenRef[0] != null
+                        ) {
+                            jkFrozenRef[0]!!
+                        } else {
+                            messageState.messages.also { jkFrozenRef[0] = it }
+                        }
+                        val rawMessages = remember(jkMsgs, shadowedRangesForSession, compactionBoundIds) {
+                            jkMsgs.reversed().filterNot { m ->
                                 val shadowed = dev.leonardo.ocbeacon.domain.model.DshMessageId.seqOf(m.message.id)
                                     ?.let { seq -> shadowedRangesForSession.any { seq in it } } == true
                                 shadowed || m.message.id in compactionBoundIds
