@@ -1380,8 +1380,10 @@ fun ChatMessageList(
                                 val nextRealIsAssistant = nextRealIsAssistantByMsgId[msg.message.id]
                                 val isTurnLast = nextRealIsAssistant != true
                                 // [VDRAW] 绘制相位去重状态（见 drawBehind 探针注释）
-                                val vdrawLastH = remember { mutableStateOf(-1) }
-                                val vdrawLastFiso = remember { mutableStateOf(-1) }
+                                // [R4 探针注入化] 去重态用普通数组（原 mutableStateOf
+                                // 在 draw 阶段写快照 → 每次变化后一帧整 item display
+                                // list 重放 = 滚动/贴底每帧 draw 成本放大器）
+                                val vdrawDedup = remember { intArrayOf(-1, -1) }
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -1414,15 +1416,15 @@ fun ChatMessageList(
                                             ) {
                                                 val h = size.height.toInt()
                                                 val fiso = listState.firstVisibleItemScrollOffset
-                                                if (h != vdrawLastH.value || fiso != vdrawLastFiso.value) {
+                                                if (h != vdrawDedup[0] || fiso != vdrawDedup[1]) {
                                                     android.util.Log.d(
                                                         "VDRAW",
                                                         "t=" + android.os.SystemClock.elapsedRealtime() +
                                                             " h=" + h + " fiso=" + fiso +
                                                             " key=" + entry.key.take(20)
                                                     )
-                                                    vdrawLastH.value = h
-                                                    vdrawLastFiso.value = fiso
+                                                    vdrawDedup[0] = h
+                                                    vdrawDedup[1] = fiso
                                                 }
                                             }
                                         }
@@ -1718,22 +1720,22 @@ fun ChatMessageList(
                         // [VDRAW 壳层] 移至链首（最外层）——读帽后真实上屏高度；内层探针
                         // 只见内容全高（含被 clip 的不可见增长），会把裁剪内绘制误计为推帧
                         // （vd4th 深读位 70/70 泄漏实为幻影，PAIR 解剖实证）。
-                        val vdrawShellLastH = remember { mutableStateOf(-1) }
-                        val vdrawShellLastFiso = remember { mutableStateOf(-1) }
+                        // [R4 探针注入化] 同上：非快照去重（draw 写零失效）
+                        val vdrawShellDedup = remember { intArrayOf(-1, -1) }
                         val vdrawProbe = Modifier.drawBehind {
                             if (dev.leonardo.ocbeacon.BuildConfig.DEBUG &&
                                 (itemKey.startsWith("t_dsh-") || msg.message.id.startsWith("dsh-") || reserveOwner)
                             ) {
                                 val h = size.height.toInt()
                                 val fiso = listState.firstVisibleItemScrollOffset
-                                if (h != vdrawShellLastH.value || fiso != vdrawShellLastFiso.value) {
+                                if (h != vdrawShellDedup[0] || fiso != vdrawShellDedup[1]) {
                                     dev.leonardo.ocbeacon.logging.AppLogger.d(
                                         "VDRAW",
                                         "t=" + android.os.SystemClock.elapsedRealtime() +
                                             " h=" + h + " fiso=" + fiso + " key=" + itemKey.take(20)
                                     )
-                                    vdrawShellLastH.value = h
-                                    vdrawShellLastFiso.value = fiso
+                                    vdrawShellDedup[0] = h
+                                    vdrawShellDedup[1] = fiso
                                 }
                             }
                         }
@@ -1752,8 +1754,8 @@ fun ChatMessageList(
                         //（渐进测量/异步重排检测——跳变根因取证）
                         val diagLastSize = remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
                         // [VDRAW] Turn 臂绘制相位探针（DSH 流式尾 t_dsh-* 走此分支）
-                        val vdrawTurnLastH = remember { mutableStateOf(-1) }
-                        val vdrawTurnLastFiso = remember { mutableStateOf(-1) }
+                        // [R4 探针注入化] 同上
+                        val vdrawTurnDedup = remember { intArrayOf(-1, -1) }
                         Box(
                             modifier = itemModifier.then(
                                 if (isHighlighted) {
@@ -1789,14 +1791,14 @@ fun ChatMessageList(
                                 ) {
                                     val h = size.height.toInt()
                                     val fiso = listState.firstVisibleItemScrollOffset
-                                    if (h != vdrawTurnLastH.value || fiso != vdrawTurnLastFiso.value) {
+                                    if (h != vdrawTurnDedup[0] || fiso != vdrawTurnDedup[1]) {
                                         AppLogger.d(
                                             "VDRAW",
                                             "t=" + android.os.SystemClock.elapsedRealtime() +
                                                 " h=" + h + " fiso=" + fiso + " key=" + itemKey.take(20)
                                         )
-                                        vdrawTurnLastH.value = h
-                                        vdrawTurnLastFiso.value = fiso
+                                        vdrawTurnDedup[0] = h
+                                        vdrawTurnDedup[1] = fiso
                                     }
                                 }
                             }
