@@ -233,6 +233,10 @@ internal class HeightReserveState {
     var trueHeight: Int = -1
     /** 帽归属 item key（attach 相登记；换流式项自动重置）。 */
     var itemKey: Any? = null
+    /** 对齐策略（用户验收二十二世：底对齐修贴底统计栏、却让阅读态回归推-回闪烁——
+     *  底钉增长=每 append 全块上推 Δ，配对释放才补偿=中间帧闪烁。改为随态切换：
+     *  贴底原点=底对齐（统计栏钉死、溢出朝上裁）；阅读态=顶对齐（原验证几何）。 */
+    var alignBottom: Boolean by androidx.compose.runtime.mutableStateOf(true)
 }
 
 /** 帽修饰符：测真高、报帽高；增量越界由外层 clipToBounds 裁剪。 */
@@ -253,10 +257,11 @@ internal fun Modifier.streamingHeightReserve(state: HeightReserveState, itemKey:
                 AppLogger.d("RESERVE", "measure h=" + child.height + " reserved=" + state.reserved)
             }
             val h = if (state.reserved < 0) child.height else minOf(child.height, state.reserved)
-            // 底对齐（用户验收二十一轮：顶对齐时帽 clip 溢出朝下=屏底方向，贴底统计栏
-            // 每 48ms 被裁一帧再弹回=一跳一跳）。底对齐后溢出朝上=裁视口外旧文本；
-            // 贴底时内容底（统计栏）钉死、新行即时可见；阅读态帽帧内容底固定=零推帧。
-            return layout(constraints.maxWidth, h) { child.place(0, h - child.height) }
+            // 对齐随态（flush 置位）：贴底=底对齐（统计栏钉死、溢出朝上）；
+            // 阅读=顶对齐（内容固定、新增长溢出朝下被裁——二十轮验证几何）。
+            return layout(constraints.maxWidth, h) {
+                if (state.alignBottom) child.place(0, h - child.height) else child.place(0, 0)
+            }
         }
     }
 }
@@ -312,6 +317,10 @@ internal fun streamingGrowFlushTask(
     // [#437 引擎①] 一帧缓冲帽释放：measure 相已得真高（增量当帧被帽裁掉不可见），
     // 此处单事务原子施加。reject-draw 对 item 层重绘无效（VDRAW 实证），故不依赖。
     if (reserve != null) {
+        // 对齐随态：贴底原点=底对齐；其余（阅读/读历史）=顶对齐（二十二世回归修正）
+        val wantBottom = listState.firstVisibleItemIndex == 0 &&
+            listState.firstVisibleItemScrollOffset < 8
+        if (reserve.alignBottom != wantBottom) reserve.alignBottom = wantBottom
         if (BuildConfig.DEBUG && reserve.trueHeight != vdrLastTrue) {
             vdrLastTrue = reserve.trueHeight
             AppLogger.d("RESERVE", "flush reserved=" + reserve.reserved + " true=" + reserve.trueHeight)
