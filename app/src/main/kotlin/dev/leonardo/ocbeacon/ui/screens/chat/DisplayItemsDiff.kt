@@ -10,20 +10,6 @@ internal fun diffDisplayItemsInto(
     target: MutableList<Pair<Int, ChatMessage>>,
     fresh: List<Pair<Int, ChatMessage>>,
 ): Int {
-    if (target.size != fresh.size) {
-        target.clear()
-        target.addAll(fresh)
-        return fresh.size
-    }
-    var writes = 0
-    for (i in fresh.indices) {
-        val old = target[i]
-        val new = fresh[i]
-        // ChatMessage 是 data class（含 parts 内容 equals）——内容级比较
-        if (old.first != new.first || old.second != new.second) {
-            target[i] = new
-            writes++
-        }
-    }
-    return writes
+    // 委托泛化版（元素 equals 覆盖 rawIndex+ChatMessage 联合比较）
+    return diffListInto(target, fresh)
 }

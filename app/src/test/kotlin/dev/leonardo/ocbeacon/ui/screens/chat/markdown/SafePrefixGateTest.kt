@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat.markdown
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -197,4 +198,51 @@ class SafePrefixGateTest {
     fun `行续段纯文字继续直出`() {
         assertEquals(7, rel("abc def", 3))
     }
+
+    // ===== #441 markdown 稳态粒度：表格正文跨批逐行 / * 无序列表项逐行 =====
+
+    @Test
+    fun `表格正文行跨批仍逐行放行`() {
+        // 场景：表头+分隔批已放（already= 表头+分隔长度），快照续有两条正文行
+        val header = "| 名称 | 数量 |\n| --- | --- |\n"
+        val body = "| 苹果 | 3 |\n| 香蕉 | 5 |\n"
+        val already = header.length
+        // 期望：放行第一条完整正文行（第二条同批预算内也放——断言 >= 首行）
+        val got = rel(header + body, already)
+        assertTrue("应至少放行第一条正文行, got=" + got, got >= already + "| 苹果 | 3 |\n".length)
+    }
+
+    @Test
+    fun `表格正文行单行逐放不半行`() {
+        val header = "| a | b |\n| --- | --- |\n"
+        val already = header.length
+        // 只有半行正文（无换行）：不放
+        assertEquals(already, rel(header + "| 半行", already))
+    }
+
+    @Test
+    fun `星号无序列表项完整行放行`() {
+        // '* ' 后跟内容 = 无序列表项（列表语义行级定案）
+        val s = "* 第一项\n* 第二项\n"
+        assertEquals(s.length, rel(s))
+    }
+
+    @Test
+    fun `星号无序列表未完行扣留等行完整`() {
+        // 半行列表项（无 \n）：不放（行未完整——续接内容未定）
+        assertEquals(0, rel("* 未完成项"))
+    }
+
+    @Test
+    fun `星号强调开头行仍扣留`() {
+        // '*bold' 无空格 = 强调构造开始——跨行闭合会重释义，扣留
+        assertEquals(0, rel("*bold 开头\nmore*\n"))
+    }
+
+    @Test
+    fun `横杠与有序列表项回归保持逐行`() {
+        assertEquals("- item a\n".length, rel("- item a\n"))
+        assertEquals("1. 第一\n".length, rel("1. 第一\n"))
+    }
+
 }

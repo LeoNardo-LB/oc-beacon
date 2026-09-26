@@ -106,6 +106,15 @@ internal object SafePrefixGate {
                         inFence = true // 预算截断：下批 fenceStateAt 续放
                     }
                 }
+                // #441 稳态粒度：表格正文行跨批续放——上批已放内容以表格族行收尾时，
+                // 本批正文行直接整行放行（原逻辑正文行被 isTableHeaderRow 误判为新表头
+                // → 等不存在的分隔行 → 扣留到 EOF = 「表头先出、正文整块最后出」根因）。
+                lineStartReal && complete && isTableRowLine(line) &&
+                    prevReleasedLineIsTableFamily(snapshot, allowed) -> {
+                    if (nl + 1 - allowed > budgetLeft) break
+                    allowed = nl + 1
+                    j = nl + 1
+                }
                 lineStartReal && complete && isTableHeaderRow(line) -> {
                     val sepNl = snapshot.indexOf('\n', nl + 1)
                     val sep = if (sepNl < 0) "" else snapshot.substring(nl + 1, sepNl)
@@ -130,6 +139,14 @@ internal object SafePrefixGate {
                     j = allowed
                     if (j >= snapshot.length) break
                 }
+                // #441 稳态粒度：'* ' 无序列表项——列表语义行级定案（后续行不会重释义
+                // 本行块类型），完整行整行放行（半行扣留：续接内容未定）。'*' 后非空格
+                // （强调构造开头）不进本分支，维持扣留。
+                lineStartReal && complete && isStarBulletItemLine(line) -> {
+                    if (nl + 1 - allowed > budgetLeft) break
+                    allowed = nl + 1
+                    j = nl + 1
+                }
                 else -> break // 含活动标记的行：整行扣留等闭合（毕业/EOF flush）
             }
         }
@@ -137,6 +154,30 @@ internal object SafePrefixGate {
     }
 
     // ===== 块级判定辅助（2026-09-26 行扫描二次重写） =====
+
+    /** #441：已放行内容以表格族行（表头/分隔/正文）收尾——表格续放判据。 */
+    private fun prevReleasedLineIsTableFamily(snapshot: String, allowed: Int): Boolean {
+        if (allowed <= 0) return false
+        var lineStart = snapshot.lastIndexOf('\n', allowed - 1) + 1
+        var lineEnd = allowed
+        // 跳过 allowed 位置的假行尾：上一真实行 = [lineStart, 上一个\n]
+        val prevNl = snapshot.lastIndexOf('\n', allowed - 1)
+        if (prevNl < 0) { lineStart = 0; lineEnd = allowed } 
+        else { lineStart = snapshot.lastIndexOf('\n', prevNl - 1) + 1; lineEnd = prevNl }
+        if (lineEnd <= lineStart) return false
+        val prevLine = snapshot.substring(lineStart, lineEnd)
+        return isTableHeaderRow(prevLine) || isTableSeparatorRow(prevLine) || isTableRowLine(prevLine)
+    }
+
+    /** #441：'* ' 无序列表项行（≤3 缩进 + '*' + 空格或行尾）。 */
+    private fun isStarBulletItemLine(line: String): Boolean {
+        var i = 0
+        var indent = 0
+        while (i < line.length && indent < 4 && (line[i] == ' ' || line[i] == '\t')) { i++; indent++ }
+        if (i >= line.length || line[i] != '*') return false
+        val next = i + 1
+        return next >= line.length || line[next] == ' ' || line[next] == '\t'
+    }
 
     /** 开栏行：≤3 空白缩进 + ≥3 个反引号或 ~ + info string（反引号栏 info 不得含反引号）。返回 栏字符 to 栏长。 */
     private fun isFenceOpen(line: String): Pair<Char, Int>? {
