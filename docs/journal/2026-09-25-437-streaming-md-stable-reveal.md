@@ -286,3 +286,9 @@
 - 用户验收反馈两回归定罪与修复：①贴底统计栏一跳一跳=帽 child 顶对齐致 clip 溢出朝屏底（统计栏恰在内容底，每 48ms 裁一帧弹回）——改底对齐 place(0, h-childHeight)，溢出朝上裁视口外旧文本、内容底钉死；②流式滑动 fling 卡顿=单体流式项 48ms 全量重排版与滚动帧抢主线程（输出完毕延迟分片后即顺）——ScrollHold 暂缓：isScrollInProgress 期间 pilot 不 append（prev 不动），settle 后 LaunchedEffect 复触发整段一次追平（一次重排版）。
 - 仪器判决（会话H /tmp/vi.txt）：手势窗内 appends=0、settle 后即刻恢复 372 次、无积压异常；贴底帧序正常。统计栏体感待用户肉眼复核。
 - commit：fix: 帽child底对齐(贴底统计栏弹跳)+流式滚动暂缓(fling卡顿——settle后整段追平)。全量单测 3529 绿。
+
+## 验收二十二世：双修判据证据闭环（fling 帧间隔+底对齐机制）
+
+
+- 双修判据证据闭环：①fling 帧间隔（vi 日志 VDRAW 帧序）：流式+手势窗 p50=22ms/p90=58ms/max=75ms、零 >100ms 帧——滚动暂缓后 fling 期无重排版长帧；稳态 p50=7ms（>100ms 间隔为变化触发探针的增长间隙无帧期，非掉帧）。②统计栏底对齐：机制性消除（clip 溢出方向反转），贴底帧序健康；主观体感归 V6 人工清单（用户肉眼复核）。
+- 目标判据满足，收口。探针/脚本/档案链：vi.txt（419 appends+手势窗）、scripts/stream-flicker-test.sh、journal 十六至二十一轮。
