@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#520**（2026-10-06 #519 DSH 完结换装后思考卡消失——权威消息 con）。
+**编号**：全局递增，不回收。下一编号：**#521**（2026-10-06 #520 soak 判读签名扩充：流中 MDPilot a）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。**反馈归卡（2026-09-12 用户定规）**：用户对某张卡片的反馈/裁决一律经 `backlog.sh note <N>` 记入**该卡片**明细，**不另开新卡**承载反馈；仅当反馈引出**新的独立缺陷**时才另立卡片，并在两卡明细互相引用（#401→#408 为先例）。**工作流脚本类直接修（2026-09-29 用户定规）**：项目工作流/脚本层的修复（`scripts/` 流程脚本等不进 APK 的项目设施）**不立卡**——发现即直接修+自测，证据记入当批 journal；#480 为末代先例（已立卡的按原流程走完迁移）。
 
@@ -81,13 +81,6 @@
   - 二次修订 2026-10-05：/revoke 改绝对语义——不自动换票，回收=全员下线含点击者本人（用户裁决；rotate 仍保留改密者存活）；面板文案/单测/E2E 同步（49 断言）。
   - 根路径弹跳（2026-10-05）：无 token 未认证 GET / → 303 /plugins/dsh-password-login/login（authorizeIndex 包装，stale 让位官方 401）——消除回收后缓存空壳与 401 白页两种困惑；F05 零配置全链断言。
 
-- [~] **#511 10h 人类行为模拟 + 高度栈覆盖审计收口** `streaming` `height` `soak`
-  - mock LLM(12语料×7画像+5%断流)→v1-e2e:4299→真机随机化驱动器（10h 挂钟，2026-10-04 09:30 发车）；review.sh 每2h签名台账+死亡复活+过deadline终盘自动收割（cron automation-3e10101d）
-  - 覆盖审计补口五组单测已落：Part.rekeyed 19子类契约/GrowLedger.relearnBaseline+伪增量对照/broker fallback缓存移除+clearAll/preParseStreamedTurnParts四门/swap遮蔽守卫；全量绿
-  - 判读基线：#484 健康线（10h 零负向d 零RESETKEY）；终盘产物 human-sim-10h/reports/final_report.md（review.sh --final 自动生成台账节）
-  - 终盘 PASS（21:00 收割）：10h 挂钟/有效 8.7h/全部巡检节签名全零/201 轮/app 零真实崩溃；两起崩溃风暴均为驱动基建陷阱已根修存档（journal §6 + review_log 两事故节）——留 verify 待用户验收
-  - 验收演示反证（2026-10-05）：soak 判读对「爆发式正向 d」失明——MDResize d=h 单步出生满高=渲染冻结形态未被 #484 签名集覆盖（#513）；soak 的引擎域结论（零负向/零崩溃）仍有效，但「流式渲染健康」维度需根修后补验
-
 ## P2 — 优化与锦上添花
 
 - [ ] **#519 DSH 完结换装后思考卡消失——权威消息 content 无 reasoning part，流中思考内容完结即蒸发** `dsh` `streaming` `completion`
@@ -120,6 +113,10 @@
   - 证据链与修复建议见 docs/research/2026-09-30-code-syntax-highlighting-impact-analysis.md §1.1.d；修复=去掉 +1（一行）+ 对照既有单测；注意与聊天域高亮组件（#488）的防御写法保持同语义
 
 ## P3 — 观察与低价值改进
+
+- [ ] **#520 soak 判读签名扩充：流中 MDPilot append 静默 × MDResize d=h 爆发耦合判别（冻结渲染形态）** `soak` `streaming` `infra`
+  - #511 收口裁决 A 的尾项（2026-10-06）：#484 签名集（零负向 d/零 RESETKEY）对爆发式正向形态失明——#513 冻结渲染（d=h 单步满高+流中零渐进）在 10-04 soak 全程在场未被抓
+  - 判别不能是单条 grep：d=h 单步满高在冷重组场景是健康签名（#509 回收复验判据），须耦合『流式活跃窗口内 MDPilot append 静默』才判冻结；实现挂 run.sh/review.sh 既有管线（复用勿重建）
 
 - [ ] **#500 debug 通道热启动失效——app 前台时 am start 携 debug_url 不生效** `debug-channel` `dsh` `tooling`
   - 真机实证（2026-10-02，dev debug 包）：app 已前台时 am start --es debug_url http://127.0.0.1:3080 --es debug_server_type dsh，am 提示 intent delivered to top-most instance，但 handleDebugProfileIntent 未执行——无 Debug channel requested 日志、服务器不切换；force-stop 后冷启动同参数立即生效。
