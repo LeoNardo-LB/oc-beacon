@@ -83,12 +83,6 @@
 ## P1 — 核心功能需求
 
 
-- [ ] **#518 V2 完结路径三缺陷：pilot 门扣尾 80 字符未放行 + Room 回写截断 + idle 标记误分类用户条目** `v2` `streaming` `persist`
-  - 真机定罪（2026-10-05 V2@4201 LongCat decorators 轮，用户目击「最后的内容没有输出干净」）：TurnFin 时 MDPilot gate held 0→80 且 releasedTotal=1019 停更——服务器权威尾句 a decorator is just a callable that takes a callable and returns a callable ≈80 字符逐字符吻合，完结 flush 未放行 = 屏幕止于 The key mental model: 冒号
-  - Room cached_parts 正文仅 1334/3122（停在 Example 3 中段 = 流中快照，完结回写缺失）；V2 轮后 idle 标记消息 msg_10cbcb907 type=idle 被当用户消息条目首位瞬时插入（HFLICK plan 4→5 firstDiff@0，未落库自愈）；同轮 23:44:13 中途 4810→96 塌缩 d=-4714 为 515 fire 重建窗族第三次出现
-  - 服务器侧证据：GET api session message 全文 3122 字符含完整尾句；Room 611 reasoning 完整 + 1334 text 截断
-  - 根修落地（2026-10-06）：①pilot 终态全量揭示——terminal 旗标（PartContent 从 bus 覆盖生命周期+会话流式态推导）穿 MarkdownContent→pilot，gate 拒绝即放行（滚动暂缓豁免）；真机 V2 定罪轮复跑：terminal reveal +62ch released 545→607 全量，屏幕尾句完整（vision 判读）。③idle 过滤——V2Mappers toMessageWithParts 对 type=idle 返 null；复跑轮零幽灵 u_msg 条目（首插 5->6 为 V2 用户消息 id 换代 1.3s 自愈，另域）。②原定罪降级：Room 1334 截断系 run-as cat 主库文件的 WAL 陈旧读伪证——带 -wal 重拉真相为全量（3122/2762=服务器精确一致）；保留终态 part 权威落盘加固（partEnded→persistSseUpdate，不待 L3 刷新 1.6s）+ 方法学教训（Room 直查必须带 WAL 三件套）。V1 回归绿（渐进+完结全量，负向仅 #515 已知窗）。全量单测绿
-
 - [~] **#512 DSH 密码登录插件（dsh-password-login）——免捞 token 的会话铸造/密码生命周期/轮换全员下线** `dsh` `auth` `infra`
   - 独立仓库纯宿主插件（照 keepalive 骨架，GitHub 分发，零客户端 bundle）：未设密码态回环免密铸票 + 密码登录书签页 + 轮换即撤销全体会话（admit 包装 epoch）；oc-beacon 与浏览器均为消费者
   - app 侧回落链（有效 Cookie→免密铸→带密铸→legacy token），ServerConfig.password 双语义零新 UI；四批实施（骨架/密码/撤销/legacy 退役）
@@ -105,11 +99,6 @@
   - 判读基线：#484 健康线（10h 零负向d 零RESETKEY）；终盘产物 human-sim-10h/reports/final_report.md（review.sh --final 自动生成台账节）
   - 终盘 PASS（21:00 收割）：10h 挂钟/有效 8.7h/全部巡检节签名全零/201 轮/app 零真实崩溃；两起崩溃风暴均为驱动基建陷阱已根修存档（journal §6 + review_log 两事故节）——留 verify 待用户验收
   - 验收演示反证（2026-10-05）：soak 判读对「爆发式正向 d」失明——MDResize d=h 单步出生满高=渲染冻结形态未被 #484 签名集覆盖（#513）；soak 的引擎域结论（零负向/零崩溃）仍有效，但「流式渲染健康」维度需根修后补验
-
-- [~] **#510 审计驱动清理批次：pilot 即终态 + 三补偿族退役（#509 二期五项裁决）——渲染栈 −948 行** `chat` `refactor`
-  - 用户质询只增不减触发全面审计：D2 根修=pilot 即终态（毕业不切渲染器，shardHold 语义泛化）；CompletionHandoff/pilotTerminalHold+freeze/replayHold/HeldTailReveal/swapStableKey 五族退役；bus 两 Gap 补口；13 处注释更正。真机三协议负向 RESIZE=0、短轮 104ms 残余构造性消失（28154286）
-  - 收尾批（f3b4f886）：协调器键统一锚定式（§31 待察项根修）+ 死参数/broker 身份/账本换键三修复——审计可执行项全部清零，journal §32
-  - 验收演示反证（2026-10-05）：卡1 #507 演示暴露流式渲染全程冻结-完结砸出（#513），soak 存档同为爆发形态——本卡「pilot 即终态+五族退役」落在嫌疑窗口（10-03~04），verify 态冻结待 #513 根修归因后重验
 
 - [~] **#508 展开反射锚定归一分支丢一个 item 高度——中位小 item 构型展开恒 −1024px 视口跳变（违「卡钉住」裁决）** `chat` `scroll`
   - #466 normalizeExpandAnchor 链尽 fall-through 丢弃越界折算的整 item 高度：逆布局可见链只含锚 item 自身（新侧已滚过不可见），rawTarget=fiso+H 超锚 item 旧尺寸时返回 (锚idx, fiso+H−旧尺寸)，目标位恒短一个 item 高；实测展开位移 = H−锚item尺寸（与 fiso 无关，本例 1335−2359=−1024 两次复现同值），卡头 y1995→1074、上方条目逐出、~790px 空白带不自愈
