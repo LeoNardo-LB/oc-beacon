@@ -68,18 +68,6 @@
   - → docs/journal/2026-10-05-a.md §1
   - 根修落地（0f2c78dc）：flushPendingDeltas first-text 过桥（空种子注册族渲染条目存在性桥）；单测 3877/0/0 + 真机渐进渲染恢复（MDResize +66/+132 连续至完结、零负向）；嫌疑窗口（#509二期/#510）洗清——回归自 B案 V1 主路径即存在；verify 态待用户重演卡1
 
-- [~] **#506 思考卡计时拖满全程+展开内容困在 240dp 隐形滚动窗（#506）** `streaming` `dsh` `render`
-  - 真机 t33/t34 定罪（用户报告）：①DSH 把 reasoning 的 block-end 压到整流结束才发（t32 抓包：思考 22:10:56 完，block-end 22:12:03.9 才到）→ time.end 迟到 67s → 计时跑满正文流式全程；②展开思考卡内容完整可达但锁在 240dp 内滚窗（无滚动条提示/流式不跟随），用户感知「展示不全」。
-  - 修复：①DshEventMapper block-start(N) 顺手给前驱 N-1 发 TimePatch（块严格顺序抓包零交错实证；TimePatch 端 end==null first-write-wins，晚到的真实 block-end 自然让位）；②ReasoningBlock 展开区撤 240dp 帽+内部滚动=全内容高度（展开即看全意图；supersede 2026-08-16 240dp 裁决——同域最新用户投诉为准）。
-  - 残余（登记待裁决）：完结换代（删合成+上权威）后 DSH 卡时长消失——转写块无 time 字段，跨消息转移需 temporal join，未在本卡实施。
-  - 真机 t35 终验双证：①TimePatch 22:40:52.343 流中（正文起步即 reasoning 终态化）——计时不再拖满全程；②展开卡 768 字首段至末行一整块连续呈现零滚动。全量单测绿。等用户自然使用验收。
-  - 残余已修（同批）：定罪修正——权威 part 带 time 但 start=end=事件时刻（恒 0 时长），非转写缺 time。mapper blockStart/blockEndTimes 记账（block-start 记起始+推前驱结束），整装结算真块时长。真机 t36 完结卡显示 5.2s 真时长（修复前恒空）。
-
-- [~] **#501 DSH 流式正文结构性不可见——#230 空种子 × B案结构静默，完结整段砸出（#501）** `dsh` `streaming` `engine` `regression`
-  - 真机验收 #442 时用户定罪（2026-10-02）：DSH 服务器流式正常（自建 WS 抓帧 940 帧实证：block-start 空种子→reasoning-delta 145→text-delta 778），app 正文整段流式期不可见、完结 assistant/message 才 +5675px 砸出。
-  - 根因链：DSH block-start 空种子被 #230 零信息丢弃（防线本身正确）→ part 仅由 flush 的 applyDelta idx<0 兜底在热视图出生 → B案 UI 读 structuralParts（只在结构事件过桥），DSH 流式期零结构事件（纯 delta 线面）→ 出生永不过桥。SSE 不受影响（part.updated 携累积文本=结构事件不断过桥）；reasoning 可见是 text block-start 自身结构事件捎带过桥的巧合。
-  - 修复：flushPendingDeltas part 出生过桥（cause=part-birth，每 part 一次；纯文本增长仍走 bus，delta 批结构性静默不变量不破）。真机验证：B3 探针 5.4s 即燃（原完结才燃）、MDResize ~66px 步长持续增长、shard-reg 流式期注册（A2.5 首次在 DSH 线生效）、CML-tick=0、完结无重复无脏行。单测 3850/0/0 双臂绿（新增 DSH 形态出生/单次发射 2 用例）。
-
 ## P1 — 核心功能需求
 
 
@@ -99,19 +87,6 @@
   - 判读基线：#484 健康线（10h 零负向d 零RESETKEY）；终盘产物 human-sim-10h/reports/final_report.md（review.sh --final 自动生成台账节）
   - 终盘 PASS（21:00 收割）：10h 挂钟/有效 8.7h/全部巡检节签名全零/201 轮/app 零真实崩溃；两起崩溃风暴均为驱动基建陷阱已根修存档（journal §6 + review_log 两事故节）——留 verify 待用户验收
   - 验收演示反证（2026-10-05）：soak 判读对「爆发式正向 d」失明——MDResize d=h 单步出生满高=渲染冻结形态未被 #484 签名集覆盖（#513）；soak 的引擎域结论（零负向/零崩溃）仍有效，但「流式渲染健康」维度需根修后补验
-
-- [~] **#508 展开反射锚定归一分支丢一个 item 高度——中位小 item 构型展开恒 −1024px 视口跳变（违「卡钉住」裁决）** `chat` `scroll`
-  - #466 normalizeExpandAnchor 链尽 fall-through 丢弃越界折算的整 item 高度：逆布局可见链只含锚 item 自身（新侧已滚过不可见），rawTarget=fiso+H 超锚 item 旧尺寸时返回 (锚idx, fiso+H−旧尺寸)，目标位恒短一个 item 高；实测展开位移 = H−锚item尺寸（与 fiso 无关，本例 1335−2359=−1024 两次复现同值），卡头 y1995→1074、上方条目逐出、~790px 空白带不自愈
-  - 触发构型：中位 fii>0 且锚 item 尺寸 < fiso+H（T9 真机矩阵 2359px 分片条目首踩）；作者原设计场景 fii==0 半贴底时 item0 为流式巨轮恒大于 fiso+H，折叠分支从未真跑过——现有单测 normalizeCrossesIntoNewwardItem 把 (0,273) 错值钉成预期（注释称数学等价，实丢 747px）
-  - 修复须辨卡片宿主 item：宿主=锚 item 时增长同遍落地 (fii,fiso+H) 恒合法（fiso≤尺寸 ⇔ fiso+H≤尺寸+H），无需预折；宿主在上方 item 时才需向旧侧链折算且用增长后尺寸——方向/尺寸双修正，BottomPinnedExpandSkipTest 三用例需重写
-  - 根修完成（2026-10-03 07:46 真机三连试验）：normalizeExpandAnchor 重写为宿主感知——折叠方向转旧侧(idx 递增，逆布局折叠正方向)+宿主容量+H+宿主未知按锚兜底；CML itemsIndexed 逐 item 提供 LocalCardExpandHostKey；单测重写（旧 normalizeCrossesIntoNewwardItem 把 (0,273) 错值钉成预期已纠正，新增 T9 数值化回归钉子与 host>锚 AP 不变量双例）。真机验证：触发构型（item15 增长前 2359 < rawTarget 2716/3586 两档深度）下 host=15=锚 → LRef 原样写 off=2716/3586（旧码会写 357/1227 造成 2359px 跳变），卡头 Y 三例 1307/2177/1930 全纹丝不动，零空白带；收起镜像 1381=2716−1335 精确不变。commit 待推
-
-- [~] **#504 DSH 完结换装闪塌——seq 换装重键 Markdown 状态致 200px 占位 260ms（#504）** `dsh` `streaming` `completion` `regression`
-  - 真机定罪（19:02:33 帧级）：流式卡 8754px → MessageRemoved+seq 换装 → 新 part id（dsh-tXs1_text_ord_1→seq-N_text_ord_1）重键 Markdown 记忆 → 8KB 文本异步解析先以 200px 占位合成 → 260ms 后回弹 8778px。用户所见「结束时出现一次」的塌-弹。SSE 路径 part id 恒定无此症——DSH 合成 id→权威 id 换装特有，#485 完结闪灭家族的 DSH 变种。
-  - 修法：PartContent 文本分支完结桥接——bus live 清除瞬间不立即跌回 part.text（异步占位），保留渲染上一帧 live 全文（与终态文本一致）至终态 Markdown 解析完成原子交接。零闪塌零额外解析。
-  - 修复落地（2026-10-02 深夜，五轮真机取证迭代）：①Compose 派发次序定罪（旧节点 onDispose 恒晚于新节点 remember）→dispose-stash 改活跃指纹登记；②库 StreamingMarkdownState 对新收集器零重放定罪（hold 渲染空态 200px）→状态实例交接改指纹门+换装帧同步解析（rememberSyncMarkdownState，normalizeForRender 同源视觉恒等，一次性 ~10ms 主线程）；③严格相等恒 miss 定罪（pilot 终帧落后终态 2 字符）→尾差容错 512；④prefix=false 定罪（完结对尾部区域 ~16 字符改写非纯追加）→公共前缀+尾部重写松弛 256（分叉点须落两串末 256 内，中段分叉恒 miss）；⑤单槽 last-writer-wins 定罪（推理块终态 1165 抢占正文 3988 指纹）→多槽 LRU×4 全槽遍历。全量 3863/0/0（+7 交接门用例）；[504-forensic] 取证探针 DEBUG-only 永久保留（keep-probes 裁决），miss 自动吐槽况。最终换装 E2E 被当夜无线闪断阻断——留用户自然使用验收，探针自证。
-  - 真机终验通过（21:33，K8s 2500字长答）：换装帧  首测即全高——零 200px 桩、零回弹（修复前形态 h=200 d=200→d=10330 回弹）；换装时刻零 forensic miss（指纹桥命中）；同步解析成本无感知帧损。#501-#504 四连修全部真机闭环。
-  - 深层根修补充（同批）：part 组合键归一化（PartIdContract.swapStableKey——派生 id 取 kind+ordinal 后缀，消息级 t_ 已有 #440 槽位锚）→ 换代子树存活，#472 hold 机制 DSH 首次可用，指纹桥降为二线。真机 t36 换装帧首测全高 h=17554 零闪。
 
 ## P2 — 优化与锦上添花
 
