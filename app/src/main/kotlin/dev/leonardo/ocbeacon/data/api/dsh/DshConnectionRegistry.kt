@@ -43,6 +43,53 @@ internal fun extractDshToken(raw: String): String? {
 }
 
 /**
+ * #512 dsh-password-login 铸票响应判读（纯函数）：`GET /plugins/dsh-password-login/session`
+ * 三态——200+Set-Cookie+未 stale → cookie 串；stale=true（宿主格式漂移，插件自报）→
+ * null（调用方应回落 legacy token 流）；401/403/404/5xx/无 Set-Cookie → null。
+ */
+internal fun parseSessionMint(code: Int, setCookie: String?, body: String?): String? {
+    if (code != 200 || setCookie.isNullOrBlank()) return null
+    if (body != null) {
+        runCatching { Json.parseToJsonElement(body) }.getOrNull()
+            ?.let { it as? kotlinx.serialization.json.JsonObject }
+            ?.get("stale")
+            ?.let { it as? JsonPrimitive }
+            ?.takeIf { it.content == "true" }
+            ?.let { return null }
+    }
+    return setCookie.substringBefore(';').takeIf { it.contains('=') }
+}
+
+/**
+ * #512 回落链编排（纯函数）：cookie 失效后的恢复动作顺序——免密铸票（未设密码态
+ * 回环对端）→ 密码铸票（ServerConfig.password 双语义之一：插件配对密码）→ legacy
+ * token 交换（#436 持久化 token 优先，password 字段兜底当 launch token 用——双语义
+ * 之二）。同值去重防同 token 白打两枪。
+ */
+internal fun planRecovery(passwordHint: String?, persistedToken: String?): List<DshRecoveryStep> {
+    val steps = mutableListOf<DshRecoveryStep>(DshRecoveryStep.FreeMint)
+    passwordHint?.takeIf { it.isNotBlank() }?.let { steps.add(DshRecoveryStep.PasswordMint(it)) }
+    val tried = mutableSetOf<String>()
+    for (token in listOfNotNull(persistedToken, passwordHint)) {
+        if (token.isBlank() || !tried.add(token)) continue
+        steps.add(DshRecoveryStep.LegacyToken(token))
+    }
+    return steps
+}
+
+/** #512 回落链单步（[planRecovery] 产物；携带凭据的步骤内联值）。 */
+sealed interface DshRecoveryStep {
+    /** 未设密码态回环免密铸票（adb reverse 形态下 app 即回环对端）。 */
+    data object FreeMint : DshRecoveryStep
+
+    /** 已设密码态：Bearer = ServerConfig.password（插件配对密码语义）。 */
+    data class PasswordMint(val password: String) : DshRecoveryStep
+
+    /** legacy `GET /?token=` 交换（launch token 语义——无插件服务器的兼容层）。 */
+    data class LegacyToken(val token: String) : DshRecoveryStep
+}
+
+/**
  * DSH 0.1.2 适配运行时注册表（backlog #317/#318；journal 2026-09-04 §2.1-2.2）。
  *
  * 按 authority（baseUrl）聚合三类每服务器状态：
@@ -84,6 +131,13 @@ class DshConnectionRegistry @Inject constructor(
      * 「断连不能自动重连」的自愈凭据源；token 本体从不外发（仅 /?token= 交换用）。
      */
     private val tokenByAuthority = mutableMapOf<String, String>()
+
+    /**
+     * #512：authority → ServerConfig.password（双语义：插件服务器=配对密码；
+     * 无插件=launch token）。连接循环每轮刷新（SseConnectionManager DSH 分支），
+     * mux 引擎 401 自愈路径 recoverAuth 读此处——比 lambda 钩子少一处接线时序。
+     */
+    private val passwordHintByAuthority = mutableMapOf<String, String>()
 
     /** 持久化 cookie 已加载标记（首次访问时从 DataStore 读一次）。 */
     private var persistedLoaded = false
@@ -142,22 +196,87 @@ class DshConnectionRegistry @Inject constructor(
     }
 
     /**
-     * #436：凭据自愈——用持久化 token 重交换 cookie（exchangeToken 内部落盘新 cookie）。
-     * 无 token / 交换失败（token 已失效或服务异常）返回 false，调用方走人工路径。
-     * 线程语义：可从任意连接协程调用（exchangeToken 自带 mutex；防风暴由调用方的
-     * 401/TokenNeeded 分支天然限频——每代连接至多一次）。
+     * #512：DSH 服务器密码提示注入（连接循环每轮调用；null 清除——服务器配置
+     * 删密码后回落链不再白打密码枪）。
+     */
+    fun setPasswordHint(authority: String, password: String?) {
+        val key = normalize(authority)
+        synchronized(passwordHintByAuthority) {
+            if (password.isNullOrBlank()) passwordHintByAuthority.remove(key)
+            else passwordHintByAuthority[key] = password
+        }
+    }
+
+    /**
+     * #512 凭据自愈回落链（取代 #436 单一 token 交换）：免密铸票 → 密码铸票 →
+     * legacy token 交换（持久化 token 优先、password 字段兜底）。
+     * 每级一次廉价 HTTP 往返；任一级成功即落盘新 cookie 并返回 true，
+     * 全部落空返回 false（调用方走 AUTH_REQUIRED 人工路径）。
+     * 线程语义不变：可从任意连接协程调用（mintSession/exchangeToken 各自持 mutex；
+     * 防风暴由调用方的 401/TokenNeeded 分支天然限频——每代连接至多一次）。
      */
     override suspend fun recoverAuth(authority: String): Boolean {
         val base = normalize(authority)
         loadPersistedOnce()
-        val token = synchronized(tokenByAuthority) { tokenByAuthority[base] } ?: return false
-        val ok = exchangeToken(base, token)
-        if (ok) {
-            AppLogger.i(TAG, "auth recovered via persisted token for " + base)
-        } else {
-            AppLogger.w(TAG, "auth recovery failed (token invalid?) for " + base)
+        val hint = synchronized(passwordHintByAuthority) { passwordHintByAuthority[base] }
+        val persistedToken = synchronized(tokenByAuthority) { tokenByAuthority[base] }
+        for (step in planRecovery(hint, persistedToken)) {
+            val ok = when (step) {
+                is DshRecoveryStep.FreeMint -> mintSession(base, null)
+                is DshRecoveryStep.PasswordMint -> mintSession(base, step.password)
+                is DshRecoveryStep.LegacyToken -> exchangeToken(base, step.token)
+            }
+            if (ok) {
+                AppLogger.i(TAG, "auth recovered for " + base + " via " + step::class.simpleName)
+                return true
+            }
         }
-        return ok
+        AppLogger.w(TAG, "auth recovery failed (all fallback steps exhausted) for " + base)
+        return false
+    }
+
+    /**
+     * #512：dsh-password-login 插件 `/session` 铸票——未设密码态免密（回环对端），
+     * 已设密码态 Bearer=密码。200 + Set-Cookie + 未 stale（宿主格式未漂移）即采纳；
+     * 404（无插件）/401（密码错）/403（非回环免密）/stale 一律 false 落下一级。
+     */
+    private suspend fun mintSession(base: String, bearer: String?): Boolean = mutex.withLock {
+        loadPersistedOnce()
+        return@withLock try {
+            val builder = okhttp3.Request.Builder()
+                .url(base + "/plugins/dsh-password-login/session")
+                .get()
+            bearer?.let { builder.header("Authorization", "Bearer " + it) }
+            val call = exchangeOkHttp.newCall(builder.build())
+            val response = kotlinx.coroutines.suspendCancellableCoroutine { cont ->
+                cont.invokeOnCancellation { call.cancel() }
+                call.enqueue(object : okhttp3.Callback {
+                    override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                        if (cont.isActive) cont.resumeWith(Result.failure(e))
+                    }
+
+                    override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                        if (cont.isActive) cont.resumeWith(Result.success(response))
+                    }
+                })
+            }
+            response.use {
+                val cookie = parseSessionMint(it.code, it.header("Set-Cookie"), it.body?.string())
+                if (cookie != null) {
+                    synchronized(cookieByAuthority) { cookieByAuthority[base] = cookie }
+                    persistLocked()
+                    true
+                } else {
+                    AppLogger.i(TAG, "session mint not taken for " + base + ": HTTP " + it.code + (bearer?.let { " (bearer)" } ?: " (free)"))
+                    false
+                }
+            }
+        } catch (ce: kotlinx.coroutines.CancellationException) {
+            throw ce
+        } catch (t: Throwable) {
+            AppLogger.w(TAG, "session mint failed for " + base + ": " + t.message)
+            false
+        }
     }
 
     // ---- 探测与 token 交换 -------------------------------------------------
