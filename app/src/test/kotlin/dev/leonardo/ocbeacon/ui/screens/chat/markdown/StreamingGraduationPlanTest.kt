@@ -139,4 +139,44 @@ class StreamingGraduationPlanTest {
         while (i >= 0 && s[i] == '\n') { n++; i-- }
         return n >= 2 && (pos >= s.length || s[pos] != '\n')
     }
+
+    // ===== #516（2026-10-05）：围栏原子性——围栏内空行不设切点 =====
+
+    @Test
+    fun `围栏内空行不切块（整围栏独占一块允许超限）`() {
+        motive("#516 真机形态缩影：163 行单围栏 34 内空行——切点全失效→单块整体，一块代码一段渲染")
+        val body = (1..30).joinToString("") { "fun f$it() {}\n\n" }
+        val s = "```kotlin\n" + body + "```\n\n结语段落。\n"
+        val g = planStreamingGraduation(s, s.length, minFreezeChars = 10, maxChunkChars = 50)
+        // 围栏内零切点：唯一冻结块整体覆盖开闭栏（>>max=50 走巨块超限独占豁免）
+        assertEquals(1, g.chunks.size)
+        val open = s.indexOf("```kotlin")
+        val close = s.indexOf("\n```", open) + 4 // 闭栏行尾
+        assertTrue(g.chunks[0].from == 0 && g.chunks[0].to >= close)
+    }
+
+    @Test
+    fun `散文围栏混排切点只落围栏外`() {
+        motive("切点合法域收窄：围栏开闭之间的任何位置不得为中间切点——两侧独立解析=代码碎段")
+        val s = "第一段散文。\n\n第二段散文。\n\n```kotlin\nfun a() {}\n\nfun b() {}\n```\n\n结尾段。\n"
+        val g = planStreamingGraduation(s, s.length, minFreezeChars = 10, maxChunkChars = 20)
+        val open = s.indexOf("```kotlin")
+        val close = s.indexOf("\n```", open) + 1
+        g.chunks.dropLast(1).forEach { c ->
+            assertTrue("切点落入围栏内部: ${c.to}", c.to !in (open + 1)..close)
+        }
+        // 拼接恒等不破（零内容变异）
+        assertEquals(s.substring(0, g.tailFrom), g.chunks.joinToString("") { s.substring(it.from, it.to) })
+    }
+
+    @Test
+    fun `未闭围栏整体驻尾块（围栏前缀散文照常毕业）`() {
+        motive("开栏期间不毕业围栏内容（闭栏前不可拆）；围栏之前的前缀散文边界不受影响")
+        val s = "前言。\n\n```kotlin\nfun a() {}\n\nfun b() {}"
+        val g = planStreamingGraduation(s, s.length, minFreezeChars = 3, maxChunkChars = 1000)
+        assertEquals(listOf(FrozenChunk(0, 5)), g.chunks) // 仅"前言。\n\n"毕业
+        assertEquals(5, g.tailFrom) // 围栏全部驻尾
+    }
+
+    private fun motive(m: String) = println("[MOTIVE] $m")
 }

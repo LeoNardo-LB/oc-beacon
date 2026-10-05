@@ -44,4 +44,35 @@ class StableTailBoundaryTest {
     fun `released为零边界零`() {
         assertEquals(0, stableTailBoundary("anything", 0))
     }
+
+    // ===== #516（2026-10-05）：围栏原子性——代码围栏内空行不是边界 =====
+
+    @Test
+    fun `围栏内空行不设边界`() {
+        // 开栏 → 内空行（不可切）→ 闭栏 → 空行（首个可切边界）
+        val s = "```kotlin\nfun a() {}\n\nfun b() {}\n```\n\n后文"
+        // 围栏整体 + 闭栏后空行 run 末尾=20（"\n```\n\n" 后）才是边界
+        assertEquals(38, stableTailBoundary(s, s.length))
+    }
+
+    @Test
+    fun `未闭栏全为尾（围栏开启期不毕业）`() {
+        val s = "```kotlin\nfun a() {}\n\nfun b() {}\n\nfun c() {}"
+        assertEquals(0, stableTailBoundary(s, s.length))
+    }
+
+    @Test
+    fun `异型标记行是围栏内容不闭栏`() {
+        // ``` 开栏内的 ~~~ 行是内容（CommonMark 异型不闭）——其后的空行仍不可切
+        val s = "```\ncode\n~~~\n\nstill in fence\n```\n\ntail"
+        assertEquals(34, stableTailBoundary(s, s.length))
+    }
+
+    @Test
+    fun `围栏前空行边界保留（前缀散文照常毕业）`() {
+        val s = "前言段落。\n\n```kotlin\nfun a() {}\n\nfun b() {}\n```\n\n尾文"
+        // 围栏前空行（pos=12）是合法边界；围栏内部空行不可切——已发布进入围栏
+        // 但未过闭栏时边界停在 12
+        assertEquals(7, stableTailBoundary(s, s.indexOf("fun b")))
+    }
 }
