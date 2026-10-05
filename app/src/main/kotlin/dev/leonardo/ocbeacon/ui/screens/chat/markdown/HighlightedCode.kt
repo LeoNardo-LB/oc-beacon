@@ -77,12 +77,18 @@ internal fun SafeHighlightedCodeFence(
     node: ASTNode,
     style: TextStyle,
     theme: SyntaxTheme,
+    /** #517：终末块距载体修剪——true 时外距 bottom 归零（内容→统计栏间隙与 user 侧对齐）。 */
+    trimBottomGap: Boolean = false,
 ) {
+    // #517 GapDiag：components 闭包捕获值取证（DEBUG-only 探针）
+    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+        AppLogger.d("GapDiag", "FENCE trim=" + trimBottomGap + " contentLen=" + content.length)
+    }
     MarkdownCodeFence(content, node, style) { code, language, codeStyle ->
         if (language.equals(MATH_FENCE_LANGUAGE, ignoreCase = true)) {
-            SafeHighlightedMathBlock(code = code, style = codeStyle)
+            SafeHighlightedMathBlock(code = code, style = codeStyle, trimBottomGap = trimBottomGap)
         } else {
-            SafeHighlightedCode(code = code, language = language, style = codeStyle, theme = theme)
+            SafeHighlightedCode(code = code, language = language, style = codeStyle, theme = theme, trimBottomGap = trimBottomGap)
         }
     }
 }
@@ -93,9 +99,11 @@ internal fun SafeHighlightedCodeBlock(
     node: ASTNode,
     style: TextStyle,
     theme: SyntaxTheme,
+    /** #517 同 [SafeHighlightedCodeFence]。 */
+    trimBottomGap: Boolean = false,
 ) {
     MarkdownCodeBlock(content, node, style) { code, language, codeStyle ->
-        SafeHighlightedCode(code = code, language = language, style = codeStyle, theme = theme)
+        SafeHighlightedCode(code = code, language = language, style = codeStyle, theme = theme, trimBottomGap = trimBottomGap)
     }
 }
 
@@ -105,7 +113,13 @@ internal fun SafeHighlightedCode(
     language: String?,
     style: TextStyle,
     theme: SyntaxTheme,
+    /** #517 同 [SafeHighlightedCodeFence]。 */
+    trimBottomGap: Boolean = false,
 ) {
+    // #517 GapDiag：叶子旗标取证（DEBUG-only 探针）
+    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+        AppLogger.d("GapDiag", "SHC lang=" + (language ?: "-") + " len=" + code.length + " trim=" + trimBottomGap)
+    }
     val backgroundCodeColor = LocalMarkdownColors.current.codeBackground
     val codeBackgroundCornerSize = LocalMarkdownDimens.current.codeBackgroundCornerSize
     val codeBlockPadding = LocalMarkdownPadding.current.codeBlock
@@ -136,7 +150,12 @@ internal fun SafeHighlightedCode(
         shape = RoundedCornerShape(codeBackgroundCornerSize),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = SpacingTokens.SM.dp),
+            // #517：bottom 外距承担块间分离（top 不变）；终末块（turn 尾）
+            // 修剪归零——内容→统计栏间隙与 user 侧 4dp+行内基准对齐
+            .padding(
+                top = SpacingTokens.SM.dp,
+                bottom = if (trimBottomGap) 0.dp else SpacingTokens.SM.dp,
+            ),
         language = language,
         code = code,
     ) {
@@ -166,6 +185,8 @@ internal fun SafeHighlightedCode(
 internal fun SafeHighlightedMathBlock(
     code: String,
     style: TextStyle,
+    /** #517 同 [SafeHighlightedCode]。 */
+    trimBottomGap: Boolean = false,
 ) {
     val backgroundCodeColor = LocalMarkdownColors.current.codeBackground
     val codeBackgroundCornerSize = LocalMarkdownDimens.current.codeBackgroundCornerSize
@@ -188,7 +209,11 @@ internal fun SafeHighlightedMathBlock(
         shape = RoundedCornerShape(codeBackgroundCornerSize),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = SpacingTokens.SM.dp),
+            // #517 同 SafeHighlightedCode：终末块 bottom 外距修剪
+            .padding(
+                top = SpacingTokens.SM.dp,
+                bottom = if (trimBottomGap) 0.dp else SpacingTokens.SM.dp,
+            ),
         language = MATH_FENCE_LANGUAGE,
         code = code,
     ) {

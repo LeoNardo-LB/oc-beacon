@@ -1754,6 +1754,10 @@ fun ChatMessageList(
                                     dev.leonardo.ocbeacon.ui.screens.chat.markdown.StreamShardContent(
                                         markdown = entry.text,
                                         textColor = MaterialTheme.colorScheme.onSurface,
+                                        // #517：末片冻结块以闭合围栏收尾时修剪
+                                        // bottom 外距（片→统计栏间隙对齐 user 侧）
+                                        trimTrailingBlockGap = entry.isLast &&
+                                            dev.leonardo.ocbeacon.ui.screens.chat.markdown.endsWithBlockGapCarrier(entry.text),
                                     )
                                 }
                             }

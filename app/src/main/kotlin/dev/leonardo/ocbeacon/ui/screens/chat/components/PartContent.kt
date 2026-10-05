@@ -182,6 +182,19 @@ private fun PartContentInner(
                             )
                         }
                     }
+                    // #517 GapDiag：终态旗标运行时取证（DEBUG-only 探针）
+                    val gapCarrier = dev.leonardo.ocbeacon.ui.screens.chat.markdown
+                        .endsWithBlockGapCarrier(part.text)
+                    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                        dev.leonardo.ocbeacon.logging.AppLogger.d(
+                            "GapDiag",
+                            "part=" + part.id.takeLast(8) +
+                                " live=" + (liveText != null) +
+                                " carrier=" + gapCarrier +
+                                " trim=" + (liveText == null && gapCarrier) +
+                                " len=" + part.text.length,
+                        )
+                    }
                     SelectionContainer {
                         MarkdownContent(
                             markdown = liveText ?: part.text,
@@ -191,6 +204,9 @@ private fun PartContentInner(
                             preParsedState = preParsedState,
                             asyncParse = asyncParse,
                             shardCtl = shardCtl,
+                            // #517：终态（live 覆盖退场）且末块为代码/公式载体时
+                            // 修剪块 bottom 外距——内容→统计栏间隙与 user 侧对齐
+                            trimTrailingBlockGap = liveText == null && gapCarrier,
                         )
                     }
                 }

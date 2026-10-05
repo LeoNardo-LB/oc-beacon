@@ -379,7 +379,23 @@ internal fun MarkdownContent(
     // #442 R2 分片唤醒（A2）：注册在案的流式大文本 part 的分片控制器
     //（PartContent 按 part.id 从 broker 查得；null=原路径零改造）。
     shardCtl: ShardController? = null,
+    // #517（2026-10-05）：终末块距载体修剪——内容末块恰为代码/公式块（闭栏
+    // 行结尾）且处于 turn 终态（liveText==null / 静态渲染 / 末片）时置 true：
+    // 块 bottom 外距归零，内容→统计栏间隙与 user 侧（4dp+行内）对齐。块间
+    // 分离不受影响（top 外距保留，非末块 bottom 保留）。
+    trimTrailingBlockGap: Boolean = false,
 ) {
+    // #517 GapDiag：入口旗标取证（DEBUG-only 探针）
+    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+        android.util.Log.w(
+            "GapDiag",
+            "MC len=" + markdown.length +
+                " trim=" + trimTrailingBlockGap +
+                " preParsed=" + (preParsedState != null) +
+                " override=" + (overrideState != null) +
+                " async=" + asyncParse,
+        )
+    }
     //（customFontSize/immediate 两死参数已随 2026-10-03 清理批次退役——
     // 排版/密度由 LocalChatDensity 驱动，解析策略由分支自身决定。）
     //
@@ -540,7 +556,7 @@ internal fun MarkdownContent(
     // codeSyntaxTheme。键必须包含它们：主题切换时颜色变化
     // → 重建闭包 → 内部 AnnotatedString 用新颜色重建，否则切换主题后文字颜色停留
     // 在旧主题（暗色浅色在亮色背景下"过曝"）。
-    val components = remember(density, isUser, linkListener, linkColor, textColor, codeBlockBg, codeBlockFg, typography.code, codeSyntaxTheme) {
+    val components = remember(density, isUser, linkListener, linkColor, textColor, codeBlockBg, codeBlockFg, typography.code, codeSyntaxTheme, trimTrailingBlockGap) {
         markdownComponents(
             text = { model ->
                 val settings = annotatorSettings(linkInteractionListener = linkListener)
@@ -665,6 +681,7 @@ internal fun MarkdownContent(
                     node = model.node,
                     style = model.typography.code,
                     theme = codeSyntaxTheme,
+                    trimBottomGap = trimTrailingBlockGap,
                 )
             },
             codeBlock = { model ->
@@ -673,6 +690,7 @@ internal fun MarkdownContent(
                     node = model.node,
                     style = model.typography.code,
                     theme = codeSyntaxTheme,
+                    trimBottomGap = trimTrailingBlockGap,
                 )
             },
             // #488①：块内 HTML——库对 HTML_BLOCK 零组件（v0.45.0 base+m3 AAR 二进制
@@ -740,6 +758,11 @@ internal fun MarkdownContent(
                 animations = animations,
                 imageTransformer = Coil3ImageTransformerImpl,
                 modifier = Modifier.fillMaxWidth(),
+                // #517②：全量静态路径专用 success 槽——跳过尾随空白子节点
+                //（内容结尾 \n 解析出尾随 EOL，mikepenz MarkdownSuccess 会在其
+                // 前垫 Spacer(padding.block)，终末块→统计栏间隙凭空多出一段；
+                // chunk 路径的计划态 AST 天然无尾随 EOL，两侧由此不一致）。
+                success = terminalSuccessSlot(),
             )
         }
         return
@@ -867,6 +890,8 @@ internal fun MarkdownContent(
         animations = markdownAnimations(animateTextSize = { this }),
         imageTransformer = Coil3ImageTransformerImpl,
         modifier = Modifier.fillMaxWidth(),
+        // #517②：静态/异步路径同款终态槽（尾随空白子节点跳过，见 preParsed 分支注）
+        success = terminalSuccessSlot(),
     )
 }
 
@@ -991,7 +1016,7 @@ private fun rememberSyncMarkdownState(content: String, isUser: Boolean): Markdow
  * 回收重组合按 text 重解析（A2 接受；后续可接 SyncParseCache）。
  */
 @Composable
-internal fun StreamShardContent(markdown: String, textColor: Color) {
+internal fun StreamShardContent(markdown: String, textColor: Color, trimTrailingBlockGap: Boolean = false) {
     val parsed = remember(markdown) { parseMarkdown(markdown) }
     // [507-shard] #507 消失取证：冻结块组合事实（文本量）+ 实测高度
     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
@@ -1011,8 +1036,29 @@ internal fun StreamShardContent(markdown: String, textColor: Color) {
             textColor = textColor,
             isUser = false,
             preParsedState = parsed,
+            trimTrailingBlockGap = trimTrailingBlockGap,
         )
     }
+}
+
+/**
+ * #517：终末块距载体判定——内容（trimEnd 后）最后一非空行恰为闭合围栏
+ * （≤3 空格缩进 + ≥3 个 ` 或 ~ 且标记后仅空白）= 终末块是代码/公式块，
+ * 其 bottom 外距在 turn 终态下属超额（内容→统计栏间隙统一到 user 侧）。
+ * 纯函数，调用方：PartContent（liveText==null 终态）/ MessageCardAssistant
+ * 末 chunk / ChatMessageList 末 #g 冻结片。
+ */
+internal fun endsWithBlockGapCarrier(content: String): Boolean {
+    val trimmed = content.trimEnd()
+    if (trimmed.isEmpty()) return false
+    val lastLine = trimmed.substring(trimmed.lastIndexOf('\n') + 1)
+    val marker = lastLine.trimStart(' ', '\t')
+    if (marker.isEmpty()) return false
+    val c = marker[0]
+    if (c != '`' && c != '~') return false
+    var n = 0
+    while (n < marker.length && marker[n] == c) n++
+    return n >= 3 && marker.drop(n).isBlank()
 }
 
 @Composable
@@ -1039,6 +1085,42 @@ private fun rememberAsyncMarkdownState(content: String, isUser: Boolean): Markdo
  * 扫描锚点签名重定位区间起点（索引漂移自愈），再按 AST 固有顺序渲染到
  * 计划终点——保证多片拼接与源文块顺序一致；找不到锚点 → 回退纯索引。
  */
+/**
+ * #517②：全量静态渲染（preParsed 非分片 / asyncTerminal / syncSmall / override）
+ * 的 success 槽——复刻 mikepenz [MarkdownSuccess] 的 Column+MarkdownElement 结构，
+ * 唯一差异：**跳过尾随空白子节点**。
+ *
+ * 根因：内容结尾的 `\n` 会被解析为尾随 EOL 顶层子节点，而 MarkdownElement 的
+ * includeSpacer 机制在**每个**子节点（含空白节点）前垫 `Spacer(padding.block)`
+ * ——终末块与统计栏之间凭空多出该间隔；分片路径的 chunk 计划态 AST 天然不含
+ * 尾随 EOL（其内容在计划构建期已裁尾），同一消息两侧路径间隙不一致即源于此。
+ * 尾随空白节点无可见内容，跳过仅消除尾部多余间隔，块间视觉零变化。
+ */
+internal fun terminalSuccessSlot():
+    @Composable (State.Success, com.mikepenz.markdown.compose.components.MarkdownComponents, Modifier) -> Unit =
+    { st, comps, mod ->
+        androidx.compose.foundation.layout.Column(mod) {
+            val kids = st.node.children
+            var last = kids.size
+            while (last > 0) {
+                val n = kids[last - 1]
+                val s0 = n.startOffset.coerceIn(0, st.content.length)
+                val e0 = n.endOffset.coerceIn(0, st.content.length)
+                if (e0 > s0 && !st.content.substring(s0, e0).isBlank()) break
+                last--
+            }
+            if (dev.leonardo.ocbeacon.BuildConfig.DEBUG && last < kids.size) {
+                android.util.Log.w(
+                    "GapDiag",
+                    "terminalSlot skipped " + (kids.size - last) + " trailing blank kids=" + kids.size + " contentLen=" + st.content.length,
+                )
+            }
+            for (i in 0 until last) {
+                com.mikepenz.markdown.compose.MarkdownElement(kids[i], comps, st.content)
+            }
+        }
+    }
+
 private fun chunkSuccessSlot(
     blockRange: IntRange,
     anchor: String? = null,
