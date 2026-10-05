@@ -52,3 +52,20 @@
 **EMU-E 真实对话流**：mock provider（OpenAI SSE 兼容，9201）+ dsh llm overlay → 模拟器 app 发送 "HelloFromEmulator" → mock 流式回复渲染「连接链路验证成功（mock 回复）」+ 模型栏 Mock Chat——app→dsh(插件票认证)→provider→SSE→UI 全环。**三证合一**：UI dump 渲染文本 + 截图（04-conversation-flow.png）+ Room WAL 直查 4 处命中（主 db 未 checkpoint 属正常）。
 
 工具坑补录：IAB 内联凭据页 fetch 污染（见上）；dsh web 每次导航重弹预览说明/API-key 引导（坐标随状态漂移，截图定位法可靠）。
+
+## 鲁棒性轮（2026-10-05，用户追问「直接改配置文件/web 改密/并发/不按正常操作」）
+
+**发现并修复一个真缺陷**：路由处理器未校验 HTTP 方法（POST /session 也会走完整门禁后铸票——无鉴权绕过但违反契约）。硬化：requireMethod 守卫（GET session/login/status、POST rotate，其余 405）+ 单测 2 例（58/58 绿），本地 E2E 五阶段回归 40/40 绿。
+
+**鲁棒性矩阵 23 断言全 PASS**（宿主真实 dsh + docker）：
+- 方法滥用四组 405；非 JSON/1MB 垃圾体 400 不崩（后续请求仍活）。
+- 伪认证方案：Token 方案/裸 Bearer/垃圾 Basic/空 Authorization 全 401；Bearer 带空格密码 200。
+- 栅栏变体：同源放行/异名 Origin 拒/https 同 host 放行（仅比 host，与官方一致）。
+- 跨权威 cookie 重放：127.0.0.1 权威票在 localhost 权威被官方 isAuthenticated 拒（authority 绑定兜底）。
+- 并发：10 并发铸票全 200；双 rotate 竞态恰一生效无崩；current==next 轮换 200 且旧票处死。
+- 限速后正确密码恢复（无永久锁死）。
+- 信任锚欺骗（docker 非回环对端）：XFF 伪造/Host 伪造/双伪造叠加均不获免密（403）；非回环 rotate 凭正确 current 放行（设计语义）。
+
+**yml 直改链路定性**（用户点名场景；修正 spec §G「手改 yml 仅启动期生效」假设）：0.2.0-rc.2 的 user-patch watcher **热重载**条目配置——运行中改 yml 密码：新密码即时可登、旧密码即时失效，但**已发会话不撤**（epoch 只经 /rotate 与 boot 推进）；重启后指纹不匹配 → epoch=启动时间 → 全员下线一次。操作语义：热踢人走面板轮换，yml 改密踢人须重启。README 已补勘误。
+
+**测试脚本坑**：curl -w '%{http_code}' 并发追加无换行 → grep -c 按行误计 1（改 \n + grep -cx 200 修复）；"R6 失败"为脚本假阳性，服务端 10/10。
