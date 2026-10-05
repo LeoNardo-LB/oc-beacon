@@ -58,6 +58,7 @@
   - 对照：无 fire 轮（deepseek 散文/上轮六节文档）完结零负向无缝——闪只随 fire 出现；fire 重建走 +66 步 ~200-400ms 限速铺开，而非 A2 设计自期 #H4 快灌（4×批量免壁钟同协程步）
   - 与 #503（回卷循环）/#509（换装翻覆）机制并列；根修方向：①毕业门槛对晚成块内容渐进冻结（长度感知/标题边界切分防 EOF 聚集）②fire 重建真走 #H4 快灌压窗口至不可感知——二选一或并行
   - → docs/journal/2026-10-05-a.md §3
+  - 2026-10-05 #502 验收轮机内复发轻量形态（V1 LongCat 散文+代码 4042 字轮）：流末正常毕业 fire（tail=48ch 小尾，非巨批）同样触发重建窗——SGB ENTRIES n=28 → HFLICK PLAN 26→28 add=[#g0,#p] 条目插入 → 宿主 item 子树销毁重建（ItemP enter/leave 24ms 双翻转）→ 卡 4063→96 存根（d=-3967）→ pilot retained 40ms 回灌恢复（远快于在册 1.9s 慢灌）。结论①重建窗是 fire 的结构性代价（任何 fire 都插条目重排），巨批只是拉长窗口；结论②恢复速度取决于 pilot 保持链（本案 B3 live override 热路径在）。取证 journal 2026-10-05-a §6
 
 - [~] **#513 流式渲染全程冻结完结砸出——live 消费链断裂（桶A验收卡1 用户定罪+仪器三层坐实）** `streaming` `render` `regression`
   - 真机 V1@4101 docker(deepseek)：服务器 SSE 渐进发射(1492 delta/11s)→app 实时接收(dispatch 同步)→flush/publish 流转→但渲染卡片冻在 96px 占位直到完结一次性砸出(6738px/46ms)；中英文同形；400 字轮亦末段 0.2s 才长
