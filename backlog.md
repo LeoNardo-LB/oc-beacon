@@ -74,11 +74,6 @@
   - 真机 t35 终验双证：①TimePatch 22:40:52.343 流中（正文起步即 reasoning 终态化）——计时不再拖满全程；②展开卡 768 字首段至末行一整块连续呈现零滚动。全量单测绿。等用户自然使用验收。
   - 残余已修（同批）：定罪修正——权威 part 带 time 但 start=end=事件时刻（恒 0 时长），非转写缺 time。mapper blockStart/blockEndTimes 记账（block-start 记起始+推前驱结束），整装结算真块时长。真机 t36 完结卡显示 5.2s 真时长（修复前恒空）。
 
-- [~] **#502 流式消息被裁剪在视口小块——配对让位永久化死锁冻结高度帽（#502）** `scroll` `engine` `streaming` `regression`
-  - 真机定罪（2026-10-02，用户流式中有机复现）：流式上翻阅读期间引擎在阅读位配对 set(7,393) → 用户甩回底 (0,0) → shouldYieldPairing 判「外部 pending 未消费」永久让位（yield×1448/12s）——用户手势是已完成的外部滚动而非待消费 pending，读位永 ≠ lastSet 且只有引擎 apply 才写 lastSet → 鸡生蛋死锁。
-  - 后果：每帧作废帽释放计划 → reserved 冻结 685 而真高涨至 4303 → item 按 min(真高,685)+clipToBounds 底对齐上报 = 流式消息被裁剪在视口一小块固定区域（最新文本在框内滚动），完结换装 reset 才全量展示（用户主诉）。#501 修复后 DSH 流式期有真实增量可卡 + 用户滚动测试凑齐配方才首次暴露。
-  - 修复：divergence 静止采纳——读位连续两帧静止且 lastSet 陈旧（≥2 帧引擎无 set，防误毁 pending 保护）⇒ 采纳为配对基线恢复正常求值（帽释放当帧生效）。相位级测试确定性复现死锁三帧转换（帧3 旧行为永久 yield 处 → 采纳+帽 685→1128）；pending 未消费窗口回归锚钉住。单测 3856/0/0；三轮真机 E2E 无回归、无误触发 adopt。
-
 - [~] **#501 DSH 流式正文结构性不可见——#230 空种子 × B案结构静默，完结整段砸出（#501）** `dsh` `streaming` `engine` `regression`
   - 真机验收 #442 时用户定罪（2026-10-02）：DSH 服务器流式正常（自建 WS 抓帧 940 帧实证：block-start 空种子→reasoning-delta 145→text-delta 778），app 正文整段流式期不可见、完结 assistant/message 才 +5675px 砸出。
   - 根因链：DSH block-start 空种子被 #230 零信息丢弃（防线本身正确）→ part 仅由 flush 的 applyDelta idx<0 兜底在热视图出生 → B案 UI 读 structuralParts（只在结构事件过桥），DSH 流式期零结构事件（纯 delta 线面）→ 出生永不过桥。SSE 不受影响（part.updated 携累积文本=结构事件不断过桥）；reasoning 可见是 text block-start 自身结构事件捎带过桥的巧合。
