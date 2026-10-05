@@ -100,7 +100,7 @@
 ## P1 — 核心功能需求
 
 
-- [ ] **#512 DSH 密码登录插件（dsh-password-login）——免捞 token 的会话铸造/密码生命周期/轮换全员下线** `dsh` `auth` `infra`
+- [~] **#512 DSH 密码登录插件（dsh-password-login）——免捞 token 的会话铸造/密码生命周期/轮换全员下线** `dsh` `auth` `infra`
   - 独立仓库纯宿主插件（照 keepalive 骨架，GitHub 分发，零客户端 bundle）：未设密码态回环免密铸票 + 密码登录书签页 + 轮换即撤销全体会话（admit 包装 epoch）；oc-beacon 与浏览器均为消费者
   - app 侧回落链（有效 Cookie→免密铸→带密铸→legacy token），ServerConfig.password 双语义零新 UI；四批实施（骨架/密码/撤销/legacy 退役）
   - 设计经五轮 grill 全裁决收敛；环境事实锚定 dsh 0.2.0-rc.2 源码实证
