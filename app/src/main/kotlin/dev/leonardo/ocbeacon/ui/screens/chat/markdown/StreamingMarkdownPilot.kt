@@ -190,6 +190,12 @@ internal fun rememberPilotStreamingMarkdownState(
      *  时机由 [StreamingSplitMachine] 决策，Fire 时切尾重建（#H4 快速重灌）+
      *  发布冻结块。null（未注册/开关关）= 原路径零改造。 */
     shard: ShardController? = null,
+    /** #518①（2026-10-05）：终态全量揭示——「pilot 即终态」（#509 二期）退役了
+     *  完结渲染器切换（= 旧设计下扣留尾的事实 flush 路径）后，SafePrefixGate
+     *  扣留的尾部在无后续增量时永扣（真机 V2 定罪：TurnFin 时 held 0→80，
+     *  屏幕止于尾句冒号）。terminal=true 时 gate 拒绝即放行剩余全部——终态
+     *  内容为最终值，无节流/分批必要，单帧一次追平。 */
+    terminal: Boolean = false,
 ): PilotStreamingState {
     // #471③ 归一化前移（终帧=流式帧，spec §3.4）：快照先归一化再前缀差分——
     // prev/released/heldTail 坐标皆归一化坐标，heldTail 随之显示归一化文本
@@ -231,14 +237,16 @@ internal fun rememberPilotStreamingMarkdownState(
     // #H4：非前缀重建后的再铺开走快速重灌（免壁钟限速）；首跑保持限速铺开
     var fastRefeed by remember { mutableStateOf(false) }
     val gate = StreamingMarkdownPilot.stableReveal
-    LaunchedEffect(normalized, state, StreamingScrollHold.holding) {
+    LaunchedEffect(normalized, state, StreamingScrollHold.holding, terminal) {
         val p = prev
         // #442 A2 分片切尾：差分/放行在尾坐标（eff）上进行——machine 与 broker
         // 为全坐标（sliceOrigin + released 换算）。coerce 防御非前缀缩短窗的
         // 越界（随后 startsWith 判负 → 既有重建路径接管）。
         val eff = normalized.substring(sliceOrigin.coerceAtMost(normalized.length))
         // 滚动/惯性中：暂缓增长增量（prev 不动，settle 后整段一次追平=一次重排版）
-        if (StreamingScrollHold.holding && p != null && eff.length > p.length) {
+        // #518①：终态揭示不受滚动暂缓约束——内容已是最终值，无「settle 后追平」
+        // 的下一批（完结后无增量），等价于永扣。
+        if (StreamingScrollHold.holding && !terminal && p != null && eff.length > p.length) {
             return@LaunchedEffect
         }
         if (p == null || eff.startsWith(p)) nonPrefixSinceMs = -1L
@@ -263,7 +271,18 @@ internal fun rememberPilotStreamingMarkdownState(
                         var rel = 0
                         while (rel < eff.length) {
                             val d = SafePrefixGate.releaseDelta(eff, rel, pacing.chunkCh)
-                            if (d.newReleased <= rel) break // gate 拒绝（扣留中）——后续增量/EOF 接管
+                            if (d.newReleased <= rel) {
+                                // gate 拒绝（扣留中）——后续增量/EOF 接管；
+                                // #518① 终态无后续：拒绝即全量放行（一次追平）
+                                if (terminal && rel < eff.length) {
+                                    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                        AppLogger.i("MDPilot", "terminal reveal first +" + (eff.length - rel) + "ch total=" + eff.length)
+                                    }
+                                    appendAndTrace(state, eff.substring(rel))
+                                    rel = eff.length
+                                }
+                                break
+                            }
                             if (pacing.minIntervalMs > 0 && d.newReleased - rel >= pacing.chunkCh) {
                                 val wait = lastBigReleaseAt + pacing.minIntervalMs -
                                     android.os.SystemClock.elapsedRealtime()
@@ -352,7 +371,17 @@ internal fun rememberPilotStreamingMarkdownState(
                         // #438①：每批喂 [BIG_RELEASE_CH]（含空行毕业段——原不受
                         // 批预算约束的漏洞）；批 ≥ 阈值即触发壁钟间隔
                         val d = SafePrefixGate.releaseDelta(eff, released, BIG_RELEASE_CH)
-                        if (d.newReleased <= released) break
+                        if (d.newReleased <= released) {
+                            // #518① 终态：gate 拒绝即全量放行（无后续增量可等）
+                            if (terminal && released < eff.length) {
+                                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+                                    AppLogger.i("MDPilot", "terminal reveal +" + (eff.length - released) + "ch total=" + eff.length)
+                                }
+                                appendAndTrace(state, eff.substring(released))
+                                released = eff.length
+                            }
+                            break
+                        }
                         if (d.newReleased - released >= BIG_RELEASE_CH) {
                             val wait = lastBigReleaseAt + BIG_RELEASE_MIN_INTERVAL_MS -
                                 android.os.SystemClock.elapsedRealtime()

@@ -87,6 +87,7 @@
   - 真机定罪（2026-10-05 V2@4201 LongCat decorators 轮，用户目击「最后的内容没有输出干净」）：TurnFin 时 MDPilot gate held 0→80 且 releasedTotal=1019 停更——服务器权威尾句 a decorator is just a callable that takes a callable and returns a callable ≈80 字符逐字符吻合，完结 flush 未放行 = 屏幕止于 The key mental model: 冒号
   - Room cached_parts 正文仅 1334/3122（停在 Example 3 中段 = 流中快照，完结回写缺失）；V2 轮后 idle 标记消息 msg_10cbcb907 type=idle 被当用户消息条目首位瞬时插入（HFLICK plan 4→5 firstDiff@0，未落库自愈）；同轮 23:44:13 中途 4810→96 塌缩 d=-4714 为 515 fire 重建窗族第三次出现
   - 服务器侧证据：GET api session message 全文 3122 字符含完整尾句；Room 611 reasoning 完整 + 1334 text 截断
+  - 根修落地（2026-10-06）：①pilot 终态全量揭示——terminal 旗标（PartContent 从 bus 覆盖生命周期+会话流式态推导）穿 MarkdownContent→pilot，gate 拒绝即放行（滚动暂缓豁免）；真机 V2 定罪轮复跑：terminal reveal +62ch released 545→607 全量，屏幕尾句完整（vision 判读）。③idle 过滤——V2Mappers toMessageWithParts 对 type=idle 返 null；复跑轮零幽灵 u_msg 条目（首插 5->6 为 V2 用户消息 id 换代 1.3s 自愈，另域）。②原定罪降级：Room 1334 截断系 run-as cat 主库文件的 WAL 陈旧读伪证——带 -wal 重拉真相为全量（3122/2762=服务器精确一致）；保留终态 part 权威落盘加固（partEnded→persistSseUpdate，不待 L3 刷新 1.6s）+ 方法学教训（Room 直查必须带 WAL 三件套）。V1 回归绿（渐进+完结全量，负向仅 #515 已知窗）。全量单测绿
 
 - [~] **#512 DSH 密码登录插件（dsh-password-login）——免捞 token 的会话铸造/密码生命周期/轮换全员下线** `dsh` `auth` `infra`
   - 独立仓库纯宿主插件（照 keepalive 骨架，GitHub 分发，零客户端 bundle）：未设密码态回环免密铸票 + 密码登录书签页 + 轮换即撤销全体会话（admit 包装 epoch）；oc-beacon 与浏览器均为消费者

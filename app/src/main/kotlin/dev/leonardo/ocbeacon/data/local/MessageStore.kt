@@ -62,6 +62,15 @@ class MessageStore @Inject constructor(
         // 过滤后行等到首个非空 delta 才由 UPSERT INSERT 建立——语义不变。
         val realDeltas = deltas.filter { it.delta.isNotBlank() }
         if (realDeltas.isEmpty()) return@withContext
+        // #518② GapDiag：增量落盘取证（DEBUG-only 探针）
+        if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+            dev.leonardo.ocbeacon.logging.AppLogger.d(
+                "GapDiag",
+                "appendParts n=" + realDeltas.size +
+                    " chars=" + realDeltas.sumOf { it.delta.length } +
+                    " parts=" + realDeltas.joinToString(",") { it.partId.takeLast(14) + "+" + it.delta.length },
+            )
+        }
         runCatchingCancellable {
             databaseRecovery.withCorruptionRecovery {
                 // #10（2026-09-01 FK 787 根治）：骨架插入与 delta 追加**同事务原子提交**。

@@ -1195,6 +1195,22 @@ class MessageEventHandler @Inject constructor(
         //（本 update 已携全量累积）经 structuralParts 发布（dispatch 尾），
         // live 让位防陈旧覆盖。
         clearTerminalLiveParts(messageId)
+        // #518②（2026-10-05）：终态 part 权威落盘——text/reasoning 的 ended 全量
+        // 值（V2 session.text.ended / V1 完结 part.updated 携累积全文）此前只进
+        // 内存+bus，Room 停在增量追加链断点（真机 V2 定罪：1334/3122 截断）。
+        // 「ended 时全量覆盖」自 #97 H-6 设计以来未接线（updatePartText 死码）。
+        // 经 persistSseUpdate 全量 upsert 落盘（骨架+parts 同事务）；仅终态
+        //（time.end 非空）触发——V1 流中快照 part.updated 高频且 end 为空，
+        // 增量链零写放大。
+        val endedPart = event.part
+        val partEnded = when (endedPart) {
+            is Part.Text -> endedPart.time?.end != null
+            is Part.Reasoning -> endedPart.time?.end != null
+            else -> false
+        }
+        if (partEnded) {
+            persistSseUpdate(endedPart.sessionId, listOf(messageId))
+        }
     }
 
     /**

@@ -198,6 +198,11 @@ object V2MessageMapper {
      */
     fun toMessageWithParts(obj: JsonObject, sessionId: String): MessageWithParts? {
         val type = obj["type"]?.jsonPrimitive?.contentOrNull ?: return null
+        // #518③（2026-10-05）：type=idle 是 V2 轮次生命周期簿记标记（载荷仅
+        // id/time/outcome，无任何内容）——此前落入 else 分支被映射为空
+        // Message.User → 条目层瞬时插入一条空用户消息（HFLICK plan 4→5
+        // firstDiff@0，真机定罪）。丢弃；不进内存不落库。
+        if (type == "idle") return null
         val id = obj["id"]?.jsonPrimitive?.contentOrNull ?: return null
         val timeCreated = obj["time"]?.jsonObject?.get("created")?.jsonPrimitive?.long ?: 0L
         val timeCompleted = obj["time"]?.jsonObject?.get("completed")?.jsonPrimitive?.contentOrNull?.toLongOrNull()

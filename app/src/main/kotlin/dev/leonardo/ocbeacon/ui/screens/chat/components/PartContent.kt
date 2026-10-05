@@ -185,6 +185,13 @@ private fun PartContentInner(
                     // #517 GapDiag：终态旗标运行时取证（DEBUG-only 探针）
                     val gapCarrier = dev.leonardo.ocbeacon.ui.screens.chat.markdown
                         .endsWithBlockGapCarrier(part.text)
+                    // #518①：内容终态推导——①bus 覆盖曾建立后消失（流经本进程、
+                    // 完结让位）②会话空闲且无覆盖（冷组合的已完结 part——
+                    // shardHold 冷续 pilot 同样存在扣留尾）。两者任一即终态。
+                    val liveSeen = remember(part.id) { androidx.compose.runtime.mutableStateOf(false) }
+                    if (liveText != null) liveSeen.value = true
+                    val contentTerminal = liveText == null &&
+                        (liveSeen.value || !LocalSessionStreaming.current)
                     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
                         dev.leonardo.ocbeacon.logging.AppLogger.d(
                             "GapDiag",
@@ -192,6 +199,7 @@ private fun PartContentInner(
                                 " live=" + (liveText != null) +
                                 " carrier=" + gapCarrier +
                                 " trim=" + (liveText == null && gapCarrier) +
+                                " terminal=" + contentTerminal +
                                 " len=" + part.text.length,
                         )
                     }
@@ -207,6 +215,8 @@ private fun PartContentInner(
                             // #517：终态（live 覆盖退场）且末块为代码/公式载体时
                             // 修剪块 bottom 外距——内容→统计栏间隙与 user 侧对齐
                             trimTrailingBlockGap = liveText == null && gapCarrier,
+                            // #518①：终态全量揭示旗标（pilot gate 拒绝即放行）
+                            contentTerminal = contentTerminal,
                         )
                     }
                 }

@@ -384,6 +384,10 @@ internal fun MarkdownContent(
     // 块 bottom 外距归零，内容→统计栏间隙与 user 侧（4dp+行内）对齐。块间
     // 分离不受影响（top 外距保留，非末块 bottom 保留）。
     trimTrailingBlockGap: Boolean = false,
+    // #518①（2026-10-05）：内容终态旗标——true 时 pilot gate 拒绝即全量放行
+    //（完结后无后续增量，扣留=永扣）。由 PartContent 从 bus 覆盖生命周期与
+    // 会话流式态推导，仅 pilot 分支消费。
+    contentTerminal: Boolean = false,
 ) {
     // #517 GapDiag：入口旗标取证（DEBUG-only 探针）
     if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
@@ -808,6 +812,8 @@ internal fun MarkdownContent(
         val pilotState = rememberPilotStreamingMarkdownState(
             markdown,
             shard = shardCtl,
+            // #518①：终态全量揭示旗标（来源见参数声明处注释）
+            terminal = contentTerminal,
         )
         androidx.compose.foundation.layout.Column {
             // #437 崩溃修复：非前缀重建（resetKey++）换 state 实例的同一帧，
