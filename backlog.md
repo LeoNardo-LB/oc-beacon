@@ -53,11 +53,12 @@
 
 ## P0 — 主流程阻塞
 
-- [ ] **#513 流式渲染全程冻结完结砸出——live 消费链断裂（桶A验收卡1 用户定罪+仪器三层坐实）** `streaming` `render` `regression`
+- [~] **#513 流式渲染全程冻结完结砸出——live 消费链断裂（桶A验收卡1 用户定罪+仪器三层坐实）** `streaming` `render` `regression`
   - 真机 V1@4101 docker(deepseek)：服务器 SSE 渐进发射(1492 delta/11s)→app 实时接收(dispatch 同步)→flush/publish 流转→但渲染卡片冻在 96px 占位直到完结一次性砸出(6738px/46ms)；中英文同形；400 字轮亦末段 0.2s 才长
   - soak 存档复核：全部卡片 d=h 单步出生满高（无渐进小步）——回归在 10-04 soak 构建已在场，#484 签名集（零负向）对爆发形态失明；#503 t36(10-02 渐进 fires)/#442 A4(渐进) 在嫌疑窗口之前
   - 嫌疑窗口=10-03~04：#509 方案B(45c9d9bb)+二期 pilot即终态(28154286)+#510 五补偿族退役(f3b4f886)；现场探针签名=流中零 MDPilot append/零 B3 live override（完结才 fallback），B2-bus publish live=1 正常
   - → docs/journal/2026-10-05-a.md §1
+  - 根修落地（0f2c78dc）：flushPendingDeltas first-text 过桥（空种子注册族渲染条目存在性桥）；单测 3877/0/0 + 真机渐进渲染恢复（MDResize +66/+132 连续至完结、零负向）；嫌疑窗口（#509二期/#510）洗清——回归自 B案 V1 主路径即存在；verify 态待用户重演卡1
 
 - [~] **#507 流式毕业内容消失——turnGroups 结构缓存空 parts 阻断 #g 条目发射** `streaming` `render` `shard-pilot` `regression`
   - 用户报告：流式中所有内容突然没掉又恢复、前文全部消失；卡片展开收起不稳定。真机定罪（连拍+语义树+探针三轮）：fire 后尾卡塌至 96px 且冻结 StreamChunk/StreamPrefix 条目从未组合——毕业的 2000+ 字无处渲染。
