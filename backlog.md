@@ -134,11 +134,6 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#517 assistant 正文到统计栏间距远大于 user 侧——统一到 user↔统计栏高度（先系统量高再设计修复）** `ui`
-  - 用户目击：assistant 内容底→统计栏（Build·模型·时长行）的间隔比 user 消息底→user 统计栏的间隔高很多；要求向 user 侧看齐统一
-  - 修复纪律（用户指令）：先系统性核查两侧卡片各 box/Spacer/padding 的高度构成，再设计对齐方案后动手
-  - → docs/journal/2026-10-05-a.md §5
-
 - [ ] **#514 DSH legacy token 基建退役（#512 批次④）——捞日志/adb 注入/深链配对清退** `dsh` `auth` `infra`
   - 前置：#512 dsh-password-login 插件用顺后另裁范围（用户已裁决方向，2026-10-05）。
   - 清退候选：宿主侧 token 镜像脚本（~/.dsh/sync-dsh-web-token.sh）、scripts/dsh-pair.sh 配对/adb 注入链、DshPairingParser 深链解析。
