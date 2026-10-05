@@ -118,8 +118,10 @@ android {
             buildConfigField("boolean", "STABLE_REVEAL_PILOT", "true")
             // #442 R2 分片 + B案节奏收编：2026-10-02 用户裁决提升 beta
             //（dev 泡机+双臂单测+真机矩阵后；stable 再晚一批观察）
-            // #503：SHARD 因毕业回卷循环降回 false（下一 beta 构建携带；DELTA_BUS 保留）
-            buildConfigField("boolean", "STREAM_SHARD_PILOT", "false")
+            // SHARD 回升 beta（2026-10-06 用户裁决「先都发 beta」）：#503 回卷循环
+            // 根修验收完结 + 桶A 三协议真机实证（SHARD=on 渐进正常、fire 落合法
+            // 切点）；已知残差 = #515 fire 重建窗（在册观察）。stable 维持 false 一批。
+            buildConfigField("boolean", "STREAM_SHARD_PILOT", "true")
             buildConfigField("boolean", "STREAM_DELTA_BUS", "true")
         }
         create("stable") {
