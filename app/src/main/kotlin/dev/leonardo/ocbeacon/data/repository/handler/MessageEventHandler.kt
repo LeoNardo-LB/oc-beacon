@@ -494,10 +494,30 @@ class MessageEventHandler @Inject constructor(
         // 线面 block-start 空种子被 #230 零信息丢弃后，part 只能由下方 applyDelta
         // idx<0 兜底在热视图出生——出生是结构事实（列表条目新增），与纯文本
         // 增长（走 bus，结构性静默）必须区分对待。
+        // #513 补充基准：空种子**已注册**族（V1 part.updated 以空文本种子直接
+        // 注册，#230 不弃）的首次落文本——渲染条目从「无内容可渲染」（装配/
+        // PartContent 的 isNotBlank 门）到「存在」同为结构事实；不桥则该 part
+        // 整个流式期无渲染条目，完结 part.updated 全文才砸出（真机三层定罪：
+        // bus live 流转正常而 liveFor 订阅迟至完结才建立）。
+        val busEnabled = dev.leonardo.ocbeacon.ui.screens.chat.components.StreamingDeltaBus.enabled
+        val touchedMessages = effective.map { it.messageId }.toSet()
         val birthBaseline: Map<String, Set<String>> =
-            if (dev.leonardo.ocbeacon.ui.screens.chat.components.StreamingDeltaBus.enabled) {
-                effective.map { it.messageId }.toSet().associateWith { id ->
+            if (busEnabled) {
+                touchedMessages.associateWith { id ->
                     _parts.value[id]?.mapTo(mutableSetOf()) { it.id } ?: mutableSetOf()
+                }
+            } else emptyMap()
+        val firstTextBaseline: Map<String, Set<String>> =
+            if (busEnabled) {
+                touchedMessages.associateWith { id ->
+                    _parts.value[id]?.mapNotNullTo(mutableSetOf()) { p ->
+                        val blank = when (p) {
+                            is Part.Text -> p.text.isBlank()
+                            is Part.Reasoning -> p.text.isBlank()
+                            else -> false
+                        }
+                        if (blank) p.id else null
+                    } ?: mutableSetOf()
                 }
             } else emptyMap()
 
@@ -535,10 +555,27 @@ class MessageEventHandler @Inject constructor(
             // assistant/message 前看不到该 part——正文整段流式期不可见、完结才
             // 整段砸出（真机定罪 2026-10-02）。出生每 part 一次（低频），纯文本
             // 增长仍只走 bus——「delta 批结构性静默」不变量不破。
+            // #513（2026-10-05）：first-text 过桥——V1 空种子注册族（part.updated
+            // 空文本出生、非 #230 丢弃族）首块文本落位时桥一次：渲染条目的存在
+            // 性在此刻才翻转（isNotBlank 门），与 part-birth 同语义低频结构事实；
+            // 其后纯文本增长仍只走 bus，静默不变量不破。
             val born = birthBaseline.any { (id, before) ->
                 _parts.value[id]?.any { it.id !in before } == true
             }
-            if (born) publishStructural("part-birth")
+            if (born) {
+                publishStructural("part-birth")
+            } else {
+                val firstText = firstTextBaseline.any { (id, blanks) ->
+                    _parts.value[id]?.any { p ->
+                        p.id in blanks && when (p) {
+                            is Part.Text -> p.text.isNotBlank()
+                            is Part.Reasoning -> p.text.isNotBlank()
+                            else -> false
+                        }
+                    } == true
+                }
+                if (firstText) publishStructural("first-text")
+            }
         }
 
         // SSE 双写：#97（H-6）增量落盘——本批 delta 只追加到对应 part 行

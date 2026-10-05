@@ -178,7 +178,7 @@ private fun PartContentInner(
                             dev.leonardo.ocbeacon.logging.AppLogger.d(
                                 "B3",
                                 "text live " + (if (liveText != null) "override" else "fallback") +
-                                    " part=" + part.id.takeLast(14) + " — bus 快通道/参数对账源切换事实",
+                                    " part=" + part.id + " — bus 快通道/参数对账源切换事实",
                             )
                         }
                     }

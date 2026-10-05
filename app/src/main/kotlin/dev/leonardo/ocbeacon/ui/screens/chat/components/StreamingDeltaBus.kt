@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 
 /**
@@ -76,7 +77,9 @@ object StreamingDeltaBus {
         if (dev.leonardo.ocbeacon.BuildConfig.DEBUG && publishCount.incrementAndGet() % 100L == 1L) {
             dev.leonardo.ocbeacon.logging.AppLogger.d(
                 "B2-bus",
-                "publish batch#$publishCount live=${_live.value.size} — 流式累积全文直达 item（B3/B4 live ?: part.text 消费）",
+                "publish batch#$publishCount live=${_live.value.size} keys=" +
+                    _live.value.keys.joinToString(",") { it } +
+                    " — 流式累积全文直达 item（B3/B4 live ?: part.text 消费）",
             )
         }
     }
@@ -119,4 +122,16 @@ object StreamingDeltaBus {
     /** UI 读口：该 part 的活跃流式全文；null=无覆盖（回退参数）。distinct 防同值重启。 */
     fun liveFor(partId: String): Flow<String?> =
         _live.map { it[partId]?.text }.distinctUntilChanged()
+            .onEach { text ->
+                // [#513 取证] 采样打点（每 200 次发射 1 行）——确认订阅侧活着
+                // 且长度在涨；全量打会 ~10 行/s/part 刷穿 DEBUG logcat。
+                if (dev.leonardo.ocbeacon.BuildConfig.DEBUG && emitProbeCounter.incrementAndGet() % 200L == 1L) {
+                    dev.leonardo.ocbeacon.logging.AppLogger.d(
+                        "B3", "liveFor emit part=" + partId + " len=" + (text?.length ?: -1),
+                    )
+                }
+            }
+
+    /** [#513 取证] liveFor 发射采样计数（全局，防刷屏）。 */
+    private val emitProbeCounter = java.util.concurrent.atomic.AtomicLong(0L)
 }

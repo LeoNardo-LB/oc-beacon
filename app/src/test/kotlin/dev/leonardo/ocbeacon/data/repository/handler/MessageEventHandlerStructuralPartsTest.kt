@@ -389,4 +389,65 @@ class MessageEventHandlerStructuralPartsTest {
         assertEquals(baseline + 1, structuralEmissions.get())
         assertEquals(2, lastStructural?.get("m1")?.size)
     }
+
+    // ===== #513（2026-10-05）：V1 空种子注册族 first-text 过桥 =====
+
+    @Test
+    fun `empty-seed server part first text bridges structural once`() {
+        motive("#513 V1 线面形态：part.updated 空文本种子（服务器 prt_ id，非派生序号 id）经 Add 直接注册为空 part——首次落文本必须过桥结构视图一次，否则渲染条目整个流式期不存在（真机三层定罪：bus live 流转正常而 liveFor 订阅迟至完结才建立、正文完结砸出）")
+        // V1 形态：服务器 id（非 _ord_ 派生）空种子 → #230 不弃（仅弃派生序号 id），Add 注册
+        handler.handle(
+            SseEvent.MessagePartUpdated(
+                Part.Text(id = "prt_seed_v1", sessionId = "s1", messageId = "m1", text = ""),
+            ),
+            "srv",
+        )
+        // 空种子已注册在热视图（出生即有，非 #501 的 flush 兜底出生族）
+        assertTrue(handler.parts.value["m1"]!!.any { it.id == "prt_seed_v1" })
+        val baseline = structuralEmissions.get()
+
+        delta("你", partId = "prt_seed_v1")
+        handler.forceFlushDeltas()
+
+        // 首文本过桥：结构性视图携带非空文本（渲染条目存在性在此翻转——
+        // 装配/PartContent 的 isNotBlank 门自此可过，liveFor 订阅建立）
+        assertTrue(structuralEmissions.get() > baseline)
+        assertEquals(
+            "你",
+            (lastStructural?.get("m1")?.firstOrNull { it.id == "prt_seed_v1" } as Part.Text).text,
+        )
+        assertEquals("你", StreamingDeltaBus.live.value["prt_seed_v1"]?.text)
+
+        // 其后纯文本增长：结构性静默不破（增长只走 bus——CML-tick≈0 前提保持）
+        val afterFirst = structuralEmissions.get()
+        delta("好", partId = "prt_seed_v1")
+        handler.forceFlushDeltas()
+        assertEquals(afterFirst, structuralEmissions.get())
+        assertEquals("你好", StreamingDeltaBus.live.value["prt_seed_v1"]?.text)
+    }
+
+    @Test
+    fun `empty-seed reasoning first text bridges structural`() {
+        motive("#513 推理先行轮同症：空 reasoning 种子（glm 系 Waiting 期流式）首文本同样过桥——渲染条目存在性门（isNotBlank）与正文分支同构，漏桥同形冻结")
+        handler.handle(
+            SseEvent.MessagePartUpdated(
+                Part.Reasoning(id = "prt_reason_seed", sessionId = "s1", messageId = "m1", text = ""),
+            ),
+            "srv",
+        )
+        val baseline = structuralEmissions.get()
+
+        delta("思", partId = "prt_reason_seed", field = "reasoning")
+        handler.forceFlushDeltas()
+
+        assertTrue(structuralEmissions.get() > baseline)
+        assertEquals("思", StreamingDeltaBus.live.value["prt_reason_seed"]?.text)
+        assertTrue(StreamingDeltaBus.live.value["prt_reason_seed"]!!.reasoning)
+        // 过桥后继续静默增长（推理流长于正文是常态）
+        val afterFirst = structuralEmissions.get()
+        delta("考", partId = "prt_reason_seed", field = "reasoning")
+        handler.forceFlushDeltas()
+        assertEquals(afterFirst, structuralEmissions.get())
+        assertEquals("思考", StreamingDeltaBus.live.value["prt_reason_seed"]?.text)
+    }
 }
