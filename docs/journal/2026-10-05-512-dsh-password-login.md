@@ -23,3 +23,20 @@
 5. **宿主侧关键环境事实修正**：0.2.0-rc.2 CLI 对 `--host 0.0.0.0` 有守卫（"intentionally not supported yet for safety"）；LAN 直连形态实际部署方式 = webserver 条目 config patch（`- id: webserver, config: {host: 0.0.0.0}`）绕 CLI 守卫——docker E2E 即此形态。spec §D 的 LAN 描述按此勘误。
 
 **已知边界（与 spec 一致）**：撤销作用于 admit 面（/api+WS）；静态 index 壳官方设计即公开。活 WS 长连接轮换后存活到自然断开。金丝雀漂移的 stale 态无诚实模拟途径（单测层面覆盖判读），依赖宿主真实演进时 E2E 兜底。
+
+## 批①验收补全——模拟器×双宿主端到端（2026-10-05，真机被另一需求占用，用户裁决走模拟器/docker）
+
+**环境**：本机 AVD ocbeacon-e2e（headless swiftshader，API36-ext19）+ devDebug APK（oc-beacon 签名）+ debug intent 通道（`debug_server_type=dsh` 免手工输表）。
+
+**宿主腿**（brew dsh 0.2.0-rc.2 + 插件，隔离 DSH_HOME，`adb reverse tcp:8180` = 真机部署同构形态）：
+1. 批①「填 URL 即连」零配置：probe 401 TokenNeeded → **auth recovered via FreeMint** → 复探 `Online(V012, authenticated=true)`——插件铸票被真实宿主 /api 接受，全程 ~800ms。
+2. live 轮换踢线：宿主回环 rotate 设密 → app 活 WS 按 spec 边界存活；force-stop 冷启后旧票 401（epoch 撤销）→ FreeMint 401 → PasswordMint(错密码) 401 → 全链落空 AUTH_REQUIRED。
+3. 凭密自愈：intent 换 devpass → **auth recovered via PasswordMint** → Online。
+
+**docker 腿**（容器内真实 dsh + 插件，webserver 0.0.0.0 patch + `--trusted-host 10.0.2.2:8181` 放行官方 /api 栅栏；模拟器经 10.0.2.2 = 非回环对端）：
+4. 负对照（未设密码）：FreeMint **403** + PasswordMint **403**（未设态拒绝一切非回环）→ AUTH_REQUIRED——fail-closed 在 app 面实证。
+5. 密码态：容器内回环 rotate devpass → app PasswordMint → `Online(authenticated=true)`；UI dump 目检：Sessions 列表页、服务器 PW-Docker-Password 在列、无 token 横幅、Empty directory（新 home 零会话）。
+
+**证据**：`dsh-password-login/docs/emu-evidence/`（01 免密即连截图、02 宿主密码态截图、03 docker 密码态截图、logcat-chain.txt）；app 侧判读行 `DshConnRegistry: auth recovered ... via FreeMint/PasswordMint`、`session mint not taken: HTTP 403 (free/bearer)` 全部在案。
+
+**工具坑（备查）**：软渲染下模拟器 System UI 会 ANR 挡前台（input keyevent 方向键+回车选 Wait 消掉再 dump）；logcat grep "mint" 会误中 "mainline"。真机腿（e69a99d8）保留为可选复验——仪器面已被模拟器形态全覆盖。
