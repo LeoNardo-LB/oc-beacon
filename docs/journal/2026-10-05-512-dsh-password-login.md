@@ -77,3 +77,7 @@
 **实现**：`POST /plugins/dsh-password-login/revoke`——admit 门（已认证会话）→ epoch 推进到 now、指纹不动 → 全员下线 → 调用者自动换票保持在线。配套硬化：撤销包装改**常武装**（epoch=0 天然惰性），`resolveEpoch` 补 unset→unset 纯重启沿用 epoch（未设密码态的撤销不被重启洗掉；set→unset 转换仍重置 0）。面板双态可见「回收所有会话」按钮（outline 次要样式）。
 
 **验证**：单测 63/63（revoke 四例：admit 401/方法 405/epoch 推进+密码不动+新票≥NOW/持久化失败 500；epoch 未设态重启保持两例）。E2E 七相位 **47 断言全绿**：A31-33 已设态回收（受害者票死/回收者存活）；F 未设密码态回收（零密码下同样生效）；G 未设态撤销跨纯重启保持。spec §B 表新增行 + Out of Scope 修订；README 端点表同步。
+
+## revoke 绝对语义修订（2026-10-05）
+
+用户裁决：回收按钮点击后**点击面板自身也要重新登录**。实现：/revoke 去掉自动换票——200 无 Set-Cookie，调用者 cookie 同样死于 epoch；面板 store 消息改「已回收所有已发会话（含本面板）——请经登录书签重新进入」，后续 /status 401 → unauthorized 横幅（既有态复用）。rotate 语义不变（改密者凭新密码知识存活）。验证：单测 63/63（revoke 无 Set-Cookie 断言）；E2E 七相位 49 断言全绿（A32 无换票/A33 受害者+回收者双死/A34 撤后新血统、F/G 未设态同语义）。演示容器 dsh-pw-demo 已重启加载新代码。

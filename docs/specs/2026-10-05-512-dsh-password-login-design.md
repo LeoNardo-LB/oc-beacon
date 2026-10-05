@@ -49,7 +49,7 @@ DSH 的认证面只有一条路：每进程随机铸 launch token、只打印进
 | `GET /plugins/dsh-password-login/login` | 浏览器 | 书签入口。已设密码：`401 + WWW-Authenticate: Basic realm="…"` → 浏览器原生弹窗 → 凭据重试验密（用户名忽略）→ 铸票 303 回 `/`；未设密码：回环铸票 303（零配置起步），非回环 403 |
 | `GET /plugins/dsh-password-login/status` | 面板 | 已认证会话 → `{configured, stale, v}`（存在性标记，不回显值） |
 | `POST /plugins/dsh-password-login/rotate` | 面板 | JSON `{current?, next}`。已设密码：须 `current`（任何对端）；未设密码：仅回环（首设）。成功 `200 {ok, v}` + **自动铸新票**（改密者凭当前密码知识保持在线，其余全体下线） |
-| `POST /plugins/dsh-password-login/revoke` | 面板 | 已认证会话（admit 门）→ **回收所有已发会话而不改密码**（epoch 推进、指纹不动）；调用者自动换票保持在线；未设密码态同样生效且撤销跨纯重启保持（unset→unset 重启沿用 epoch）。**修订 2026-10-05**：恢复被裁决 #21 砍掉的按钮（用户裁决）——动机：yml 热改密码不撤已发会话的实测缺口需要"只踢人不改密"通道 |
+| `POST /plugins/dsh-password-login/revoke` | 面板 | 已认证会话（admit 门）发起 → **回收所有已发会话而不改密码**（epoch 推进、指纹不动）；**绝对全员下线——不自动换票，点击者本人同样失效**，经书签重登（用户裁决 2026-10-05 二次修订；与 rotate 的"改密者存活"语义区分）；未设密码态同样生效且撤销跨纯重启保持（unset→unset 重启沿用 epoch）。**修订 2026-10-05**：恢复被裁决 #21 砍掉的按钮（用户裁决）——动机：yml 热改密码不撤已发会话的实测缺口需要"只踢人不改密"通道 |
 
 - 面板（客户端 bundle）注入 dsh 设置页，调用 `status`/`rotate`/`revoke`；UI 仅用 dsh 宿主 UI 原语（见 §A）。
 - 浏览器加固（与官方栅栏同规，**全部端点统一**）：带 `Origin` 头时必须等于 Host；`sec-fetch-site: cross-site` 一律拒绝（兼防跨站点戳 `/login` 触发 Basic 弹窗）。app 原生请求不带这些头，不受影响；面板同源天然满足。
