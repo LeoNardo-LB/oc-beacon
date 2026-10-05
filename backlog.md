@@ -60,14 +60,6 @@
   - → docs/journal/2026-10-05-a.md §1
   - 根修落地（0f2c78dc）：flushPendingDeltas first-text 过桥（空种子注册族渲染条目存在性桥）；单测 3877/0/0 + 真机渐进渲染恢复（MDResize +66/+132 连续至完结、零负向）；嫌疑窗口（#509二期/#510）洗清——回归自 B案 V1 主路径即存在；verify 态待用户重演卡1
 
-- [~] **#507 流式毕业内容消失——turnGroups 结构缓存空 parts 阻断 #g 条目发射** `streaming` `render` `shard-pilot` `regression`
-  - 用户报告：流式中所有内容突然没掉又恢复、前文全部消失；卡片展开收起不稳定。真机定罪（连拍+语义树+探针三轮）：fire 后尾卡塌至 96px 且冻结 StreamChunk/StreamPrefix 条目从未组合——毕业的 2000+ 字无处渲染。
-  - 根因：#g 条目生成的发布查找走 turnGroups 的 cm.parts——turnGroups 是结构缓存（id 生命周期签名），流式宿主 ChatMessage 捕获于创建时刻（parts 尚空，出生在后续 delta 批），签名不变缓存永不刷新 → 查找恒 miss。渲染管道（renderableTurns miss 分支修正）看得见 parts——两管道视野分裂。
-  - 修复：发布查找改 turnKey 直查（PublishedShards.turnKey 同源注册期条目键），组遍历降兜底——绕开整类 parts 引用陈旧性。回归测试 StreamShardEntryEmissionTest（结构缓存空 parts 场景红→绿）；真机 E2E 毕业①len2179/h5065px 毕业②len2093/h4796px 冻结条目全高组合，视觉满屏连续正文零消失。508-shard 探针（组合+实测高度）按 keep-probes 裁决保留 DEBUG-only。
-  - 展开收起不稳定主根因同源（内容消失+整视口条目churn）；修复后毕业重排仍在（冻结条目插入+尾块收缩=引擎配对合法转移）——待用户验收确认，若残余另立卡。
-  - 复杂交互矩阵验收（2026-10-03 晨，8 场景全过）：T1 毕业时上滚阅读（读位历经完结换装纹丝不动）/T2 流式中展开思考卡保到完结（3 毕业穿过展开态，冻结块 5380/5084/3960px 全高）/T3 六连toggle 展开收起（终态正确零破损）/T4 排队第二问（双轮交接 fires 单调）/T5 Home 后台 6s 回前台（无缝，4 fires 单调）/T6 毕业后远滚驱逐+回滚（冷启 adopt 续账，冻结条目同长重组，继续毕业 6779→9062）/T7 9500+字压力（6 fires 单调 2047→12363，每刻内容在场）/T8 退出重进冷启（8 章+结语零缺口）。全程 20+ fires 全单调、零 reset、零 dropped、零换装 forensic miss。
-  - 验收演示（2026-10-05 卡1）：用户判「无流式输出」完全正确——三层仪器坐实渲染冻结-完结砸出（服务器渐进✓/接收✓/渲染✗），独立立案 #513；本卡 verify 冻结至 #513 根修
-
 - [~] **#506 思考卡计时拖满全程+展开内容困在 240dp 隐形滚动窗（#506）** `streaming` `dsh` `render`
   - 真机 t33/t34 定罪（用户报告）：①DSH 把 reasoning 的 block-end 压到整流结束才发（t32 抓包：思考 22:10:56 完，block-end 22:12:03.9 才到）→ time.end 迟到 67s → 计时跑满正文流式全程；②展开思考卡内容完整可达但锁在 240dp 内滚窗（无滚动条提示/流式不跟随），用户感知「展示不全」。
   - 修复：①DshEventMapper block-start(N) 顺手给前驱 N-1 发 TimePatch（块严格顺序抓包零交错实证；TimePatch 端 end==null first-write-wins，晚到的真实 block-end 自然让位）；②ReasoningBlock 展开区撤 240dp 帽+内部滚动=全内容高度（展开即看全意图；supersede 2026-08-16 240dp 裁决——同域最新用户投诉为准）。
