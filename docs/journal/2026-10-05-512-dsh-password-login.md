@@ -40,3 +40,15 @@
 **证据**：`dsh-password-login/docs/emu-evidence/`（01 免密即连截图、02 宿主密码态截图、03 docker 密码态截图、logcat-chain.txt）；app 侧判读行 `DshConnRegistry: auth recovered ... via FreeMint/PasswordMint`、`session mint not taken: HTTP 403 (free/bearer)` 全部在案。
 
 **工具坑（备查）**：软渲染下模拟器 System UI 会 ANR 挡前台（input keyevent 方向键+回车选 Wait 消掉再 dump）；logcat grep "mint" 会误中 "mainline"。真机腿（e69a99d8）保留为可选复验——仪器面已被模拟器形态全覆盖。
+
+## 全链补测轮——web 三链 + 模拟器两腿（2026-10-05）
+
+用户追问"模拟器、web 各个链路都测了么"——盘点出五条空白并全部补齐：
+
+**WEB-A 浏览器真实 Basic 登录**：内联凭据 URL（`http://u:pw@host/plugins/dsh-password-login/login`）触发浏览器 Basic 机制 → 验密 → 303 → `/` 完整认证 UI。**现象定位**：内联凭据加载的页面其 fetch 子资源被浏览器拦截（宿主自身 /api 也瘫）——纯自动化捷径产物；真实用户书签是干净 URL+原生弹窗，303 后落干净页面不受影响（干净页 fetch /status 200 实证）。原生弹窗本体无法被 Playwright 驱动，为唯一未自动化的UI壳（curl -u 等价覆盖逻辑）。
+**WEB-B 面板轮换 UI 流**：设置→内置插件→登录密码→填 current/next/confirm→轮换→成功消息+表单重置+面板存活（自动换票）。
+**WEB-C 外部踢线→书签重进**：curl 轮换（外部对端）→ 浏览器 cookie 处死（/status 导航 unauthorized）→ 书签凭新密码重进（303→/）→ 新 cookie admit 放行（{configured:true}）。
+**EMU-D 持久化直连**：app force-stop 冷启 → probe 直接 Online(authenticated=true)，零 recoverAuth——DataStore+SecretCipher 持久化的铸票跨进程存活。
+**EMU-E 真实对话流**：mock provider（OpenAI SSE 兼容，9201）+ dsh llm overlay → 模拟器 app 发送 "HelloFromEmulator" → mock 流式回复渲染「连接链路验证成功（mock 回复）」+ 模型栏 Mock Chat——app→dsh(插件票认证)→provider→SSE→UI 全环。**三证合一**：UI dump 渲染文本 + 截图（04-conversation-flow.png）+ Room WAL 直查 4 处命中（主 db 未 checkpoint 属正常）。
+
+工具坑补录：IAB 内联凭据页 fetch 污染（见上）；dsh web 每次导航重弹预览说明/API-key 引导（坐标随状态漂移，截图定位法可靠）。
