@@ -94,6 +94,7 @@
   - 2026-10-05 追加裁决（卡片摘要中「零客户端 bundle」以此为准）：①web 登录改用浏览器原生 HTTP Basic 单密码弹窗（用户名忽略），自绘登录表单废弃；②密码管理面板回归 scope——客户端 bundle 注入 dsh 设置页，UI 一律消费 dsh 宿主 UI 原语（keepalive primitives.ts 先例），禁止引入第三方 UI 组件库；③自绘「记住我」废弃，记忆职责归浏览器密码管理器。spec 已同步（§A/§B/§E/§G/§K/Out of Scope）。
   - 修订 2026-10-05：恢复「回收所有会话」按钮（POST /revoke，裁决 #21 推翻）——不改密只踢人+调用者自动换票+未设密码态生效且跨重启保持；动机=yml 热改不撤票缺口。spec §B 已修订。
   - 二次修订 2026-10-05：/revoke 改绝对语义——不自动换票，回收=全员下线含点击者本人（用户裁决；rotate 仍保留改密者存活）；面板文案/单测/E2E 同步（49 断言）。
+  - 根路径弹跳（2026-10-05）：无 token 未认证 GET / → 303 /plugins/dsh-password-login/login（authorizeIndex 包装，stale 让位官方 401）——消除回收后缓存空壳与 401 白页两种困惑；F05 零配置全链断言。
 
 - [~] **#511 10h 人类行为模拟 + 高度栈覆盖审计收口** `streaming` `height` `soak`
   - mock LLM(12语料×7画像+5%断流)→v1-e2e:4299→真机随机化驱动器（10h 挂钟，2026-10-04 09:30 发车）；review.sh 每2h签名台账+死亡复活+过deadline终盘自动收割（cron automation-3e10101d）

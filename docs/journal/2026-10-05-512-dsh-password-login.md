@@ -81,3 +81,11 @@
 ## revoke 绝对语义修订（2026-10-05）
 
 用户裁决：回收按钮点击后**点击面板自身也要重新登录**。实现：/revoke 去掉自动换票——200 无 Set-Cookie，调用者 cookie 同样死于 epoch；面板 store 消息改「已回收所有已发会话（含本面板）——请经登录书签重新进入」，后续 /status 401 → unauthorized 横幅（既有态复用）。rotate 语义不变（改密者凭新密码知识存活）。验证：单测 63/63（revoke 无 Set-Cookie 断言）；E2E 七相位 49 断言全绿（A32 无换票/A33 受害者+回收者双死/A34 撤后新血统、F/G 未设态同语义）。演示容器 dsh-pw-demo 已重启加载新代码。
+
+## 根路径弹跳轮（2026-10-05）
+
+**动机（用户实锤）**：回收后重访 `/` 命中浏览器缓存的 index.html——SPA 壳完整渲染"看似正常"，但 /api 全 401、WS 拒连（页面横幅「连接中断正在重试」）。壳骗眼睛，比 401 白页更误导。
+
+**实现**：链式包装 `connection.authorizeIndex`——无 token 且未认证的 index 请求 → `303 → /plugins/dsh-password-login/login`（cache-control: no-store）。token 交换流与已认证请求原样走官方路径；**stale（金丝雀漂移）时不劫持**（铸票不可信时重定向必成死循环，退回官方 401）；fail-open + dispose 还原同款三保险。新增 `src/rootredirect.ts` 纯函数 + 4 例单测；E2E A03 改弹跳断言、F05 零配置全链（/ → 303 login → 免密铸票 → 303 / → 200）——**七相位 50 断言全绿**，单测 67/67。
+
+**容器 401 假象排查记（备查）**：slim 镜像无 ps/pgrep/pkill/ss——"强杀+端口清空确认"全部静默失败（`|| echo port clear` 是命令不存在的假阴性），旧进程一直活着答 401；按 /proc 精确 PID kill 后立刻 303。宿主与容器代码行为一致，无真实差异。演示容器 dsh-pw-demo 已加载最终版（弹跳+绝对回收）。
