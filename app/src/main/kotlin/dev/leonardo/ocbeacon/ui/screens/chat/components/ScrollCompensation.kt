@@ -1091,15 +1091,18 @@ private fun applyPairedShift(
         // 原净和 total 把未配对资格的驱动步进一并折入（连 ledger 免派发格
         // 也被净和淹没），单帧错发=概率性上向跳变源。
         val hatDeltaP = (pendingPlan?.delta ?: 0) - dStepTotalV
-        val hatScrollP = if (pendingPlan?.scrollPaired == true) hatDeltaP else 0
-        // #551：视口预算截断——正配对分量（驱动逐卡+窗内帽）合计不超剩余预算；
-        // 驱动盒高照常推进（截断只作用于滚动写入），小卡（全高<预算）零变化
+        // #551 八报热修：预算只管**episode 内**的离底让位（窗内帽+驱动步进）——
+        // 稳态阅读跟随（锚规则配对，窗外）绝不受预算截断：窗耗尽预算后若把
+        // 阅读跟随也清零，流式增长会把阅读位逐帧往下拖（用户八报实证）。
+        val windowOpenP = (reserve?.expandPairingWindows ?: 0) > 0
+        val hatWindowP = if (windowOpenP && pendingPlan?.scrollPaired == true) hatDeltaP else 0
+        val hatAnchorP = if (!windowOpenP && pendingPlan?.scrollPaired == true) hatDeltaP else 0
         val budgetLeftP = reserve?.expandDepartureBudgetLeft ?: Int.MAX_VALUE
-        val allowedP = capDepartureByBudget(drivePosScrollV, hatScrollP, budgetLeftP)
-        val scrollTotalP = allowedP
+        val allowedP = capDepartureByBudget(drivePosScrollV, hatWindowP, budgetLeftP)
         if (reserve != null && allowedP > 0) {
             reserve.expandDepartureBudgetLeft = budgetLeftP - allowedP
         }
+        val scrollTotalP = allowedP + hatAnchorP
         val totalP = scrollTotalP.toFloat() + ledgerTotal
         val (targetFii, targetFiso, targetKey) = resolvePairedTarget(
             fii = listState.firstVisibleItemIndex,

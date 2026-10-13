@@ -648,4 +648,22 @@ class FlushTaskPhasesTest {
         assertEquals(0, capDepartureByBudget(drivePos = 400, hatPos = 100, budgetLeft = 0))        // 耗尽
         assertEquals(300, capDepartureByBudget(drivePos = 300, hatPos = -50, budgetLeft = 1000))   // 负帽不占
     }
+
+    @Test
+    fun `551八报 窗外阅读跟随不受预算截断 - 预算耗尽仍配对`() {
+        mockkObject(LazyListReflection)
+        mockkObject(ScrollQuiescence)
+        motive("八报热修回归钉：窗耗尽预算后，稳态（无窗）阅读位增长配对必须照常派发——被截断会把阅读位逐帧往下拖");
+        val reserve = HeightReserveState().apply {
+            itemKey = "k1"; trueHeight = 2000; reserved = 1000
+            expandDepartureBudgetLeft = 0   // 预算已耗尽（此前 episode 用完）
+        }
+        // 阅读位（fii=7 深处）增长配对——无窗：不得吃预算
+        val state = stateWithOwnerItem(7, 900, ownerIndex = 7)
+        every { state.dispatchRawDelta(any()) } returns 0f
+        streamingGrowFlushTask(state, emptyLedger(), reserve).onPreDraw()
+        verify(exactly = 1) { LazyListReflection.requestScrollToItemNoCancel(any(), 7, 1900, any()) }
+        assertEquals(0, reserve.expandDepartureBudgetLeft)  // 预算未被消费
+        assertEquals(2000, reserve.reserved)
+    }
 }
