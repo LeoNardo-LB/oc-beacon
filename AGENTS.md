@@ -109,6 +109,7 @@ SSE → UI 管线：**100ms token 批处理（`STREAM_FLUSH_INTERVAL_MS`，引�
 - **`scheduleFlush()` 不得取消进行中的定时器** — 每个 token 都取消会在速率 > 20/s 时饿死 flush → 突发式卡顿输出。
 - **流式增长配对只应用于流式 turn**（`if (isStreamingMsg)`；#435 起经 `streamingGrowPairing` 记账入 `StreamingGrowLedger`）— 应用到所有 assistant 消息会让已完结消息暴露在不稳定测量下。
 - **流式增长的视口配对必须走高度引擎统一规则（#435「锚即意图」）：贴底跟随族/读历史一律免派发，锚上移进入增长源才 +Δ 同帧配对（PreRenderCoordinator flush 单点）** — 任何绕过引擎的流式滚动注入都会重新引入贴底震荡（工具横幅按批节奏增长推离贴底）或读历史拖拽。
+- **高度参照系与动态性（2026-10-13 用户裁决）**：reverseLayout 以会话流**最底部**为高度 0 点；一切高度动态变化——稳定高度必须=**高度改变事件时刻的当前高度 + Δ**，禁止冻结/跨事件累积（max 棘轮、历史高水位）。完整公式与实证见 `docs/research/sse-scroll-stability-iron-laws.md` §2.4bis。
 - **autoScroll 的重估必须以 `isScrollInProgress` 和 `isAtBottom` 两者为键**（ChatScrollController snapshotFlow 双值流等价式）— `isAtBottom` 是自愈机制（fling/SSE 推送回底时重置标志）。**不要把 `isAtBottom` 从键中移除。**
 
 完整回归历史见 `docs/research/sse-scroll-stability-iron-laws.md`。**Ktor 明确使用 OkHttp engine**（SSE 流式正确性），不要切换其他引擎。
