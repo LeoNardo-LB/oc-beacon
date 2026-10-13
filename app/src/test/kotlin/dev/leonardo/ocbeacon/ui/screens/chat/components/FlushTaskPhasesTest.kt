@@ -637,4 +637,15 @@ class FlushTaskPhasesTest {
         assertEquals(10, drivePositivePairedShift(80, listOf(uncaptured))) // 未捕获→保守配对（legacy 盲配）
         assertEquals(0, drivePositivePairedShift(500, listOf(neg)))       // 负步进不经本表
     }
+
+    @Test
+    fun `551 离底让位预算截断 - 超预算截断与小卡零影响`() {
+        // 七报定罪形态：巨卡全高配对让位推飞视口（fiso +11.6k≈5 屏）。
+        // 预算内（小卡）全配对；超预算截断到剩余量；负帽不占预算。
+        assertEquals(500, capDepartureByBudget(drivePos = 300, hatPos = 200, budgetLeft = 1000))   // 预算内全量
+        assertEquals(800, capDepartureByBudget(drivePos = 600, hatPos = 300, budgetLeft = 800))    // 恰好
+        assertEquals(700, capDepartureByBudget(drivePos = 900, hatPos = 500, budgetLeft = 700))    // 截断
+        assertEquals(0, capDepartureByBudget(drivePos = 400, hatPos = 100, budgetLeft = 0))        // 耗尽
+        assertEquals(300, capDepartureByBudget(drivePos = 300, hatPos = -50, budgetLeft = 1000))   // 负帽不占
+    }
 }

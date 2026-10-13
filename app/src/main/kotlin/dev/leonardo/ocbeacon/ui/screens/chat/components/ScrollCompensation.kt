@@ -358,6 +358,16 @@ internal class HeightReserveState {
     var expandCollapseSpanDepth: Int = -1
 
     /**
+     * #551（2026-10-13 七报+高度参照系裁决）：**离底让位视口预算**——单次展开
+     * 事件的正向配对总位移上限（卡侧 toggle 时刻置为一屏主轴）。超视口揭示的
+     * 全高让位会把视口推飞数屏（实证 fiso 2155→13813≈5 屏「跳到上面」）；
+     * 预算内照常配对（小卡全高=预算内不受影响），预算耗尽后驱动盒照常长高、
+     * 增长自然溢出折叠下方（用户滚动自取）。多窗并发共享预算（开窗即重置，
+     * 组合离底上限恒一屏）。消耗点：applyPairedShift 正向分支。
+     */
+    var expandDepartureBudgetLeft: Int = Int.MAX_VALUE
+
+    /**
      * #540 三轮：在飞降级驱动（**四报改列表**——同流式 item 多卡并发 toggle 时
      * 单槽被后卡覆盖、先卡孤儿化瞬跳，四报竞态定罪之一）。flush 每帧遍历步进；
      * 卡侧 toggle 组合期注册、窗关 finally 注销（仅 !animating）。
@@ -447,6 +457,10 @@ internal fun drivePositivePairedShift(anchorTop: Int, drives: List<DegradeDriveS
     }
 
 /** 驱动步进纯函数（指数逼近 ~180ms@60fps，AV spring 观感等价）。0=稳态/等测高。 */
+/** #551：离底让位预算截断（纯函数）——正配对分量之和不超过剩余预算。 */
+internal fun capDepartureByBudget(drivePos: Int, hatPos: Int, budgetLeft: Int): Int =
+    minOf(drivePos + hatPos.coerceAtLeast(0), budgetLeft.coerceAtLeast(0))
+
 internal fun degradeDriveStep(hCur: Int, hTarget: Int): Int {
     if (hTarget < 0) return 0
     val remaining = hTarget - hCur
@@ -1078,7 +1092,14 @@ private fun applyPairedShift(
         // 也被净和淹没），单帧错发=概率性上向跳变源。
         val hatDeltaP = (pendingPlan?.delta ?: 0) - dStepTotalV
         val hatScrollP = if (pendingPlan?.scrollPaired == true) hatDeltaP else 0
-        val scrollTotalP = hatScrollP + drivePosScrollV
+        // #551：视口预算截断——正配对分量（驱动逐卡+窗内帽）合计不超剩余预算；
+        // 驱动盒高照常推进（截断只作用于滚动写入），小卡（全高<预算）零变化
+        val budgetLeftP = reserve?.expandDepartureBudgetLeft ?: Int.MAX_VALUE
+        val allowedP = capDepartureByBudget(drivePosScrollV, hatScrollP, budgetLeftP)
+        val scrollTotalP = allowedP
+        if (reserve != null && allowedP > 0) {
+            reserve.expandDepartureBudgetLeft = budgetLeftP - allowedP
+        }
         val totalP = scrollTotalP.toFloat() + ledgerTotal
         val (targetFii, targetFiso, targetKey) = resolvePairedTarget(
             fii = listState.firstVisibleItemIndex,

@@ -672,6 +672,11 @@ internal fun CardExpandReveal(
                     }
                     if (!mineAlready) pr.degradeDrives.add(drive)
                     pr.expandPairingWindows++
+                    // #551：离底让位视口预算——开窗时刻（事件时刻）置一屏主轴；
+                    // 多窗并发共享（重置式），组合离底上限恒一屏
+                    listState?.layoutInfo?.viewportSize?.let { vp ->
+                        pr.expandDepartureBudgetLeft = vp.height
+                    }
                     // 表述乙几何捕获（塌缩不变量：盒顶上方内容收起中不动）——距 item
                     // 顶偏移=盒顶 root-Y − 物主 item 根 root-Y（CML 逐 placement 供给）。
                     // 四报：几何**随卡走**（drive.stickTop/spanDepth）——reserve 级
@@ -739,6 +744,10 @@ internal fun CardExpandReveal(
                         pr.expandCollapseStickTop = -1
                         pr.expandCollapseSpanDepth = -1
                     }
+                    // #551：种子 settle 事件锚定——episode 关窗时刻以**当下**内容高
+                    // 刷新（高度动态；上窗的值不跨事件滞留）。分期未追平的极端窗
+                    // 由 toggle 时刻的 600ms 单调护栏兜底（staged 小值不反拽）。
+                    if (contentH.intValue > 0) finalHSeed.value = contentH.intValue
                     // 三轮：驱动完结注销（四报列表制）；未完结（40 帧上限早闭/手势
                     // 冻结）保留在列表给 flush 续步（稳态步进=0 无害）。
                     if (!drive.animating) {
@@ -810,7 +819,8 @@ internal fun CardExpandReveal(
                     Box(
                         androidx.compose.ui.Modifier.onSizeChanged { sz ->
                             contentH.intValue = sz.height
-                            if (sz.height > finalHSeed.value) finalHSeed.value = sz.height
+                            // #551：种子不再 max 棘轮（七报定罪：跨事件冻结暂态
+                            // 膨胀高）——种子的刷新移至窗关时刻（settle 事件锚定）
                             // #549 Fix A：展开相单调护栏——toggle 后 600ms 内 hTarget
                             // 不因分期暂态矮化而下调（r400 slam 根源）；此后自由跟踪
                             //（流式增长恒升格、重排收缩=合法补偿）
@@ -859,8 +869,11 @@ internal fun CardExpandReveal(
         androidx.compose.runtime.mutableStateOf(-1).also { it.value = finalHCacheRaw.value }
     }
     fun storeFinalH(h: Int) {
-        if (h > finalHCacheRaw.value) finalHCacheRaw.value = h
-        if (h > finalHCache.value) finalHCache.value = h
+        // #551 高度参照系裁决（2026-10-13）：事件时刻直写——两处调用点均写
+        // settle/落地时刻的实测高（episode 派发落地高 / 预热稳定高），高度动态
+        // 变化，max 棘轮会把暂态膨胀高永久钉住（七报 tgt=13807 虚高实证同族）。
+        finalHCacheRaw.value = h
+        finalHCache.value = h
     }
 
     /** #423 批次十一:幕布系数(纯 draw 揭示;draw 相读,动画循环写)。 */
