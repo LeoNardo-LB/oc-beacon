@@ -123,6 +123,8 @@ internal val LocalCardExpandReserve = compositionLocalOf<HeightReserveState?> { 
 internal val LocalCardExpandCacheKey = compositionLocalOf<Any?> { null }
 
 /** 展开位移离开贴底区(补偿后)判定阈值,对齐 isAtBottom 的 100px 判据。 */
+private const val EXPAND_MONOTONE_GUARD_MS = 600L
+
 private const val DEPARTURE_THRESHOLD_PX = 100f
 
 private const val FADE_TWEEN_MS = 300
@@ -826,7 +828,7 @@ internal fun CardExpandReveal(
                             //（流式增长恒升格、重排收缩=合法补偿）
                             if (visible) {
                                 val desired = if (
-                                    android.os.SystemClock.elapsedRealtime() - lastExpandAtMs.longValue < 600
+                                    android.os.SystemClock.elapsedRealtime() - lastExpandAtMs.longValue < EXPAND_MONOTONE_GUARD_MS
                                 ) maxOf(sz.height, drive.hTarget) else sz.height
                                 if (drive.hTarget != desired) drive.hTarget = desired
                             }

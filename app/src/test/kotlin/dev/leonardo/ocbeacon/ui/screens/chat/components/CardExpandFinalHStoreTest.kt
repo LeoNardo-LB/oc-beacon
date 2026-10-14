@@ -35,10 +35,11 @@ class CardExpandFinalHStoreTest {
     }
 
     @Test
-    fun `only-up semantics guards stale rewrite`() {
+    fun `551 事件时刻直写 - 后写覆盖先写（settle 值即新真相）`() {
+        // #551 高度铁律：record 为 settle/落地实测的直写通道，max 棘轮退役
         CardExpandFinalHStore.record("k1", 1080, 6144)
         CardExpandFinalHStore.record("k1", 1080, 63)
-        assertEquals(6144, CardExpandFinalHStore.get("k1", 1080))
+        assertEquals(63, CardExpandFinalHStore.get("k1", 1080))
     }
 
     @Test

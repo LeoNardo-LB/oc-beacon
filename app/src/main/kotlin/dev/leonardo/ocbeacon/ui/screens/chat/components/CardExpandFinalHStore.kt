@@ -25,12 +25,16 @@ internal object CardExpandFinalHStore {
     @Synchronized
     fun get(cacheKey: String, widthKey: Int): Int? = cache[Key(cacheKey, widthKey)]
 
-    /** 只升不降（与 saveable finalHCache 同语义：防陈旧回写压低已知终高）。 */
+    /**
+     * #551 高度参照系裁决（2026-10-13 双轴复审收口）：事件时刻直写（与 saveable
+     * finalHCache 刀②同语义）——调用点均为 settle/落地实测；max 棘轮会把暂态
+     * 膨胀高跨事件钉住（铁律禁历史高水位）。冷抬底消费方 maxOf(storeFloor,
+     * saveableFloor) 取双源较新估计，floor 降低=少抬不破 #533（1.5s 桥接不变）。
+     */
     @Synchronized
     fun record(cacheKey: String, widthKey: Int, heightPx: Int) {
         if (heightPx <= 0) return
-        val k = Key(cacheKey, widthKey)
-        if ((cache[k] ?: 0) < heightPx) cache[k] = heightPx
+        cache[Key(cacheKey, widthKey)] = heightPx
     }
 
     /** 单测隔离。 */

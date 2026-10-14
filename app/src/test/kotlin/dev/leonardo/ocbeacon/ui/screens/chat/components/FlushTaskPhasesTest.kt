@@ -647,6 +647,7 @@ class FlushTaskPhasesTest {
         assertEquals(700, capDepartureByBudget(drivePos = 900, hatPos = 500, budgetLeft = 700))    // 截断
         assertEquals(0, capDepartureByBudget(drivePos = 400, hatPos = 100, budgetLeft = 0))        // 耗尽
         assertEquals(300, capDepartureByBudget(drivePos = 300, hatPos = -50, budgetLeft = 1000))   // 负帽不占
+        assertEquals(4096, capDepartureByBudget(drivePos = 4096, hatPos = 0, budgetLeft = Int.MAX_VALUE))  // 未初始化直通
     }
 
     @Test

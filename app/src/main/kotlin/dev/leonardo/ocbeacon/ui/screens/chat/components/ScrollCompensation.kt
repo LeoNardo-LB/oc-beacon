@@ -362,8 +362,10 @@ internal class HeightReserveState {
      * 事件的正向配对总位移上限（卡侧 toggle 时刻置为一屏主轴）。超视口揭示的
      * 全高让位会把视口推飞数屏（实证 fiso 2155→13813≈5 屏「跳到上面」）；
      * 预算内照常配对（小卡全高=预算内不受影响），预算耗尽后驱动盒照常长高、
-     * 增长自然溢出折叠下方（用户滚动自取）。多窗并发共享预算（开窗即重置，
-     * 组合离底上限恒一屏）。消耗点：applyPairedShift 正向分支。
+     * 增长自然溢出折叠下方（用户滚动自取）。生命周期：开窗重置为一屏、关窗
+     * 不清零（残留驱动步进续受钳制；稳态锚规则配对经 hatAnchorP 豁免不受
+     * 残值影响——八报语义）。并发窗各自开窗重置=单窗上限一屏（多窗组合可
+     * 累计超一屏）。消耗点：applyPairedShift 正向分支。
      */
     var expandDepartureBudgetLeft: Int = Int.MAX_VALUE
 
@@ -456,11 +458,15 @@ internal fun drivePositivePairedShift(anchorTop: Int, drives: List<DegradeDriveS
         }
     }
 
-/** 驱动步进纯函数（指数逼近 ~180ms@60fps，AV spring 观感等价）。0=稳态/等测高。 */
-/** #551：离底让位预算截断（纯函数）——正配对分量之和不超过剩余预算。 */
+/**
+ * #551：离底让位预算截断（纯函数）——episode 内正配对分量（驱动逐卡+窗内帽）
+ * 之和不超过剩余预算；负分量钳 0（负帽不占预算）。稳态锚规则配对（八报保护
+ * 对象）不经此函数。
+ */
 internal fun capDepartureByBudget(drivePos: Int, hatPos: Int, budgetLeft: Int): Int =
     minOf(drivePos + hatPos.coerceAtLeast(0), budgetLeft.coerceAtLeast(0))
 
+/** 驱动步进纯函数（指数逼近 ~180ms@60fps，AV spring 观感等价）。0=稳态/等测高。 */
 internal fun degradeDriveStep(hCur: Int, hTarget: Int): Int {
     if (hTarget < 0) return 0
     val remaining = hTarget - hCur
@@ -1099,9 +1105,6 @@ private fun applyPairedShift(
         val hatAnchorP = if (!windowOpenP && pendingPlan?.scrollPaired == true) hatDeltaP else 0
         val budgetLeftP = reserve?.expandDepartureBudgetLeft ?: Int.MAX_VALUE
         val allowedP = capDepartureByBudget(drivePosScrollV, hatWindowP, budgetLeftP)
-        if (reserve != null && allowedP > 0) {
-            reserve.expandDepartureBudgetLeft = budgetLeftP - allowedP
-        }
         val scrollTotalP = allowedP + hatAnchorP
         val totalP = scrollTotalP.toFloat() + ledgerTotal
         val (targetFii, targetFiso, targetKey) = resolvePairedTarget(
@@ -1117,6 +1120,10 @@ private fun applyPairedShift(
             // 帽释放（若有）：与滚动待定位同一事务——高度扩展与位移下一遍 measure 同 pass 消费
             // #540 三轮：驱动步进同快照推进 + 帽预记（负向分支同款，见上）
             if (dStepP != 0) reserve?.degradeDrives?.forEach { if (it.pendingStep != 0) it.h += it.pendingStep }
+            // #551：预算扣减与驱动推进/帽预记同事务（原子性一致）
+            if (reserve != null && allowedP > 0) {
+                reserve.expandDepartureBudgetLeft = budgetLeftP - allowedP
+            }
             if (pendingPlan != null && reserve != null) {
                 reserve.reserved = reserve.trueHeight + dStepP
                 writtenReserve = true
