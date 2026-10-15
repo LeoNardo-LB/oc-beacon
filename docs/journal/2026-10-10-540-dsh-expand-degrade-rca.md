@@ -595,3 +595,22 @@ A/B 实证（p7_900 vs p7b_970）：tgt 13807（棘轮虚高）→5546（=settle
 ### 教训（并入铁律 §2.4bis 心法）
 
 **episode 约束绝不能泄漏到稳态域**——预算/截断/门槛类机制的适用域必须显式圈定在事件生命周期内；稳态跟随（锚规则）是流式体验的地基，任何「顺手一起管」都是回归源。八报是七报修复的当日回归：修复引入面必须在 24h 内过「稳态回归」扫描（本批 s5 的 monotone-drops 检查补入标准流程）。
+
+## §41 九报（#554）收起吸收垫根修（2026-10-15）
+
+**用户裁决（V3 顶缘不变式，已入铁律 §2.4bis）**：「展开与收起的时候，卡片的上部分都是完全不动的」——点击即锚：toggle 手势本身是锚点意图声明，卡片上缘在 episode 全程屏幕坐标恒定；二报 containment 锚位格（锚在揭示缘下方零操作）窗内让位。
+
+**几何定谳（不对称根因）**：展开配对方向=离底滚动（无界，恒可执行——八报前一直正常）；收起配对方向=向底滚动（有界，房间=fiso）——贴底 fiso≈0 时无房间，顶缘下坠是几何事实，不可凭空补偿。唯一零位移吸收器=卡片下的临时空位（垫）：布局净缩=已骑行量，垫随流式增长泄放（答案自下合拢）、重展开先耗（快速重向零位移）、流式结束路径翻转自清（降级→机件重组丢态）。贴底态禁止无房间的强制清垫（=延迟的强制下坠，违反不变式）。
+
+**定罪（真机 927万token subagent，2 轮实证）**：手动面=窗内负向 driveScrollShift containment 判锚恒在揭示缘下方→noop(outside-span)、镜像格被 coerceAtLeast(0) 钳死（代码级链路）；自动面（另案）=答案开始时裸思考文本→卡片换装收起 h 11901→96（d=-11805）完全绕过引擎——SGR-435 零行、pairing-window 全程 0、delta<0&&!expandPaired→null 存量语义，顶缘单帧下坠 11805px——属换装域（#501/#523），未并入本卡。日志 nine1_full/burst.log。
+
+**实现（c8b181963 + 2ca6c1153 + d9ca0647e，四通道）**：
+1. **骑行优先**：decomposeDriveSteps 纯函数——窗内负步进先消耗 fiso 房间（scrollStep=−ride），钳制余量记 pendingAbsorbDelta；
+2. **吸收垫**：DegradeDriveState.absorbPx（快照态）+ CardExpandReveal absorbPadHeight 布局修饰符（链序必须外置于 onSizeChanged——内层观察含垫会污染 degradeH/revealTopRootY toggle 几何，review 自查二定罪）；垫上内容零位移，空位在卡与后续内容之间；
+3. **增长泄放**：reservePhase 规划 drained=min(帽增长,Σ垫)（纯读），applyAbsorbDeltas 事务内提交+贪心泄放；帽 delta 净额化（垫增量不得伪装增长流入离底让位——预记 reserved=trueHeight+ΣscrollStep−drained）；
+4. **重展开耗垫**：正步进先吃本卡垫（scrollStep=s−eat），快速重向零位移。
+事务性设计：pendingAbsorbDelta 只在 applyPairedShift 的 withMutableSnapshot 内提交（手势/让位帧 plan 丢弃不落账，幂等重算）；垫未清的驱动在窗关 finally 留册（注销即垫永不泄放）。非物主锚形态窗内骑行分量不再被区外卫兵吞（review 自查一：分解已按房间承诺、执行掐掉=不一致）。
+
+**单测**：FlushTaskPhasesTest +5 组（贴底收起入垫零滚动/增长泄放余量才释放/快速重展开耗垫/decompose 纯函数四态/applyAbsorbDeltas 提交泄放）；既有四报多卡测试迁移（窗内逐卡全骑行 Σ 镜像——九报裁决覆盖被动锚格）。全量 4055+ 单测绿。
+
+**取证环境三坑（后续验证轮规避清单）**：round_setup tap(300,2530) 新布局命中导航元素致 TYPE-FAIL；长会话 a11y dump ~30KB 节点预算截断丢底部节点；deepseek 思考卡答案期不在 a11y 树（4 轮一致）——手动收起须短会话+视觉定位。新观察通道：SilentShift（引擎对上方 item 静默不补偿位移的既有语义，判读勿误判）。
