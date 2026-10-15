@@ -815,15 +815,15 @@ internal fun CardExpandReveal(
         val driveOwned = driveRegistered && drive.animating
         Box(
             modifier = modifier
+                // 九报（#554）：收起吸收垫——报告高=子高+垫（顶锚放置，垫悬于盒底
+                // 之下）。**必须置于 onSizeChanged/onGloballyPositioned 之外层**
+                //（链序=先者外）：degradeH/revealTopRootY 观察的是其内层尺寸，
+                // 垫在内会污染 toggle 几何捕获（spanDepth/drive.h 续值含垫）。
+                .absorbPadHeight { if (driveRegistered) drive.absorbPx else 0 }
                 .onSizeChanged { degradeH.intValue = it.height }
                 .onGloballyPositioned { coords ->
                     revealTopRootY.value = coords.positionInRoot().y
-                }
-                // 九报（#554）：收起吸收垫——外盒底追加垫高（flush 单写
-                // drive.absorbPx）。置于 onSizeChanged/onGloballyPositioned 之后
-                // （内层）：degradeH 仍量揭示盒本高（toggle 几何捕获不被垫污染），
-                // 垫只向下延伸（卡片上缘零位移，空位在卡与后续内容之间）。
-                .absorbPadHeight { if (driveRegistered) drive.absorbPx else 0 },
+                },
         ) {
             if (visible || driveOwned) {
                 Box(
