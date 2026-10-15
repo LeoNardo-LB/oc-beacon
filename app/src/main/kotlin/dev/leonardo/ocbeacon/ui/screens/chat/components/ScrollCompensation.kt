@@ -1150,8 +1150,16 @@ private fun applyPairedShift(
                     (listState.firstVisibleItemScrollOffset + total.toInt()).coerceAtLeast(0)
                 }
                 !anchorIsOwner -> {
-                    // 锚不在物主 item：按区外零操作（塌缩在锚下方，默认锚定本就正确）
-                    null
+                    // 锚不在物主 item：跨 item 几何失效，非驱动分量按区外零操作。
+                    // 九报（#554）：窗内驱动骑行分量不受本卫卫兵管辖——分解已按
+                    // fiso 房间承诺（pendingAbsorbDelta 只含未骑行余量），执行侧
+                    // 掐掉骑行=分解/执行不一致（骑行房间白耗、顶缘多坠）。
+                    if (driveScrollV != 0 || drivePosScrollV != 0) {
+                        (listState.firstVisibleItemScrollOffset + driveScrollV + drivePosScrollV)
+                            .coerceAtLeast(0) + ledgerTotal.toInt()
+                    } else {
+                        null
+                    }
                 }
                 collapseShiftV == 0 -> {
                     // 全部驱动在锚下方（新内容侧）：零操作
