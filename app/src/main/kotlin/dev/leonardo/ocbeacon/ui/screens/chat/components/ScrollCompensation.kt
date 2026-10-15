@@ -412,6 +412,29 @@ internal class DegradeDriveState(
     /** 本帧待应用步进（reservePhase 算出、applyPairedShift 事务内消费；幂等重算覆盖）。 */
     var pendingStep: Int = 0
 
+    /**
+     * 九报（#554）：本帧步进中**可滚动配对**的份额——收起步进被贴底钳住的余量
+     * 转入 [absorbPx] 吸收垫后，滚动侧只欠已骑行量；展开步进先耗垫（垫是本卡
+     * 自己让出的空位），余额才是净增长。shift 表读此而非 [pendingStep]（布局
+     * 全量与滚动配对量分离）。re-entrance 幂等：reservePhase 每帧重算覆盖。
+     */
+    var scrollStep: Int = 0
+
+    /**
+     * 九报（#554）：本帧吸收垫待提交增量（负步进的钳制余量 +，正步进的耗垫 −）。
+     * 事务性：手势/让位帧 plan 丢弃时不得落账（否则幂等重算双计垫）——只在
+     * applyPairedShift 的 withMutableSnapshot 内经 [applyAbsorbDeltas] 提交。
+     */
+    var pendingAbsorbDelta: Int = 0
+
+    /**
+     * 九报（#554，用户裁决「展开与收起时卡片上缘完全不动的」）：收起吸收垫高 px
+     * （快照态：flush 单写、CardExpandReveal absorbPad 渲染）。贴底流式收起时
+     * 未骑行走掉的塌缩量暂存为垫——布局净缩=已骑行量，卡片上缘同帧零位移；
+     * 垫随流式增长泄放（答案自下合拢）/重展开先耗/流式结束路径翻转自清。
+     */
+    var absorbPx: Int by androidx.compose.runtime.mutableIntStateOf(0)
+
     val animating: Boolean get() = hTarget >= 0 && h != hTarget
 }
 
@@ -426,12 +449,21 @@ internal class DegradeDriveState(
  * 高度推进无配对=残差偏移源。正步进的配对资格由
  * [drivePositivePairedShift] 逐卡判定，不经此表。
  */
-internal fun driveScrollShift(anchorTop: Int, drives: List<DegradeDriveState>): Int =
+internal fun driveScrollShift(
+    anchorTop: Int,
+    drives: List<DegradeDriveState>,
+    /**
+     * 九报（#554）：窗内（toggle 集进行中）恒骑行资格——点击即锚（卡片上缘
+     * 不变式），锚位 containment 格让位；钳制余量已由 [decomposeDriveSteps]
+     * 转吸收垫，本表所见 scrollStep 恒 ≤ 骑行房间。窗外维持二报判定表。
+     */
+    windowOpen: Boolean = false,
+): Int =
     drives.sumOf { d ->
-        if (d.pendingStep >= 0) {
+        if (d.scrollStep >= 0) {
             0
-        } else if (d.stickTop < 0 || d.spanDepth < 0 || anchorTop <= d.stickTop + d.spanDepth) {
-            d.pendingStep
+        } else if (windowOpen || d.stickTop < 0 || d.spanDepth < 0 || anchorTop <= d.stickTop + d.spanDepth) {
+            d.scrollStep
         } else {
             0
         }
@@ -449,14 +481,71 @@ internal fun driveScrollShift(anchorTop: Int, drives: List<DegradeDriveState>): 
  */
 internal fun drivePositivePairedShift(anchorTop: Int, drives: List<DegradeDriveState>): Int =
     drives.sumOf { d ->
-        if (d.pendingStep <= 0) {
+        if (d.scrollStep <= 0) {
             0
         } else if (d.stickTop < 0 || anchorTop >= d.stickTop) {
-            d.pendingStep
+            d.scrollStep
         } else {
             0
         }
     }
+
+/**
+ * 九报（#554）：驱动步进的**骑行/吸收分解**（纯函数，单测缝）——负步进先消耗
+ * 向底骑行房间（fiso 即 room），钳制余量记 [DegradeDriveState.pendingAbsorbDelta]
+ * 吸收垫（事务内提交）：布局净缩=已骑行量（卡片上缘同帧零位移，垫=未清偿的
+ * 塌缩空位）；正步进先耗本卡垫（快速重向：垫是本卡自己让出的空位，长回去零
+ * 位移）。返回 Σ scrollStep（=帽 reserved 预记净额：子高度变化 pendingStep+
+ * Δabsorb 恒等于 scrollStep）。仅窗内（toggle 集进行中）分解；窗外步进全量
+ * 直通（稳态无垫，legacy 语义）。
+ */
+internal fun decomposeDriveSteps(drives: List<DegradeDriveState>, room: Int, windowOpen: Boolean): Int {
+    var roomLeft = room.coerceAtLeast(0)
+    for (d in drives) {
+        val s = degradeDriveStep(d.h, d.hTarget)
+        d.pendingStep = s
+        d.pendingAbsorbDelta = 0
+        if (!windowOpen || s == 0) {
+            d.scrollStep = s
+        } else if (s < 0) {
+            val ride = minOf(-s, roomLeft)
+            roomLeft -= ride
+            d.scrollStep = -ride
+            d.pendingAbsorbDelta = (-s) - ride
+        } else {
+            val eat = minOf(d.absorbPx, s)
+            d.pendingAbsorbDelta = -eat
+            d.scrollStep = s - eat
+        }
+    }
+    return drives.sumOf { it.scrollStep }
+}
+
+/**
+ * 九报（#554）：吸收垫事务提交（**仅** applyPairedShift 的 withMutableSnapshot
+ * 内调用）——落账本帧分解的 pendingAbsorbDelta，再以流式增长预算贪心泄放
+ * （垫上方内容零位移、答案自下合拢）。返回实际泄放量（≤ 预算——垫被同帧
+ * 耗尽时收缩，残差下帧自愈）。
+ */
+internal fun applyAbsorbDeltas(drives: List<DegradeDriveState>, drainBudget: Int): Int {
+    for (d in drives) {
+        if (d.pendingAbsorbDelta != 0) {
+            d.absorbPx = (d.absorbPx + d.pendingAbsorbDelta).coerceAtLeast(0)
+            d.pendingAbsorbDelta = 0
+        }
+    }
+    var left = drainBudget.coerceAtLeast(0)
+    var drained = 0
+    for (d in drives) {
+        if (left <= 0) break
+        if (d.absorbPx <= 0) continue
+        val take = minOf(d.absorbPx, left)
+        d.absorbPx -= take
+        left -= take
+        drained += take
+    }
+    return drained
+}
 
 /**
  * #551：离底让位预算截断（纯函数）——episode 内正配对分量（驱动逐卡+窗内帽）
@@ -539,6 +628,11 @@ internal data class ReserveReleasePlan(
     val scrollPaired: Boolean,
     /** #540 三轮：本帧降级驱动步进量（applyPairedShift 事务内推进盒高+帽预记）。 */
     val driveStep: Int = 0,
+    /**
+     * 九报（#554）：本帧吸收垫泄放量（流式增长抵垫）——[delta] 已被此量净额化
+     * （帽只释放余量）；reserved 预记同扣（垫缩=子高缩）。0=无垫/无增长。
+     */
+    val drainedPx: Int = 0,
 )
 
 internal fun reserveReleasePlan(
@@ -908,16 +1002,36 @@ private fun reservePhase(listState: LazyListState, reserve: HeightReserveState?)
     // plan.scrollPaired 回归**纯帽通道**语义（帽增量=流式内容增长，镜像=最新
     // toggle 意图，对帽通道是正确归属）。
     var dStepSum = 0
-    for (d in reserve.degradeDrives) {
-        val s = degradeDriveStep(d.h, d.hTarget)
-        d.pendingStep = s
-        dStepSum += s
-    }
-    if (dStepSum != 0) {
+    // 九报：骑行/吸收分解后的滚动配对 Σ（帽预记净额）与垫增量（探针用）
+    val windowOpenForDecompose = reserve.expandPairingWindows > 0
+    val dScrollSum = decomposeDriveSteps(
+        reserve.degradeDrives,
+        room = listState.firstVisibleItemScrollOffset,
+        windowOpen = windowOpenForDecompose,
+    )
+    for (d in reserve.degradeDrives) dStepSum += d.pendingStep
+    // 九报：流式增长优先抵垫——帽 delta 净额化（垫上方内容零位移，余量才释放）。
+    // 规划值（纯读）：实际泄放在 applyPairedShift 事务内 applyAbsorbDeltas 提交
+    //（手势/让位帧 plan 丢弃时不落账，幂等）。
+    val padTotal = reserve.degradeDrives.sumOf { it.absorbPx }
+    val drained = if (plan != null && plan.delta > 0) minOf(plan.delta, padTotal) else 0
+    if (dStepSum != 0 || drained != 0) {
+        // 九报：delta 用 dScrollSum（布局净额=已骑行+垫变化）——吸收增量不得
+        // 伪装成增长流入帽通道（否则垫被当释放量离底让位=自造位移）。
+        if (BuildConfig.DEBUG && (dScrollSum != dStepSum || drained != 0)) {
+            AppLogger.d(
+                "ABSORB",
+                "decompose t=" + android.os.SystemClock.elapsedRealtime() +
+                    " stepΣ=" + dStepSum + " scrollΣ=" + dScrollSum +
+                    " drain=" + drained + " padΣ=" + reserve.degradeDrives.sumOf { it.absorbPx } +
+                    " fii=" + listState.firstVisibleItemIndex + " fiso=" + listState.firstVisibleItemScrollOffset,
+            )
+        }
         return ReserveReleasePlan(
-            delta = (plan?.delta ?: 0) + dStepSum,
+            delta = ((plan?.delta ?: 0) - drained) + dScrollSum,
             scrollPaired = plan?.scrollPaired ?: false,
             driveStep = dStepSum,
+            drainedPx = drained,
         )
     }
     if (plan != null) {
@@ -978,9 +1092,17 @@ private fun applyPairedShift(
         // containment（driveScrollShift），正步进走揭示缘逐卡否决
         // （drivePositivePairedShift）；净符号不再决定分量的规则归属。
         val anchorTop0 = reserve?.reserved?.minus(listState.firstVisibleItemScrollOffset) ?: -1
-        val driveNegScrollV = if (reserve != null) driveScrollShift(anchorTop0, reserve.degradeDrives) else 0
+        val windowOpenV = (reserve?.expandPairingWindows ?: 0) > 0
+        val driveNegScrollV = if (reserve != null) {
+            driveScrollShift(anchorTop0, reserve.degradeDrives, windowOpen = windowOpenV)
+        } else {
+            0
+        }
         val drivePosScrollV = if (reserve != null) drivePositivePairedShift(anchorTop0, reserve.degradeDrives) else 0
         val dStepTotalV = pendingPlan?.driveStep ?: 0
+        // 九报：滚动配对 Σ（reserved 预记净额）与垫泄放预算（事务内提交）
+        val dScrollTotalV = if (reserve != null) reserve.degradeDrives.sumOf { it.scrollStep } else 0
+        val dDrainedBudgetV = pendingPlan?.drainedPx ?: 0
         if (total < 0f || dStepTotalV < 0) {
             // #540 三轮（表述乙·揭示缘参照，裁决 2026-10-11）：负向收缩弃
             // dispatchRawDelta 镜像——底缘钳制缺口（col4 capd=-3655 consumed=-277）
@@ -1047,10 +1169,13 @@ private fun applyPairedShift(
             androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
                 // #540 三轮：驱动步进与滚动写同快照（同遍 measure 原子消费）
                 if (dStepV != 0) reserve?.degradeDrives?.forEach { if (it.pendingStep != 0) it.h += it.pendingStep }
+                // 九报：吸收垫提交（钳制余量入垫/耗垫/增长泄放）与步进同快照
+                val actualDrainedV = if (reserve != null) applyAbsorbDeltas(reserve.degradeDrives, dDrainedBudgetV) else 0
                 if (pendingPlan != null && reserve != null) {
                     // 三轮：驱动帧帽预记步进——下一 measure 盒高落地后恰好追平；
-                    // 旧 `= trueHeight` 会让残差帧再释放一步=重复记账
-                    reserve.reserved = reserve.trueHeight + dStepV
+                    // 旧 `= trueHeight` 会让残差帧再释放一步=重复记账。
+                    // 九报：预记净额=ΣscrollStep−泄放（布局全量与滚动配对量分离）
+                    reserve.reserved = reserve.trueHeight + dScrollTotalV - actualDrainedV
                     writtenReserve = true
                 }
                 // noop 格的 ledger 折加：塌缩零操作，但同帧增长配对义务仍履行
@@ -1096,7 +1221,9 @@ private fun applyPairedShift(
         // 驱动通道（逐卡揭示缘否决）+ ledger，各自按各自规则判定后求和——
         // 原净和 total 把未配对资格的驱动步进一并折入（连 ledger 免派发格
         // 也被净和淹没），单帧错发=概率性上向跳变源。
-        val hatDeltaP = (pendingPlan?.delta ?: 0) - dStepTotalV
+        // 九报：净额提取改用 ΣscrollStep（吸收增量不得伪装帽增长；垫泄放已在
+        // reservePhase 净额入 delta——此处提取的是纯帽通道量）
+        val hatDeltaP = (pendingPlan?.delta ?: 0) - dScrollTotalV
         // #551 八报热修：预算只管**episode 内**的离底让位（窗内帽+驱动步进）——
         // 稳态阅读跟随（锚规则配对，窗外）绝不受预算截断：窗耗尽预算后若把
         // 阅读跟随也清零，流式增长会把阅读位逐帧往下拖（用户八报实证）。
@@ -1120,12 +1247,14 @@ private fun applyPairedShift(
             // 帽释放（若有）：与滚动待定位同一事务——高度扩展与位移下一遍 measure 同 pass 消费
             // #540 三轮：驱动步进同快照推进 + 帽预记（负向分支同款，见上）
             if (dStepP != 0) reserve?.degradeDrives?.forEach { if (it.pendingStep != 0) it.h += it.pendingStep }
+            // 九报：吸收垫提交（耗垫/增长泄放）与步进同快照；预记净额同负向分支
+            val actualDrainedP = if (reserve != null) applyAbsorbDeltas(reserve.degradeDrives, pendingPlan?.drainedPx ?: 0) else 0
             // #551：预算扣减与驱动推进/帽预记同事务（原子性一致）
             if (reserve != null && allowedP > 0) {
                 reserve.expandDepartureBudgetLeft = budgetLeftP - allowedP
             }
             if (pendingPlan != null && reserve != null) {
-                reserve.reserved = reserve.trueHeight + dStepP
+                reserve.reserved = reserve.trueHeight + dScrollTotalV - actualDrainedP
                 writtenReserve = true
             }
             if (totalP != 0f) {

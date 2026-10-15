@@ -551,6 +551,23 @@ private fun Modifier.degradeRevealHeight(hProvider: () -> Int): Modifier =
     }
 
 /**
+ * 九报（#554）：收起吸收垫——报告高=子高+垫（顶锚放置，垫悬于盒底之下）。
+ * 垫高由 flush 单写（drive.absorbPx 快照态）：贴底流式收起的钳制余量暂存，
+ * 卡片上缘零位移；垫随流式增长泄放/重展开耗除/流式结束路径翻转自清。
+ */
+private fun Modifier.absorbPadHeight(padProvider: () -> Int): Modifier =
+    this then object : LayoutModifier {
+        override fun MeasureScope.measure(
+            measurable: Measurable,
+            constraints: Constraints,
+        ): MeasureResult {
+            val child = measurable.measure(constraints.copy(minHeight = 0))
+            val pad = padProvider().coerceAtLeast(0)
+            return layout(constraints.maxWidth, child.height + pad) { child.place(0, 0) }
+        }
+    }
+
+/**
  * 卡片展开面统一包装(#420):原地揭示 + 同帧位移配对。
  * drop-in 替换各卡片的 AnimatedVisibility(CardExpandEnter/Exit);
  * 无作用域限定(任意父容器可用)。
@@ -752,7 +769,9 @@ internal fun CardExpandReveal(
                     if (contentH.intValue > 0) finalHSeed.value = contentH.intValue
                     // 三轮：驱动完结注销（四报列表制）；未完结（40 帧上限早闭/手势
                     // 冻结）保留在列表给 flush 续步（稳态步进=0 无害）。
-                    if (!drive.animating) {
+                    // 九报（#554）：吸收垫未清的驱动同样留册——flush 的增长泄放
+                    // （applyAbsorbDeltas）遍历 degradeDrives，注销即垫永不退役。
+                    if (!drive.animating && drive.absorbPx == 0) {
                         pr.degradeDrives.removeAll { it === drive }
                     }
                     if (BuildConfig.DEBUG) {
@@ -799,7 +818,12 @@ internal fun CardExpandReveal(
                 .onSizeChanged { degradeH.intValue = it.height }
                 .onGloballyPositioned { coords ->
                     revealTopRootY.value = coords.positionInRoot().y
-                },
+                }
+                // 九报（#554）：收起吸收垫——外盒底追加垫高（flush 单写
+                // drive.absorbPx）。置于 onSizeChanged/onGloballyPositioned 之后
+                // （内层）：degradeH 仍量揭示盒本高（toggle 几何捕获不被垫污染），
+                // 垫只向下延伸（卡片上缘零位移，空位在卡与后续内容之间）。
+                .absorbPadHeight { if (driveRegistered) drive.absorbPx else 0 },
         ) {
             if (visible || driveOwned) {
                 Box(
