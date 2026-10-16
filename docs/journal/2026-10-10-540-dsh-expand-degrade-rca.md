@@ -614,3 +614,13 @@ A/B 实证（p7_900 vs p7b_970）：tgt 13807（棘轮虚高）→5546（=settle
 **单测**：FlushTaskPhasesTest +5 组（贴底收起入垫零滚动/增长泄放余量才释放/快速重展开耗垫/decompose 纯函数四态/applyAbsorbDeltas 提交泄放）；既有四报多卡测试迁移（窗内逐卡全骑行 Σ 镜像——九报裁决覆盖被动锚格）。全量 4055+ 单测绿。
 
 **取证环境三坑（后续验证轮规避清单）**：round_setup tap(300,2530) 新布局命中导航元素致 TYPE-FAIL；长会话 a11y dump ~30KB 节点预算截断丢底部节点；deepseek 思考卡答案期不在 a11y 树（4 轮一致）——手动收起须短会话+视觉定位。新观察通道：SilentShift（引擎对上方 item 静默不补偿位移的既有语义，判读勿误判）。
+
+## §41bis 九报 E2E 第三战役：Mock V2 服务器（用户拍板「模拟 openai 协议接口数据流」方案）
+
+用户裁决方向二：自建 mock 服务器完全掌控思考流节奏。mock_oc.py（stdlib :4399）实现 V2 协议最小面（health/session/prompt/event SSE），reasoning.delta 间隔/行数/行长可调。三轮调试：键碰撞（行模板加 sid 唯一后缀）、行长与节奏调参（短行+2s=分钟窗、答案 8s/块=近静止）。
+
+**成果**：①用户字面场景（思考卡自身流式中手动 toggle）8 连 toggle 全部 Δwin=1、卡顶 Δtop=0（帧证 m3/m4）；②m2 二窗拿到真实负向分支证据（release-ref capd=-241 drv=200 set(fii=0,fiso=200)——驱动真实步进+骑行配对）；③展开路径全程配对完美（set 系列步进+settle+锚定归一）。
+
+**架构发现（重要）**：思考流期 reasoning 卡=空壳（span=0——live reasoning 经 B4 override 渲染于 CardExpandReveal 之外，卡片 reveal 无内容）；空壳 toggle 零高度变化=Δ=0 空洞证据。真机 DeepSeek「思考期卡自动展开涨到 11.9k px」形态（文本入卡）在 mock 未复现——该形态才含真实收起高度；疑与 RB expanded 初值或 reasoning.started 前的 delta 序列相关，后续复现方向：mock 在 reasoning.started 前先发若干 delta（孤儿 part 自愈路径）或调 RB 默认展开态。
+
+**垫通道判定**：全部 staged 收起均有骑行房间（展开离底让位创造 fiso）或为空壳——ABSORB 未被逼出；贴底+有内容+无房间三条件在空壳架构下需上述「文本入卡」形态。单测侧垫四通道算术已穷尽（FlushTaskPhasesTest 九报组），产品侧证据链=窗口✓驱动✓骑行✓卡顶零位移✓、垫待「文本入卡」形态补测。
