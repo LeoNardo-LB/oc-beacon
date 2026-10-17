@@ -700,6 +700,39 @@ class FlushTaskPhasesTest {
     }
 
     @Test
+    fun `544 C3 三量正交 - 垫增量不污染 nonDrive 提取（帽负余量在混合帧独立镜像）`() {
+        mockkObject(LazyListReflection)
+        mockkObject(ScrollQuiescence)
+        motive("C3 定罪形态：钳制余量帧（垫 +60 混入总账）+ 帽净负 −100 + 展开驱动 +30 的混合帧——旧式 `delta 总账 − driveStep` 反解把垫增量当非驱动负余量抵消（nonDrive 镜像漏发，目标偏高 30）；正交 hatDeltaNet 后帽负余量独立镜像");
+        val collapsing = DegradeDriveState(hInitial = 500, hTarget = 0, stickTop = 405, spanDepth = 500)
+        val expanding = DegradeDriveState(hInitial = 0, hTarget = 94, stickTop = 405)
+        val reserve = HeightReserveState().apply {
+            itemKey = "k1"
+            trueHeight = 2200   // 帽净负 −100（窗内收缩配对）
+            reserved = 2300
+            expandPairingWindows = 1
+            degradeDrives.add(collapsing)
+            degradeDrives.add(expanding)
+        }
+        // fiso=100：收起步进 −160 骑行 100、垫 +60；展开步进 +30；ledger +320
+        val ledger = emptyLedger()
+        every { ledger.hasPending } returns true
+        every { ledger.takePaired(any(), any(), any()) } returns 320f
+        val state = stateWithOwnerItem(7, 100, ownerIndex = 7)
+        every { state.dispatchRawDelta(any()) } returns 0f
+        assertTrue(streamingGrowFlushTask(state, ledger, reserve).onPreDraw())
+        // 垫增量 60 入垫；两驱动步进推进
+        assertEquals(60, collapsing.absorbPx)
+        assertEquals(340, collapsing.h)
+        assertEquals(30, expanding.h)
+        // 塌缩分量 = 骑行(−100) + 展开(+30) + 帽净负镜像(−100) = −170；
+        // 目标 = (100−170)钳0 + ledger 320 = 320（旧式反解：垫抵消帽镜像 → 350）
+        verify(exactly = 1) { LazyListReflection.requestScrollToItemNoCancel(any(), 7, 320, any()) }
+        // 帽预记 = trueHeight + ΣscrollStep(−100+30) = 2130
+        assertEquals(2130, reserve.reserved)
+    }
+
+    @Test
     fun `九报 增长泄放 - 流式增长优先抵垫 余量才走帽通道`() {
         mockkObject(LazyListReflection)
         mockkObject(ScrollQuiescence)

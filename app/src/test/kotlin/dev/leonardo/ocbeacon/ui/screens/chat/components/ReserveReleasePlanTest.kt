@@ -41,7 +41,7 @@ class ReserveReleasePlanTest {
     @Test
     fun `锚等于增长项配对滚动`() {
         assertEquals(
-            ReserveReleasePlan(delta = 66, scrollPaired = true),
+            ReserveReleasePlan(delta = 66, scrollPaired = true, hatDeltaNet = 66),
             plan(reserved = 1000, trueHeight = 1066),
         )
     }
@@ -49,7 +49,7 @@ class ReserveReleasePlanTest {
     @Test
     fun `横幅区浅滑位锚在增长项下方也配对`() {
         assertEquals(
-            ReserveReleasePlan(delta = 66, scrollPaired = true),
+            ReserveReleasePlan(delta = 66, scrollPaired = true, hatDeltaNet = 66),
             plan(reserved = 1000, trueHeight = 1066, fii = 0, fiso = 21, growthIndex = 7),
         )
     }
@@ -57,7 +57,7 @@ class ReserveReleasePlanTest {
     @Test
     fun `贴底原点免配对只放帽`() {
         assertEquals(
-            ReserveReleasePlan(delta = 66, scrollPaired = false),
+            ReserveReleasePlan(delta = 66, scrollPaired = false, hatDeltaNet = 66),
             plan(reserved = 1000, trueHeight = 1066, fii = 0, fiso = 5),
         )
     }
@@ -65,7 +65,7 @@ class ReserveReleasePlanTest {
     @Test
     fun `读历史位锚在增长项上方免配对`() {
         assertEquals(
-            ReserveReleasePlan(delta = 66, scrollPaired = false),
+            ReserveReleasePlan(delta = 66, scrollPaired = false, hatDeltaNet = 66),
             plan(reserved = 1000, trueHeight = 1066, fii = 9, growthIndex = 7),
         )
     }
@@ -73,7 +73,7 @@ class ReserveReleasePlanTest {
     @Test
     fun `增长项不可见免配对保守放帽`() {
         assertEquals(
-            ReserveReleasePlan(delta = 66, scrollPaired = false),
+            ReserveReleasePlan(delta = 66, scrollPaired = false, hatDeltaNet = 66),
             plan(reserved = 1000, trueHeight = 1066, growthIndex = null),
         )
     }
@@ -83,7 +83,7 @@ class ReserveReleasePlanTest {
     @Test
     fun `540 展开窗内贴底原点恒配对`() {
         assertEquals(
-            ReserveReleasePlan(delta = 66, scrollPaired = true),
+            ReserveReleasePlan(delta = 66, scrollPaired = true, hatDeltaNet = 66),
             plan(reserved = 1000, trueHeight = 1066, fii = 0, fiso = 5, expandPaired = true),
         )
     }
@@ -91,7 +91,7 @@ class ReserveReleasePlanTest {
     @Test
     fun `540 展开窗内读历史位恒配对`() {
         assertEquals(
-            ReserveReleasePlan(delta = 66, scrollPaired = true),
+            ReserveReleasePlan(delta = 66, scrollPaired = true, hatDeltaNet = 66),
             plan(reserved = 1000, trueHeight = 1066, fii = 9, growthIndex = 7, expandPaired = true),
         )
     }
@@ -99,7 +99,7 @@ class ReserveReleasePlanTest {
     @Test
     fun `540 展开窗内增长项不可见恒配对`() {
         assertEquals(
-            ReserveReleasePlan(delta = 66, scrollPaired = true),
+            ReserveReleasePlan(delta = 66, scrollPaired = true, hatDeltaNet = 66),
             plan(reserved = 1000, trueHeight = 1066, growthIndex = null, expandPaired = true),
         )
     }
@@ -107,7 +107,7 @@ class ReserveReleasePlanTest {
     @Test
     fun `540 展开窗内收缩规划回改配对`() {
         assertEquals(
-            ReserveReleasePlan(delta = -100, scrollPaired = true),
+            ReserveReleasePlan(delta = -100, scrollPaired = true, hatDeltaNet = -100),
             plan(reserved = 1000, trueHeight = 900, expandPaired = true),
         )
     }
@@ -127,7 +127,7 @@ class ReserveReleasePlanTest {
         // 用户复测定罪「输出中展开震」：阅读位高于被展开卡时，+H 在锚下方——
         // 锚所见内容不动，配对位移=自造推动 → 免配对释放（帽放行无滚动写）
         assertEquals(
-            ReserveReleasePlan(delta = 66, scrollPaired = false),
+            ReserveReleasePlan(delta = 66, scrollPaired = false, hatDeltaNet = 66),
             plan(reserved = 1000, trueHeight = 1066, expandPaired = true, anchorAboveReveal = true),
         )
     }
@@ -136,7 +136,7 @@ class ReserveReleasePlanTest {
     fun `540 二轮修订 否决只作用正向 窗内收缩不受影响`() {
         // 负向（收起）走负向分支自己的塌缩几何判定——锚在缘上方恰是镜像格
         assertEquals(
-            ReserveReleasePlan(delta = -100, scrollPaired = true),
+            ReserveReleasePlan(delta = -100, scrollPaired = true, hatDeltaNet = -100),
             plan(reserved = 1000, trueHeight = 900, expandPaired = true, anchorAboveReveal = true),
         )
     }
@@ -144,7 +144,7 @@ class ReserveReleasePlanTest {
     @Test
     fun `540 二轮修订 未触发否决时窗内正增长照常恒配对`() {
         assertEquals(
-            ReserveReleasePlan(delta = 66, scrollPaired = true),
+            ReserveReleasePlan(delta = 66, scrollPaired = true, hatDeltaNet = 66),
             plan(reserved = 1000, trueHeight = 1066, expandPaired = true, anchorAboveReveal = false),
         )
     }
@@ -157,14 +157,14 @@ class ReserveReleasePlanTest {
         //（fii=0, fiso=5）免派发（回流 StreamingAnchorRule 语义）。
         val p = plan(reserved = 1000, trueHeight = 1066, fii = 0, fiso = 5,
             expandPaired = true, expandPairedPos = false)
-        assertEquals(ReserveReleasePlan(delta = 66, scrollPaired = false), p)
+        assertEquals(ReserveReleasePlan(delta = 66, scrollPaired = false, hatDeltaNet = 66), p)
     }
 
     @Test
     fun `549B 动画中驱动正向恒配对 - 离底让位保持`() {
         val p = plan(reserved = 1000, trueHeight = 1066, fii = 0, fiso = 5,
             expandPaired = true, expandPairedPos = true)
-        assertEquals(ReserveReleasePlan(delta = 66, scrollPaired = true), p)
+        assertEquals(ReserveReleasePlan(delta = 66, scrollPaired = true, hatDeltaNet = 66), p)
     }
 
     @Test
@@ -172,6 +172,6 @@ class ReserveReleasePlanTest {
         // delta<0 的窗内例外只看 expandPaired（防收起结算卡死）——expandPairedPos=false 不得掐死
         val p = plan(reserved = 1066, trueHeight = 1000,
             expandPaired = true, expandPairedPos = false)
-        assertEquals(ReserveReleasePlan(delta = -66, scrollPaired = true), p)
+        assertEquals(ReserveReleasePlan(delta = -66, scrollPaired = true, hatDeltaNet = -66), p)
     }
 }

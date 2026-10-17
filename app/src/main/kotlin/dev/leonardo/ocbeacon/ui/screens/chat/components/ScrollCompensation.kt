@@ -633,6 +633,14 @@ internal data class ReserveReleasePlan(
      * （帽只释放余量）；reserved 预记同扣（垫缩=子高缩）。0=无垫/无增长。
      */
     val drainedPx: Int = 0,
+    /**
+     * #544 C3（2026-10-17）：**纯帽通道净额**（帽 delta − 泄垫）。三量正交源：
+     * [delta] = hatDeltaNet + ΣscrollStep 的总账和（日志/旧消费者），负向分支的
+     * nonDrive 提取与正向分支的帽通道量自此读正交字段——不再从总账和反解
+     * （垫增量（钳制余量/耗垫）曾混入 nonDriveNeg 提取=重向/动画尾段污染，
+     * #549 脸①③残余的通道根）。
+     */
+    val hatDeltaNet: Int = 0,
 )
 
 internal fun reserveReleasePlan(
@@ -692,7 +700,8 @@ internal fun reserveReleasePlan(
             growthPx = delta.toFloat(),
         ) != 0f
     }
-    return ReserveReleasePlan(delta = delta, scrollPaired = paired)
+    // #544 C3：纯帽净额随行（本层无驱动/泄垫参与，delta 即帽量）
+    return ReserveReleasePlan(delta = delta, scrollPaired = paired, hatDeltaNet = delta)
 }
 
 /**
@@ -1032,6 +1041,8 @@ private fun reservePhase(listState: LazyListState, reserve: HeightReserveState?)
             scrollPaired = plan?.scrollPaired ?: false,
             driveStep = dStepSum,
             drainedPx = drained,
+            // #544 C3：正交帽净额（帽 delta − 泄垫）——总账 delta 之外的独立通道
+            hatDeltaNet = (plan?.delta ?: 0) - drained,
         )
     }
     if (plan != null) {
@@ -1118,8 +1129,11 @@ private fun applyPairedShift(
             //   + 非驱动负余量保守镜像。
             // ②物主守卫（P2）：fiso 属别的 item 时 anchorTop 是跨 item 垃圾值，
             //   fii≠物主（或物主不可见）一律按区外处理。
-            val reserveShift = pendingPlan?.delta?.toFloat() ?: 0f
-            val dStepV = pendingPlan?.driveStep ?: 0
+            // #544 C3（2026-10-17）：非驱动负余量读正交帽净额（plan.hatDeltaNet）
+            //   ——旧式 `delta 总账 − driveStep` 反解把垫增量（钳制余量+/耗垫−）
+            //   混入提取（重向/动画尾段污染，#549 脸①③残余的通道根）。
+            val dStepV = dStepTotalV
+            val hatNetV = pendingPlan?.hatDeltaNet ?: 0
             val ownerIdx = listState.layoutInfo.visibleItemsInfo
                 .firstOrNull { it.key == reserve?.itemKey }?.index
             val anchorIsOwner = reserve != null && ownerIdx != null &&
@@ -1130,7 +1144,9 @@ private fun applyPairedShift(
             // 非驱动负余量（罕见：非 toggle 的 item 收缩）沿用 reserve 级几何判定
             //（锚在最新塌缩区下方=零操作；未捕获=保守镜像）——盲镜像会在锚下方
             // 格自造跳变（review 混合帧拆账测试锁定语义）。
-            val nonDriveNegV = minOf(0, reserveShift.toInt() - dStepV)
+            // #544 C3：读正交帽净额——旧式总账反解把垫增量混入（钳制余量帧
+            // 压低帽镜像=漏发；耗垫帧加深镜像=多发）。
+            val nonDriveNegV = minOf(0, hatNetV)
             val rStickV = reserve?.expandCollapseStickTop ?: -1
             val rSpanV = reserve?.expandCollapseSpanDepth ?: -1
             val nonDriveMirror = nonDriveNegV != 0 &&
@@ -1139,9 +1155,9 @@ private fun applyPairedShift(
             // 各分量按各自规则判定后求和即净位移
             val collapseShiftV = driveScrollV + drivePosScrollV + (if (nonDriveMirror) nonDriveNegV else 0)
             val stickFiso: Int? = when {
-                reserveShift > -1f && collapseShiftV == 0 -> {
-                    // 亚像素负余量（|reserveShift|<1）且无驱动塌缩量：只走 ledger 折加
-                    //（五报 F2：纯驱动收起帧 reserveShift=0，塌缩分量在此判——
+                hatNetV > -1 && collapseShiftV == 0 -> {
+                    // 亚像素帽负余量且无驱动塌缩量：只走 ledger 折加
+                    //（五报 F2：纯驱动收起帧帽净额=0，塌缩分量在此判——
                     // 原次序会把它误吞成零操作）
                     null
                 }
@@ -1229,9 +1245,10 @@ private fun applyPairedShift(
         // 驱动通道（逐卡揭示缘否决）+ ledger，各自按各自规则判定后求和——
         // 原净和 total 把未配对资格的驱动步进一并折入（连 ledger 免派发格
         // 也被净和淹没），单帧错发=概率性上向跳变源。
-        // 九报：净额提取改用 ΣscrollStep（吸收增量不得伪装帽增长；垫泄放已在
-        // reservePhase 净额入 delta——此处提取的是纯帽通道量）
-        val hatDeltaP = (pendingPlan?.delta ?: 0) - dScrollTotalV
+        // 九报：净额提取改用正交帽字段 hatDeltaNet（delta 总账含 ΣscrollStep，
+        // 旧式 `delta − dScrollTotal` 反解在数值上等价但结构上依赖总账——三量
+        // 分通道后各通道读各字段）
+        val hatDeltaP = pendingPlan?.hatDeltaNet ?: 0
         // #551 八报热修：预算只管**episode 内**的离底让位（窗内帽+驱动步进）——
         // 稳态阅读跟随（锚规则配对，窗外）绝不受预算截断：窗耗尽预算后若把
         // 阅读跟随也清零，流式增长会把阅读位逐帧往下拖（用户八报实证）。
