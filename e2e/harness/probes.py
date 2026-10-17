@@ -336,19 +336,24 @@ class Ev:
                         # 稳定，随后 ip=true 手势滚动为场景动作）；r427 打架形态 =
                         # 引擎写入 (7,step) 后读位反复回 (0,0)（min≤30 ∧ max≥100）
                         # 或无手势振荡 ≥150。
-                        reads = [f["fiso"] for f in self.flushes
-                                 if last_nodis_ts <= f["ts"] <= last_nodis_ts + 1.5
-                                 and f["fii"] >= 0 and not f["ip"]]
+                        # 读位分三档（025859 定谳：499px 大突发的 easing 尾起幅
+                        # 95>80 曾误报；其后读位全 ip=true=手势期让位，均合法）：
+                        # ①有 ip=false 读位→判振荡/回底；②仅有手势读位→合法让位；
+                        # ③零读位→量级回退（阈值 150：衰减尾起幅<120，新鲜批次
+                        # 150-500）。
+                        reads_all = [f for f in self.flushes
+                                     if last_nodis_ts <= f["ts"] <= last_nodis_ts + 1.5
+                                     and f["fii"] >= 0]
+                        reads = [f["fiso"] for f in reads_all if not f["ip"]]
                         if reads:
                             if (min(reads) <= 30 and max(reads) >= 100) or \
                                     max(reads) - min(reads) >= 150:
                                 evap += 1
-                        else:
-                            # 无无手势读位：退回量级判据（历史首帧 83 级）
+                        elif not reads_all:
                             deltas = [x["drv"] for x in seq
                                       if last_nodis_ts - 0.3 <= x["ts"] <= last_nodis_ts
                                       and x["nodis"] and x["drv"] > 0]
-                            if deltas and max(deltas) >= 80:
+                            if deltas and max(deltas) >= 150:
                                 evap += 1
                         run = 0  # 每段独立裁决
                 elif r["set"]:
