@@ -140,12 +140,6 @@ private const val MAX_FRAME_DELTA_PX = 100
 /** 虚拟时钟单帧最大时间步(ms)——防大时间窗整体放过。 */
 private const val MAX_FRAME_STEP_MS = 20f
 
-/**
- * #425 反馈闭环单帧指令钳制(px):锚点翻转实测阶跃 ≤176px,上限 300
- * 保证纠偏一帧到位又不暴冲;缓动分量另受 [MAX_FRAME_DELTA_PX] 钳制。
- */
-private const val MAX_CLOSED_LOOP_DELTA_PX = 300
-
 /** #425 episode 墙钟硬顶(ms):缓动 240ms + 反馈排干余量;真死边(物理不可约)到此为止。 */
 private const val EPISODE_HARD_CAP_MS = 1800f
 
@@ -253,11 +247,14 @@ private const val ANCHOR_QUIESCE_STABLE_FRAMES = 2
 private const val ANCHOR_QUIESCE_MAX_MS = 200f
 
 /**
- * 纯时钟状态(可单测):fraction 驱动 + 上报高度记账 + δ 计算。
+ * 纯时钟状态(可单测):fraction 驱动 + 上报高度记账。
  *
- * 帧内契约:动画相 [advance] → dispatchRawDelta(δ);measure 相 [onMeasure]
- * → 上报 f·H。两相读写的账本字段:[lastReportedH](上一帧上报)与
- * [lastMeasuredH](最近一次实侧高)。
+ * measure 相契约:[onMeasure] → 上报 f·H(ε 预热窗上报 0);[lastReportedH]
+ * (上一帧上报)与 [lastMeasuredH](最近一次实侧高)为账本字段。
+ *
+ * #544 C2(2026-10-17):动画相 [advance]/吸收账本(absorb/absorbedPx/
+ * primeLedger,#420-#425 闭环派发机件)与 [closedLoopCommand] 随直接
+ * dispatchRawDelta 路径退役而清剿——生产仅 [snap](取消路径)同步账本。
  *
  * #422 增补:另承载几何缓存窗口状态——[tweening](placeable 复用唯一生效
  * 窗口)、[measureCount](settle 判稳计数)与 [remeasureEpoch](episode 末
@@ -273,18 +270,13 @@ internal class CardExpandClock(initialFraction: Float) {
         private set
 
     /**
-     * 上一帧「已落地」高度(px)——#424 起双态账本:
-     * - episode 中(动画相):由 [absorb] 独占写入——只前进 dispatchRawDelta
-     *   实际消费的部分(吸收驱动;未消费残量留在下帧指令里自然重试,不再丢失);
-     * - 稳定态:跟随内容实测 (fraction×H)。
+     * 上一帧「已落地」高度(px)——episode 中乐观跟随 fraction×H（[onMeasure]/
+     * [snap] 写入）；稳定态跟随内容实测。
      * 真机教训([DEBUG-425] 逐帧取证):指令账本会把组合滞后残量与 LazyList
      * 锚点翻转误差全部漏成视口漂移(展开循环实测 −98 平台/收起 −60→−328 阶跃)。
      */
     var lastReportedH = 0
         private set
-
-    /** 吸收账本浮点原子(逐帧取整误差 telescoping ≤1px,不做独立量化器)。 */
-    private var absorbedF = 0f
 
     /** 动画进行中(冷启动 snap 与取消 snap 不 dispatch)。 */
     var animating = false
@@ -318,61 +310,25 @@ internal class CardExpandClock(initialFraction: Float) {
     var departureFired = false
 
     /**
-     * 动画相调用:推进 fraction,返回本帧应位移的 δ。
-     *
-     * #420 追诊定案:δ 必须与布局上报共用同一整型量化器——
-     * [(fraction × H).toInt()]——否则 float δ 经滚动侧独立取整,
-     * 每帧泄漏 ~0.5px 子像素(实测一展开/收起循环净漂 −26px)。
-     * 本方法与 [onMeasure] 的 report 公式严格一致 → 整数守恒。
-     */
-    fun advance(newFraction: Float): Float {
-        // #427 收起位移根因修复：ε 预热窗口(fraction≤WARMUP_FRACTION)上报恒 0——
-        // (fraction×H) 在 20k 级内容上 ε 仍 ~20px 布局残高，±H 配对账本每循环净漂
-        // ~ε·H（真机用户实测「收起后整体上移一小段」；批次十三 0.7px 零视觉标定
-        // 不再成立于大内容）。组合保温(fraction>0)不受影响，仅布局足迹归零。
-        val target = if (newFraction <= WARMUP_FRACTION) 0 else (newFraction * lastMeasuredH).toInt()
-        val delta = (target - lastReportedH).toFloat()
-        lastReportedH = target
-        fraction = newFraction
-        return delta
-    }
-
-    /**
      * measure 相调用:记账实测高度并返回上报高度 (fraction×realH)。
      *
      * #425 教训(死锁):上报高度若做成「实际消费」的奴隶,列表端无增长
      * 空间 → dispatchRawDelta 恒消费 0 → 揭示永不出现(真机 cmd d>0
      * consumed=0 连续 218 帧)。上报必须乐观跟随 fraction(位移先行、
-     * 揭示配对的 #420 原契约);**指令基准**才用吸收账本 [absorbedPx]——
-     * 未消费残量经「目标−已吸收」在下帧指令里自动重试,不再丢失。
+     * 揭示配对的 #420 原契约)。
      */
     fun onMeasure(realH: Int): Int {
         lastMeasuredH = realH
-        // #427：同 advance——ε 预热窗口零上报（残高∝H 在大内容上显性为位移净漂）
+        // #427：ε 预热窗口零上报（残高∝H 在大内容上显性为位移净漂）
         val report = if (fraction <= WARMUP_FRACTION) 0 else (fraction * realH).toInt()
         lastReportedH = report
         return report
     }
 
-    /** episode 开相:吸收账本以当前位移起账(展开 0 / 收起 H)。 */
-    fun primeLedger() {
-        absorbedF = (fraction * lastMeasuredH)
-    }
-
-    /** 动画相:账本只累计实际消费的位移(未消费部分由下帧指令重试)。 */
-    fun absorb(delta: Float) {
-        absorbedF += delta
-    }
-
-    /** 吸收账本整型视图(指令基准/日志/单测)。 */
-    val absorbedPx: Int
-        get() = absorbedF.toInt()
-
     /** 取消/冷启动:snap 目标分数(不产生位移;账本同步防后续 δ 暴冲)。 */
     fun snap(target: Float) {
         fraction = target
         lastReportedH = (target * lastMeasuredH).toInt()
-        absorbedF = lastReportedH.toFloat()
         animating = false
         // #430:取消路径位置归 snap/用户所有,丢弃稳态未派发增量
         steadyRebase()
@@ -411,17 +367,10 @@ internal class CardExpandClock(initialFraction: Float) {
     var episodeAnchorOffset = 0
 
     /**
-     * #423 批次十一:程序化位移豁免——dispatchRawDelta 会触发 isScrollInProgress,
+     * #423 批次四b:程序化位移豁免——dispatchRawDelta 会触发 isScrollInProgress,
      * 取消守卫须区分用户手势与引擎位移(真机:预移+4688 被守卫误杀,集 826ms 自裁)。
      */
     var programmaticShift = false
-
-    /**
-     * #423 批次四b:本集几何目标分数(plain)。FLUSH 修正器的灭钉门控——
-     * 坐标静止计数稳定前,分数必须已到位(settle/warmup 期报告恒 ε,不得灭钉;
-     * 否则 driveTo 增长到来时修正器已离场 = 顶开帧直接上屏)。
-     */
-    var pinTargetFraction = Float.NaN
 
     // ===== #430 稳态配对账本(episode 外迟到增长——分批表格逐组落地/asyncParse 完成等) =====
     // 背景:v4 分批让大表高度增长跨越 settle 窗口(600ms)逐帧落地;此前 episode 只在
@@ -1016,7 +965,6 @@ internal fun CardExpandReveal(
             episodeSeq.intValue = episodeSeq.intValue + 1
             clock.animating = true
             clock.beginEpisode()
-            clock.pinTargetFraction = target
             val episodeStart = System.nanoTime()
             // #425:本集起点锚 = 携带锚(重定向链)或当下实测位置(end-restore 兜底用)
             val anchorY = carriedAnchor.value ?: revealTopY.floatValue
@@ -1563,7 +1511,7 @@ internal fun CardExpandReveal(
                         "E" + episodeSeq.intValue + " PLACED t=" + System.nanoTime() +
                             " topY=" + revealTopY.floatValue.toInt() +
                             " boxH=" + revealBoxH.intValue +
-                            " rep=" + clock.lastReportedH + " abs=" + clock.absorbedPx +
+                            " rep=" + clock.lastReportedH +
                             " f=" + "%.3f".format(clock.fraction) +
                             " fii=" + listState.firstVisibleItemIndex +
                             " fiso=" + listState.firstVisibleItemScrollOffset +
@@ -1600,7 +1548,6 @@ internal fun CardExpandReveal(
                                     " drawF=" + "%.3f".format(w) +
                                     " boxH=" + size.height +
                                     " clipPx=" + (size.height * w).toInt() +
-                                    " residual=" + (clock.lastReportedH - clock.absorbedPx) +
                                     " topY=" + revealTopY.floatValue.toInt(),
                             )
                         }
@@ -1618,20 +1565,6 @@ internal fun CardExpandReveal(
         }
     }
 }
-
-/**
- * #425 渲染前指令(纯函数可单测):本帧 dispatch 量 = 目标 − 已吸收账本。
- *
- * 两轮真机教训:
- * 1) (目标−已吸收)+实测偏差 会振荡——实测信号(布局坐标)对滚动位移是瞎的
- *    且滞后,逐帧纠偏反而成为扰动源(录屏条带追踪:±24-38px 来回震荡,
- *    logcat topErr 逐帧抖动 2→8→25→45→57);
- * 2) 纯增量开环(#420 原式)会丢残量——组合滞后期被拒的 δ 永久流失(净漂)。
- * 本式:未消费残量经「目标−已吸收」在下帧自动重试(不丢失),且全程单向——
- * 结构性无振荡。钳制防残量集中释放的单帧暴冲。
- */
-internal fun closedLoopCommand(targetRep: Int, absorbed: Int): Int =
-    (targetRep - absorbed).coerceIn(-MAX_CLOSED_LOOP_DELTA_PX, MAX_CLOSED_LOOP_DELTA_PX)
 
 /**
  * #432 贴底免派发判定(纯函数可单测):严格贴底=最新 item 锚定(fii==0 ∧ offset==0)。
