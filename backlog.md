@@ -68,6 +68,7 @@
   - Mock V2 服务器落地（用户拍板方案，2026-10-16 13:15）：/home/leonardo/.cache/540r5/mock_oc.py（stdlib、:4399、REASON/TEXT_LINES+INTERVAL 环境变量调速；adb reverse+debug intent 直连）。完整协议链走通：inbox.enqueued→execution.started→step.started→reasoning.started/delta×N/ended→text.*→step.ended→succeeded（B2/B3/B4 全链渲染）。三轮调参教训：①行模板须每轮唯一（sid 后缀）否则 #547 内容指纹键跨卡碰撞（两卡共享展开态=18k px 假爆炸）；②长行(200字)20 秒爆 18k px——短行+2s 间隔=分钟级窗；③答案 8s/块=近静止贴底。
   - 系统性结果（m3/m4 日志+帧）：用户字面场景（思考流中手动 toggle 本卡）8 连 toggle 全 Δwin=1、卡顶全程 Δtop=0；但发现**思考流期卡片=空壳**（span=0：live reasoning 走 B4 override 渲染在 CardExpandReveal 之外——E1-E4 的 Δ=0 部分空洞）；真实收起证据在 m2 二窗（release-ref capd=-241 drv=200 set(fii=0,fiso=200)=负向分支真实驱动+骑行）。垫（ABSORB）通道在所有 staged 收起中都有骑行房间（或空壳）未被逼出——贴底+有内容+无房间三条件在 shell 架构下需「流中文本入卡」形态（真机 DeepSeek 期出现过：思考期卡自动展开涨到 11.9k px——该形态 mock 未复现，疑与 RB expanded 初值/事件序列相关）。
   - 第四战役：expandReasoning 设置=空壳/入卡分岔根因（已在模拟器开启并实证真形态：mount 即展开+真实增长链 m15）；m15 Z1 真形态收起窗命中（Δwin=1、Δ=-127≈纯推送）；垫通道差一次『内容已渲染≥300px 的成功收起 tap』——final_hunter.sh 就绪待载体（真机回网或视觉服务恢复）。
+  - 第五战役真机收官：设置项在 dev 包拨开（用户日常包独立 DataStore）、真形态双 toggle Δwin=1 卡顶 Δ=0（ph8）；ABSORB 未捕获最终定谳=reveal 渲染会话累积降速（#552 家族）与自动化快速测试结构性冲突——真实使用不触发；探针常驻待自然捕获判读。
 
 - [~] **#551 七报：巨卡第二次展开全高让位飞顶（种子 max 棘轮+离底全高未截断）——高度参照系裁决催生** `scroll` `race` `chat`
   - 用户复测 beta-4：首次展开收起正常，第二次点击跳到上面。定罪（p7_900_full.log）：第二次展开 tgt=13807（itemH 仅 4672）——种子 max 棘轮钉住首次展开期的动态高；驱动+窗配对全高让位 fiso 2155→13813（+11.6k px≈5 屏）视口飞到卡顶
