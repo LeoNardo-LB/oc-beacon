@@ -688,3 +688,10 @@ G 轮（19:09，第 3 装置轮有效——教训：流式时窗内动作链禁�
 **C3（commit 02502a107）**：applyPairedShift 三量正交分通道——ReserveReleasePlan 增 hatDeltaNet 纯帽净额（reservePhase 构造：帽 delta−泄垫；纯函数层=delta 不变量），负向分支 nonDriveNegV 与正向分支 hatDeltaP 改读正交字段（旧式 `delta 总账−driveStep` 反解把垫增量混入提取：钳制余量帧压低帽镜像=漏发、耗垫帧加深镜像=多发——#549 脸①重向 slam/脸③动画尾往返的通道根）。ReserveReleasePlanTest 15 处不变量更新 + FlushTaskPhasesTest 新钉语义 1 例（钳制余量帧帽负余量独立镜像，目标差 30px 可辨）。
 
 **验证**：全量 4055/0；smoke H 轮 toggle1（收起）干净（单调 ease-out、Δtop=0、窗 567ms 正常关闭、无震荡无 slam），toggle2（展开）现「管线静默」信号——判别轮 I（全新 mock 唯一 sid+696px 小卡隔离三混杂因子）①-⑤ 全 PASS：collapse→expand 后 SGR/MDPilot/contentH/RESERVE 四线齐动、展开动画链走完到 h=831 稳定（=137 头部+696 内容）、后续思考行与答案块即时恢复 MDPilot 配对（releasedTotal 精确命中 594/1151）。H 轮静默定谳=组合窗经济学（1044px 大展开在 anchor-not-owner 位把宿主 item 推出组合窗→#557 DisposableEffect 清册→flush 早退静默；H2 日志最后一帧 43.668 后零 flush t= 行佐证）+同会话 sid 前缀复用致 #547 指纹键跨轮碰撞装置混杂，非 C2/C3 回归。C1（降级分支退役/终态谓词统一）前置就绪。
+
+## §42bis #544 C1 先遣包：正向否决逐卡化 + review 两项
+
+
+### §42bis #544 C1 先遣包：正向否决逐卡化 + review 两项（C1 主体前置清偿）
+
+C1 先遣（commit 77840f86f，2026-10-17 深夜）：①正向否决门逐卡化——reservePhase 的 anchorAboveReveal 改读 `vetoStickTop = min(驱动 stickTop)`（几何并集保守语义：锚在全部揭示缘上方才否决），无捕获几何回退 reserve 单槽；四报 driveScrollShift 已把负向 containment 逐卡化，本处补正向半边（同 item 多卡并发时后卡 toggle 不再覆盖先卡否决几何）。②review 项①：ScrollCompensation 两处头注释漂移修正（「流式家族已改走 dispatchRawDelta」旧述——三轮起 flush 单出口位置写走反射，dispatchRawDelta 仅存机件 episode 位移）。③review 项②改判：stick/span 单槽正向读法被①取代后，余下消费者=非驱动负余量镜像的塌缩区判定——「最后 toggle 的塌缩区」即其语义（非驱动收缩不隶属任何卡），单槽合法，entryKey 标签化不需要（声明处已标注）。验证：钉语义测试 1 例（卡 B 单槽 800 覆盖场景，锚 500 对卡 A 缘 300——新目标 662=帽 66 照常配对 vs 旧 596 被掐）；全量 4056/0；smoke J 轮 4/4（机件路径 episode 补偿 −928 同帧 Δtop=0、流式管线双路径活、零 FATAL）。C1 主体（终态谓词统一双路径+AV 退役+LocalInStreamingTurn 删除+R1-R9 矩阵验收）留下会话满上下文开工。
