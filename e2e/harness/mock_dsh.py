@@ -31,6 +31,11 @@ PORT = int(os.environ.get("MOCK_PORT", "4398"))
 SCENARIO = os.environ.get("MOCK_DSH_SCENARIO", "stream")
 REASON_LINES = int(os.environ.get("MOCK_LINES", "20"))
 INTERVAL = float(os.environ.get("MOCK_INTERVAL", "0.8"))
+# 场景 staged 性钳制：降级路径 tap 需流式窗 ≥8s（装置发送/定位延迟地板）；
+# 更快节奏的压力面由 540-V2 极速变体承担（80×0.15=12s 可 staged）。
+_MIN_STREAM_SECS = float(os.environ.get("MOCK_MIN_STREAM_SECS", "0"))
+if REASON_LINES and INTERVAL * REASON_LINES < _MIN_STREAM_SECS:
+    INTERVAL = _MIN_STREAM_SECS / REASON_LINES
 HOLD_SECS = float(os.environ.get("MOCK_HOLD_SECS", "12"))
 TOOL_HOLD = SCENARIO == "toolhold"
 SID = os.environ.get("MOCK_SID", "sess-e2e-%d" % int(time.time()))
@@ -177,8 +182,13 @@ class H(BaseHTTPRequestHandler):
             return {}
 
     def do_GET(self):
-        if self.path.split("?")[0] in ("/api/events.mux", "/api/events.host"):
+        p = self.path.split("?")[0]
+        if p in ("/api/events.mux", "/api/events.host"):
             return self._ws()
+        if p == "/api/health":
+            return self._json({"healthy": True, "version": "0.1.1-mock"})
+        if p == "/api/_state":
+            return self._json({"sid": SID, "seq": SEQ[0], "subs": len(SUBSCRIBERS)})
         return self._json({"ok": True})
 
     def do_POST(self):

@@ -200,8 +200,10 @@ class Device:
         self.shell(f"input swipe {int(x1)} {int(y1)} {int(x2)} {int(y2)} {int(ms)}")
 
     def input_text(self, text):
-        # adb input text 不支持空格/特殊字符；本套件 prompt 为纯 ASCII
-        self.shell("input text '%s'" % text.replace("'", "\\'"))
+        # adb input text 空格必须 %s 转义（2026-10-18 实测定谳：'abc def' 只落
+        # 'abc'；#554 卡面同款 IME 怪癖）。引号剔除，其余 ASCII 直传。
+        t = text.replace("'", "").replace(" ", "%s")
+        self.shell("input text %s" % t)
 
     def key(self, code):
         self.shell(f"input keyevent {code}")

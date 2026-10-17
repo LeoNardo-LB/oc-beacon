@@ -128,10 +128,16 @@ class Ctx:
 # ---------------- 通用 UI 流程 ----------------
 
 def composer_node(dev):
+    # 聊天输入框=底部 EditText（cy>0.72h）；会话列表顶部的搜索框也是 EditText，
+    # 不加位置判据会在错误屏幕上误判（20261018-063743 定罪：SEND FAIL 空诊断）。
+    h = dev.screen_size()[1]
     ns = dev.nodes()
-    for n in ns:
-        if "EditText" in n["cls"]:
-            return n
+    ets = [n for n in ns if "EditText" in n["cls"]]
+    # 0.45h：无 IME 时 composer ~0.93h；IME 打开时被顶到 ~0.55h——0.72h 阈值
+    # 会把带键盘形态误杀（20261018-064428 定罪：attempt-1 空诊断 SEND FAIL）。
+    bottom = [n for n in ets if n["cy"] > h * 0.45]
+    if bottom:
+        return bottom[0]
     for n in ns:
         if n["text"].startswith("提问") or n["text"].startswith("Ask"):
             return n
@@ -195,7 +201,12 @@ def send_prompt(dev, text, timeout=30):
         s2 = [n for n in ns if n["desc"] == "发送" or n["text"] == "发送"]
         if s2:
             send = s2
-    return _mark(dev) > base
+    _ok = _mark(dev) > base
+    SEND_DIAG[0] = "mark=%s base_hit;btn=%r;edit=%r" % (
+        SEND_DIAG[0],
+        (send[0]["cx"], send[0]["cy"]) if send else None,
+        [n["text"][:16] for n in dev.nodes() if "EditText" in n["cls"]][:1])
+    return _ok
 
 
 def wait_stream(dev, timeout=30):
@@ -235,6 +246,7 @@ def tap_header(dev, x=500):
 
 
 _LAST_IDLE_BASE = [0]
+SEND_DIAG = [""]
 
 
 def wait_stream_end(dev, timeout=120, base=None):
@@ -677,25 +689,45 @@ scenario_549.env = {"MOCK_SCENARIO": "plain", "MOCK_LINES": "40", "MOCK_INTERVAL
 
 
 def scenario_540_dsh_stream(ctx):
-    """#540 DSH 腿 A：DSH 流式思考卡展开——降级路径恒配对。"""
+    """#540 DSH 腿 A：DSH 流式思考卡展开——降级路径恒配对。
+
+    快节奏变体（如 36×0.11s=4s 窗）+ 发送侧输入校验重试可达 ~12s 时，tap 会
+    落在整装消息之后（completed 已回填 → 机件路径展开=产品正确行为，RB toggle/
+    mapHit 正常）——此时重发一轮再 tap（成型自愈，2 次上限）。
+    """
     _launch_and_open(ctx, False, server_type="dsh")
-    if not send_prompt(ctx.dev, "e2e540 dsh"):
-        return {"pass": False, "checks": [("SEND", "FAIL")]}
-    time.sleep(2.0)
-    h = wait_header(ctx.dev, 20)
-    if not h:
-        return {"pass": False, "checks": [("NO-CARD", "FAIL")]}
-    ctx.dump("dump-before.xml")
-    ctx.dev.tap(500, h["cy"])
-    time.sleep(2.5)
+    for attempt in range(2):
+        if not send_prompt(ctx.dev, "e2e540 dsh r%d" % attempt):
+            return {"pass": False, "checks": [("SEND", "FAIL"), SEND_DIAG[0]]}
+        time.sleep(1.2)
+        h = wait_header(ctx.dev, 15)
+        if not h:
+            if attempt == 0:
+                continue
+            return {"pass": False, "checks": [("NO-CARD", "FAIL")]}
+        base = _count(ctx.dev, "degrade toggle")
+        ctx.dev.tap(500, h["cy"])
+        time.sleep(2.0)
+        if _count(ctx.dev, "degrade toggle") > base:
+            break
+        # 机件误走（整装已到）→ 等本轮完全落幕（含 hold 窗，否则发送键=停止）
+        # 再重发一轮；记录取证（20261018-064649 冷启重放定罪）
+        if attempt == 0:
+            ctx.save("dump-mech-miss.xml", ctx.dev.dump())
+            wait_stream_end(ctx.dev, 60)
+            time.sleep(1.0)
+            continue
     ctx.dump("dump-after.xml")
     ev = probes.make(ctx.dev.logcat())
     ok, evs = ev.card540()
     return {"pass": bool(ok), "checks": evs}
 
 
+# MOCK_MIN_STREAM_SECS=9：降级 tap 需流式窗超过装置延迟地板（发送校验+定位
+# ~8s）；极速节奏压力由 540-V2 0.15s 变体承担。
 scenario_540_dsh_stream.env = {"MOCK_DSH_SCENARIO": "stream", "MOCK_LINES": "24",
-                               "MOCK_INTERVAL": "0.8", "MOCK_HOLD_SECS": "20"}
+                               "MOCK_INTERVAL": "0.8", "MOCK_HOLD_SECS": "20",
+                               "MOCK_MIN_STREAM_SECS": "9"}
 scenario_540_dsh_stream.dsh = True
 
 
