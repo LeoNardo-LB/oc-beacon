@@ -286,9 +286,19 @@ internal fun rememberPilotStreamingMarkdownState(
                         }
                         if (d.delta.isNotEmpty()) appendAndTrace(state, d.delta)
                         rel = d.newReleased
+                        // #558 根修（2026-10-17）：首跑铺开跨帧（withFrameNanos）/
+                        // 限速 delay 可被 LaunchedEffect 重启取消。旧实现只在
+                        // 循环结束写 released/prev——取消后重启以 released=0、
+                        // prev=null 再整串 append，内容按重启次数成倍叠加
+                        //（实测 4k 文本 → contentH 24k–28k、UI 多份 thought 1）。
+                        // 每批 append 后同步推进进度与差分基准：重启从已放行前缀
+                        // 续账，追加量单调且幂等。
+                        released = rel
+                        prev = eff.take(released)
                         if (rel < eff.length) withFrameNanos { }
                     }
                     released = rel
+                    prev = eff.take(released)
                     logGate(eff, 0, released)
                     fastRefeed = false
                 }
