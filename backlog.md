@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#558**（2026-10-17 #557 #557 流式思考卡 reveal span 冻）。
+**编号**：全局递增，不回收。下一编号：**#559**（2026-10-17 #558 展开态流式思考全文重复 append——part）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。**反馈归卡（2026-09-12 用户定规）**：用户对某张卡片的反馈/裁决一律经 `backlog.sh note <N>` 记入**该卡片**明细，**不另开新卡**承载反馈；仅当反馈引出**新的独立缺陷**时才另立卡片，并在两卡明细互相引用（#401→#408 为先例）。**工作流脚本类直接修（2026-09-29 用户定规）**：项目工作流/脚本层的修复（`scripts/` 流程脚本等不进 APK 的项目设施）**不立卡**——发现即直接修+自测，证据记入当批 journal；#480 为末代先例（已立卡的按原流程走完迁移）。
 
@@ -137,6 +137,17 @@
   - 终报：/home/leonardo/.cache/547e2e/SOAK-SUMMARY.md（含终局修订）+ /home/leonardo/.cache/547emu/SOAK-EMU-REPORT.md；判定=通过双平台系统性浸泡，待用户验收
 
 ## P2 — 优化与锦上添花
+
+- [~] **#558 展开态流式思考全文重复 append——part 文本正确但渲染层多份叠加（#551 E2E 装置阻塞，疑 #552 OOM 同族）** `ui` `memory` `sse`
+  - mock 30 行/0.3s 流完结后 UI 多份 thought 1 叠加、contentH 38,164px（单行 116px；Room cached_parts 仅 2,891 字符）——part 层未重复、渲染层重复 append。
+  - mock 在 reasoning.ended 前留 1s 排空窗仍复现；卡头被推到数万 px 外、uiautomator 大卡组合期卡死，阻塞 #551 二次展开/垫 E2E（oracle 已就绪）。
+  - 证据 e2e/runs/20261017-231037/551 + docs/specs/2026-10-17-seven-card-e2e-verification-design.md §9.1；疑与 #552 展开态流式 OOM 同根。
+  - → docs/specs/2026-10-17-seven-card-e2e-verification-design.md
+  - 隔离探针（2026-10-17 23:28）：同一 delta-only 流（MOCK_NO_END，不发 reasoning.ended）——在流完结前冻结（6s）contentH=7,240px、UI 仅 1 份 thought 1；让流跑完（12s+）则 contentH=41,344px、多份副本。触发点不是 ended 事件本身，而是**流完结/末段渲染**（NO_END 也复现）。
+  - 冻结后仍持续增长（2026-10-17 23:31：NO_END 流在 6s 冻结、无新 delta，contentH 仍 21,160→21,228 连续上涨）——不是事件驱动/完结触发，而是**渲染侧持续 append 循环**；#551 巨卡 E2E 在修复前无法 staging。
+  - 静态展开也触发（2026-10-17 23:34）：全部 delta 到达且冻结后首次展开 2,832px 静态内容，contentH 随后仍涨到 28,120px——循环由「展开组合 + 高度反馈」自身维持，与流式更新无关。已加 e2e 场景 551_static 作为修复前基线（当前 HEADER-LOST/INVALID）。
+  - 唯一行排除重复前缀（2026-10-17 23:38，MOCK_UNIQUE_LINES）：40 行随机 hex 仍放大——探针读数 9,560px，读数后继续涨到 12,702px；循环与内容重复度无关，排除 StreamingMarkdownState 前缀差分对重复段落的特例。
+  - 根修（2026-10-17 深夜）：StreamingMarkdownPilot 首跑铺开每批 append 后同步 released/prev，LaunchedEffect 重启从已放行前缀续账；全矩阵 11/11 PASS（e2e/runs/20261018-000249/report.md），551 巨卡/静态双变体 PASS，557/556/540/547/554/549/DSH 无回归；全量单测 BUILD SUCCESSFUL。
 
 - [ ] **#552 流式极长思考展开态 OOM——MarkdownElement StringBuilder 峰值堆爆（终验发现，范围外新缺陷）** `ui` `memory` `sse`
   - 终验 r1036 定罪：主线程 OutOfMemoryError（堆 511/512MB 0% free），栈 StreamingMarkdownSuccess→MarkdownElementInternal→StringBuilder.toString 经 ReasoningBlock 展开态流式合成；触发=DeepSeek 极端长思考（内容高 275,515px）+展开态流式，崩溃时无用户输入
