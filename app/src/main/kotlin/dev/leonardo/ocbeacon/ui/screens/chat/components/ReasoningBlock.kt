@@ -90,6 +90,11 @@ internal fun ReasoningBlock(
     startTimeMs: Long? = null,
     /** #423 批次八:REPIN 键(part.id)——空=不参与(预览/单测)。 */
     pinKey: String = "",
+    // #556（2026-10-17）：内容终态旗标——PartContent 按 Part.Text #518①/#523 G2
+    // 三条件推导后穿线（纯函数 reasoningContentTerminal）。终态时 pilot gate
+    // 扣留尾全量揭示（gate 拒绝即放行）——缺它时思考文本以未闭合构造/行首
+    // 硬停字符（[ ] ! 等）收尾的扣留段完结后永冻不可见。
+    contentTerminal: Boolean = false,
 ) {
     val hapticView = LocalView.current
     val hapticOn = LocalHapticFeedbackEnabled.current
@@ -357,6 +362,8 @@ internal fun ReasoningBlock(
                                     // 真机三方定罪:settle H=0×3/dump 无内容节点/像素 8dp 单档)。
                                     // 与正文 PartContent 同语义:流式走 pilot,历史走 #428 分层。
                                     asyncParse = !isStreaming,
+                                    // #556：终态全量揭示旗标（来源见参数声明处注释）
+                                    contentTerminal = contentTerminal,
                                     // #540 二轮③（裁决 2026-10-11）：#486 终态账本/缓存穿线
                                     // （照 Part.Text 先例 PartContent everKey=part.messageId）——
                                     // 流式中展开的 pilot 终态入 LRU32，收起→再展开命中

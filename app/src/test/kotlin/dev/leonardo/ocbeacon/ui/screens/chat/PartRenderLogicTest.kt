@@ -295,4 +295,38 @@ class PartRenderLogicTest {
         // 计时继续（2026-08-16 三态合成语义保留）
         assertTrue(isReasoningStreaming(partEnded = false, sessionStreaming = true, hasValidAnchor = false))
     }
+
+    // === #556 reasoningContentTerminal —— 推理内容终态推导（Part.Text #518①/#523 G2 镜像） ===
+
+    @Test
+    fun `reasoning terminal when data layer ended`() {
+        // ①time.end 非空 = 完结权威落位——组合时序未跟上（bus 覆盖仍在）也终态
+        assertTrue(reasoningContentTerminal(partEnded = true, liveActive = true, liveSeenEver = true, sessionStreaming = true))
+        assertTrue(reasoningContentTerminal(partEnded = true, liveActive = false, liveSeenEver = false, sessionStreaming = true))
+    }
+
+    @Test
+    fun `reasoning terminal when bus override retired after being active`() {
+        // ②流经本进程（liveSeen）→ 让位（liveActive=false）= 完结
+        assertTrue(reasoningContentTerminal(partEnded = false, liveActive = false, liveSeenEver = true, sessionStreaming = true))
+    }
+
+    @Test
+    fun `reasoning terminal for cold composed finished part in idle session`() {
+        // ③冷组合的已完结 part（从未见 bus 覆盖）+ 会话 idle——历史卡直入终态
+        assertTrue(reasoningContentTerminal(partEnded = false, liveActive = false, liveSeenEver = false, sessionStreaming = false))
+    }
+
+    @Test
+    fun `reasoning not terminal while bus override active`() {
+        // 流式进行中（bus 覆盖在场）——end 未落、live 在场，非终态
+        assertFalse(reasoningContentTerminal(partEnded = false, liveActive = true, liveSeenEver = true, sessionStreaming = true))
+    }
+
+    @Test
+    fun `reasoning not terminal when streaming session and no override seen`() {
+        // 会话流式中且本进程从未见覆盖（活体重进前窗）——不能武断终态
+        //（flush 早到会放行未完文本的扣留尾）
+        assertFalse(reasoningContentTerminal(partEnded = false, liveActive = false, liveSeenEver = false, sessionStreaming = true))
+    }
 }

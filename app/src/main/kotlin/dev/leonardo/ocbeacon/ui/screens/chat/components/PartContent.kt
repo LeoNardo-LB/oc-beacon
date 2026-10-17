@@ -30,6 +30,7 @@ import dev.leonardo.ocbeacon.domain.model.ToolState
 import dev.leonardo.ocbeacon.ui.theme.AlphaTokens
 import androidx.compose.foundation.text.selection.SelectionContainer
 import dev.leonardo.ocbeacon.ui.screens.chat.isReasoningStreaming
+import dev.leonardo.ocbeacon.ui.screens.chat.reasoningContentTerminal
 import dev.leonardo.ocbeacon.ui.screens.chat.markdown.MarkdownContent
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.SpecialToolCardKind
 import dev.leonardo.ocbeacon.ui.screens.chat.tools.ToolCallCard
@@ -323,6 +324,20 @@ private fun PartContentInner(
                         )
                     }
                 }
+                // #556：推理内容终态推导（照 Part.Text #518①/#523 G2 三条件镜像，
+                // 纯函数见 reasoningContentTerminal）——终态旗标驱动 pilot gate
+                // 扣留尾全量揭示。缺它时思考文本以未闭合构造/行首硬停字符收尾
+                // 的扣留段完结后永冻（mock [sid] 前缀行 releasedTotal 恒 0 定罪）。
+                val liveReasoningSeen = androidx.compose.runtime.remember(part.id) {
+                    androidx.compose.runtime.mutableStateOf(false)
+                }
+                if (liveReasoning != null) liveReasoningSeen.value = true
+                val reasoningTerminal = reasoningContentTerminal(
+                    partEnded = partEnded,
+                    liveActive = liveReasoning != null,
+                    liveSeenEver = liveReasoningSeen.value,
+                    sessionStreaming = sessionStreaming,
+                )
                 ReasoningBlock(
                     text = liveReasoning ?: part.text,
                     isExpanded = rbExpanded,
@@ -331,6 +346,8 @@ private fun PartContentInner(
                     isStreaming = isStreaming,
                     startTimeMs = startTimeMs,
                     pinKey = part.id,
+                    // #556：终态全量揭示旗标（pilot gate 拒绝即放行，同 Part.Text）
+                    contentTerminal = reasoningTerminal,
                 )
             }
         }

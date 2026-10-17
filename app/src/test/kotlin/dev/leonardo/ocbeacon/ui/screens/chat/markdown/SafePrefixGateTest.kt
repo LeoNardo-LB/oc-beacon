@@ -354,4 +354,25 @@ class SafePrefixGateTest {
         val r0 = SafePrefixGate.releaseLength(snap, 0)
         assertEquals(r0, SafePrefixGate.releaseLength(snap, 0, maxReleaseChars = 50))
     }
+
+    // #556（2026-10-17）触发形状钉子：行首硬停字符（[ 系链接开定界面）+ 无空行
+    // 段落 → 流中全额扣留（releasedTotal 恒 0 = reveal 永零高的取证签名）。
+    // 设计语义：[ 可为嵌套链接开符（[x] y](url) 后缀重释义），保守扣留正确；
+    // 去路=空行毕业/终态 flush（pilot 层 contentTerminal，非 gate 职责）。
+    @Test
+    fun `行首硬停字符无空行段落流中全额扣留`() {
+        // mock 战役原始形状：[sid] 前缀行、空格拼接（无任何换行）
+        val snap = "[ab2c3d] Step 1: frame-local pairing holds the card top. " +
+            "[ab2c3d] Step 2: frame-local pairing holds the card top. "
+        assertEquals(0, rel(snap))
+        // 增长后仍全额扣留（held 随快照增长，releasedTotal 不动）
+        assertEquals(0, rel(snap + "[ab2c3d] Step 3: more text here. "))
+    }
+
+    @Test
+    fun `硬停字符行经空行毕业定案`() {
+        // 扣留去路①：最后一个空行块之前的内容无条件放行
+        val snap = "[ab2c3d] Step 1: closed paragraph. " + "\n\n" + "[ab2c3d] Step 2: open tail. "
+        assertEquals(snap.indexOf("\n\n") + 2, rel(snap))
+    }
 }

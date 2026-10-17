@@ -45,6 +45,23 @@ internal fun isReasoningStreaming(
 ): Boolean = !partEnded && (hasValidAnchor || sessionStreaming)
 
 /**
+ * #556：推理内容终态推导（Part.Text #518①/#523 G2 三条件镜像，纯函数单测锚）。
+ *
+ * ①数据终态（time.end 非空——完结权威已落位，end 后无合法增量）②bus 覆盖曾
+ * 建立后消失（流经本进程、完结让位）③会话空闲且无覆盖（冷组合的已完结
+ * part）。任一为真即终态。终态旗标驱动 pilot gate 扣留尾全量揭示（gate
+ * 拒绝即放行）——缺它时思考文本以未闭合构造/行首硬停字符（[ ] ! 等）收尾
+ * 的扣留段在完结后永冻（流中+完结均不可见；mock [sid] 前缀行全额扣留定罪，
+ * releasedTotal 恒 0）。
+ */
+internal fun reasoningContentTerminal(
+    partEnded: Boolean,
+    liveActive: Boolean,
+    liveSeenEver: Boolean,
+    sessionStreaming: Boolean,
+): Boolean = partEnded || (!liveActive && (liveSeenEver || !sessionStreaming))
+
+/**
  * 过滤 Parts 列表，仅包含可渲染的，
  * 保留服务器返回的原始顺序。
  *
