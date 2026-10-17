@@ -183,6 +183,10 @@ class H(BaseHTTPRequestHandler):
 
     def do_POST(self):
         p = self.path.split("?")[0]
+        # keep-alive 铁律：body 必须在任何 return 之前消费——未读 body 会被
+        # http.server 当作下一请求的 request line（实测真机复用连接时下一请求
+        # 501、DSH probe 判 Unreachable→「服务器已断开」横幅→发送无效）。
+        body = self._body()
         if p == "/api/session/list":
             # probe slash 形态：缺席
             return self._json({"error": "not found"}, 404)
@@ -190,7 +194,6 @@ class H(BaseHTTPRequestHandler):
             return self._json({"sid": SID, "seq": SEQ[0], "subs": len(SUBSCRIBERS)})
         if not p.startswith("/api/"):
             return self._json({"error": "not found"}, 404)
-        body = self._body()
         method = p[len("/api/"):]
         rpc_id = body.get("rpcId")
         payload = body.get("payload") or {}

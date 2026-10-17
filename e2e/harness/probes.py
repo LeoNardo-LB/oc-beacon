@@ -319,21 +319,22 @@ class Ev:
         if evap:
             ok = False
             ev.append("FAIL: 脸②贴底不累积 x%d" % evap)
-        # 脸③：窗内同 fii 相邻 set 100ms 内 >200 双向往返（无手势）
+        # 脸③（2026-10-18 真机校准）：对齐历史金标 scan5r5 的 OSC 语义——
+        # 3s 窗内 ≥2 次 >350px 大增量符号翻转（历史缺陷量级 ±627px 往返）。
+        # 单次 +263/−179 过冲-校正嵌在单调增长里=合法相位边界（scan5r5 v6
+        # 「单次方向转换=合法」教训；真机 20261018-010104 实测定谳）。
         tail = 0
-        for a, b in zip(sets, sets[1:]):
-            if a["set"][0] != b["set"][0]:
+        big = [(b["ts"], b["set"][1] - a["set"][1])
+               for a, b in zip(sets, sets[1:])
+               if a["set"][0] == b["set"][0] and b["ts"] - a["ts"] < 1 and abs(b["set"][1] - a["set"][1]) > 350]
+        for i in range(len(big) - 1):
+            if big[i + 1][0] - big[i][0] > 3:
                 continue
-            d = b["set"][1] - a["set"][1]
-            if b["ts"] - a["ts"] < 0.12 and abs(d) > 200:
-                # 需要前后形成往返
-                idx = sets.index(b)
-                if idx + 1 < len(sets):
-                    c = sets[idx + 1]
-                    d2 = c["set"][1] - b["set"][1]
-                    if c["ts"] - b["ts"] < 0.12 and d * d2 < 0 and abs(d2) > 100:
-                        if not any(a["ts"] <= t <= c["ts"] for t in toggles + gests):
-                            tail += 1
+            if big[i][1] * big[i + 1][1] < 0 and not any(
+                big[i][0] <= t <= big[i + 1][0] for t in toggles + gests
+            ):
+                tail += 1
+                break
         if tail:
             ok = False
             ev.append("FAIL: 脸③尾段往返 x%d" % tail)

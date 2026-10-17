@@ -159,24 +159,43 @@ def send_prompt(dev, text, timeout=30):
     c = composer_node(dev)
     if not c:
         return False
-    dev.tap(c["cx"], c["cy"])
-    time.sleep(0.8)
-    dev.input_text(text)
-    time.sleep(0.8)
+    # 真机 MIUI：IME 冷启可达 ~4s——未就绪时 input text 直接丢失（实测 DSH 轮
+    # composer 空、发送键无效）。输入后回读校验，未落字则重聚焦重输（3 次）。
+    for attempt in range(3):
+        dev.tap(c["cx"], c["cy"])
+        time.sleep(1.2 + 0.8 * attempt)
+        dev.input_text(text)
+        time.sleep(0.7)
+        ns = dev.nodes()
+        if any(text[:6] in (n["text"] or "") for n in ns if "EditText" in n["cls"]):
+            break
+        c = composer_node(dev) or c
     dev.key(4)  # 收 IME
     time.sleep(0.8)
     ns = dev.nodes()
     send = [n for n in ns if n["desc"] == "发送" or n["text"] == "发送"]
     if not send:
-        # IME 未收：按当前 dump 的发送键位置重试
         send = [n for n in dev.nodes() if n["desc"] == "发送"]
     if not send:
         return False
-    dev.tap(send[0]["cx"], send[0]["cy"])
-    # 不用 UI dump 等流出（流式组合期 uiautomator 会等 idle 而卡死）；固定 2s 后
-    # 由调用方用日志判据确认。
-    time.sleep(2.0)
-    return True
+    # 发送确认 + 重试：以 logcat 出现发送请求为准（3 次内未出现就重按）。
+    # 双协议标记：V2 = "] POST /prompt"（[prompt] POST /api/.../prompt）；
+    # DSH = "api/session.prompt"（Ktor REQUEST，点分隔——"/prompt" 匹配不上，
+    # 20261018 双端 DSH 假 SEND FAIL 定谳）。
+    def _mark(dev):
+        return dev.count_log("] POST /prompt") + dev.count_log("api/session.prompt")
+    base = _mark(dev)
+    for _ in range(3):
+        dev.tap(send[0]["cx"], send[0]["cy"])
+        time.sleep(1.2)
+        if _mark(dev) > base:
+            time.sleep(1.0)
+            return True
+        ns = dev.nodes()
+        s2 = [n for n in ns if n["desc"] == "发送" or n["text"] == "发送"]
+        if s2:
+            send = s2
+    return _mark(dev) > base
 
 
 def wait_stream(dev, timeout=30):
@@ -262,6 +281,11 @@ def run_card(card, args):
     stamp = time.strftime("%H%M%S")
     title = f"E2E-{card}-{stamp}"
     scenario_env = fn.__dict__.get("env", {})
+    # 稳定性验证用：--env KEY=VAL 覆盖场景默认参数（每轮细微差异：行数/节奏/停顿）
+    for kv in getattr(args, "extra_env", None) or []:
+        if "=" in kv:
+            k, v = kv.split("=", 1)
+            scenario_env[k] = v
     is_dsh = fn.__dict__.get("dsh", False)
     mock = Mock(port, scenario_env, outdir, title=title, dsh=is_dsh)
     result = {"card": card, "device": args.device, "title": title, "start": time.strftime("%F %T"),
@@ -497,7 +521,12 @@ def scenario_551(ctx):
     if not send_prompt(ctx.dev, "e2e551 giant"):
         return {"pass": False, "checks": [("SEND", "FAIL")]}
     time.sleep(2.5)
-    ctx.dev.tap(500, 1972)  # 折叠卡头（确定性几何）
+    # 首展：dump 定位折叠卡头（折叠态组合轻、dump 安全；真机固定坐标实测
+    # 因时序/IME 残留偏移而 miss——展开后的重组合期才需避开 dump）
+    h1 = wait_header(ctx.dev, 15)
+    if not h1:
+        return {"pass": False, "checks": [("NO-CARD", "FAIL")]}
+    ctx.dev.tap(h1["cx"], h1["cy"])
     time.sleep(6)           # 内容长到数屏（delta-only ~7k px，3 屏；在流完结前冻结）
     ctx.mock.pause(120000)
     time.sleep(0.4)
@@ -509,7 +538,7 @@ def scenario_551(ctx):
     # delta-only 6s 内容实测 ~7.2k px；18 划（~8k）足以顶到列表界，到界后卡头
     # 稳定在视口中部（历史手动轮 813px），再按日志计数扫 y 命中。
     _back(18)
-    y = find_toggle_y(ctx, ys=(800, 850, 750, 900, 700, 950, 650, 1000, 600, 1050, 550, 1100, 500))
+    y = find_toggle_y(ctx, ys=_ys(ctx, (800, 850, 750, 900, 700, 950, 650, 1000, 600, 1050, 550, 1100, 500)))
     if y is None:
         ctx.dump("dump-header-lost.xml")
         return {"pass": False, "checks": [("HEADER-LOST", "FAIL")]}
@@ -521,14 +550,14 @@ def scenario_551(ctx):
     ctx.dev.tap(500, y2)
     time.sleep(2.2)
     ev = probes.make(ctx.dev.logcat())
-    ok, evs = ev.card551(viewport=2400)
+    ok, evs = ev.card551(viewport=ctx.dev.screen_size()[1])
     last = ev.windows[-1] if ev.windows else None
     if last is None or last.get("tgt") == 0:
         # 末窗是收起，再展开一次
         ctx.dev.tap(500, y)
         time.sleep(2.0)
         ev = probes.make(ctx.dev.logcat())
-        ok, evs = ev.card551(viewport=2400)
+        ok, evs = ev.card551(viewport=ctx.dev.screen_size()[1])
         last = ev.windows[-1] if ev.windows else None
     evs.append("toggle-y=%d windows=%d last_tgt=%s" %
                (y, len(ev.windows), last.get("tgt") if last else None))
@@ -563,6 +592,19 @@ scenario_547.env = {"MOCK_SCENARIO": "rename", "MOCK_LINES": "24", "MOCK_INTERVA
                     "MOCK_RENAME_AT": "8", "MOCK_TEXT_CHUNKS": "1", "MOCK_TEXT_INTERVAL": "0.3"}
 
 
+
+def _hy(ctx, emulator_y=1972, emulator_h=2400):
+    """固定 y 按屏幕高度换算（模拟器 1080x2400 标定 → 真机 1200x2670）。"""
+    h = ctx.dev.screen_size()[1]
+    return int(emulator_y * h / emulator_h)
+
+
+def _ys(ctx, ys):
+    h = ctx.dev.screen_size()[1]
+    k = h / 2400.0
+    return [int(y * k) for y in ys]
+
+
 def scenario_549(ctx):
     """#549：随机扰动（toggle burst/滚动）——三脸扫描。
 
@@ -576,14 +618,18 @@ def scenario_549(ctx):
         if not send_prompt(ctx.dev, "e2e549 fuzz %d" % rnd):
             return {"pass": False, "checks": [("SEND", "FAIL")]}
         time.sleep(1.8)
-        # 首展：折叠卡头（确定性几何）
-        ctx.dev.tap(500, 1972)
+        # 首展：dump 定位折叠卡头（设备无关；折叠态 dump 安全）
+        h1 = wait_header(ctx.dev, 15)
+        if h1:
+            ctx.dev.tap(h1["cx"], h1["cy"])
+        else:
+            ctx.dev.tap(500, _hy(ctx))  # 回退：确定性几何
         taps += 1
         time.sleep(0.6)
         # 命中反馈扫描（卡头扩展后上移，覆盖视口中部）
         base = _count(ctx.dev, "degrade toggle")
         found = None
-        for y in (800, 900, 700, 1000, 600, 1100, 500, 1200, 400, 1300, 300, 1400, 1800):
+        for y in _ys(ctx, (800, 900, 700, 1000, 600, 1100, 500, 1200, 400, 1300, 300, 1400, 1800)):
             ctx.dev.tap(500, y)
             taps += 1
             time.sleep(0.25)
@@ -715,8 +761,11 @@ def scenario_551_static(ctx):
     time.sleep(13)              # 40×0.3s 全部到达；卡片仍折叠（contentH 未测量）
     ctx.mock.pause(180000)
     time.sleep(0.5)
-    # 首次展开：7k 内容一次性组合（此后无新 delta）
-    ctx.dev.tap(500, 1972)
+    # 首次展开：dump 定位折叠卡头（折叠态组合轻；见 551 注释）
+    h1 = wait_header(ctx.dev, 15)
+    if not h1:
+        return {"pass": False, "checks": [("NO-CARD", "FAIL")]}
+    ctx.dev.tap(h1["cx"], h1["cy"])
     time.sleep(2.5)
     ev0 = probes.make(ctx.dev.logcat())
     ch0 = [c["b"] for c in ev0.content]
@@ -724,7 +773,7 @@ def scenario_551_static(ctx):
     for _ in range(20):
         ctx.dev.swipe(540, 800, 540, 1500, 500)
         time.sleep(0.35)
-    y = find_toggle_y(ctx, ys=(800, 850, 750, 900, 700, 950, 650, 1000, 600, 1050, 550, 1100, 500))
+    y = find_toggle_y(ctx, ys=_ys(ctx, (800, 850, 750, 900, 700, 950, 650, 1000, 600, 1050, 550, 1100, 500)))
     if y is None:
         ctx.dump("dump-header-lost.xml")
         return {"pass": False, "checks": [("HEADER-LOST", "FAIL"), "contentH=%s" % (ch0[-1] if ch0 else None)]}
@@ -732,12 +781,16 @@ def scenario_551_static(ctx):
     time.sleep(1.5)
     # 回到底部（折叠卡头在输入框上方），第二次展开 → 离底让位预算
     for _ in range(10):
-        ctx.dev.swipe(540, 1800, 540, 400, 300)
+        ctx.dev.swipe(540, int(ctx.dev.screen_size()[1] * 0.75), 540, int(ctx.dev.screen_size()[1] * 0.17), 300)
         time.sleep(0.25)
-    ctx.dev.tap(500, 1972)
+    h2 = wait_header(ctx.dev, 10)
+    if h2:
+        ctx.dev.tap(h2["cx"], h2["cy"])
+    else:
+        ctx.dev.tap(500, _hy(ctx))
     time.sleep(2.5)
     ev = probes.make(ctx.dev.logcat())
-    ok, evs = ev.card551(viewport=2400)
+    ok, evs = ev.card551(viewport=ctx.dev.screen_size()[1])
     evs.append("static_contentH=%s windows=%d" % (ch0[-1] if ch0 else None, len(ev.windows)))
     if ch0 and ch0[-1] > 10000:
         ok = False
@@ -760,6 +813,8 @@ def main():
     sub.add_parser("list")
     r = sub.add_parser("run")
     r.add_argument("--card", required=True)
+    r.add_argument("--env", dest="extra_env", action="append", default=[],
+                   help="覆盖场景 mock 参数（KEY=VAL，可多次）")
     r.add_argument("--device", default=EMU)
     r.add_argument("--apk")
     r.add_argument("--port", type=int, default=4399)
