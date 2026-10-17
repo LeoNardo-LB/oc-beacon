@@ -624,3 +624,13 @@ A/B 实证（p7_900 vs p7b_970）：tgt 13807（棘轮虚高）→5546（=settle
 **架构发现（重要）**：思考流期 reasoning 卡=空壳（span=0——live reasoning 经 B4 override 渲染于 CardExpandReveal 之外，卡片 reveal 无内容）；空壳 toggle 零高度变化=Δ=0 空洞证据。真机 DeepSeek「思考期卡自动展开涨到 11.9k px」形态（文本入卡）在 mock 未复现——该形态才含真实收起高度；疑与 RB expanded 初值或 reasoning.started 前的 delta 序列相关，后续复现方向：mock 在 reasoning.started 前先发若干 delta（孤儿 part 自愈路径）或调 RB 默认展开态。
 
 **垫通道判定**：全部 staged 收起均有骑行房间（展开离底让位创造 fiso）或为空壳——ABSORB 未被逼出；贴底+有内容+无房间三条件在空壳架构下需上述「文本入卡」形态。单测侧垫四通道算术已穷尽（FlushTaskPhasesTest 九报组），产品侧证据链=窗口✓驱动✓骑行✓卡顶零位移✓、垫待「文本入卡」形态补测。
+
+## §41ter 九报 E2E 第四战役：expandReasoning 设置发现与「文本入卡」形态达成
+
+**根因发现（本轮最大成果）**：思考流期卡片空壳 vs 真机上文字入卡的分岔=**用户设置 expandReasoning**（设置→聊天显示→自动展开推理内容，DataStore 持久化，默认 false）。用户手机开启→思考卡挂载即展开、流式文本经 CardExpandReveal 内部增长（真九报形态）；模拟器默认关→空壳（span=0）。已在模拟器开启并实证：RB-EXP default=true、挂载即开窗（10:48:58 窗=mount-expand 窗）、MDResize 真实增长链（158→264→380→496→612→2922）。
+
+**渲染管线时序事实**：mock delta→可见 MDResize 批延迟 2-4s（新会话）→ 随会话累积劣化至 8-29s（模拟器长跑实例降速，重启模拟器后仍需全新导航）；批间静默 ~3s+批跳 ~116px=批同步窗口法（盯 MDResize 增量起打）可行但受管线抖动制约。
+
+**最后一击未竟**：m15 轮拿到真形态下的收起 toggle（Z1: Δwin=1 命中窗、top 1126→999 Δ=-127≈纯流推送）——但 span=0（toggle 时内容尚未渲染——管线延迟使 toggle 早于内容落地）。m16-m21 六轮：管线延迟+批抖动+全新实例导航重置连环消耗。垫（ABSORB）通道产品侧仍未逼出——差一次「已渲染内容≥300px 时的成功收起 tap」。终猎脚本 final_hunter.sh（设备端全自动：发送双位重试×批同步×窗确认×垫检测）就绪，载体阻塞在发送键坐标随实例状态漂移。
+
+**结论与路径**：单测侧垫四通道穷尽验证（FlushTaskPhasesTest）；产品侧证据链=真形态窗命中✓+Δtop≈纯推送✓+垫待一次成功收起 tap。闭合路径二选一：①真机回网→mock(4399)+adb reverse+真机（设置本开、a11y 稳）→终猎脚本或用户一指；②模拟器恢复视觉服务后手工导航一轮。
