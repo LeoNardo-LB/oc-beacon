@@ -680,3 +680,11 @@ G 轮（19:09，第 3 装置轮有效——教训：流式时窗内动作链禁�
 **骑行房间结构律（C/F/G 三轮 116/1160/928px 跨度定谳）**：toggle 对自己创造并消费骑行房间——展开配对把 fiso 骑到恰=span，收起全额骑回；钳制分支（→垫）在 mock 单卡贴底几何结构性不可达。九报 nine1 真机轮的真实钳制来自多部件几何（答案部件/IME 视口变化/用户滚动交织）——场景确凿但 mock 不可复现。
 
 **#554 终评**：全部 10 个产品侧 toggle/收起窗卡顶 Δ=0（V3 顶缘不变式成立）；垫四通道单测穷尽；ABSORB 行捕获留观自然使用（探针常驻），停止 staging 轮次。#556（97f320953）/#557（954a3097b）两根修连带把「流式思考文本可见性」从双重缺陷中恢复（gate 放行+reveal 增长），E 轮 4/4、A/B 双轮、E/F/G 三轮全绿无 FATAL。
+
+## §42 #544 第二刀推进：C2 死机制清剿 + C3 三量正交分通道（C1 前置就绪）
+
+**C2（commit 436622063）**：CardExpandClock 死机制清剿——advance/primeLedger/absorb/absorbedF/absorbedPx/pinTargetFraction/closedLoopCommand+MAX_CLOSED_LOOP_DELTA_PX（#420-#425 闭环派发机件退役残骸）生产零调用（逐一 grep 复核架构审查 2026-10-11 的声称后删除），两处探针日志死值读（PRD PLACED abs=/DRAW residual=）随删；死机制测试 13 例退场（4067→4054 全绿），活语义（snap/onMeasure/episode/#430 steady/PairedDispatch）全保留。净删 284 行。
+
+**C3（commit 02502a107）**：applyPairedShift 三量正交分通道——ReserveReleasePlan 增 hatDeltaNet 纯帽净额（reservePhase 构造：帽 delta−泄垫；纯函数层=delta 不变量），负向分支 nonDriveNegV 与正向分支 hatDeltaP 改读正交字段（旧式 `delta 总账−driveStep` 反解把垫增量混入提取：钳制余量帧压低帽镜像=漏发、耗垫帧加深镜像=多发——#549 脸①重向 slam/脸③动画尾往返的通道根）。ReserveReleasePlanTest 15 处不变量更新 + FlushTaskPhasesTest 新钉语义 1 例（钳制余量帧帽负余量独立镜像，目标差 30px 可辨）。
+
+**验证**：全量 4055/0；smoke H 轮 toggle1（收起）干净（单调 ease-out、Δtop=0、窗 567ms 正常关闭、无震荡无 slam），toggle2（展开）现「管线静默」信号——判别轮 I（全新 mock 唯一 sid+696px 小卡隔离三混杂因子）①-⑤ 全 PASS：collapse→expand 后 SGR/MDPilot/contentH/RESERVE 四线齐动、展开动画链走完到 h=831 稳定（=137 头部+696 内容）、后续思考行与答案块即时恢复 MDPilot 配对（releasedTotal 精确命中 594/1151）。H 轮静默定谳=组合窗经济学（1044px 大展开在 anchor-not-owner 位把宿主 item 推出组合窗→#557 DisposableEffect 清册→flush 早退静默；H2 日志最后一帧 43.668 后零 flush t= 行佐证）+同会话 sid 前缀复用致 #547 指纹键跨轮碰撞装置混杂，非 C2/C3 回归。C1（降级分支退役/终态谓词统一）前置就绪。

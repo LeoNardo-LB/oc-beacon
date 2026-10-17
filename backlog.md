@@ -159,6 +159,9 @@
   - → spec: docs/specs/2026-10-11-unified-expand-placement-design.md
   - 2026-10-11 review 轮登记两项同批：①ScrollCompensation 877/962 头注释漂移（dispatchRawDelta 旧述）②stick 槽 entryKey 标签化（同 item 双卡并发收起单槽冲突）
   - 架构审查落账（2026-10-11 深夜，终包 soak5r 交叉对账后）：勘察 8 摩擦点合成六候选 C1-C6，递进 C2→C3→C1——C2 CardExpandClock 死机制清剿（advance/absorb/pinTargetFraction 等 100+ 行生产零调用+半测试文件，纯删零风险，可先行）；C3 applyPairedShift 三量分通道（plan.delta 污染和→帽/驱动/ledger 正交通道，~30 行反解蒸发，C1 前置）；C1=本卡主体（降级分支退役）。C4 ExpandStateStore 由 #547 实测强化（展开态键与宿主解耦为推荐修向）；C5 单写者化/C6 快赢包随 C1 顺势。报告存档 /tmp/architecture-review-20261011-height-engine.html（勘察全文+前后对比图）；正向否决门 reserve 级单槽（四报只修负向半边）并入 C1 范围
+  - - C2 完成（436622063，2026-10-17）：CardExpandClock 死机制清剿（advance/primeLedger/absorb/absorbedPx/pinTargetFraction/closedLoopCommand，#420-#425 闭环派发残骸）——零调用声称逐一 grep 复核后删除，净删 284 行，死机制测试 13 例退场（4054/0），活语义全保留。
+  - - C3 完成（02502a107，2026-10-17）：applyPairedShift 三量正交分通道——ReserveReleasePlan 增 hatDeltaNet，负向 nonDriveNeg/正向 hatDeltaP 读正交源（垫增量不再污染帽镜像提取=#549 脸①③残余通道根）；钉语义测试 1 例+PlanTest 15 处不变量；全量 4055/0。smoke+判别轮验证：收起/展开 toggle 管线四线齐动、无震荡无 slam、判别轮 ①-⑤ 全 PASS（H 轮静默=组合窗经济学+指纹碰撞装置混杂，非回归）。
+  - - 剩余：C1（本卡主体：终态谓词取代 LocalInStreamingTurn 双路径、AV 弹簧退役、幂等重挂不变量）+C5 单写者化/C6 快赢包；C4 归 #547。review 轮两项同批（头注释漂移+stick 槽 entryKey 标签化）随 C1。
 
 - [~] **#543 #543 压缩卡换装重建窗双宿主——双 episode 双锚定三跳瞬态（R9 系统性 E2E 发现，定向复现已定罪）** `scroll` `chat`
   - 真机 R9 + 定向复现 2/4 RED：displayItems 重建（upsert:MergeStrategy→[452-display]）窗内同一压缩消息以两个不同 item key 的条目并存 ~300ms（两 CardExpandReveal 并发完整 episode），共享屏幕级 expansionKey 一次 toggle 点亮两宿主→同 +H 双锚定（111/127ms 间隔）→旧宿主离场收缩修正（R9 变体 −H 第三跳）；净效≈单次展开但三跳瞬态可见
