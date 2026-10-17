@@ -100,9 +100,16 @@ class Device:
         return self.adb("logcat", "-d", "-v", "time", timeout=timeout).stdout
 
     def count_log(self, needle, tail=3000):
-        """近 tail 行内计数（比全量 dump 快一个量级；用于命中反馈）。"""
-        out = self.adb("logcat", "-d", "-t", str(tail), timeout=20).stdout
-        return out.count(needle)
+        """近 tail 行内计数（命中反馈）。真机高负载时 logcat -d 可 >20s
+        （072701 实测定罪）——35s 超时 + 一次重试。"""
+        for attempt in range(2):
+            try:
+                out = self.adb("logcat", "-d", "-t", str(tail), timeout=35).stdout
+                return out.count(needle)
+            except Exception:
+                if attempt:
+                    raise
+        return 0
 
     # ---------- UI ----------
     def dump(self, retries=2):

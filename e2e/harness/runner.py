@@ -164,6 +164,7 @@ def open_session(dev, title, timeout=30):
 def send_prompt(dev, text, timeout=30):
     c = composer_node(dev)
     if not c:
+        SEND_DIAG[0] = "no-composer;focus-screen-unknown"
         return False
     # 真机 MIUI：IME 冷启可达 ~4s——未就绪时 input text 直接丢失（实测 DSH 轮
     # composer 空、发送键无效）。输入后回读校验，未落字则重聚焦重输（3 次）。
@@ -183,6 +184,10 @@ def send_prompt(dev, text, timeout=30):
     if not send:
         send = [n for n in dev.nodes() if n["desc"] == "发送"]
     if not send:
+        # 诊断：屏幕上全部可点节点摘要（找发送键失败的取证）
+        SEND_DIAG[0] = "no-send-btn;clickables=%r;edit=%r" % (
+            [(n["desc"] or n["text"])[:10] for n in ns if n["clickable"]][:8],
+            [n["text"][:14] for n in ns if "EditText" in n["cls"]][:2])
         return False
     # 双协议标记：V2 = "] POST /prompt"（[prompt] POST /api/.../prompt）；
     # DSH = "api/session.prompt"（Ktor REQUEST，点分隔——"/prompt" 匹配不上，
@@ -633,8 +638,21 @@ def scenario_549(ctx):
     _launch_and_open(ctx, False)
     taps = 0
     for rnd in range(3):
+        # 轮首恢复：真机随机手势可被 MIUI 手势区弹回会话列表（072523 存证
+        # dump=列表页）——无 composer 时收浮层→仍无则按标题重开会话→再验。
+        if not composer_node(ctx.dev):
+            ctx.dev.key(4)
+            time.sleep(0.8)
+            if not composer_node(ctx.dev):
+                open_session(ctx.dev, ctx.title, timeout=10)
+                time.sleep(0.5)
+                if not composer_node(ctx.dev):
+                    ctx.save("dump-lost-screen-r%d.xml" % rnd, ctx.dev.dump())
+                    return {"pass": False, "checks": [
+                        ("INVALID", "round%d 屏幕离开聊天域且重开失败" % rnd),
+                        SEND_DIAG[0]]}
         if not send_prompt(ctx.dev, "e2e549 fuzz %d" % rnd):
-            return {"pass": False, "checks": [("SEND", "FAIL")]}
+            return {"pass": False, "checks": [("SEND", "FAIL"), SEND_DIAG[0]]}
         time.sleep(1.8)
         # 首展：dump 定位折叠卡头（设备无关；折叠态 dump 安全）
         h1 = wait_header(ctx.dev, 15)
