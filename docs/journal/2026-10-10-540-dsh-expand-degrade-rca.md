@@ -664,3 +664,19 @@ A/B 实证（p7_900 vs p7b_970）：tgt 13807（棘轮虚高）→5546（=settle
 **round C（#554 垫捕获复跑，18:02-18:04）**：装置成功（首踩陈旧 dump 坑——95s 前语义树计时比对法校验新鲜度后命中）、窗命中（pairing-window open 25ms 内）、卡顶 Δ=0（tap 前后 top=1126），但 ABSORB 零行——**几何使然非缺陷**：tap 时 fii=7 fiso=116，收起步进 -116 全额骑行（release-ref drv=-37/-25/-17/... set(fiso 116→0)），无钳制余量→无垫。垫需要 fiso≈0 的贴底原点。
 
 **#557 新缺陷发现（round C 最大产出，阻塞 #554 垫捕获的第二道墙）**：expandReasoning=ON 流式思考卡 **reveal span 冻结于首段高度**——mount 配对窗关闭后内容增长不再物化为 item 高度：turn 2 挂载 137→253（首段 116px，驱动步进+dpos 配对正常）→ 窗关（18:02:09.282）后 45 秒 RESERVE/SGR measure 全静默，而同时 MC len 99→1991 增长、MDPilot stable 3→60、path=pilot 全程——状态层健康、渲染高度冻结。完结切 mech 路径时全量高度一次物化（turn 1 item=5990px close-pre rep=4640）。**分叉定罪**：同轮答案阶段（Part.Text 在 reveal 之外直渲染）`measure h=158→264→380→612` 逐 append 渐进增长——同一库同一 MarkdownContent 同一 pilot 在 reveal 外完全正常 → 冻结是 degrade 驱动 reveal 层专属。round A 复盘亦中招（A_mid1/2 单帧仅 1 段——当时误归因视口裁剪）。真实服务器九报期流中增长正常（用户在卡内读到流式文本）——疑慢节奏（1.2s/行 settle）与连续流的驱动存活差异；[DEBUG-557] 探针（contentH 变化链 + win-close 注销裁决）已埋，探针轮采集中。
+
+## §41septen #557 探针定谳与根修、E 轮验证、F 轮垫几何定谳（承 §41sexties）
+
+**#557 根修（commit 954a3097b）**：D 轮 [DEBUG-557] 探针外科定罪——`win-close remove h=116 tgt=116 contentH=116 anim=false`（settle 时刻注销）后 contentH 116→2900 持续涨、hTarget 跟随、reg=false，而 RESERVE measure 冻 253px 整 59.4s。断链=注销后 hProvider 闭包仍捕获组合期 driveRegistered=true 恒读死驱动冻结 h（注销在窗关 finally 非快照写不失效；流式重组只打 content 槽不重算函数体）。三刀：①win-close 注销条件加 !visible（展开态留册，稳态步进=0 零成本；增长经驱动逐档配对=#540 离底让位原义）②DisposableEffect(drive) 组合位销毁清册（垫未清除外——跨 item 泄放语义）③hProvider 活读 degradeDrives.contains 防闭包陈旧。真实服务器九报期流中增长正常的解释：连续流下驱动窗内不 settle 不注销；1.2s/行慢节奏 settle→注销→冻（真实用户低概率=思考流长停顿后恢复）。
+
+**E 轮验证 4/4 PASS（2026-10-17 18:41）**：contentH 116→2900 全程 reg=true；win-close remove=false（vis=true）；measure 链 0→137→…→2900→4208 持续爬升不冻 253；SGR release dpos= 337 条贯穿全流；E_mid.png 流中 7-8 段可见。证据 n556/E_probes.log（1554 行）。
+
+**F 轮垫几何定谳**：span=1160 冻结窗 tap、卡顶 Δ=0，但 ABSORB 零行——步进链完整（release-ref capd=-371/-252/… set(fiso 1160→0)），**全骑行**：tap 时 fii=7 fiso=1160 恰等于 span。C 轮（116px）与 F 轮（1160px）两轮 fiso 恒=span——贴底跟随态下 reveal 低于折叠线的尾段即骑行房间，**骑行房间结构性覆盖塌缩量，钳制永不触发**。垫的适用场景修正：九报用户实况=向上滚动阅读流式文本时收起（锚移到揭示缘上方→房间<塌缩量→钳制入垫）。G 轮 staging：8 行×2s 流，~11s 时向上滚 600px 压缩房间再收起。
+
+## §41octo G 轮收官：骑行房间结构律与 #554 终评
+
+G 轮（19:09，第 3 装置轮有效——教训：流式时窗内动作链禁止跨工具命令分步，单命令 bash 全链路自动化命中 t+14.0s）：装置两 mock 工件（#547 指纹键跨轮碰撞=同会话 sid 前缀相同，卡出生继承上轮收起态；tap 语义反转为展开），有效数据=阅读位上移后流末自动收起。tap 前 fii=0 fiso=0 → 展开骑行 fiso→928（=span）→ 自动收起 release-ref 21 帧泄放 928→2，卡顶 Δ=0，无 ABSORB。
+
+**骑行房间结构律（C/F/G 三轮 116/1160/928px 跨度定谳）**：toggle 对自己创造并消费骑行房间——展开配对把 fiso 骑到恰=span，收起全额骑回；钳制分支（→垫）在 mock 单卡贴底几何结构性不可达。九报 nine1 真机轮的真实钳制来自多部件几何（答案部件/IME 视口变化/用户滚动交织）——场景确凿但 mock 不可复现。
+
+**#554 终评**：全部 10 个产品侧 toggle/收起窗卡顶 Δ=0（V3 顶缘不变式成立）；垫四通道单测穷尽；ABSORB 行捕获留观自然使用（探针常驻），停止 staging 轮次。#556（97f320953）/#557（954a3097b）两根修连带把「流式思考文本可见性」从双重缺陷中恢复（gate 放行+reveal 增长），E 轮 4/4、A/B 双轮、E/F/G 三轮全绿无 FATAL。
