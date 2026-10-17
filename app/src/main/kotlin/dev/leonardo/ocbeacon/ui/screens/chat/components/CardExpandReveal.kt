@@ -771,7 +771,23 @@ internal fun CardExpandReveal(
                     // 冻结）保留在列表给 flush 续步（稳态步进=0 无害）。
                     // 九报（#554）：吸收垫未清的驱动同样留册——flush 的增长泄放
                     // （applyAbsorbDeltas）遍历 degradeDrives，注销即垫永不退役。
-                    if (!drive.animating && drive.absorbPx == 0) {
+                    // #557（2026-10-17 探针轮 D 定罪）：注销条件加 **!visible**——
+                    // settle 期窗关把展开态驱动注销后，后续流式增长无人步进
+                    //（hProvider 回退分支被组合期闭包旁路，见下 degradeRevealHeight）
+                    // → reveal span 冻结于 settle 时刻高度（实测 253px 冻 59.4s
+                    // 而 contentH 涨至 2900，完结才全量砸出）。展开态留册零成本
+                    //（稳态步进=0），增长经驱动逐档配对落地（#540 离底让位原义）。
+                    // 组合位销毁的清册由 DisposableEffect(drive) 兜底。
+                    if (BuildConfig.DEBUG) {
+                        AppLogger.d(
+                            "CardExpand",
+                            "[DEBUG-557] win-close vis=" + visible +
+                                " remove=" + (!drive.animating && drive.absorbPx == 0 && !visible) +
+                                " h=" + drive.h + " tgt=" + drive.hTarget +
+                                " contentH=" + contentH.intValue + " anim=" + drive.animating,
+                        )
+                    }
+                    if (!drive.animating && drive.absorbPx == 0 && !visible) {
                         pr.degradeDrives.removeAll { it === drive }
                     }
                     if (BuildConfig.DEBUG) {
@@ -813,6 +829,15 @@ internal fun CardExpandReveal(
         // drive.h 为快照态活读——两窗口（等靶/动画中）合一，闪挂源消除。
         val driveRegistered = pairingReserve?.degradeDrives?.contains(drive) == true
         val driveOwned = driveRegistered && drive.animating
+        // #557：组合位销毁清册——驱动对象随卡死，死条目在册累积（每流式 turn
+        // 一条）。垫未清的除外（#554 垫泄放需在册，跨 item 泄放语义）。
+        androidx.compose.runtime.DisposableEffect(drive) {
+            onDispose {
+                if (drive.absorbPx == 0) {
+                    pairingReserve?.degradeDrives?.removeAll { it === drive }
+                }
+            }
+        }
         Box(
             modifier = modifier
                 // 九报（#554）：收起吸收垫——报告高=子高+垫（顶锚放置，垫悬于盒底
@@ -829,7 +854,13 @@ internal fun CardExpandReveal(
                 Box(
                     androidx.compose.ui.Modifier
                         .degradeRevealHeight {
-                            if (driveRegistered) drive.h else if (visible) contentH.intValue.coerceAtLeast(0) else 0
+                            // #557：注册态活读——闭包捕获组合期 driveRegistered 布尔，
+                            // 而注销发生在窗关 finally（非快照写、不失效），流式重组
+                            // 只打到 content 槽不重算函数体 → 旧闭包恒读已注销驱动的
+                            // 冻结 h（span 冻根源）。活读下未注册回退 contentH 直通
+                            //（孤儿路径兜底；常态增长走驱动配对，见 win-close 注释）。
+                            if (pairingReserve?.degradeDrives?.contains(drive) == true) drive.h
+                            else if (visible) contentH.intValue.coerceAtLeast(0) else 0
                         }
                         .clipToBounds()
                         .graphicsLayer {
@@ -844,6 +875,16 @@ internal fun CardExpandReveal(
                 ) {
                     Box(
                         androidx.compose.ui.Modifier.onSizeChanged { sz ->
+                            // #557 探针（DEBUG-only）：内容自然高变化——流中 reveal
+                            // 冻结定罪用（内容长 vs 盒高不长的断链层定位）。
+                            if (BuildConfig.DEBUG && sz.height != contentH.intValue) {
+                                AppLogger.d(
+                                    "CardExpand",
+                                    "[DEBUG-557] contentH " + contentH.intValue + " -> " + sz.height +
+                                        " hTarget=" + drive.hTarget + " reg=" +
+                                        (pairingReserve?.degradeDrives?.contains(drive) == true),
+                                )
+                            }
                             contentH.intValue = sz.height
                             // #551：种子不再 max 棘轮（七报定罪：跨事件冻结暂态
                             // 膨胀高）——种子的刷新移至窗关时刻（settle 事件锚定）

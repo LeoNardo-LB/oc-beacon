@@ -652,3 +652,15 @@ A/B 实证（p7_900 vs p7b_970）：tgt 13807（棘轮虚高）→5546（=settle
 **捕获成果**：真形态三连 toggle（Z1 收起/Z2 再展开/Z3 再收起）全部 Δwin 命中、卡顶 top=1254 全程 Δ=0（ph16 帧证）；至此真机+模拟器累计 7 个真形态 toggle 窗全部卡顶零位移。
 
 **#556 发现（本轮最大产出）**：所有 toggle 窗 span=0——expandReasoning=ON 时挂载即展开的流式思考卡 reveal 永零高：B2/B4 文本已到组合层但 reveal 内流式 Markdown state 永不 append，思考文本全程不可见（Y1_pre 视觉确认：仅头部+spinner+计时）。三节奏均复现，确定性。早前「快节奏渲染」结论勘误（m13/m15 增长实为同会话他源）。该缺陷阻塞垫的产品侧捕获（无高度即无塌缩量），也本身是 expandReasoning 用户的可见性缺陷——但用户真机真实服务器文本可见（九报前提），故真实服务器事件序列与 mock 存在未查差异，#556 根因待查（关联 #461 H=0 僵尸态/#486 账本）。
+
+## §41sexties #556 根修收官：gate 全额扣留定罪 + contentTerminal 穿线；round C 垫捕获与新冻结缺陷发现
+
+**#556 定罪（推翻登记时的「事件序列差异」假设）**：ph16 日志判读 `MDPilot gate release=0 held=57 releasedTotal=0` 恒定——文本全程到达 pilot，但 SafePrefixGate 全额扣留。两因子：①mock 行模板 `[sid]` 前缀——`[`/`]` 在 ACTIVE_MARKERS（SafePrefixGate.kt:52）且是 InlineSpanSafety 硬停字符（InlineSpanSafety.kt:40，`[` 可为嵌套链接开符 `[x] y](url)` 的重释义面）→ 行首 `[` 即 safeCut=0；②行间无空行（mock 纯空格拼接）→ 第一级空行毕业永不触发。真实服务器思考文本=自然段落（空行分隔+无前导 `[`）→ 正常放行可见，九报前提自洽。
+
+**根修（commit 97f320953）**：产品缺陷面=Reasoning 分支从未穿线 contentTerminal（Part.Text 有 #518①/#523 G2 三条件推导）——思考文本以未闭合构造/行首硬停字符收尾时扣留尾完结后永冻。修法三处：ChatParts.kt 新增 `reasoningContentTerminal` 纯函数（partEnded || (liveActive 消失 ∧ (liveSeenEver ∨ 会话 idle))）+ PartContent 推导穿线 + ReasoningBlock 转发 MarkdownContent。单测 12 新增（矩阵 5 + gate 触发形状钉子 2 + SafePrefixGateTest 既有回归），全量 4067/0。mock 行模板改双模式 REASON_STYLE=plain|bracket（plain=自然段落 \n\n=流中放行载体；bracket=旧形状=终态 flush 证明载体）。
+
+**E2E 双轮 PASS（emulator-5554，2026-10-17 17:41/17:48）**：plain 轮流中 `gate release=99`×9（releasedTotal 99→891、held 恒 0）、思考文本流中可见；bracket 轮流中 `release=0 held→513` 复现僵尸形状 → reasoning.ended 后 `terminal reveal +513ch` 一次性放行（17:48:35.957）、终态 9/9 段可见——Leg A 产品修复直接得证。证据 /home/leonardo/.cache/540r5/n556/（A/B_probes.log + 8 截图）。
+
+**round C（#554 垫捕获复跑，18:02-18:04）**：装置成功（首踩陈旧 dump 坑——95s 前语义树计时比对法校验新鲜度后命中）、窗命中（pairing-window open 25ms 内）、卡顶 Δ=0（tap 前后 top=1126），但 ABSORB 零行——**几何使然非缺陷**：tap 时 fii=7 fiso=116，收起步进 -116 全额骑行（release-ref drv=-37/-25/-17/... set(fiso 116→0)），无钳制余量→无垫。垫需要 fiso≈0 的贴底原点。
+
+**#557 新缺陷发现（round C 最大产出，阻塞 #554 垫捕获的第二道墙）**：expandReasoning=ON 流式思考卡 **reveal span 冻结于首段高度**——mount 配对窗关闭后内容增长不再物化为 item 高度：turn 2 挂载 137→253（首段 116px，驱动步进+dpos 配对正常）→ 窗关（18:02:09.282）后 45 秒 RESERVE/SGR measure 全静默，而同时 MC len 99→1991 增长、MDPilot stable 3→60、path=pilot 全程——状态层健康、渲染高度冻结。完结切 mech 路径时全量高度一次物化（turn 1 item=5990px close-pre rep=4640）。**分叉定罪**：同轮答案阶段（Part.Text 在 reveal 之外直渲染）`measure h=158→264→380→612` 逐 append 渐进增长——同一库同一 MarkdownContent 同一 pilot 在 reveal 外完全正常 → 冻结是 degrade 驱动 reveal 层专属。round A 复盘亦中招（A_mid1/2 单帧仅 1 段——当时误归因视口裁剪）。真实服务器九报期流中增长正常（用户在卡内读到流式文本）——疑慢节奏（1.2s/行 settle）与连续流的驱动存活差异；[DEBUG-557] 探针（contentH 变化链 + win-close 注销裁决）已埋，探针轮采集中。

@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#556**（2026-10-17 #555 #556 expandReasoning=ON）。
+**编号**：全局递增，不回收。下一编号：**#558**（2026-10-17 #557 #557 流式思考卡 reveal span 冻）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。**反馈归卡（2026-09-12 用户定规）**：用户对某张卡片的反馈/裁决一律经 `backlog.sh note <N>` 记入**该卡片**明细，**不另开新卡**承载反馈；仅当反馈引出**新的独立缺陷**时才另立卡片，并在两卡明细互相引用（#401→#408 为先例）。**工作流脚本类直接修（2026-09-29 用户定规）**：项目工作流/脚本层的修复（`scripts/` 流程脚本等不进 APK 的项目设施）**不立卡**——发现即直接修+自测，证据记入当批 journal；#480 为末代先例（已立卡的按原流程走完迁移）。
 
@@ -56,10 +56,23 @@
 ## P1 — 核心功能需求
 
 
-- [ ] **#555 #556 expandReasoning=ON 时流式思考卡 reveal 永零高——挂载即展开路径的渲染管线死路（mock 确定性复现）** `scroll` `streaming`
+- [ ] **#557 #557 流式思考卡 reveal span 冻结于首段高度——mount 窗关后内容增长不物化为 item 高度（degrade 驱动层专属）** `scroll` `streaming` `race`
+  - round C 定罪（2026-10-17 mock plain 确定性复现）：mount 配对窗内首段增长正常（137→253 驱动步进+dpos 配对），窗关后 45s measure/SGR 全静默而 MC len 99→1991、MDPilot stable 3→60、path=pilot 全程健康；完结切 mech 路径全量高度一次物化（5990px）。同轮答案（reveal 外直渲染）h=158→264→380→612 逐 append 增长——冻结是 degrade 驱动 reveal 层专属，库/渲染/pilot 无辜。
+  - 分叉待 [DEBUG-557] 探针轮定谳（contentH 变化链+win-close 注销裁决）：理论两路（窗关注销驱动后 contentH 直通回退失效 vs 驱动滞留 h/hTarget 陈旧）均推得该增长——需运行时证据。真实服务器九报期流中增长正常（用户卡内读流式文本），疑 1.2s/行慢节奏 settle 与连续流的驱动存活差异。
+  - 影响面：expandReasoning=ON 用户流式思考内容仅首段可见（完结才全量砸出——#501 形态）；阻塞 #554 垫产品侧捕获（无增长即无贴底大卡收起场景）。证据 /home/leonardo/.cache/540r5/n556/ + journal §41sexties。
+  - - 探针轮 D 定谳（2026-10-17 18:27，D_probes.log）：`win-close remove h=116 tgt=116 contentH=116 anim=false`（settle 时刻注销）后 `contentH 116→232→…→2900 hTarget 跟随 reg=false` 但 RESERVE measure 冻结 253px 整 59.4s——item 高度与 contentH 完全脱钩，完结才 253→3037→4208 全量砸出。断链层=注销后 hProvider 闭包仍捕获组合期 driveRegistered=true 读死驱动冻结 h（注销在窗关 finally 非快照写不失效；流式重组只打 content 槽不重算函数体）。
+  - - 分叉证据（同轮）：答案阶段（reveal 外）measure h=158→264→380→612 逐 append 增长——库/MarkdownContent/pilot 全无辜，冻结是 degrade 驱动层专属。
+  - - 根修（2026-10-17 晚，验证轮 E/F 进行中）三刀：①win-close 注销条件加 !visible（展开态留册，稳态步进=0 零成本；流式增长经驱动逐档配对=#540 离底让位原义）②DisposableEffect(drive) 组合位销毁清册（垫未清除外）③hProvider 活读注册态（degradeDrives.contains）防闭包陈旧。[DEBUG-557] 探针（contentH 链+win-close 裁决）常驻。
+  - - 真实服务器九报期流中增长正常的解释（假说）：连续 delta 流下 mount 窗内驱动永不 settle（40 帧上限早闭时 h≠hTarget→animating→不注销）→ 增长持续配对；1.2s/行慢节奏在窗内 settle → 注销 → 冻结。即真实用户低概率踩中（长停顿后恢复的思考流），mock 慢节奏确定性触发。
+
+- [~] **#555 #556 expandReasoning=ON 时流式思考卡 reveal 永零高——挂载即展开路径的渲染管线死路（mock 确定性复现）** `scroll` `streaming`
   - mock V2 确定性复现（2026-10-17 真机+模拟器多轮）：设置自动展开推理=ON 时，思考卡挂载即展开（RB default=true、mount 即开窗），但流式 delta 全程 reveal span=0——B2 bus publish✓/B4 live override✓（文本已到组合层）但 reveal 内 MarkdownContent 流式 state 永不 append，卡上只有头部+spinner，思考文本全程不可见（视觉确认 Y1_pre 帧）。0.6s/2s/6s 三种节奏均复现；fast cadence 亦然（推翻早前'快节奏渲染'结论——m13/m15 的增长实为同会话他卡/他块）。
   - 影响面：expandReasoning=ON 用户的流式思考内容不可见（九报用户即此配置）；但用户真机真实服务器上文本可见（九报基于可见文本的 toggle）——真实服务器事件序列与 mock 存在差异（疑 reasoning.started 携带初始 text 或 delta 批形不同），根因待查。关联 #461「H=0 僵尸态」家族与 #486 终态账本。
   - 该缺陷同时阻塞 #554 垫通道的产品侧捕获（reveal 无高度→无塌缩量可吸收）；mock 服务器+burst-pause 节奏基建已就绪（/home/leonardo/.cache/540r5/mock_oc.py），修后可直接复验。
+  - - 根修完成（2026-10-17，commit 97f320953，verify 态）：**登记时「真服务器 vs mock 事件序列差异」假设被证伪**——ph16 日志判读 `MDPilot gate release=0 held=57 releasedTotal=0` 恒定：文本全程到达 pilot，但 SafePrefixGate 全额扣留。两因子：①mock 行模板 `[sid]` 前缀（`[`/`]`=ACTIVE_MARKERS+InlineSpanSafety 硬停字符，嵌套链接 `[x] y](url)` 重释义面）→ 行首 `[` 即 safeCut=0；②行间无空行 → 空行毕业永不触发。真实服务器思考文本=自然段落（空行+无前导 `[`）→ 正常放行可见（九报前提自洽）。
+  - - 产品缺陷面：Reasoning 分支从未穿线 contentTerminal（Part.Text 有 #518①/#523 G2 三条件）——思考文本以未闭合构造/行首硬停字符收尾时扣留尾完结后永冻。修法：reasoningContentTerminal 纯函数（ChatParts.kt）+PartContent 推导+ReasoningBlock 转发；完结时 gate 拒绝即全量放行（terminal reveal）。
+  - - 验证：单测 12 新增（矩阵 5+gate 触发形状钉子 2+存量为 4067/0）；E2E 双轮 PASS（emulator，mock 双模式 REASON_STYLE）：plain 流中 `gate release=99`×9（releasedTotal 99→891、文本流中可见）；bracket 流中 `release=0 held→513` 复现僵尸形状 → 完结 `terminal reveal +513ch` 一次性放行、终态 9/9 段可见（修复直接证明）。证据 /home/leonardo/.cache/540r5/n556/。
+  - - gate 对 `[` 行全额扣留是设计语义勿改；mock 行模板已改 plain 默认（Turn {sid} 自然段落 \n\n 分段）。
 
 - [~] **#554 九报：SSE 流式收起卡片上下一起动——贴底负向配对几何钳底，卡片顶不锚** `scroll` `streaming`
   - 用户九报（2026-10-15）：SSE 输出中展开已稳、收起时卡片上下一起动；期望展开/收起时卡片上缘完全不动。
@@ -75,6 +88,7 @@
   - 第四战役：expandReasoning 设置=空壳/入卡分岔根因（已在模拟器开启并实证真形态：mount 即展开+真实增长链 m15）；m15 Z1 真形态收起窗命中（Δwin=1、Δ=-127≈纯推送）；垫通道差一次『内容已渲染≥300px 的成功收起 tap』——final_hunter.sh 就绪待载体（真机回网或视觉服务恢复）。
   - 第五战役真机收官：设置项在 dev 包拨开（用户日常包独立 DataStore）、真形态双 toggle Δwin=1 卡顶 Δ=0（ph8）；ABSORB 未捕获最终定谳=reveal 渲染会话累积降速（#552 家族）与自动化快速测试结构性冲突——真实使用不触发；探针常驻待自然捕获判读。
   - 第六战役：真形态三连 toggle 卡顶零位移（ph16，累计 7 窗全零）；垫捕获被 #556 阻塞（reveal 永零高=无塌缩量）——#554 产品侧垫验证依赖 #556 修复后复验。
+  - - 第七战役（2026-10-17 晚，mock plain+burst-pause，#556 修复后）：真形态收起窗命中且卡顶 Δ=0（tap 前后 top=1126），但 ABSORB 零行=几何使然——tap 时 fii=7 fiso=116，收起 -116 全额骑行（release-ref drv 链 set fiso 116→0），无钳制余量故无垫；垫需 fiso≈0 贴底原点。**但发现 #557（reveal span 冻结于首段，mount 窗关后内容增长不物化）**：流中卡只有 ~116px 高——大卡贴底收起场景结构性无法 staging，#554 产品侧垫捕获被 #557 二次阻塞（第一道=#556 已根修）。#557 修复后本战役装置可直接复用（探针配方与判据不变）。
 
 - [~] **#551 七报：巨卡第二次展开全高让位飞顶（种子 max 棘轮+离底全高未截断）——高度参照系裁决催生** `scroll` `race` `chat`
   - 用户复测 beta-4：首次展开收起正常，第二次点击跳到上面。定罪（p7_900_full.log）：第二次展开 tgt=13807（itemH 仅 4672）——种子 max 棘轮钉住首次展开期的动态高；驱动+窗配对全高让位 fiso 2155→13813（+11.6k px≈5 屏）视口飞到卡顶
