@@ -232,8 +232,11 @@ class Ev:
             sets = [r for r in growth if r["set"]]
             ev.append("window %.3f-%.3f tgt=%d span=%d itemH=%d release=%d growth=%d set=%d nodis=%d"
                       % (w["ts"], end, w["tgt"], w["span"], w["itemH"], len(rel), len(growth), len(sets), len(nod)))
-            # 初始 fiso=0 且尚未增长的无害 nodis 排除；有正增长却 nodis = 上推未配对
-            bad_nod = [r for r in nod if r["drv"] > 0 and r["h"] > w.get("itemH", 0)]
+            # nodis 违例=「新鲜批次 ≥50px 未配对」（#540 上推形态：整批 60-300px）；
+            # 驱动到位后的指数衰减尾（23→15→10→7→…easing 残差）= #549 Fix B 设计的
+            # settle 窗尾防打架不派发，合法（真机 20261018-013056 26 SET + 12 尾
+            # NODIS 定谳：SET 相 h 逐批咬合、NODIS 相纯衰减）。
+            bad_nod = [r for r in nod if r["drv"] > 50 and r["h"] > w.get("itemH", 0)]
             if bad_nod:
                 ok = False
                 ev.append("FAIL: 窗内增长 nodis x%d（上推未配对）: %s" % (len(bad_nod), bad_nod[0]["raw"][-120:]))
@@ -302,18 +305,41 @@ class Ev:
         if slam:
             ok = False
             ev.append("FAIL: 脸①重向 slam x%d" % slam)
-        # 脸②：窗内连续 ≥3 帧正步进却 nodis（贴底不累积）
+        # 脸②（2026-10-18 校准）：历史 r427=「贴底连打、读位每帧回 (0,0)、步进
+        # 83/56/38 蒸发」——判据锚定**读位打架**，非连续 nodis 本身。nodis 后读位
+        # 稳定（±30px）= 阅读位否决门/预算截断按设计工作（014203 实测：fiso=1800
+        # 稳 15 帧）；读位回 0 或 ≥150 振荡才是打架。
         evap = 0
         for w in self.windows:
             end = w.get("close_ts", w["ts"] + 1)
             seq = [r for r in self.releases if w["ts"] <= r["ts"] <= end]
             run = 0
+            last_nodis_ts = None
             for r in seq:
                 if r["drv"] > 0 and r["nodis"]:
                     run += 1
+                    last_nodis_ts = r["ts"]
                     if run >= 3:
-                        evap += 1
-                        break
+                        # 读位裁决（只看无手势读位）：nodis 后 1.5s 内 ip=false 的
+                        # flush 读位——稳定 = 否决门/预算按设计（014203 实测 fiso=1800
+                        # 稳定，随后 ip=true 手势滚动为场景动作）；r427 打架形态 =
+                        # 引擎写入 (7,step) 后读位反复回 (0,0)（min≤30 ∧ max≥100）
+                        # 或无手势振荡 ≥150。
+                        reads = [f["fiso"] for f in self.flushes
+                                 if last_nodis_ts <= f["ts"] <= last_nodis_ts + 1.5
+                                 and f["fii"] >= 0 and not f["ip"]]
+                        if reads:
+                            if (min(reads) <= 30 and max(reads) >= 100) or \
+                                    max(reads) - min(reads) >= 150:
+                                evap += 1
+                        else:
+                            # 无无手势读位：退回量级判据（历史首帧 83 级）
+                            deltas = [x["drv"] for x in seq
+                                      if last_nodis_ts - 0.3 <= x["ts"] <= last_nodis_ts
+                                      and x["nodis"] and x["drv"] > 0]
+                            if deltas and max(deltas) >= 80:
+                                evap += 1
+                        run = 0  # 每段独立裁决
                 elif r["set"]:
                     run = 0
         if evap:

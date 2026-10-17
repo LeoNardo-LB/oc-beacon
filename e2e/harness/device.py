@@ -37,7 +37,9 @@ class Device:
     # ---------- 基础 ----------
     def adb(self, *args, timeout=30, check=False):
         cmd = [ADB, "-s", self.serial] + [str(a) for a in args]
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+        # errors='replace'：真机 logcat 可含任意字节（实测 0xa0），严格解码会炸
+        r = subprocess.run(cmd, capture_output=True, timeout=timeout,
+                           encoding="utf-8", errors="replace",
                            env={**os.environ, "PATH": PATH_ENV})
         if check and r.returncode != 0:
             raise DeviceError(f"adb {' '.join(map(str, args))} -> {r.returncode}: {r.stderr[:300]}")

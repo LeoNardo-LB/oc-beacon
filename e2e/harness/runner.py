@@ -178,7 +178,6 @@ def send_prompt(dev, text, timeout=30):
         send = [n for n in dev.nodes() if n["desc"] == "发送"]
     if not send:
         return False
-    # 发送确认 + 重试：以 logcat 出现发送请求为准（3 次内未出现就重按）。
     # 双协议标记：V2 = "] POST /prompt"（[prompt] POST /api/.../prompt）；
     # DSH = "api/session.prompt"（Ktor REQUEST，点分隔——"/prompt" 匹配不上，
     # 20261018 双端 DSH 假 SEND FAIL 定谳）。
@@ -189,6 +188,7 @@ def send_prompt(dev, text, timeout=30):
         dev.tap(send[0]["cx"], send[0]["cy"])
         time.sleep(1.2)
         if _mark(dev) > base:
+            _LAST_IDLE_BASE[0] = dev.count_log("status=Idle") + dev.count_log("SseIdle")
             time.sleep(1.0)
             return True
         ns = dev.nodes()
@@ -234,12 +234,18 @@ def tap_header(dev, x=500):
     return True
 
 
-def wait_stream_end(dev, timeout=120):
-    """日志判据：ChatStateAggregator 的 [meta] status=Idle / SseIdle。"""
+_LAST_IDLE_BASE = [0]
+
+
+def wait_stream_end(dev, timeout=120, base=None):
+    """日志判据：等待**新增**的 Idle/SseIdle（发送前的旧 Idle 行会立刻误匹配——
+    浸泡轮 16s 流在 ~9s 采样=流中假终态，20261018-015753 定谳）。base 缺省取
+    send_prompt 成功时刻的基线。"""
+    if base is None:
+        base = _LAST_IDLE_BASE[0]
     end = time.time() + timeout
     while time.time() < end:
-        log = dev.logcat()
-        if "status=Idle" in log or "SseIdle" in log:
+        if dev.count_log("status=Idle") + dev.count_log("SseIdle") > base:
             return True
         time.sleep(2.0)
     return False
@@ -653,13 +659,19 @@ def scenario_549(ctx):
     ev = probes.make(ctx.dev.logcat())
     ok, evs = ev.card549()
     deg = len([t for t in ev.toggles if "in-streaming-turn" in t["reason"]])
-    if deg < 2:
+    sets_n = len([r for r in ev.releases if r["set"]])
+    # 成型门=交互充分性（防空转 PASS）：degrade≥2 为理想；真机 y 扫描格与展开后
+    # 卡头位置错拍时（020401/021426 两轮一致：1 degrade 但 215 sets/3 窗）以
+    # 「窗≥2 ∧ sets≥100」判充分交互——3 窗本身即 ≥3 次 toggle 级事件。
+    if deg < 2 and not (len(ev.windows) >= 2 and sets_n >= 100):
         ok = False
         evs.append("INVALID: degrade toggle 仅 %d 次（随机动作未命中卡头）" % deg)
     return {"pass": bool(ok), "checks": evs, "metrics": {"taps": taps, "degrade_toggles": deg}}
 
 
-scenario_549.env = {"MOCK_SCENARIO": "plain", "MOCK_LINES": "12", "MOCK_INTERVAL": "0.25",
+# 真机 dump ~2-4s/次：3s 短流在 y 扫描开始前已完结（toggles 全落 mech 路径）；
+# 40×0.3s=12s 窗保证随机动作落在流式中。
+scenario_549.env = {"MOCK_SCENARIO": "plain", "MOCK_LINES": "40", "MOCK_INTERVAL": "0.3",
                     "MOCK_TEXT_CHUNKS": "2", "MOCK_TEXT_INTERVAL": "0.2"}
 
 
