@@ -281,9 +281,10 @@ class H(BaseHTTPRequestHandler):
             self.wfile.flush()
 
         with LOCK:
-            # 单客户端语义：app 断线重连时旧 socket 可能残留，广播到两会话会
-            # 重复投递 delta（实测 UI 文本双份/内容高翻倍）。测试只服务一个客户端。
-            SUBSCRIBERS.clear()
+            # 多订阅者（2026-10-18 回退）：app 合法开两条 SSE（全局+会话域）——
+            # 单订阅者语义会把先建立的事件消费端踢掉（socket 活着收 ping 但零
+            # 事件=卡永不挂载，真机 022355/551 NO-CARD 定谳）。旧「重复投递」
+            # 疑虑实为 #558 pilot 进度 bug，已由 eec13eac3 根修。
             SUBSCRIBERS.append(push)
         try:
             push('data: {"type":"server.connected"}\n\n')

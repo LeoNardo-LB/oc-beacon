@@ -341,3 +341,28 @@ python3 e2e/harness/runner.py run --card 551 --device emulator-5554
 
 device.py 容错解码；probes.py bad_nod 衰减尾豁免 + 脸②无手势读位判据；
 runner.py wait_stream_end Idle 基线 + 549 成型参数/成型门 + send_prompt 输入回读校验。
+
+### 真机 11 连扫（022355）
+
+9/11 直接过（557/556×2/540/547/549/554/dsh_tool/551_static——549 首次在矩阵内直接过）；
+2 FAIL 本轮定罪：
+
+1. **540_dsh_stream**：oracle 又把「settle 后新批次 NODIS（98/67px）」误判——SET 相 24 帧把
+   主增长全配对，末两批落在驱动 settle 后窗尾（h 仍长、读位稳、无上推）= Fix B 设计。
+   **oracle 终版：违例=最后一个 SET 之前的新鲜批次（≥50px）**；四样本离线复核全 PASS
+   （022355/013056/000249/014203）。真机补跑 024408 PASS（24 SET + 13 尾 NODIS）。
+2. **551 NO-CARD——重大装置根因**：app 合法开**两条** SSE（全局+会话域）；我在 #558 调查期
+   给 mock 加的「单订阅者」语义（clear+append）会把先建立的事件消费端踢掉——socket 活着
+   收 ping 但零事件 → 卡永不挂载。这是历次 NO-CARD 抖动（矩阵#4/022355）的真正根因；
+   旧「重复投递」疑虑实为 #558 pilot 进度 bug（已由 eec13eac3 根修）。**回退多订阅者**，
+   真机 551 补跑 024248 PASS（tgt=2960=prev_settle、3 窗、位移 0）定罪确认。
+
+### 模拟器新参数空间（023606-024004）：6/6 全 PASS
+
+547 rename@3（20×0.6）/ rename@12（30×0.4）；554 24×1.1（top 786→786）；540 50 行
+pause 8×6；556_plain 20×1.5 慢节奏；551_static 50×0.5（tgt=3364）。
+
+### 结论
+
+产品判据违例保持 **0**；累计装置修复 9 处（本轮 +2：mock 多订阅者回退、oracle 最后 SET 判据）。
+每场景双端有效 PASS 轮 6-12 次，参数空间覆盖 20+ 组合。

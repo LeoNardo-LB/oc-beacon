@@ -228,7 +228,6 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         q = queue.Queue()
         with LOCK:
-            SUBSCRIBERS.clear()
             SUBSCRIBERS.append(q)
         try:
             # 订阅基线：lastSeq=0（新会话无历史）

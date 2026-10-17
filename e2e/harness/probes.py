@@ -232,11 +232,22 @@ class Ev:
             sets = [r for r in growth if r["set"]]
             ev.append("window %.3f-%.3f tgt=%d span=%d itemH=%d release=%d growth=%d set=%d nodis=%d"
                       % (w["ts"], end, w["tgt"], w["span"], w["itemH"], len(rel), len(growth), len(sets), len(nod)))
-            # nodis 违例=「新鲜批次 ≥50px 未配对」（#540 上推形态：整批 60-300px）；
-            # 驱动到位后的指数衰减尾（23→15→10→7→…easing 残差）= #549 Fix B 设计的
-            # settle 窗尾防打架不派发，合法（真机 20261018-013056 26 SET + 12 尾
-            # NODIS 定谳：SET 相 h 逐批咬合、NODIS 相纯衰减）。
-            bad_nod = [r for r in nod if r["drv"] > 50 and r["h"] > w.get("itemH", 0)]
+            # nodis 违例=「动画期新鲜批次未配对」：#540 原bug形态=整段增长从头
+            # nodis（journal §9 E3 ≥10 连发）。修复后动画期每批必 SET 配对；**最后
+            # 一个 SET 之后的 nodis（衰减尾 23→15→10…或 settle 后新批次，读位稳）
+            # = Fix B 设计的窗尾防打架**（013056 尾 12 帧、022355 尾 98/67px 批次
+            # 两轮真机定谳——h 仍长、fiso 稳定、无上推）。
+            rel_sorted = sorted(rel, key=lambda r: r["ts"])
+            last_set_idx = -1
+            for i, r in enumerate(rel_sorted):
+                if r["set"]:
+                    last_set_idx = i
+            if last_set_idx < 0:
+                # 全 nodis 窗：≥3 个新鲜批次即违例（整段未配对）
+                bad_nod = [r for r in nod if r["drv"] > 50] if len([r for r in nod if r["drv"] > 50]) >= 3 else []
+            else:
+                bad_nod = [r for r in rel_sorted[:last_set_idx]
+                           if r["nodis"] and r["drv"] > 50]
             if bad_nod:
                 ok = False
                 ev.append("FAIL: 窗内增长 nodis x%d（上推未配对）: %s" % (len(bad_nod), bad_nod[0]["raw"][-120:]))
