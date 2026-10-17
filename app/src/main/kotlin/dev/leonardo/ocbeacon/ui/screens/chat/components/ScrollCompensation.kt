@@ -350,7 +350,11 @@ internal class HeightReserveState {
 
     /**
      * #540 二轮：当前窗卡揭示盒顶距 item 顶的偏移（塌缩不变量——盒顶上方
-     * 内容在收起中不动）；-1=无在飞窗/未捕获。flush 负向配对资格判定用。
+     * 内容在收起中不动）；-1=无在飞窗/未捕获。
+     * #544 C1 先遣（2026-10-17）：正向否决已逐卡化（reservePhase 取驱动
+     * min(stickTop)，本槽仅回退）；剩余在役消费者=非驱动负余量镜像的塌缩区
+     * 判定（applyPairedShift rStickV/rSpanV）——「最后 toggle 的塌缩区」即其
+     * 语义（非驱动收缩不隶属任何卡），单槽合法，勿再提 entryKey 标签化。
      */
     var expandCollapseStickTop: Int = -1
 
@@ -966,6 +970,13 @@ private fun reservePhase(listState: LazyListState, reserve: HeightReserveState?)
         sgrLastTrue = reserve.trueHeight
         AppLogger.d("RESERVE", "flush reserved=" + reserve.reserved + " true=" + reserve.trueHeight)
     }
+    // #544 C1 先遣（2026-10-17）：否决缘**逐卡化**——reserve 级单槽持「最后
+    // toggle」几何，同 item 多卡并发时先卡的正向否决被后卡覆盖（四报
+    // driveScrollShift 只修了负向半边，本处补正向半边）。驱动捕获几何在场时
+    // 取**最上揭示缘**（几何并集保守语义：锚在全部揭示缘上方才否决）；无捕获
+    // 回退 reserve 单槽（legacy 盲配）。
+    val vetoStickTop = reserve.degradeDrives.filter { it.stickTop >= 0 }
+        .minOfOrNull { it.stickTop } ?: reserve.expandCollapseStickTop
     val plan = reserveReleasePlan(
         reserved = reserve.reserved,
         trueHeight = reserve.trueHeight,
@@ -995,9 +1006,10 @@ private fun reservePhase(listState: LazyListState, reserve: HeightReserveState?)
         // #540 二轮修订：锚在揭示缘上方（阅读位高于被展开卡）——正增长在锚
         // 下方，配对=自造位移，否决。未捕获几何（span=-1）不否决（legacy 盲配）。
         // 锚位用帧前高度（reserved）与负向判定同源无偏（§27）。
+        // #544 C1 先遣：否决缘取上方逐卡化的 vetoStickTop（推导见调用前注释）。
         anchorAboveReveal = reserve.expandPairingWindows > 0 &&
-            reserve.expandCollapseStickTop >= 0 && reserve.expandCollapseSpanDepth >= 0 &&
-            (reserve.reserved - listState.firstVisibleItemScrollOffset) < reserve.expandCollapseStickTop,
+            vetoStickTop >= 0 &&
+            (reserve.reserved - listState.firstVisibleItemScrollOffset) < vetoStickTop,
     )
     // [R1-A2] 单出口：帽 plan 延后与 ledger 配对合并为同帧单次滚动 set——
     // 原先帽 set 先落、ledger set 覆盖（requestPosition 覆盖写非叠加），同帧
@@ -1323,7 +1335,8 @@ private fun applyPairedShift(
 //   ② scrollPosition.requestPosition + invalidateScope ← 设置待定位置
 // 我们只想要 ② —— 设置待定位置而不杀死 fling 惯性。
 // #435 后仅剩引擎收起锚点恢复/滚动打断锚点恢复两处调用(#423/#427 路径);
-// 流式家族已改走 dispatchRawDelta 同帧配对,不再依赖本反射。
+// #540 三轮起流式家族的 flush 单出口(applyPairedShift 两分支)位置写也走本反射
+//——dispatchRawDelta 仅存机件 episode 内位移(CardExpandReveal applyPairedPreRenderShift)。
 //
 // ⚠️ 反射依赖的私有成员(Compose BOM 2026.05.01,见 app/build.gradle.kts:132):
 //   - 字段 androidx.compose.foundation.lazy.LazyListState.scrollPosition
@@ -1407,8 +1420,9 @@ internal object LazyListReflection {
     val probesResolved: Boolean get() = probes != null
 
     // #258 换道手术(2026-08-29):scrollToBeConsumed 反射直写已整体删除(用户 drag 竞态
-    // FATAL 定罪)。#435(2026-09-25):流式家族注入通道(PreRenderShiftChannel)退役,
-    // 流式增长改走 dispatchRawDelta 同帧配对(StreamingGrowLedger);本反射仅存锚点恢复用途。
+    // FATAL 定罪)。#435(2026-09-25):流式家族注入通道(PreRenderShiftChannel)退役;
+    // #540 三轮(2026-10-11)起流式配对位置写经 flush 单出口走本反射
+    //(applyPairedShift 帽/驱动通道),dispatchRawDelta 仅存机件 episode 内位移。
 
     /**
      * 设置待定滚动位置但不取消进行中的 fling(反射路径)。

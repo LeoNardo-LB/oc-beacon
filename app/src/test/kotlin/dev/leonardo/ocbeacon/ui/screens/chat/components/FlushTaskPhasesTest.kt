@@ -671,6 +671,32 @@ class FlushTaskPhasesTest {
         assertEquals(2000, reserve.reserved)
     }
 
+    @Test
+    fun `544 C1 先遣 正向否决逐卡化 - 后卡单槽不覆盖先卡几何（锚在先卡缘下不否决）`() {
+        mockkObject(LazyListReflection)
+        mockkObject(ScrollQuiescence)
+        motive("C1 先遣定罪形态：同 item 双卡并发——后 toggle 的卡 B（揭示缘 800）把 reserve 单槽覆盖，锚在 500 对先卡 A（揭示缘 300，锚在其缘下方=增长在锚上方应配对）被旧单槽误否决（目标 596=帽 66 被掐）；逐卡 min(stickTop) 后不否决（目标 662=帽 66 照常配对）");
+        val driveA = DegradeDriveState(hInitial = 0, hTarget = 300, stickTop = 300, spanDepth = 0)
+        val reserve = HeightReserveState().apply {
+            itemKey = "k1"
+            trueHeight = 1066   // 帽净增 +66
+            reserved = 1000
+            expandPairingWindows = 1
+            // 卡 B 的陈旧单槽（最后 toggle 覆盖）——旧否决读它
+            expandCollapseStickTop = 800
+            expandCollapseSpanDepth = 100
+            degradeDrives.add(driveA)
+        }
+        // 锚距顶 = reserved(1000) − fiso(500) = 500：低于卡 A 缘(300)→增长在锚上方应配对；
+        // 高于卡 B 陈旧槽(800) → 旧单槽语义误否决
+        val state = stateWithOwnerItem(7, 500, ownerIndex = 7)
+        every { state.dispatchRawDelta(any()) } returns 0f
+        assertTrue(streamingGrowFlushTask(state, emptyLedger(), reserve).onPreDraw())
+        // 逐卡否决：min(driveA.stickTop=300) → 锚(500)≥300 不否决 → 帽 66 + 驱动 96 配对
+        // 目标 = 500 + 96 + 66 = 662（旧单槽：500+96=596）
+        verify(exactly = 1) { LazyListReflection.requestScrollToItemNoCancel(any(), 7, 662, any()) }
+    }
+
     // ============ 九报（2026-10-15，#554）：收起吸收垫——卡片上缘零位移 ============
 
     @Test
