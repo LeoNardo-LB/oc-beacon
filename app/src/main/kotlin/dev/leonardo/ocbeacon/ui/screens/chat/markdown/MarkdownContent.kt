@@ -869,6 +869,9 @@ internal fun MarkdownContent(
                 animations = animations,
                 imageTransformer = Coil3ImageTransformerImpl,
                 modifier = Modifier.fillMaxWidth(),
+                // #552 根修：元素级文本 success 槽——库默认按元素 remember
+                // 全文档快照（O(N²) 保留，r1036 定罪 491MB→OOM）
+                success = streamingSuccessSlot(pilotState.state),
             )
             }
         }
@@ -894,6 +897,9 @@ internal fun MarkdownContent(
             animations = animations,
             imageTransformer = Coil3ImageTransformerImpl,
             modifier = Modifier.fillMaxWidth(),
+            // #552 根修：缓存终态同是 StringBuilder 流式 state——冷重展开
+            // 与流中期同险（N 元素 × 全文档快照），同槽接线
+            success = streamingSuccessSlot(cachedTerminalState),
         )
         return
     }
