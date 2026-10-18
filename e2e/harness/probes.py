@@ -346,8 +346,15 @@ class Ev:
                                      and f["fii"] >= 0]
                         reads = [f["fiso"] for f in reads_all if not f["ip"]]
                         if reads:
-                            if (min(reads) <= 30 and max(reads) >= 100) or \
-                                    max(reads) - min(reads) >= 150:
+                            # 20261018-124400 校准：第 2 臂（spread）须含**方向反转**
+                            # ——单调单步迁移（1800×7→2100×3）= 引擎合法配对重定位；
+                            # r427 打架=写入-回底往复（非单调）。
+                            def _mono(vals):
+                                up = all(b >= a for a, b in zip(vals, vals[1:]))
+                                dn = all(b <= a for a, b in zip(vals, vals[1:]))
+                                return up or dn
+                            if (min(reads) <= 30 and max(reads) >= 100) or (
+                                    max(reads) - min(reads) >= 150 and not _mono(reads)):
                                 evap += 1
                         elif not reads_all:
                             deltas = [x["drv"] for x in seq
