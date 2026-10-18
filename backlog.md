@@ -69,10 +69,11 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#552 流式极长思考展开态 OOM——MarkdownElement StringBuilder 峰值堆爆（终验发现，范围外新缺陷）** `ui` `memory` `sse`
+- [~] **#552 流式极长思考展开态 OOM——MarkdownElement StringBuilder 峰值堆爆（终验发现，范围外新缺陷）** `ui` `memory` `sse`
   - 终验 r1036 定罪：主线程 OutOfMemoryError（堆 511/512MB 0% free），栈 StreamingMarkdownSuccess→MarkdownElementInternal→StringBuilder.toString 经 ReasoningBlock 展开态流式合成；触发=DeepSeek 极端长思考（内容高 275,515px）+展开态流式，崩溃时无用户输入
   - 定性=容量上限缺陷非八报回归（修复集无内存语义变化；峰对照 r1034 133K px 存活/旧构建最大 31K）；复现需专用压力协议构造 >200K px 思考流
   - 证据：/home/leonardo/.cache/540r5/r1036_full.log:94245+；另 P3 观察项=r1037 流式期 42978px→流终重展开定格 11148px（内容层收敛、无视口损害、重载完整可读）
+  - 根修+系统验证完成（2026-10-19）：元素级文本+偏移重基（StreamingMarkdownBounded.kt）替代库全文档快照 remember——保留 O(N²)→O(N)；模拟器 RED（r1036 同栈 FATAL OOM）→双端 GREEN 5 轮+回归网 22/22+单测/lint 全绿；真机堆峰 544→139MB（↓3.9×）。证据 docs/journal/2026-10-19-552-oom.md §1-§6。
 
 - [ ] **#548 beta 测试包版本序号自动递增脚本（testbuild.sh——免人工判定）** `build` `tooling`
   - 痛点：每次 beta 测试包装机需人工判读 release-workflow §2 定规（bare -beta 视为第1号→下一次是 -beta-2、VERSION_CODE 同步+1、先改 properties 再 assemble、bump 是否落豁免域）——2026-10-12 装 0.4.0-beta-2/42 即全程手工

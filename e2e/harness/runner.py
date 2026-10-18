@@ -319,6 +319,7 @@ def run_card(card, args):
         sid = mock.create_session(title)
         result["session"] = sid
         ctx = Ctx(dev, mock, outdir, card, title)
+        ctx.mock_env = dict(scenario_env)
         verdict = fn(ctx)
         result.update(verdict)
     except Exception as e:
@@ -877,45 +878,54 @@ def scenario_552(ctx):
     """
     dev = ctx.dev
     _launch_and_open(ctx, True)
+    # 真机熄屏保活（先例 pin_matrix.sh）：本场景发送后长时零交互——真机 ~35-40s
+    # 熄屏即记 Idle(false) 假终态（20261019-025255 定罪：40s/10.4K 时刻早退而
+    # 流仍在后台爬升）；svc stayon 全程亮屏，收尾恢复。
+    dev.shell("svc power stayon true")
+    try:
+        return _scenario_552_body(ctx)
+    finally:
+        dev.shell("svc power stayon false")
+
+
+def _scenario_552_body(ctx):
+    dev = ctx.dev
     if not send_prompt(dev, "e2e552 megastream"):
         return {"pass": False, "checks": [("SEND", "FAIL")]}
 
     def _sh(cmd):
         return dev.shell(cmd).stdout or ""
-
-    def _idle_count():
-        # 端上 grep 大窗计数：宿主侧 tail-3000 双调用轮询会被终态组合期日志
-        # 冲刷错过 Idle 行（20261019-020121 定罪：Idle 02:02:13 已发、轮询空转
-        # 至死线）——20K 窗 + 单次调用 + 端上 grep。
-        out = _sh("logcat -d -t 20000 | grep -acE 'status=Idle|SseIdle'")
-        try:
-            return int(out.strip() or 0)
-        except ValueError:
-            return 0
-
-    base_idle = _idle_count()
     # largeMemoryClass 档位：emulator 576m / 真机 512m（getprop 近似足够判档）
     heap_prop = _sh("getprop dalvik.vm.heapsize").strip().lower()
     large_mb = int(heap_prop[:-1]) if heap_prop.endswith("m") and heap_prop[:-1].isdigit() else 512
     budget_kb = large_mb * 1024 * 2 // 5  # 峰值 Java Heap ≤ 40% large
     peak_kb = 0
     ended = False
-    t_deadline = time.time() + 2100  # 35min 硬顶（巨流 app 侧 gate 200ch/200ms ≥5min + 组合成本）
+    # 定时制终态（无日志锚）：真机终态行不可靠——流中假 Idle(false)（025255）、
+    # 端上 logcat|grep 管线高负载期空手（033737）、gate 持续放行时 EOF 无
+    # terminal reveal 行（040023）。时长确定性推算：gate 下限 ~0.2s/批（100ch
+    # 级行 × BIG_RELEASE 200ch/200ms）+ 流本速 + 终态组合追平余量。
+    env = getattr(ctx, "mock_env", {})
+    lines = int(env.get("MOCK_LINES", "2700") or 2700)
+    interval = float(env.get("MOCK_INTERVAL", "0.01") or 0.01)
+    t_deadline = time.time() + 150 + lines * max(interval, 0.21)
+    it = 0
     while time.time() < t_deadline:
-        if _idle_count() > base_idle:
-            ended = True
-            break
+        it += 1
         alive = _sh("pidof " + PKG).strip()
         if not alive:
             break
-        mi = _sh("dumpsys meminfo %s | grep 'Java Heap:'" % PKG)
-        for tok in mi.split():
-            if tok.isdigit():
-                kb = int(tok)
-                if kb > peak_kb:
-                    peak_kb = kb
-                break
+        # meminfo 降频（每 3 轮）：负载下单次可达 30-60s
+        if it % 3 == 1:
+            mi = dev.shell("dumpsys meminfo %s | grep 'Java Heap:'" % PKG, timeout=60).stdout or ""
+            for tok in mi.split():
+                if tok.isdigit():
+                    kb = int(tok)
+                    if kb > peak_kb:
+                        peak_kb = kb
+                    break
         time.sleep(3)
+    ended = True  # 定时到点=流完结（真早退由进程死亡分支覆盖；终判据读全量 logcat 自证）
     # 终态组合（terminal 单帧全量揭示）需要数秒完成——contentH 末段仍在上行
     time.sleep(8)
     log = ctx.dev.logcat()
