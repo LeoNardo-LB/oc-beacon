@@ -16,7 +16,7 @@ from datetime import datetime
 
 RUNS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "runs")
 ORDER = ["557", "556_plain", "556_bracket", "540", "547", "554", "549",
-         "540_dsh_stream", "540_dsh_tool", "551", "551_static"]
+         "540_dsh_stream", "540_dsh_tool", "551", "551_static", "552"]
 FIX_BUILD_VC = 1792252676  # #558 修复构建
 
 # 已定罪装置失败的运行目录 → 归因（journal 落账）
@@ -69,6 +69,10 @@ EXPLAINED = {
     "20261018-072523": "同上（恢复验证轮）",
     "20261018-072701": "真机高负载 logcat 超时（count_log 加固前）",
     "20261018-124400/549": "oracle 脸②第2臂单调迁移误判（方向反转校准前；四样本复核 PASS）",
+    "20261019-012848/552": "scenario_552 初版 dev.shell() 直取 CompletedProcess（harness bug，.stdout 修复）",
+    "20261019-013210/552": "RED 基线（未修构建故意复现 OOM——产品缺陷定罪；修复后同内容 GREEN 全 PASS）",
+    "20261019-015518/552": "CONTENT-H oracle 探针源缺口（contentH 不发终态重建路径；MDResize 并源修复）",
+    "20261019-020121/552": "Idle 轮询被终态日志冲刷错过空转死线（端上 grep 20K 窗修复；无 result.json）",
 }
 
 

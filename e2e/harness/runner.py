@@ -866,7 +866,97 @@ def scenario_551_static(ctx):
 scenario_551_static.env = {"MOCK_SCENARIO": "giant", "MOCK_LINES": "40", "MOCK_INTERVAL": "0.3",
                            "MOCK_NO_END": "1", "MOCK_TEXT_CHUNKS": "0"}
 
-ALL_CARDS = ["557", "556_plain", "556_bracket", "540", "554", "551", "547", "549", "540_dsh_stream", "540_dsh_tool"]
+
+def scenario_552(ctx):
+    """#552：巨量思考流展开态流式（~283K 字符 / ~2700 逐行毕业段落元素）——峰值堆有界。
+
+    修复前（r1036 真机定罪）：库 MarkdownElementInternal 按元素 remember「毕业时刻
+    的全文档字符串快照」→ O(N²) 保留（2480 元素 × ~99K 字符 × 2B ≈ 491MB →
+    512MB largeHeap OOM）。判据：无 OOM 且进程存活 AND 峰值 Java Heap ≤
+    largeMemoryClass 40% AND 流完结字符数/元素数达标 AND 内容高 ≥100K px。
+    """
+    dev = ctx.dev
+    _launch_and_open(ctx, True)
+    if not send_prompt(dev, "e2e552 megastream"):
+        return {"pass": False, "checks": [("SEND", "FAIL")]}
+
+    def _sh(cmd):
+        return dev.shell(cmd).stdout or ""
+
+    def _idle_count():
+        # 端上 grep 大窗计数：宿主侧 tail-3000 双调用轮询会被终态组合期日志
+        # 冲刷错过 Idle 行（20261019-020121 定罪：Idle 02:02:13 已发、轮询空转
+        # 至死线）——20K 窗 + 单次调用 + 端上 grep。
+        out = _sh("logcat -d -t 20000 | grep -acE 'status=Idle|SseIdle'")
+        try:
+            return int(out.strip() or 0)
+        except ValueError:
+            return 0
+
+    base_idle = _idle_count()
+    # largeMemoryClass 档位：emulator 576m / 真机 512m（getprop 近似足够判档）
+    heap_prop = _sh("getprop dalvik.vm.heapsize").strip().lower()
+    large_mb = int(heap_prop[:-1]) if heap_prop.endswith("m") and heap_prop[:-1].isdigit() else 512
+    budget_kb = large_mb * 1024 * 2 // 5  # 峰值 Java Heap ≤ 40% large
+    peak_kb = 0
+    ended = False
+    t_deadline = time.time() + 2100  # 35min 硬顶（巨流 app 侧 gate 200ch/200ms ≥5min + 组合成本）
+    while time.time() < t_deadline:
+        if _idle_count() > base_idle:
+            ended = True
+            break
+        alive = _sh("pidof " + PKG).strip()
+        if not alive:
+            break
+        mi = _sh("dumpsys meminfo %s | grep 'Java Heap:'" % PKG)
+        for tok in mi.split():
+            if tok.isdigit():
+                kb = int(tok)
+                if kb > peak_kb:
+                    peak_kb = kb
+                break
+        time.sleep(3)
+    # 终态组合（terminal 单帧全量揭示）需要数秒完成——contentH 末段仍在上行
+    time.sleep(8)
+    log = ctx.dev.logcat()
+    crashed = ("OutOfMemoryError" in log) or ("FATAL EXCEPTION" in log)
+    alive = _sh("pidof " + PKG).strip() != ""
+    ev = probes.make(log)
+    hs = [c["b"] for c in ev.content]
+    # 终态重建路径（reveal 空帧→3s 组合追平）不发 contentH 探针、只发 MDResize
+    # card h——两探针取最大（20261019-015518 定罪：contentH 停 31832 而
+    # MDResize 已到 313522）。
+    mdh = [int(m) for m in re.findall(r"MDResize.*\bh=(\d+)", log)]
+    total = max((int(m) for m in re.findall(r"MDPilot.*total=(\d+)", log)), default=0)
+    stable = max((int(m) for m in re.findall(r"MDPilot.*stable=(\d+)", log)), default=0)
+    ui_alive = False
+    if alive:
+        try:
+            ui_alive = len(dev.nodes()) > 3
+        except Exception:
+            ui_alive = False
+    h_peak = max(hs + mdh) if (hs or mdh) else 0
+    checks = [
+        ("NO-OOM crash=%s alive=%s" % (crashed, alive),
+         "PASS" if (not crashed and alive) else "FAIL"),
+        ("HEAP-PEAK %dkb budget=%dkb (large=%dmb)" % (peak_kb, budget_kb, large_mb),
+         "PASS" if peak_kb <= budget_kb and peak_kb > 0 else "FAIL"),
+        ("STREAM-DONE ended=%s chars=%d elems=%d" % (ended, total, stable),
+         "PASS" if (ended and total >= 250000 and stable >= 2300) else "FAIL"),
+        ("CONTENT-H peak=%d" % h_peak, "PASS" if h_peak >= 100000 else "FAIL"),
+        ("UI-ALIVE nodes=%s" % ui_alive, "PASS" if ui_alive else "FAIL"),
+    ]
+    ok = all(c[1] == "PASS" for c in checks)
+    return {"pass": ok, "checks": checks,
+            "metrics": {"peak_heap_kb": peak_kb, "large_mb": large_mb, "chars": total,
+                        "stable_elems": stable, "contentH": h_peak}}
+
+
+scenario_552.env = {"MOCK_SCENARIO": "plain", "MOCK_LINES": "2700", "MOCK_INTERVAL": "0.01",
+                    "MOCK_TEXT_CHUNKS": "2", "MOCK_TEXT_INTERVAL": "0.2"}
+
+
+ALL_CARDS = ["557", "556_plain", "556_bracket", "540", "554", "551", "547", "549", "540_dsh_stream", "540_dsh_tool", "552"]
 
 
 def main():
