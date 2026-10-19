@@ -167,9 +167,7 @@ class FlushTaskPhasesTest {
             itemKey = "k1"
             trueHeight = 1391
             reserved = 1000
-            expandPairingWindows = 1
-            expandCollapseStickTop = 265
-            expandCollapseSpanDepth = 0
+            arrangeForTest(windows = 1, stickTop = 265, spanDepth = 0)
             degradeDrives.add(empty)
         }
         val task = streamingGrowFlushTask(mockState(0, 0), emptyLedger(), reserve)
@@ -188,7 +186,7 @@ class FlushTaskPhasesTest {
             itemKey = "k1"
             trueHeight = 1000
             reserved = 1000
-            expandPairingWindows = 1
+            arrangeForTest(windows = 1)
             degradeDrives.add(drive)
         }
         val state = stateWithOwnerItem(0, 0, ownerIndex = 0)
@@ -276,7 +274,7 @@ class FlushTaskPhasesTest {
             itemKey = "k1"
             trueHeight = 1066
             reserved = 1000
-            expandPairingWindows = 1
+            arrangeForTest(windows = 1)
         }
         // 贴底原点存量语义是 nodis；窗内必须反射配对（消除流式期展开上推源）
         val task = streamingGrowFlushTask(mockState(0, 5), emptyLedger(), reserve)
@@ -316,7 +314,7 @@ class FlushTaskPhasesTest {
             itemKey = "k1"
             trueHeight = 900
             reserved = 1000
-            expandPairingWindows = 1
+            arrangeForTest(windows = 1)
             // 未捕获 stickTop/spanDepth（默认 -1）——保守镜像：100−100=0
         }
         val state = stateWithOwnerItem(0, 100, ownerIndex = 0)
@@ -337,9 +335,7 @@ class FlushTaskPhasesTest {
             itemKey = "k1"
             trueHeight = 4200 // 本帧收缩后真高
             reserved = 5000
-            expandPairingWindows = 1
-            expandCollapseStickTop = 4000
-            expandCollapseSpanDepth = 800
+            arrangeForTest(windows = 1, stickTop = 4000, spanDepth = 800)
         }
         // 锚 fiso=200 → 距顶 4200−200=4000 ≤ 4800（镜像侧）。修订前「跳揭示缘」
         // 在锚深体内时一次性拖下半部分（用户复测定罪）；修订后逐帧镜像：
@@ -360,13 +356,11 @@ class FlushTaskPhasesTest {
             itemKey = "k1"
             trueHeight = 4200
             reserved = 5000
-            expandPairingWindows = 1
-            expandCollapseStickTop = 4000
-            expandCollapseSpanDepth = 800
+            arrangeForTest(windows = 1, stickTop = 4000, spanDepth = 800)
         }
         // 夹具：盒 [4000,4100]（span 收窄为 100），盒下方新内容 [4100,4200]；
         // 锚 fiso=50 → 距顶 4150 > 4100（盒下方）——零操作
-        reserve.expandCollapseSpanDepth = 100
+        reserve.captureCollapseGeometry(4000, 100)
         val state = stateWithOwnerItem(3, 50, ownerIndex = 3)
         every { state.dispatchRawDelta(any()) } returns 0f
         assertTrue(streamingGrowFlushTask(state, emptyLedger(), reserve).onPreDraw())
@@ -383,9 +377,7 @@ class FlushTaskPhasesTest {
             itemKey = "k1"
             trueHeight = 4200
             reserved = 5000
-            expandPairingWindows = 1
-            expandCollapseStickTop = 4000
-            expandCollapseSpanDepth = 800
+            arrangeForTest(windows = 1, stickTop = 4000, spanDepth = 800)
         }
         // 排队发消息形态：物主可见于 index 7，锚在 index 3（fiso 属他 item——
         // anchorTop=itemTrueH−fiso 为跨 item 垃圾值，曾可误判入区向错误 item
@@ -406,9 +398,7 @@ class FlushTaskPhasesTest {
             itemKey = "k1"
             trueHeight = 4200
             reserved = 5000
-            expandPairingWindows = 1
-            expandCollapseStickTop = 4000
-            expandCollapseSpanDepth = 800
+            arrangeForTest(windows = 1, stickTop = 4000, spanDepth = 800)
         }
         // 输出中收起且锚在镜像侧（距顶 4200−1500=2700 ≤4800）：帽净负 −800 镜像
         // 骑行 + 同帧 ledger 增长 +150 折加——review 轮 P1 拆账：1500−800+150=850
@@ -431,9 +421,7 @@ class FlushTaskPhasesTest {
             itemKey = "k1"
             trueHeight = 4200
             reserved = 5000
-            expandPairingWindows = 1
-            expandCollapseStickTop = 4000
-            expandCollapseSpanDepth = 100 // 盒 [4000,4100]，下方 [4100,4200]
+            arrangeForTest(windows = 1, stickTop = 4000, spanDepth = 100) // 盒 [4000,4100]，下方 [4100,4200]
         }
         // 锚 fiso=50 → 距顶 4150（盒下方）塌缩零操作，但 ledger +150 仍配对
         val ledger = emptyLedger()
@@ -456,7 +444,7 @@ class FlushTaskPhasesTest {
             itemKey = "k1"
             trueHeight = 4999
             reserved = 5000
-            expandPairingWindows = 1
+            arrangeForTest(windows = 1)
         }
         // 帽净负 −1（整数 delta）+ ledger 分数 +0.6 → total=−0.4∈(−1,0)：
         // 旧实现 total.toInt()=0 传 require(delta<0) 抛 IAE 崩 flush（review 轮
@@ -492,9 +480,7 @@ class FlushTaskPhasesTest {
             itemKey = "k1"
             trueHeight = 2303 // 实测已含历史步进；预记账恰好追平 → 纯驱动帧
             reserved = 2303
-            expandPairingWindows = 1
-            expandCollapseStickTop = 405
-            expandCollapseSpanDepth = 1000
+            arrangeForTest(windows = 1, stickTop = 405, spanDepth = 1000)
             degradeDrives.add(drive)
         }
         // 锚 fiso=1303 → 距顶 2303−1303=1000 ≤ 1405（镜像侧）
@@ -520,7 +506,7 @@ class FlushTaskPhasesTest {
             itemKey = "k1"
             trueHeight = 1000
             reserved = 1000
-            expandPairingWindows = 1
+            arrangeForTest(windows = 1)
             degradeDrives.add(drive)
         }
         val state = mockk<LazyListState>(relaxed = true) {
@@ -545,9 +531,7 @@ class FlushTaskPhasesTest {
             itemKey = "k1"
             trueHeight = 2000
             reserved = 2000
-            expandPairingWindows = 1
-            expandCollapseStickTop = 1500
-            expandCollapseSpanDepth = 400
+            arrangeForTest(windows = 1, stickTop = 1500, spanDepth = 400)
             degradeDrives.add(drive)
         }
         // 锚距顶 2000−1000=1000 < 1500 → 锚在揭示缘上方：正步进否决配对（二轮
@@ -574,9 +558,8 @@ class FlushTaskPhasesTest {
             itemKey = "k1"
             trueHeight = 3500
             reserved = 3500
-            expandPairingWindows = 1
-            expandCollapseStickTop = 100 // reserve 级镜像=最新 toggle（卡B）
-            expandCollapseSpanDepth = 50
+            arrangeForTest(windows = 1)
+            arrangeForTest(stickTop = 100, spanDepth = 50)
             degradeDrives.add(driveA)
             degradeDrives.add(driveB)
         }
@@ -660,7 +643,7 @@ class FlushTaskPhasesTest {
         motive("八报热修回归钉：窗耗尽预算后，稳态（无窗）阅读位增长配对必须照常派发——被截断会把阅读位逐帧往下拖");
         val reserve = HeightReserveState().apply {
             itemKey = "k1"; trueHeight = 2000; reserved = 1000
-            expandDepartureBudgetLeft = 0   // 预算已耗尽（此前 episode 用完）
+            arrangeForTest(budget = 0)   // 预算已耗尽（此前 episode 用完）
         }
         // 阅读位（fii=7 深处）增长配对——无窗：不得吃预算
         val state = stateWithOwnerItem(7, 900, ownerIndex = 7)
@@ -681,10 +664,9 @@ class FlushTaskPhasesTest {
             itemKey = "k1"
             trueHeight = 1066   // 帽净增 +66
             reserved = 1000
-            expandPairingWindows = 1
+            arrangeForTest(windows = 1)
             // 卡 B 的陈旧单槽（最后 toggle 覆盖）——旧否决读它
-            expandCollapseStickTop = 800
-            expandCollapseSpanDepth = 100
+            arrangeForTest(stickTop = 800, spanDepth = 100)
             degradeDrives.add(driveA)
         }
         // 锚距顶 = reserved(1000) − fiso(500) = 500：低于卡 A 缘(300)→增长在锚上方应配对；
@@ -709,7 +691,7 @@ class FlushTaskPhasesTest {
             itemKey = "k1"
             trueHeight = 2303
             reserved = 2303
-            expandPairingWindows = 1
+            arrangeForTest(windows = 1)
             degradeDrives.add(drive)
         }
         // 贴底：fiso=0 → 骑行房间 0，步进 -320 全额入垫
@@ -736,7 +718,7 @@ class FlushTaskPhasesTest {
             itemKey = "k1"
             trueHeight = 2200   // 帽净负 −100（窗内收缩配对）
             reserved = 2300
-            expandPairingWindows = 1
+            arrangeForTest(windows = 1)
             degradeDrives.add(collapsing)
             degradeDrives.add(expanding)
         }
@@ -791,7 +773,7 @@ class FlushTaskPhasesTest {
             itemKey = "k1"
             trueHeight = 2303
             reserved = 2303
-            expandPairingWindows = 1
+            arrangeForTest(windows = 1)
             degradeDrives.add(drive)
         }
         val state = stateWithOwnerItem(7, 1303, ownerIndex = 7)

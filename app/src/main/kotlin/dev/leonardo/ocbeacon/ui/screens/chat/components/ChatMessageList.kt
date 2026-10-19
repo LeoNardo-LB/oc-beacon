@@ -2061,7 +2061,6 @@ fun ChatMessageList(
                                     val v1GrowModifier = if (v1Spec.active && !isStreamingMsg) {
                                         Modifier
                                             .fillMaxWidth()
-                                            .clipToBounds()
                                             .streamingGrowPairing(
                                                 ledger = streamingLedger,
                                                 entryKey = "cmp_v1:" + itemKey,
@@ -2442,7 +2441,6 @@ fun ChatMessageList(
                                         val compactionGrowModifier = if (compactionClaim.activeState != null) {
                                             Modifier
                                                 .fillMaxWidth()
-                                                .clipToBounds()
                                                 .streamingGrowPairing(
                                                     ledger = streamingLedger,
                                                     entryKey = "cmp_msg:" + itemKey,
@@ -2693,7 +2691,6 @@ fun ChatMessageList(
                                 CompactionDividerSlot(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clipToBounds()
                                         .streamingGrowPairing(
                                             ledger = streamingLedger,
                                             entryKey = "cmp_tail",
@@ -2779,7 +2776,6 @@ fun ChatMessageList(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clipToBounds()
                                     .streamingGrowPairing(
                                     ledger = streamingLedger,
                                     entryKey = "tool",
@@ -2948,7 +2944,7 @@ fun ChatMessageList(
                                 // 键不等守卫防跨 item 互抢）。
                                 .onGloballyPositioned { coords ->
                                     if (heightReserve.itemKey == entry.key) {
-                                        heightReserve.hostItemTopY = coords.positionInRoot().y
+                                        heightReserve.onHostPlacement(coords.positionInRoot().y)
                                     }
                                 }
                                 .animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = null),

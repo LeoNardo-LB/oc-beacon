@@ -578,6 +578,21 @@ internal fun CardExpandReveal(
     // 首入时机=已翻转后——晚初始化吃掉翻转事件，20261019-1208 矩阵 540/554/
     // dsh_stream 三卡定罪）。门控只作用于日志发射。
     val probePrevVis = remember { androidx.compose.runtime.mutableStateOf(visible) }
+    // C1 重挂率探针门（spec §1.5 验收项）：slot-compose 打点——本组合槽的首次
+    // 组合（remember 初始化恰为一）在动画相语境（useDrive/流式）即一次重挂
+    // （回收重建）。E2E/soak 以 [C1-remount] 计数对流式时长归一化测重挂率，
+    // 超标再议续命（数据说话，不预付费）。
+    val probeMounted = remember {
+        if (BuildConfig.DEBUG && (listState != null)) {
+            AppLogger.d(
+                "CardExpand",
+                "[C1-remount] slot-compose host=" + hostItemKey.toString().take(24) +
+                    " cacheKey=" + cacheKeyAtComposition + " visible=" + visible,
+            )
+        }
+        true
+    }
+    check(probeMounted)
     if (BuildConfig.DEBUG && (listState == null || useDrive)) {
         val prevVis = probePrevVis
         if (prevVis.value != visible) {
@@ -682,12 +697,11 @@ internal fun CardExpandReveal(
                         0
                     }
                     if (!mineAlready) pr.degradeDrives.add(drive)
-                    pr.expandPairingWindows++
-                    // #551：离底让位视口预算——开窗时刻（事件时刻）置一屏主轴；
+                    // C5：开窗意图（窗计数/#551 一屏预算/表述乙几何捕获合一）——
+                    // #551：离底让位视口预算，开窗时刻（事件时刻）置一屏主轴；
                     // 多窗并发共享（重置式），组合离底上限恒一屏
-                    listState?.layoutInfo?.viewportSize?.let { vp ->
-                        pr.expandDepartureBudgetLeft = vp.height
-                    }
+                    val vpMain = listState?.layoutInfo?.viewportSize?.height ?: Int.MAX_VALUE
+                    pr.onExpandPairingWindowOpen(-1, -1, vpMain)
                     // 表述乙几何捕获（塌缩不变量：盒顶上方内容收起中不动）——距 item
                     // 顶偏移=盒顶 root-Y − 物主 item 根 root-Y（CML 逐 placement 供给）。
                     // 四报：几何**随卡走**（drive.stickTop/spanDepth）——reserve 级
@@ -702,8 +716,7 @@ internal fun CardExpandReveal(
                         spanDepth = degradeH.intValue
                         drive.stickTop = stickTop
                         drive.spanDepth = spanDepth
-                        pr.expandCollapseStickTop = stickTop
-                        pr.expandCollapseSpanDepth = spanDepth
+                        pr.captureCollapseGeometry(stickTop, spanDepth)
                     } else {
                         stickTop = -1
                         spanDepth = -1
@@ -750,11 +763,7 @@ internal fun CardExpandReveal(
                         }
                     }
                 } finally {
-                    pr.expandPairingWindows--
-                    if (pr.expandPairingWindows <= 0) {
-                        pr.expandCollapseStickTop = -1
-                        pr.expandCollapseSpanDepth = -1
-                    }
+                    pr.onExpandPairingWindowClose()
                     // #551：种子 settle 事件锚定——episode 关窗时刻以**当下**内容高
                     // 刷新（高度动态；上窗的值不跨事件滞留）。分期未追平的极端窗
                     // 由 toggle 时刻的 600ms 单调护栏兜底（staged 小值不反拽）。

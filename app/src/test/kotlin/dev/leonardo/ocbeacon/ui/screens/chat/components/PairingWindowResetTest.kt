@@ -18,7 +18,7 @@ class PairingWindowResetTest {
         state.itemKey = "host-a"
         state.reserved = 120
         state.trueHeight = 340
-        state.expandPairingWindows = 2 // 两卡窗在飞
+        state.arrangeForTest(windows = 2) // 两卡窗在飞
 
         Modifier.streamingHeightReserve(state, "host-b") // 组合期换主 reset
 
@@ -34,7 +34,7 @@ class PairingWindowResetTest {
         state.itemKey = "host-a"
         state.reserved = 120
         state.trueHeight = 340
-        state.expandPairingWindows = 1
+        state.arrangeForTest(windows = 1)
 
         Modifier.streamingHeightReserve(state, "host-a") // 同主重挂：非换主
 

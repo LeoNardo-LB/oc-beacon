@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.MeasureResult
@@ -293,7 +294,10 @@ private class StreamingGrowElement(
 }
 
 /**
- * 流式家族增长配对修饰符(#435)。必须与 clipToBounds 同链(沿用旧 COMP 装配约定)。
+ * 流式家族增长配对修饰符(#435)。
+ * **C6（#544 第二刀 Phase 3）类型强制**：原「必须与 clipToBounds 同链」是
+ * 注释契约（漏配=增长帧溢出帽窗可见——#437 一帧缓冲帽依赖外层裁剪）；
+ * 现把 clipToBounds 收编进本修饰符前置，调用点无法漏配。
  * @param ledger 列表级账本
  * @param entryKey 记账身份(唯一;条目内多增长源各自独立)
  * @param itemKey 锚位反查键(Lazy item key;flush 相按它在 visibleItemsInfo 反查 index)
@@ -302,7 +306,9 @@ internal fun Modifier.streamingGrowPairing(
     ledger: StreamingGrowLedger,
     entryKey: Any,
     itemKey: Any,
-): Modifier = this.then(StreamingGrowElement(ledger, entryKey, itemKey))
+): Modifier = this
+    .clipToBounds() // C6：同链契约类型强制（见上）
+    .then(StreamingGrowElement(ledger, entryKey, itemKey))
 
 // ===================== #437 引擎①：一帧缓冲帽（HeightReserve） =====================
 //
@@ -339,6 +345,7 @@ internal class HeightReserveState {
      * `>0` 恒配对判据自此永久失效（2026-10-10 review 轮定罪，步边界换主可触）。
      */
     var expandPairingWindows: Int = 0
+        private set
 
     /**
      * #540 二轮（表述乙·揭示缘参照，裁决 2026-10-11）：宿主 item 根的 root-Y
@@ -347,6 +354,7 @@ internal class HeightReserveState {
      * item 空间几何写入 [expandCollapseStickTop]/[expandCollapseSpanDepth]。
      */
     var hostItemTopY: Float = Float.NaN
+        private set
 
     /**
      * #540 二轮：当前窗卡揭示盒顶距 item 顶的偏移（塌缩不变量——盒顶上方
@@ -357,9 +365,11 @@ internal class HeightReserveState {
      * 语义（非驱动收缩不隶属任何卡），单槽合法，勿再提 entryKey 标签化。
      */
     var expandCollapseStickTop: Int = -1
+        private set
 
     /** #540 二轮：toggle 时刻揭示盒高（塌缩区深度，资格判定界）。-1=未捕获。 */
     var expandCollapseSpanDepth: Int = -1
+        private set
 
     /**
      * #551（2026-10-13 七报+高度参照系裁决）：**离底让位视口预算**——单次展开
@@ -372,6 +382,7 @@ internal class HeightReserveState {
      * 累计超一屏）。消耗点：applyPairedShift 正向分支。
      */
     var expandDepartureBudgetLeft: Int = Int.MAX_VALUE
+        private set
 
     /**
      * #540 三轮：在飞降级驱动（**四报改列表**——同流式 item 多卡并发 toggle 时
@@ -382,6 +393,63 @@ internal class HeightReserveState {
 
     /** 便捷判定：存在在飞驱动（flush 早退门用）。 */
     val anyDriveAnimating: Boolean get() = degradeDrives.any { it.animating }
+
+    // ===== C5 单写者化（#544 第二刀 Phase 3）：组合侧只表达意图，不摸字段 =====
+    // 写面收编前：stick/span/budget/windows 四字段被卡侧 8 站点直写（本类外），
+    // 「谁在写」靠注释约定——守卫（防误清/防双写）即由此生。收编后字段
+    // private set，一切变更走意图方法；flush 侧同文件写点合法（单文件内审计）。
+
+    /** 意图：配对窗开启（toggle 时刻）——窗计数++、#551 预算置一屏主轴、
+     *  表述乙塌缩区几何捕获（几何有效时写槽，-1 跳过）。 */
+    fun onExpandPairingWindowOpen(stickTop: Int, spanDepth: Int, viewportMainAxis: Int) {
+        expandPairingWindows++
+        if (stickTop >= 0) {
+            expandCollapseStickTop = stickTop
+            expandCollapseSpanDepth = spanDepth
+        }
+        expandDepartureBudgetLeft = viewportMainAxis
+    }
+
+    /** 意图：配对窗关闭（窗协程 finally）——计数--；末窗清塌缩区槽
+     *  （#540 二轮语义；换主 reset 不得清零窗计数——在飞窗定罪注释见字段处）。 */
+    fun onExpandPairingWindowClose() {
+        expandPairingWindows--
+        if (expandPairingWindows <= 0) {
+            expandCollapseStickTop = -1
+            expandCollapseSpanDepth = -1
+        }
+    }
+
+    /** 意图：宿主 item 放置更新（CML 逐 placement；键不等守卫在调用侧）。 */
+    fun onHostPlacement(rootY: Float) {
+        hostItemTopY = rootY
+    }
+
+    /** 意图：塌缩区几何补写（toggle 时刻几何已可用路径——开窗与捕获分立时
+     *  的二次意图；-1 由调用侧跳过）。 */
+    fun captureCollapseGeometry(stickTop: Int, spanDepth: Int) {
+        expandCollapseStickTop = stickTop
+        expandCollapseSpanDepth = spanDepth
+    }
+
+    /** 意图：#551 预算扣减（flush 正向配对消耗，与驱动推进同事务）。 */
+    fun consumeDepartureBudget(px: Int) {
+        expandDepartureBudgetLeft = (expandDepartureBudgetLeft - px).coerceAtLeast(0)
+    }
+
+    /** 测试装配缝（FlushTaskPhasesTest 相位排列；C5 收编后生产面只走意图
+     *  API——此缝仅供同模块测试直排字段，生产误用会在 review 显眼）。 */
+    internal fun arrangeForTest(
+        windows: Int? = null,
+        stickTop: Int? = null,
+        spanDepth: Int? = null,
+        budget: Int? = null,
+    ) {
+        windows?.let { expandPairingWindows = it }
+        stickTop?.let { expandCollapseStickTop = it }
+        spanDepth?.let { expandCollapseSpanDepth = it }
+        budget?.let { expandDepartureBudgetLeft = it }
+    }
 }
 
 /**
@@ -1288,7 +1356,7 @@ private fun applyPairedShift(
             val actualDrainedP = if (reserve != null) applyAbsorbDeltas(reserve.degradeDrives, pendingPlan?.drainedPx ?: 0) else 0
             // #551：预算扣减与驱动推进/帽预记同事务（原子性一致）
             if (reserve != null && allowedP > 0) {
-                reserve.expandDepartureBudgetLeft = budgetLeftP - allowedP
+                reserve.consumeDepartureBudget(allowedP)
             }
             if (pendingPlan != null && reserve != null) {
                 reserve.reserved = reserve.trueHeight + dScrollTotalV - actualDrainedP
