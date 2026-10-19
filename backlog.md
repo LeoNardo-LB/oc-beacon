@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#559**（2026-10-17 #558 展开态流式思考全文重复 append——part）。
+**编号**：全局递增，不回收。下一编号：**#562**（2026-10-19 #561 #146⑤A 工具输出截断结构化信号消费——ou）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。**反馈归卡（2026-09-12 用户定规）**：用户对某张卡片的反馈/裁决一律经 `backlog.sh note <N>` 记入**该卡片**明细，**不另开新卡**承载反馈；仅当反馈引出**新的独立缺陷**时才另立卡片，并在两卡明细互相引用（#401→#408 为先例）。**工作流脚本类直接修（2026-09-29 用户定规）**：项目工作流/脚本层的修复（`scripts/` 流程脚本等不进 APK 的项目设施）**不立卡**——发现即直接修+自测，证据记入当批 journal；#480 为末代先例（已立卡的按原流程走完迁移）。
 
@@ -69,10 +69,26 @@
 
 ## P2 — 优化与锦上添花
 
+- [ ] **#561 #146⑤A 工具输出截断结构化信号消费——outputPaths 透传建模+提示条结构化优先文本回退（B4 实现腿）** `data` `ui`
+  - 现状 outputPaths 全源码零消费（SessionNextEvent.ToolSuccess/V2Mappers/Part.Tool/ToolState 四层均无字段），UI 已用脆弱文本匹配（BashToolCard.kt:54 OUTPUT_TRUNCATION_PATH_REGEX，与 #332/#536 spill 同类风险）；修=ToolState.Completed+Part.Tool 增 outputPaths 透传+V2Mappers/ToolSuccess 建模
+  - 提示条改结构化优先、缺失回退现文本匹配（复用现有文案与互斥逻辑，文案不变则 i18n 零增）；V1 判缺失走回退零变化、DSH 无字段走回退零变化
+  - ⑤B（查看全文动作）为 B5 候选依赖 #559 取证（V1 GET /file/content 项目外 500 已实测受限、V2 /api/fs/read/* 待验）；⑤C 三信号统一管线再后；出处同调研报告
+
+- [ ] **#560 #146①A/B compaction 新命名消费三缺口——G2 delta 字段错配恒空串+G1 完成 UX 链断裂+ended 摘要建模（B4 实现腿）** `sse` `session`
+  - G2（确定性错配最优先）：schema delta 字段名实为 text，SessionNextEvent.kt:274-279 只映射 delta→恒空串→handleCompactionDelta 空串早退→新命名服务器进行中分割线实时摘要永远空白；修=CompactionDelta 双读 text ?: delta（对齐 V2EventParser.kt:164 契约）
+  - G1：新命名 ended 只终结横幅（SessionNextEventHandler.kt:312-318）不触发「压缩完毕 snackbar+消息刷新」（该链仅 SseEvent.SessionCompacted 驱动，EventDispatcher.kt:441-443）；修=成功态双发 SessionCompacted 复刻 V2EventParser.kt:151-154。①B 增项：ended text/recent 建模（G3，替代 refreshMessages REST 兜底）+失败通道按 #559 取证结论补
+  - B4 窗口（动 SessionNextEvent/EventDispatcher 承重链需完整回归窗口）；V1 无影响（走 session.compacted 既有链）/DSH 无影响；出处同调研报告
+
+- [ ] **#559 #146①⑤ 消费前置取证腿——4096 v2.0.26 compaction 命名族抓帧+outputPaths 在场性（R1 前真机顺带）** `sse` `v2`
+  - 纯观测零代码：真机挂 v2.0.26（4096）抓 session.next.compaction.* vs session.compaction.* 命名族实际发射谱；tool.success/REST part 级 outputPaths/truncated 在场性
+  - 结论决定 ①A 定性（新命名是否现网在发→G1/G2 是否当下就咬）与 ⑤B 可行性（V2 /api/fs/read/* 路径可达性）；一趟会话覆盖两题
+  - 出处：docs/research/2026-10-10-146-consumption-research.md 排期表（R1 前腿，不违 R1 前不进新功能）
+
 - [ ] **#545 IME 注入×历史会话加载竞态致主线程渲染冻结（BLANK-RENDER-FREEZE）** `ui` `ime` `race`
   - 5h soak ×5 复现：进入含历史会话后整串 input text 注入必现 Choreographer 跳帧后渲染冻结（a11y 树完整但空 2627B），无 FATAL/ANR，仅 force-stop 可恢复（空闲 3 分钟不自愈）
   - 手工几乎不可达（需程序化快速整串注入）；新空会话+分块注入（≤14 字符/块、0.6s 间歇）40+ 周期零复现——嫌疑面=IME 批量注入×历史加载/图片解码竞态
   - 证据：/home/leonardo/.cache/soak5h/（2026-10-11 发现；soak 终报［非缺陷·重大环境发现］节）
+  - 2026-10-19 深夜攻坚一（RED+定罪+黑匣子）：①当前 HEAD RED 确认——真机复现率 4/7+对照轮（配方=force-stop→start→tap 会话→0.4s→整串 input text→dump 2627B）；模拟器 0.2-1.5s 八档零复现（MIUI 特有）②系统级取证：主线程+RenderThread 双 epoll 空闲（非死锁非自旋）、SigQ=0 无 ANR、空树=窗口装饰壳在而 semantics 缺席③冻结前最后帧时间线：IME 洪流→forceMeasureTheSubtree 测量风暴（Skipped 34/41）→a11y 响应构建中却返回空树→寂静④黑匣子探针三连进化（v1 心跳/v2 帧链均观测者效应 0 冻；v3 广播触发式零扰动 1/1 命中）⑤**定罪收口：invalidate 实验 frames 135→137 新帧正常而内容依旧空——冻结=Compose 组合内容真空**（组合在竞态中被清空/dispose，UI 正常渲染空内容）⑥剩余嫌疑：Recomposer 取消/detach-reattach 重建被吞/apply 异常消化——sentinel state 实验判别（下轮）。夜间收割 soak 已挂（至明 08:00）。证据 journal §8-§9
 
 - [~] **#543 #543 压缩卡换装重建窗双宿主——双 episode 双锚定三跳瞬态（R9 系统性 E2E 发现，定向复现已定罪）** `scroll` `chat`
   - 真机 R9 + 定向复现 2/4 RED：displayItems 重建（upsert:MergeStrategy→[452-display]）窗内同一压缩消息以两个不同 item key 的条目并存 ~300ms（两 CardExpandReveal 并发完整 episode），共享屏幕级 expansionKey 一次 toggle 点亮两宿主→同 +H 双锚定（111/127ms 间隔）→旧宿主离场收缩修正（R9 变体 −H 第三跳）；净效≈单次展开但三跳瞬态可见
@@ -152,3 +168,4 @@
   - 2026-10-09 逐项复查（HEAD 3884062 2026-10-08 + v2.0.26 tag 取证）：①已修（V2 core schema 三档 session.next.compaction.started/delta/ended+引擎发射；V1 兼容路径仍单事件）②③未修且官方定局不做（#25657/#29544/#19584 均 CLOSED NOT_PLANNED——客户端自救即终态，可标 wontfix 收口）⑥未修（v2.0.26 状态仍两档无条件 completed；dev HEAD 已拆除待重做 durable status）④已修仍在 ⑤部分进展（outputPaths/truncated 进 schema+core 统一限幅落盘；#45910 per-tool 未收口）。⑥登记「后台 shell 重建后复查」。证据：docs/research/2026-10-09-p4-upstream-preconditions-check.md
   - 2026-10-09 用户裁决：②③ wontfix 收口（上游三 issue 均 CLOSED NOT_PLANNED，客户端自救=重连快照重拉+只产 V2 cursor 即终态）；卡保留 ①（已修可消费 compaction.started 三档）/⑤（outputPaths 部分进展）/⑥（后台 shell 重做后复查）
   - 2026-10-10 系统调研完结（docs/research/2026-10-10-146-consumption-research.md）：①上游已修→客户端消费（G1/G2+⑤A）拆卡排期 B4 + R1 前取证腿；⑤B/C 视取证为 B5 候选；本卡余 PR 候选线（③>⑥>①>②）维持 P4 用户流程门槛
+  - 2026-10-19 拆卡：消费腿落三卡——#559（取证腿，R1 前真机顺带）/#560（①A/B 三缺口实现，B4 窗口）/#561（⑤A outputPaths 消费，B4 窗口）；⑤B/C 视 #559 结论为 B5 候选；①C（DSH 式转录实体）不排期（收益与现有 Part.Compaction 分割线形态重叠）；本卡余 PR 候选线（③>⑥>①>②）维持 P4 用户流程门槛

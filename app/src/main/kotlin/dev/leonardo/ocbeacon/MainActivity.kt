@@ -177,6 +177,10 @@ class MainActivity : ComponentActivity() {
 
         // 2026-08-20 竞态取证埋点（debug_race extra；release 也生效——概率 bug
         // 需在用户日常环境复现取证，故不设 BuildConfig.DEBUG 门）
+        // #545 BLANK-RENDER-FREEZE 黑匣子：帧间隙>5s 自吐组合活性快照（DEBUG 门控）
+        if (BuildConfig.DEBUG) {
+            dev.leonardo.ocbeacon.diag.FreezeWatchdog.install(this)
+        }
         if (intent?.getBooleanExtra("debug_race", false) == true) {
             dev.leonardo.ocbeacon.debug.RaceProbe.isEnabled = true
             AppLogger.i(TAG, "RaceProbe enabled")
