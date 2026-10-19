@@ -981,22 +981,39 @@ internal fun CardExpandReveal(
                 // 位移在 measure 前施加(tap 后首帧或测量后首帧)——高度与滚动
                 // 位同帧原子落地,中间态从构造上不存在(零补偿/零门控/零闭环)。
                 if (target > 0f) {
-                    // 恒走预热+沉降(缓存命中亦然):收起后内容已离树,跳过组合
-                    // 会让 dispatch 内测见旧高→条目回收→协程被杀(真机 53ms
-                    // exit-CANCELLED 定案)。缓存的真正价值=跨回收高度预知(floor)。
+                    // 恒走预热(缓存命中亦然):收起后内容已离树,跳过组合会让
+                    // dispatch 内测见旧高→条目回收→协程被杀(真机 53ms
+                    // exit-CANCELLED 定案)。
                     clock.warmup()
-                    settleUntilContentStable(clock)
-                    // #529:锚点捕获静止门——E1(回收重组合后首个展开集)恰逢滚动
-                    // 余尾+item 异步内容跨测量遍落地,捕获基在「捕获→待定区消费」
-                    // 窗内漂移=反射绝对位双计/半计(真机两脏样本 topY+H/+H/2)。
-                    // settle 只管本卡内容;此处把静止契约扩到整列基(滚动+全部可见
-                    // item 尺寸),随后才读 H 与锚点(基静后读数即最新)。
-                    awaitAnchorQuiescence(listState)
-                    // #430:派发目标=**落地高度**(lastMeasuredH),不再 maxOf 缓存——
-                    // v4 分批下落地≠缓存终值,按缓存超额派发=中位伪滚动(前向容量被
-                    // 提前吃掉)+ 边缘重试白跑;窗外增量由稳态配对(#430)逐帧接管。
-                    // 缓存价值回归"预知 floor"(prewarm/settle 提示),不作位移指令。
-                    val H = clock.lastMeasuredH.also { if (it > 0) storeFinalH(it) }
+                    // C1 Phase 2a（#544，spec §1.2）：终高谓词——已知（finalH
+                    // 店/rememberSaveable 缓存命中）→ 原子帧**直用已知 H**，
+                    // settle+静止门（#529）退役：原子帧的捕获与写入同快照零间隙，
+                    // 无「捕获→待定区消费」窗可漂移；staged 内容（分批表格等）
+                    // 追平期间短于已知 H 的增量由稳态配对（#430）逐帧接管。
+                    // 未知 → settle 解未知后读落地高（#430：派发目标=落地高度，
+                    // 不按缓存超额派发）。
+                    val knownH = finalHCache.value
+                    val H: Int
+                    if (knownH > 0) {
+                        H = knownH
+                        // warmup 组合上布局一帧（ε 内容入树即可；known 路径
+                        // 不等待测量收敛）
+                        withFrameNanos { }
+                    } else {
+                        settleUntilContentStable(clock)
+                        // #529:锚点捕获静止门——E1(回收重组合后首个展开集)恰逢滚动
+                        // 余尾+item 异步内容跨测量遍落地,捕获基在「捕获→待定区消费」
+                        // 窗内漂移=反射绝对位双计/半计(真机两脏样本 topY+H/+H/2)。
+                        // settle 只管本卡内容;此处把静止契约扩到整列基(滚动+全部可见
+                        // item 尺寸),随后才读 H 与锚点(基静后读数即最新)。
+                        // （C1 后仅未知分支走此门；已知分支同快照零间隙无需静止）
+                        awaitAnchorQuiescence(listState)
+                        // #430:派发目标=**落地高度**(lastMeasuredH),不再 maxOf 缓存——
+                        // v4 分批下落地≠缓存终值,按缓存超额派发=中位伪滚动(前向容量被
+                        // 提前吃掉)+ 边缘重试白跑;窗外增量由稳态配对(#430)逐帧接管。
+                        // 缓存价值回归"预知 floor"(prewarm/settle 提示),不作位移指令。
+                        H = clock.lastMeasuredH.also { if (it > 0) storeFinalH(it) }
+                    }
                     // #466 三轮(机构替换,2026-09-30 用户复验定罪):非贴底下半
                     // 构型「闪烁→重定位→展开」= dispatchRawDelta 开环位移指令的
                     // 执行竞态(#427 实证跨锚点大位移欠消费 20352→14190 + 残差
@@ -1123,6 +1140,12 @@ internal fun CardExpandReveal(
                         )
                     }
                     curtain.floatValue = 1f
+                    // C1 Phase 2a 校验收口：已知路径不跑 settle——幕布后以落地
+                    // 实测高对账店值（内容自上次缓存后变化时刷新；高度动态，
+                    // 事件时刻直写非棘轮，#551 裁决）。
+                    if (knownH > 0 && clock.lastMeasuredH > 0 && clock.lastMeasuredH != knownH) {
+                        storeFinalH(clock.lastMeasuredH)
+                    }
                 } else {
                     // ===== 批次十四:收起镜像化(根因修复,与展开同构) =====
                     // 展开的「布局先终态+幕布揭示」真机实证零震荡(同样跨 9 条目
