@@ -274,6 +274,20 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
+                        // #545 sentinel（DEBUG 门控）：snapshotFlow 观察 FreezeWatchdog.sentinel
+                        // ——广播 bump 后此处打出 "sentinel reacted" = Recomposer 活；无 = 死。
+                        // 与上方 perfMonitor 数据桥同构，零布局影响（journal §9.4 判别实验）
+                        if (BuildConfig.DEBUG) {
+                            androidx.compose.runtime.LaunchedEffect(Unit) {
+                                snapshotFlow { dev.leonardo.ocbeacon.diag.FreezeWatchdog.sentinel.value }
+                                    .collect { v ->
+                                        if (v > 0) android.util.Log.e(
+                                            "FREEZE-WATCH",
+                                            "sentinel reacted v=$v — Recomposer ALIVE",
+                                        )
+                                    }
+                            }
+                        }
                     }
                 }
                 }

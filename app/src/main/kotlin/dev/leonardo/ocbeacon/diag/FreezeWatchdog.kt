@@ -31,6 +31,14 @@ object FreezeWatchdog {
     private const val TAG = "FREEZE-WATCH"
     const val ACTION_DUMP = "dev.ocbeacon.DEBUG_FREEZE_DUMP"
 
+    /**
+     * #545 sentinel state（Recomposer 死活判别，journal §9.4）：
+     * 广播 --ez bump true 写入；MainActivity 组合根的 snapshotFlow 观察者若打出
+     * "sentinel reacted" = Recomposer 活（内容空但可重组→dispose 竞态路径）；
+     * 无反应 = Recomposer 死（取消/挂起→协程域异常传播路径）。
+     */
+    val sentinel = androidx.compose.runtime.mutableStateOf(0)
+
     private val registered = AtomicBoolean(false)
 
     fun install(activity: Activity) {
@@ -42,6 +50,10 @@ object FreezeWatchdog {
                 activity,
                 object : BroadcastReceiver() {
                     override fun onReceive(context: Context, intent: Intent) {
+                        if (intent.getBooleanExtra("bump", false)) {
+                            sentinel.value++
+                            Log.e(TAG, "sentinel bumped to ${sentinel.value} — watch for 'sentinel reacted' (无 reacted=Recomposer 死)")
+                        }
                         if (intent.getBooleanExtra("invalidate", false)) {
                             // 定罪实验：冻结态强行请求重绘——有新帧=帧链活着（内容真空）；
                             // 无新帧=Choreographer/traversal 链死
