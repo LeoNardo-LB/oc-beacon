@@ -79,7 +79,7 @@
   - 手工几乎不可达（需程序化快速整串注入）；新空会话+分块注入（≤14 字符/块、0.6s 间歇）40+ 周期零复现——嫌疑面=IME 批量注入×历史加载/图片解码竞态
   - 证据：/home/leonardo/.cache/soak5h/（2026-10-11 发现；soak 终报［非缺陷·重大环境发现］节）
 
-- [ ] **#544 #544 展开编舞统一（第二刀）——episode 吞降级分支、AV 弹簧退役、终高谓词取代双路径** `scroll` `refactor`
+- [~] **#544 #544 展开编舞统一（第二刀）——episode 吞降级分支、AV 弹簧退役、终高谓词取代双路径** `scroll` `refactor`
   - 终态谓词（终高已知→同快照原子帧 / 未知→动画相走帽通道）取代 LocalInStreamingTurn 双路径；AV enter/exit 退役；幂等重挂不变量（缓存命中 coldReveal 单帧/无缓存开窗配对）；#420 头注释矩阵第一条改写
   - 前置：第一刀（#540）全绿签名当基线；重挂探针门（slot-compose/episode-start 测流式期重挂率）
   - → spec: docs/specs/2026-10-11-unified-expand-placement-design.md
@@ -89,6 +89,7 @@
   - - C3 完成（02502a107，2026-10-17）：applyPairedShift 三量正交分通道——ReserveReleasePlan 增 hatDeltaNet，负向 nonDriveNeg/正向 hatDeltaP 读正交源（垫增量不再污染帽镜像提取=#549 脸①③残余通道根）；钉语义测试 1 例+PlanTest 15 处不变量；全量 4055/0。smoke+判别轮验证：收起/展开 toggle 管线四线齐动、无震荡无 slam、判别轮 ①-⑤ 全 PASS（H 轮静默=组合窗经济学+指纹碰撞装置混杂，非回归）。
   - - 剩余：C1（本卡主体：终态谓词取代 LocalInStreamingTurn 双路径、AV 弹簧退役、幂等重挂不变量）+C5 单写者化/C6 快赢包；C4 归 #547。review 轮两项同批（头注释漂移+stick 槽 entryKey 标签化）随 C1。
   - - C1 先遣包完成（77840f86f，2026-10-17 深夜）：正向否决门逐卡化（min 驱动 stickTop 回退单槽，补四报负向半边的正向对应）+review ①头注释漂移两处+review ②stick 槽 entryKey 标签化改判不需要（余下消费者即最后-toggle-塌缩区语义）；钉语义 1 例+全量 4056/0+smoke 4/4。**C1 主体剩余**：终态谓词取代 LocalInStreamingTurn 双路径、AV enter/exit 退役、幂等重挂不变量、#420 头注释矩阵改写、C5 单写者化/C6 快赢包、R1-R9 矩阵验收——独立会话开工。
+  - C1 主体+C5+C6 完成并全验收（2026-10-19）：终高谓词统一编舞取代 LocalInStreamingTurn 双路径（Phase1 结构统一/2a 已知分支退役静止门/2b 谓词+统一终高店+contentTerminal+viaDrive）+C5 单写者化+C6 clip 类型强制+重挂探针门零重挂实证。验收：双端矩阵 22/22+变体 7/7+C5C6 确认 14/14+单测/lint 绿+未归因 0。证据 journal §1-§6。转待验证
 
 - [~] **#543 #543 压缩卡换装重建窗双宿主——双 episode 双锚定三跳瞬态（R9 系统性 E2E 发现，定向复现已定罪）** `scroll` `chat`
   - 真机 R9 + 定向复现 2/4 RED：displayItems 重建（upsert:MergeStrategy→[452-display]）窗内同一压缩消息以两个不同 item key 的条目并存 ~300ms（两 CardExpandReveal 并发完整 episode），共享屏幕级 expansionKey 一次 toggle 点亮两宿主→同 +H 双锚定（111/127ms 间隔）→旧宿主离场收缩修正（R9 变体 −H 第三跳）；净效≈单次展开但三跳瞬态可见

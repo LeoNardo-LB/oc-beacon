@@ -108,3 +108,52 @@
 - C5 HeightReserveState 单写者化（字段私有化+flush 单事务意图协议）。
 - C6 快赢包（streamingGrowPairing 5 挂载点收编+探针单点开关+重挂率探针门）。
 - R1-R9 级真机矩阵验收（11 卡双端 campaign）+ 全量单测/lint 终扫。
+
+# §5 战役25 验收 + C5/C6 + 探针门（2026-10-19 13:50）
+
+## R1-R9 验收矩阵（战役25，2b+探针构建）
+| 段 | 结果 |
+|---|---|
+| 模拟器 11 卡矩阵 | **11/11 PASS** |
+| 模拟器变体集XVI（547×29/0.62@12、551_static×72/0.44、554×64/0.4、549×68/0.22） | **4/4 PASS** |
+| 真机 11 卡矩阵 | **11/11 PASS** |
+| 真机变体集XVII（547×27/0.68@14、551×66/0.32、557×54/1.1 停顿 11×9s） | **3/3 PASS** |
+
+## C5+C6（commit 499765e7d，编译/全量单测/lint 绿）
+- C5：stick/span/budget/windows/hostTopY 五字段 private set；意图 API（onExpandPairingWindowOpen/Close、captureCollapseGeometry、onHostPlacement、consumeDepartureBudget）收编卡侧 8 写点+flush 预算写点；测试缝 arrangeForTest（null 增量语义）——FlushTaskPhasesTest 21 处+PairingWindowResetTest 2 处改写。
+- C6：streamingGrowPairing 收编 clipToBounds（注释契约→类型强制），4 调用点去重（链序 fill→clip→element 逐字节等价）。
+- C1 重挂率探针门（spec §1.5）：[C1-remount] slot-compose 打点。
+
+## 重挂率探针门读数（战役25 矩阵日志）
+- 按宿主分桶：**每 turn 宿主流式期 slot-compose 恰 1 次=零重挂**（540/551/549/557 全场景一致；host=null 计数为无宿主横幅/装饰卡首组，非重挂）。
+- 结论：幂等重挂不变量成立；**续命机制（rememberSaveable fraction/锚）无需引入**（spec §1.5「超标再议，不预付费」——数据不超标）。
+
+## stability 账面
+- 全仓 590/658 PASS、**未归因 0**（2b 迭代轮 7 条+演示彩排 1 条归因入表：探针晚初始化/未装机重跑/垫塌回归定罪复跑全绿）。
+
+## 待收尾
+- C5/C6 构建确认矩阵（模拟器 11 卡+真机 3 腿，进行中）→ 绿即卡片转 [~]。
+
+# §6 收官总账（2026-10-19 14:08）
+
+## 验收门对照（spec §3）
+| 门 | 证据 |
+|---|---|
+| 第一刀全绿签名当基线 | 2b 矩阵 11/11 + 战役25 双端矩阵 22/22（11 卡签名 oracle 全 PASS） |
+| 重挂探针门 | 每宿主流式期 slot-compose 恰 1 次=零重挂（§5）——续命不引入 |
+| R1-R9 级真机矩阵复跑 | 战役25 [3/4] 真机 11/11 + XVII 变体 3/3 + C5/C6 确认真机 3/3 |
+| 全量单测/lint | 单测 BUILD SUCCESSFUL（含 C5 测试缝改写）；lint 绿 |
+
+## commit 链（本批 7 commit）
+54df0e0c1 勘察 → a5b422414 Phase1 → a441d447c Phase2a → 14892ee2d Phase2b → 5d3d2eb5b §4 战报 → 499765e7d C5+C6+探针门 → 本节。
+
+## #544 交付语义总账
+- 单一编舞：终高谓词（已知且终态→机件原子帧/未知→动画相驱动盒）取代 LocalInStreamingTurn 双路径——local 删除。
+- 统一终高店（finalHCache×finalHSeed 合流）+contentTerminal 终态信号参数化。
+- viaDrive 机器归属生命周期（垫未清不跳分支）。
+- C2（前批）/C3（前批）/C1（本批）/C5/C6 全落地——spec §5.2 六候选全部执行完毕。
+- 今日 #544 相关 E2E 54 跑全 PASS；全仓 stability 590/658、未归因 0。
+
+## 观感变化面（验收须知）
+- 静态首展（预热 1.2s 未命中时）：单帧原子+幕布 → 驱动盒渐进展开（预热命中则不变）。
+- 流式完结后重展开：驱动盒种子追靶 → 机件原子帧（更快）。
