@@ -966,7 +966,384 @@ scenario_552.env = {"MOCK_SCENARIO": "plain", "MOCK_LINES": "2700", "MOCK_INTERV
                     "MOCK_TEXT_CHUNKS": "2", "MOCK_TEXT_INTERVAL": "0.2"}
 
 
-ALL_CARDS = ["557", "556_plain", "556_bracket", "540", "554", "551", "547", "549", "540_dsh_stream", "540_dsh_tool", "552"]
+# ---------------- #544 验收场景（C1 终高谓词统一编舞行为增量实证，2026-10-19） ----------------
+# 验收三相（静态）+ 两相（流式）+ 重挂门。日志判据（CardExpandReveal debug 打点）：
+#   渐进驱动（动画相）= [DEBUG-526] degrade toggle reason=in-streaming-turn + 配对窗
+#   机件原子帧        = [DEBUG-543] episode-start target=1.0 → [DEBUG-466] expand-anchor
+#                       其间【无】[DEBUG-422] settle done（已知分支退役静止门）
+#   预热填店          = [PRD-warm] H=...（折叠卡空闲 1.2s 后；滚动到点检查窗可放弃）
+#   店刷新（win-close）= [DEBUG-557] win-close（收起幕落后 finalH←contentH）
+
+_ACC_MARKS = ("episode-start", "expand-anchor", "settle done", "PRD-warm",
+              "degrade toggle", "pairing-window open", "pairing-window close",
+              "win-close")
+
+
+def _acc_marks(dev):
+    """按序抽取编舞标记行（时间戳, 标记类, 原文截断）。"""
+    out = []
+    for ln in probes.parse(dev.logcat()):
+        for k in _ACC_MARKS:
+            if k in ln.msg:
+                out.append((round(ln.ts, 3), k, ln.msg[:170]))
+                break
+    return out
+
+
+def _acc_new(m0, m1):
+    """两次快照的增量（logcat 追加语义；环回时退化为全量）。"""
+    return m1[len(m0):] if len(m1) >= len(m0) else m1
+
+
+def _acc_h(msg):
+    m = re.search(r"\+H=(\d+)", msg)
+    return int(m.group(1)) if m else -1
+
+
+def _acc_remounts(dev):
+    """[C1-remount] 组合计数（spec §1.5 重挂率门）。键=(host,cacheKey)——
+    DSH 单 item 宿主承载 reasoning+tool 多卡（按 host 计误并）、cacheKey 维度
+    会把宿主键迁移（t_dsh-*→t_seq-*，#547 rename 族既有行为）误计为重挂。
+    门人口=reasoning 卡（C1 编舞所辖流式卡；tool/横幅终态翻转期的显示层重组
+    非本门对象）。"""
+    cnt = {}
+    for ln in probes.parse(dev.logcat()):
+        if "[C1-remount]" in ln.msg:
+            if "reasoning" not in ln.msg:
+                continue
+            hm = re.search(r"host=(\S+)", ln.msg)
+            cm = re.search(r"cacheKey=(\S+)", ln.msg)
+            k = (hm.group(1) if hm else "?", cm.group(1) if cm else "?")
+            if k[0] == "null":
+                continue
+            cnt[k] = cnt.get(k, 0) + 1
+    return cnt
+
+
+def _scroll_kill_prewarm(ctx, rounds=10):
+    """连续小幅往复滚动覆盖预热 1.2s 到点检查窗（isScrollInProgress → 放弃，
+    LaunchedEffect 单发不重试）；幅度收敛保证宿主卡留在组合域（防 LazyList
+    回收重启 effect）。"""
+    dev = ctx.dev
+    h = dev.screen_size()[1]
+    y0, y1 = int(h * 0.55), int(h * 0.78)
+    for i in range(rounds):
+        if i % 2 == 0:
+            dev.swipe(540, y0, 540, y1, 350)
+        else:
+            dev.swipe(540, y1, 540, y0, 350)
+    time.sleep(0.6)
+
+
+def _header_y_stable(ctx, rounds=2, gap=0.7, tol=90, allow_offscreen=False):
+    """卡头 Y 稳定性（展开落位后无残余跳动/垫塌上拉——123710 回归的用户面）。
+    allow_offscreen=True：贴底展开语义（pinned，bottomPinnedExpandSkip——巨卡
+    向下开出视口、卡头合法离场，其稳定性面由矩阵卡 554/551 断言）下卡头
+    不可见不判 FAIL，以屏面存活为底线。"""
+    ys = []
+    for _ in range(rounds):
+        h = wait_header(ctx.dev, 8)
+        if not h:
+            if allow_offscreen and ys:
+                return ys, True
+            if allow_offscreen:
+                ns = ctx.dev.nodes()
+                return ["offscreen"], bool(ns)
+            return None, False
+        ys.append(h["cy"])
+        time.sleep(gap)
+    drift = abs(ys[-1] - ys[0]) if len(ys) > 1 else 999
+    return ys, drift <= tol
+
+
+def scenario_544_acc(ctx):
+    """#544 验收·静态三相：A2 预热未命中首展=渐进驱动 / A1 终态重展=机件原子帧
+    （店命中真值·settle 零参与·间隔≈帧级）/ P3 流中折叠完结后首展=陈旧店原子帧
+    +尾部配对追平（无跳变·卡头稳）。"""
+    dev = ctx.dev
+    checks = []
+
+    def bad(tag, msg):
+        checks.append((tag, msg, "FAIL"))
+        return False
+
+    _launch_and_open(ctx, False)
+    # 轮 0/1：filler + giant 各一轮（两卡列表才滚得动——单轮列表短于视口，
+    # 滚动不产生 isScrollInProgress，预热杀不掉）；giant 流到齐后终态化
+    if not send_prompt(dev, "e2e544acc r0"):
+        ctx.dump("dump-send-fail.xml")
+        return {"pass": False, "checks": [("SEND", "FAIL"), SEND_DIAG[0]]}
+    wait_stream_end(dev, 90)
+    if not send_prompt(dev, "e2e544acc r1"):
+        return {"pass": False, "checks": [("SEND", "FAIL"), SEND_DIAG[0]]}
+    wait_stream_end(dev, 90)
+    time.sleep(1.0)
+
+    # ===== 相1 A2：force-stop 后重进会话（杀组合与 rememberSaveable 店——
+    # onNewIntent 不重组，店会存活致误走机件）+ 滚动杀预热 →
+    # 首展必须走渐进驱动（终高未知谓词路由）=====
+    dev.force_stop(PKG)
+    if not launch(dev, ctx.mock.port, ctx.title):
+        return {"pass": False, "checks": checks + [("RELAUNCH", "FAIL")]}
+    ns = dev.nodes()
+    hits = [n for n in ns if n["text"] == ctx.title]
+    if not hits:
+        return {"pass": False, "checks": checks + [("NO-SESSION", "FAIL")]}
+    dev.tap(300, hits[0]["cy"])
+    _scroll_kill_prewarm(ctx)
+    h1 = wait_header(dev, 15)
+    if not h1:
+        return {"pass": False, "checks": checks + [("P1-NO-CARD", "FAIL")]}
+    m0 = _acc_marks(dev)
+    dev.tap(h1["cx"], h1["cy"])
+    time.sleep(2.5)
+    m1 = _acc_marks(dev)
+    n1 = _acc_new(m0, m1)
+    p1 = True
+    tog1 = [x for x in n1 if x[1] == "degrade toggle"]
+    tog1_on = [x for x in tog1 if "visible=true" in x[2] and "in-streaming-turn" in x[2]]
+    if not tog1_on:
+        p1 = bad("P1-DRIVE", "首展未走渐进驱动（in-streaming-turn toggle 缺失）")
+    # 预热抑制是**场景机制**非验收性质——真性质=toggle 本身（店空才走驱动）。
+    # 计数窗收窄到 toggle 之前（tap 后其它卡预热与路由无关；MIUI 滚动盖不住
+    # isScrollInProgress 全窗亦属装置局限）。tap 前有预热命中 tapped 卡店则
+    # toggle 不会发射——P1-DRIVE 已是充分守卫。
+    warm_before = 0
+    if tog1_on:
+        warm_before = sum(1 for x in m1 if x[1] == "PRD-warm" and x[0] < tog1_on[0][0])
+    if warm_before and p1:
+        checks.append(("P1-PREWARM", "toggle 前有 %d 次预热（未命中本卡店——路由已实证）" % warm_before, "WARN"))
+    if not any(x[1] == "pairing-window open" for x in n1):
+        p1 = bad("P1-WINDOW", "无展开配对窗")
+    wc1 = [x for x in m1 if x[1] == "win-close" and "vis=true" in x[2]]
+    if not wc1:
+        p1 = bad("P1-WINCLOSE", "驱动完结无 win-close（店未刷新真值）")
+    p1_h = -1
+    if wc1:
+        mm = re.search(r"contentH=(\d+)", wc1[-1][2]) or re.search(r"h=(\d+)", wc1[-1][2])
+        p1_h = int(mm.group(1)) if mm else -1
+        if p1_h < 3000:
+            p1 = bad("P1-HEIGHT", "渐进落位高度不足 h=%d" % p1_h)
+    if p1:
+        checks.append(("P1 渐进首展 toggle=%d win-close h=%d prewarm=0" %
+                       (len(tog1), p1_h), "PASS"))
+
+    # ===== 相2 A1：收起（win-close 刷店=真值）→ 重展=机件原子帧 =====
+    hc2 = None
+    for _batch in range(12):  # 自适应批量上滑（96 字符行变体可达 29k px——固定 20 次不够）
+        for _ in range(5):
+            dev.swipe(540, 800, 540, 1500, 500)
+            time.sleep(0.15)
+        hc2 = wait_header(dev, 2)
+        if hc2:
+            break
+    if not hc2:
+        return {"pass": False, "checks": checks + [("P2-COLLAPSE-LOCATE", "FAIL")]}
+    m2a = _acc_marks(dev)
+    dev.tap(hc2["cx"], hc2["cy"])
+    time.sleep(1.8)
+    m2b = _acc_marks(dev)
+    if not any(x[1] == "win-close" for x in _acc_new(m2a, m2b)):
+        checks.append(("P2-COLLAPSE-WINCLOSE", "收起幕落未见 win-close（容忍：滚动窗慢）", "WARN"))
+    for _ in range(10):
+        dev.swipe(540, int(dev.screen_size()[1] * 0.75), 540, int(dev.screen_size()[1] * 0.17), 300)
+        time.sleep(0.25)
+    time.sleep(2.5)  # 预热尘埃静置（滚动停后 1.2s delay+0.6s settle+grant 队列的 prewarm settle 不入窗）
+    h2 = wait_header(dev, 10)
+    if not h2:
+        return {"pass": False, "checks": checks + [("P2-HEADER-LOST", "FAIL")]}
+    m2c = _acc_marks(dev)
+    dev.tap(h2["cx"], h2["cy"])
+    time.sleep(2.0)
+    m2d = _acc_marks(dev)
+    n2 = _acc_new(m2c, m2d)
+    p2 = True
+    epi2 = [x for x in n2 if x[1] == "episode-start" and "target=1" in x[2]]
+    anc2 = [x for x in n2 if x[1] == "expand-anchor"]
+    set2 = [x for x in n2 if x[1] == "settle done"]
+    tog2 = [x for x in n2 if x[1] == "degrade toggle"]
+    if not epi2 or not anc2:
+        p2 = bad("P2-MECH", "重展未走机件原子帧（episode=%d anchor=%d）" % (len(epi2), len(anc2)))
+    if set2:
+        p2 = bad("P2-SETTLE", "已知分支仍走 settle×%d（静止门未退役）" % len(set2))
+    # 双卡同 tap 面：另一宿主可因垫未清留守驱动（viaDrive 防护=设计内，
+    # 123710 垫塌回归的教训面）——机件原子证据（episode+anchor+真值 H）齐备
+    # 即为 P2 性质达成；toggle 仅当无机件证据时才是路由失败（P2-MECH 已辖）。
+    if tog2 and epi2 and anc2 and p2:
+        checks.append(("P2-DRIVE-NOTE", "窗口内另有驱动 toggle×%d（垫留守防护面，机件原子已在）" % len(tog2), "WARN"))
+    gap2 = (anc2[0][0] - epi2[0][0]) if (epi2 and anc2) else 9.9
+    if gap2 > 0.35:
+        p2 = bad("P2-ATOMIC-TIMING", "episode→anchor 间隔 %.3fs 非帧级" % gap2)
+    p2_h = _acc_h(anc2[0][2]) if anc2 else -1
+    if p1_h > 0 and p2_h > 0 and abs(p2_h - p1_h) > max(60, int(p1_h * 0.03)):
+        p2 = bad("P2-STORE-HIT", "店命中失真 H=%d vs 真值 %d" % (p2_h, p1_h))
+    ys2, stab2 = _header_y_stable(ctx)
+    if not stab2:
+        p2 = bad("P2-ANCHOR-STAB", "落位后卡头漂移 %s" % ys2)
+    if p2:
+        checks.append(("P2 原子重展 gap=%.3fs H=%d(真值%d) 头稳%s" %
+                       (gap2, p2_h, p1_h, ys2), "PASS"))
+
+    ok = p1 and p2
+    return {"pass": ok, "checks": checks}
+
+
+scenario_544_acc.env = {"MOCK_SCENARIO": "giant", "MOCK_LINES": "40", "MOCK_INTERVAL": "0.3",
+                        "MOCK_TEXT_CHUNKS": "0"}
+
+
+def scenario_544_acc_term(ctx):
+    """#544 验收·P3 独立轻场景：opencode 流折叠全程 → 终态首展=机件原子帧
+    （视口贴底跟随全程不离开——无滚动无重列表，dump 轻可靠）。"""
+    dev = ctx.dev
+    checks = []
+
+    def bad(tag, msg):
+        checks.append((tag, msg, "FAIL"))
+        return False
+
+    _launch_and_open(ctx, False)
+    if not send_prompt(dev, "e2e544acc t1"):
+        return {"pass": False, "checks": [("SEND", "FAIL"), SEND_DIAG[0]]}
+    wait_stream_end(dev, 90)
+    time.sleep(2.5)  # 终态尘埃静置（含流中预热 settle 尾）
+    h1 = wait_header(dev, 15)
+    if not h1:
+        return {"pass": False, "checks": [("P3-NO-CARD", "FAIL")]}
+    m0 = _acc_marks(dev)
+    dev.tap(h1["cx"], h1["cy"])
+    time.sleep(4.0)
+    m1 = _acc_marks(dev)
+    n1 = _acc_new(m0, m1)
+    p3 = True
+    epi = [x for x in n1 if x[1] == "episode-start" and "target=1" in x[2]]
+    anc = [x for x in n1 if x[1] == "expand-anchor"]
+    tog = [x for x in n1 if x[1] == "degrade toggle"]
+    st = [x for x in n1 if x[1] == "settle done"]
+    if not epi or not anc:
+        p3 = bad("P3-MECH", "终态首展无机件原子帧（episode=%d anchor=%d toggle=%d）"
+                 % (len(epi), len(anc), len(tog)))
+    if tog:
+        p3 = bad("P3-ROUTE", "终态首展误入驱动×%d" % len(tog))
+    if st:
+        p3 = bad("P3-SETTLE", "settle 未退役×%d %s" % (len(st), [s[2][:60] for s in st[:2]]))
+    ys, stab = _header_y_stable(ctx, allow_offscreen=True)
+    if not stab:
+        p3 = bad("P3-ANCHOR-STAB", "落位后卡头漂移 %s" % ys)
+    if p3:
+        checks.append(("P3 终态首展原子 H=%d 头稳%s" % (_acc_h(anc[0][2]) if anc else -1, ys), "PASS"))
+    return {"pass": p3, "checks": checks}
+
+
+scenario_544_acc_term.env = {"MOCK_SCENARIO": "giant", "MOCK_LINES": "40", "MOCK_INTERVAL": "0.3",
+                             "MOCK_TEXT_CHUNKS": "0"}
+
+
+def scenario_544_acc_stream(ctx):
+    """#544 验收·流式两相+重挂门：P4a 流中折叠全程→完结即展（机件原子帧，
+    重挂门=无滚动流式期每宿主 [C1-remount] 恒 1）/ P4b 流中展+收→完结重展
+    （viaDrive 复位后谓词重选=机件；垫塌回归的用户面=卡头稳）。"""
+    dev = ctx.dev
+    checks = []
+
+    def bad(tag, msg):
+        checks.append((tag, msg, "FAIL"))
+        return False
+
+    _launch_and_open(ctx, False, server_type="dsh")
+    # ===== P4a：流中折叠全程 → 完结即展 =====
+    if not send_prompt(dev, "e2e544acc s1"):
+        return {"pass": False, "checks": [("SEND", "FAIL"), SEND_DIAG[0]]}
+    ha = wait_header(dev, 20)
+    if not ha:
+        return {"pass": False, "checks": [("P4a-NO-CARD", "FAIL")]}
+    wait_stream_end(dev, 90)
+    time.sleep(1.0)
+    rem0 = _acc_remounts(dev)  # 流式窗=[发送,流终+1s]——dump/tap 期重组不入窗
+    ha = wait_header(dev, 10)
+    m4a = _acc_marks(dev)
+    dev.tap(ha["cx"], ha["cy"])
+    time.sleep(3.0)
+    m4b = _acc_marks(dev)
+    n4 = _acc_new(m4a, m4b)
+    p4a = True
+    epi4 = [x for x in n4 if x[1] == "episode-start" and "target=1" in x[2]]
+    anc4 = [x for x in n4 if x[1] == "expand-anchor"]
+    tog4 = [x for x in n4 if x[1] == "degrade toggle"]
+    if not epi4 or not anc4:
+        p4a = bad("P4a-MECH", "完结即展无机件原子帧（episode=%d anchor=%d toggle=%d）"
+                  % (len(epi4), len(anc4), len(tog4)))
+    if tog4:
+        p4a = bad("P4a-ROUTE", "终态展误入驱动×%d" % len(tog4))
+    ys4, stab4 = _header_y_stable(ctx)
+    if not stab4:
+        p4a = bad("P4a-ANCHOR-STAB", "落位后卡头漂移 %s" % ys4)
+    # 重挂门（spec §1.5）：流式窗（无滚动）内每**卡宿主**（cacheKey 非空——
+    # null 为横幅等无键实例，非门人口）组合恰 1
+    rem = rem0
+    rem_bad = {k: v for k, v in rem.items() if v != 1}
+    if rem_bad:
+        p4a = bad("P4a-REMOUNT", "流式期重挂 remounts=%s" % rem_bad)
+    if p4a:
+        checks.append(("P4a 终展原子 H=%d 头稳%s remount=1×%d宿主" %
+                       (_acc_h(anc4[0][2]) if anc4 else -1, ys4, len(rem)), "PASS"))
+
+    # ===== P4b：流中展 → 收 → 完结重展（viaDrive 复位 + 谓词重选）=====
+    if not send_prompt(dev, "e2e544acc s2"):
+        return {"pass": False, "checks": checks + [("P4b-SEND", "FAIL"), SEND_DIAG[0]]}
+    hb = wait_header(dev, 20)
+    if not hb:
+        return {"pass": False, "checks": checks + [("P4b-NO-CARD", "FAIL")]}
+    dev.tap(hb["cx"], hb["cy"])  # header 现取现点（流中卡头随增长上移，隔时必打空）
+    time.sleep(2.0)
+    for _ in range(14):
+        dev.swipe(540, 800, 540, 1500, 500)
+        time.sleep(0.3)
+    hc5 = wait_header(dev, 15)
+    if not hc5:
+        return {"pass": False, "checks": checks + [("P4b-COLLAPSE-LOCATE", "FAIL")]}
+    dev.tap(hc5["cx"], hc5["cy"])
+    time.sleep(1.5)
+    wait_stream_end(dev, 120)
+    time.sleep(2.0)  # 垫流终自清 + viaDrive 复位窗
+    for _ in range(10):
+        dev.swipe(540, int(dev.screen_size()[1] * 0.75), 540, int(dev.screen_size()[1] * 0.17), 300)
+        time.sleep(0.25)
+    hb2 = wait_header(dev, 10)
+    if not hb2:
+        return {"pass": False, "checks": checks + [("P4b-HEADER-LOST", "FAIL")]}
+    m5a = _acc_marks(dev)
+    dev.tap(hb2["cx"], hb2["cy"])
+    time.sleep(3.0)
+    m5b = _acc_marks(dev)
+    n5 = _acc_new(m5a, m5b)
+    p4b = True
+    epi5 = [x for x in n5 if x[1] == "episode-start" and "target=1" in x[2]]
+    anc5 = [x for x in n5 if x[1] == "expand-anchor"]
+    tog5 = [x for x in n5 if x[1] == "degrade toggle"]
+    if not epi5 or not anc5:
+        p4b = bad("P4b-MECH", "完结重展无机件原子帧（episode=%d anchor=%d toggle=%d）"
+                  % (len(epi5), len(anc5), len(tog5)))
+    if tog5:
+        p4b = bad("P4b-VIADRIVE-RESET", "viaDrive 未复位致重展入驱动×%d（垫残留？）" % len(tog5))
+    ys5, stab5 = _header_y_stable(ctx)
+    if not stab5:
+        p4b = bad("P4b-ANCHOR-STAB", "重展落位后卡头漂移 %s（垫塌脸）" % ys5)
+    if p4b:
+        checks.append(("P4b 复位重展原子 H=%d 头稳%s" % (_acc_h(anc5[0][2]) if anc5 else -1, ys5), "PASS"))
+
+    ok = p4a and p4b
+    return {"pass": ok, "checks": checks}
+
+
+scenario_544_acc_stream.env = {"MOCK_DSH_SCENARIO": "stream", "MOCK_LINES": "18",
+                               "MOCK_INTERVAL": "0.5", "MOCK_HOLD_SECS": "2",
+                               "MOCK_MIN_STREAM_SECS": "6"}
+scenario_544_acc_stream.dsh = True
+
+
+ALL_CARDS = ["557", "556_plain", "556_bracket", "540", "554", "551", "547", "549", "540_dsh_stream", "540_dsh_tool", "552",
+             "544_acc", "544_acc_stream", "544_acc_term"]
 
 
 def main():

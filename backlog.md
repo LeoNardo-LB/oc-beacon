@@ -79,23 +79,12 @@
   - 手工几乎不可达（需程序化快速整串注入）；新空会话+分块注入（≤14 字符/块、0.6s 间歇）40+ 周期零复现——嫌疑面=IME 批量注入×历史加载/图片解码竞态
   - 证据：/home/leonardo/.cache/soak5h/（2026-10-11 发现；soak 终报［非缺陷·重大环境发现］节）
 
-- [~] **#544 #544 展开编舞统一（第二刀）——episode 吞降级分支、AV 弹簧退役、终高谓词取代双路径** `scroll` `refactor`
-  - 终态谓词（终高已知→同快照原子帧 / 未知→动画相走帽通道）取代 LocalInStreamingTurn 双路径；AV enter/exit 退役；幂等重挂不变量（缓存命中 coldReveal 单帧/无缓存开窗配对）；#420 头注释矩阵第一条改写
-  - 前置：第一刀（#540）全绿签名当基线；重挂探针门（slot-compose/episode-start 测流式期重挂率）
-  - → spec: docs/specs/2026-10-11-unified-expand-placement-design.md
-  - 2026-10-11 review 轮登记两项同批：①ScrollCompensation 877/962 头注释漂移（dispatchRawDelta 旧述）②stick 槽 entryKey 标签化（同 item 双卡并发收起单槽冲突）
-  - 架构审查落账（2026-10-11 深夜，终包 soak5r 交叉对账后）：勘察 8 摩擦点合成六候选 C1-C6，递进 C2→C3→C1——C2 CardExpandClock 死机制清剿（advance/absorb/pinTargetFraction 等 100+ 行生产零调用+半测试文件，纯删零风险，可先行）；C3 applyPairedShift 三量分通道（plan.delta 污染和→帽/驱动/ledger 正交通道，~30 行反解蒸发，C1 前置）；C1=本卡主体（降级分支退役）。C4 ExpandStateStore 由 #547 实测强化（展开态键与宿主解耦为推荐修向）；C5 单写者化/C6 快赢包随 C1 顺势。报告存档 /tmp/architecture-review-20261011-height-engine.html（勘察全文+前后对比图）；正向否决门 reserve 级单槽（四报只修负向半边）并入 C1 范围
-  - - C2 完成（436622063，2026-10-17）：CardExpandClock 死机制清剿（advance/primeLedger/absorb/absorbedPx/pinTargetFraction/closedLoopCommand，#420-#425 闭环派发残骸）——零调用声称逐一 grep 复核后删除，净删 284 行，死机制测试 13 例退场（4054/0），活语义全保留。
-  - - C3 完成（02502a107，2026-10-17）：applyPairedShift 三量正交分通道——ReserveReleasePlan 增 hatDeltaNet，负向 nonDriveNeg/正向 hatDeltaP 读正交源（垫增量不再污染帽镜像提取=#549 脸①③残余通道根）；钉语义测试 1 例+PlanTest 15 处不变量；全量 4055/0。smoke+判别轮验证：收起/展开 toggle 管线四线齐动、无震荡无 slam、判别轮 ①-⑤ 全 PASS（H 轮静默=组合窗经济学+指纹碰撞装置混杂，非回归）。
-  - - 剩余：C1（本卡主体：终态谓词取代 LocalInStreamingTurn 双路径、AV 弹簧退役、幂等重挂不变量）+C5 单写者化/C6 快赢包；C4 归 #547。review 轮两项同批（头注释漂移+stick 槽 entryKey 标签化）随 C1。
-  - - C1 先遣包完成（77840f86f，2026-10-17 深夜）：正向否决门逐卡化（min 驱动 stickTop 回退单槽，补四报负向半边的正向对应）+review ①头注释漂移两处+review ②stick 槽 entryKey 标签化改判不需要（余下消费者即最后-toggle-塌缩区语义）；钉语义 1 例+全量 4056/0+smoke 4/4。**C1 主体剩余**：终态谓词取代 LocalInStreamingTurn 双路径、AV enter/exit 退役、幂等重挂不变量、#420 头注释矩阵改写、C5 单写者化/C6 快赢包、R1-R9 矩阵验收——独立会话开工。
-  - C1 主体+C5+C6 完成并全验收（2026-10-19）：终高谓词统一编舞取代 LocalInStreamingTurn 双路径（Phase1 结构统一/2a 已知分支退役静止门/2b 谓词+统一终高店+contentTerminal+viaDrive）+C5 单写者化+C6 clip 类型强制+重挂探针门零重挂实证。验收：双端矩阵 22/22+变体 7/7+C5C6 确认 14/14+单测/lint 绿+未归因 0。证据 journal §1-§6。转待验证
-
 - [~] **#543 #543 压缩卡换装重建窗双宿主——双 episode 双锚定三跳瞬态（R9 系统性 E2E 发现，定向复现已定罪）** `scroll` `chat`
   - 真机 R9 + 定向复现 2/4 RED：displayItems 重建（upsert:MergeStrategy→[452-display]）窗内同一压缩消息以两个不同 item key 的条目并存 ~300ms（两 CardExpandReveal 并发完整 episode），共享屏幕级 expansionKey 一次 toggle 点亮两宿主→同 +H 双锚定（111/127ms 间隔）→旧宿主离场收缩修正（R9 变体 −H 第三跳）；净效≈单次展开但三跳瞬态可见
   - 定罪档案：Room/服务器零重复（纯 UI 组合层）；diffListInto 单组合内原子（排除）；itemsIndexed key 含 chunk #c<i> 后缀——嫌疑=chatEntries 分片/换装身份变更未走 #509 原地换名语义；阴性对照（idle tap 单 episode）成立；有效复现配方 TurnFin+1.35~1.41s（burst#1 吞 tap，脚本 /tmp/543-round.sh v15）；证据 journal §20 + /tmp/543-*、/tmp/540r-s9b.log
   - 修复方向（架构优先）：条目身份变更（重分片/换装）必须原地保持或原子交叠消除——先加 episode 级探针（hostItemKey+expansionKey+slot 身份）钉死双 key 具体形态，再在 chatEntries 派生域根修；禁 episode 层去重补丁（补偿味）
   - 根修+验证完成（af1e785a8 + journal §21）：真身=嵌套双 reveal（非双宿主，四假设判读定谳）；唯一所有权修复（CompactionCard+EventCard 同型）；houji 验证全绿（2/toggle→1/toggle、双锚→单锚、三跳/双取消→0、视觉无回归）；beta 0.4.0-beta/41 已含此修待用户真机验收
+  - 2026-10-19 #544 验收轮关联观察：真机 554 场景间歇复现收起卡顶位移 117px（阈值 10px；同代码复跑 2/2 delta=0+模拟器绿+昨日双端 22/22——非 #544 批回归）。失败样本 negative-release=45 vs 稳态 22、absorb=26 vs 21。疑似本卡三跳瞬态同族（收起竞争窗）。证据 e2e/runs/20261019-202131/554。
 
 - [ ] **#522 B案升 stable 后余留装备清扫——JankHoldGate A/B 开关 + STREAM_DELTA_BUS 旗标退役（#499 余留范围）** `chore` `refactor`
   - 前置：STREAM_SHARD_PILOT / STREAM_DELTA_BUS 升 stable 并观察一批——当前 stable 均 false，JankHold 冻结链在 stable 仍是承重活体（B案开=旁路），现退役会回归 stable 流式滚动组合风暴。

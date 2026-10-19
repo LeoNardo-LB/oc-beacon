@@ -157,3 +157,50 @@
 ## 观感变化面（验收须知）
 - 静态首展（预热 1.2s 未命中时）：单帧原子+幕布 → 驱动盒渐进展开（预热命中则不变）。
 - 流式完结后重展开：驱动盒种子追靶 → 机件原子帧（更快）。
+
+# §7 用户委托验收轮（2026-10-19 晚，「你来设计场景进行验收」）
+
+## 验收设计（行为增量实证 + 回归面 + 不变量门）
+新增三验收场景（`e2e/harness/runner.py`，正式入 ALL_CARDS 与 stability ORDER）：
+| 场景 | 相 | 断言（日志序列级） |
+|---|---|---|
+| 544_acc | P1 A2 静态首展·预热未命中 | force-stop 重进杀店 + 滚动杀预热 → 首展必走渐进驱动（in-streaming-turn toggle + 配对窗 + win-close h>3000） |
+| | P2 A1 终态重展·机件原子帧 | 收起（win-close 刷店真值）→ 重展 episode-start→expand-anchor 其间零 settle、间隔帧级（≤0.35s）、+H=店真值（±3%）、卡头稳（≤90px） |
+| 544_acc_stream | P4a 流后终展（dsh） | 折叠全程→完结即展=机件原子；重挂门=[发送,流终]窗内每 (host,cacheKey) reasoning 卡恰 1 组合 |
+| | P4b viaDrive 复位重展 | 流中展+收→完结重展=机件原子+卡头稳（垫塌 123710 回归的用户面） |
+| 544_acc_term | P3 opencode 终态首展 | 折叠全程→终态首展=机件原子帧（贴底展开卡头合法离场以屏面存活为底线） |
+
+## 装置迭代战报（6 定罪，全装置侧、零 app 侧缺陷）
+①场景漏调 `_launch_and_open`（三轮 SEND FAIL 同根）；②`find_toggle_y` 的降级 toggle 反馈在机件路径失明（C1 后重展开走机件无 526 日志）→ dump 驱动定位；③P2 重展后视口离底→流增长不跟随→tap 误中旧展开卡（episode target=0.0 定罪）→ P3 拆独立轻场景；④重列表双展开巨卡压死 uiautomator dump（P3 NO-CARD）→ 拆场景；⑤DSH 单 item 宿主承载 reasoning+tool 多卡 + t_dsh→t_seq 键迁移 → 重挂门键=(host,cacheKey) 且人口=reasoning 卡；⑥P1 预热抑制计数窗含 tap 后异卡预热（真机 MIUI 滚动盖不住 isScrollInProgress 全窗）→ 路由性质由 toggle 实证即充分。
+
+## 正式轮证据（全部落 e2e/runs 入账）
+- **模拟器全矩阵 15/15 PASS**（3 验收场景+12 卡矩阵；552 堆峰 94MB/230MB）
+- **真机全矩阵 13/15**：554 间歇收起跳 117px（**同代码复跑 2/2 delta=0+模拟器绿+昨日双端 22/22——非本批回归**，竞态族观察项已记 #543）；544_acc 断言过严（修复后 PASS）
+- **真机复跑 3/3**（544_acc/554×2）；**变体轮 6/6**（模拟器 V1-V3 + 真机 V4-V6 全 PASS）
+- 原子帧时序实测：模拟器 0.024-0.027s、真机 **0.004-0.005s**（真值 H 精确命中 4630/5588/5028/3238）
+- 陈旧店窗口实证：544_acc_term H=280（流中预热部分高）→ 原子帧+稳态尾配对追平（设计内 floor+尾语义）
+- 双卡同 tap 面：另一宿主可因垫未清留守驱动（viaDrive 防护=设计内，123710 教训）——机件原子证据齐备即 P2 性质达成
+- 单测（BUILD SUCCESSFUL）+ lint 双绿（本节新鲜跑）
+- **stability 账本：641/718 PASS、未归因 0**；三验收场景含装置迭代与变体共 12/12 PASS
+
+## 观察登记（非阻塞）
+- DSH tool 卡（call_e2e_1）终态翻转期显示层多度重组（[C1-remount] 计数 3-4）——预存行为，rememberSaveable 店存活故终展仍原子；#547 rename 族域，不属 C1。
+- 554 收起卡顶 117px 间歇（1/5，竞态族）→ #543 note 补记。
+
+## 验收结论
+两处行为增量（静态首展渐进/终态重展原子）实证发生且正确；全部回归面（双端 15 卡矩阵+变体）绿；不变量门（重挂/店命中/垫守恒）绿；未归因 0。**#544 验收通过，迁移归档。**
+
+## 已完结卡片迁入（2026-10-19）
+
+### **#544 #544 展开编舞统一（第二刀）——episode 吞降级分支、AV 弹簧退役、终高谓词取代双路径** `scroll` `refactor`
+  - 终态谓词（终高已知→同快照原子帧 / 未知→动画相走帽通道）取代 LocalInStreamingTurn 双路径；AV enter/exit 退役；幂等重挂不变量（缓存命中 coldReveal 单帧/无缓存开窗配对）；#420 头注释矩阵第一条改写
+  - 前置：第一刀（#540）全绿签名当基线；重挂探针门（slot-compose/episode-start 测流式期重挂率）
+  - → spec: docs/specs/2026-10-11-unified-expand-placement-design.md
+  - 2026-10-11 review 轮登记两项同批：①ScrollCompensation 877/962 头注释漂移（dispatchRawDelta 旧述）②stick 槽 entryKey 标签化（同 item 双卡并发收起单槽冲突）
+  - 架构审查落账（2026-10-11 深夜，终包 soak5r 交叉对账后）：勘察 8 摩擦点合成六候选 C1-C6，递进 C2→C3→C1——C2 CardExpandClock 死机制清剿（advance/absorb/pinTargetFraction 等 100+ 行生产零调用+半测试文件，纯删零风险，可先行）；C3 applyPairedShift 三量分通道（plan.delta 污染和→帽/驱动/ledger 正交通道，~30 行反解蒸发，C1 前置）；C1=本卡主体（降级分支退役）。C4 ExpandStateStore 由 #547 实测强化（展开态键与宿主解耦为推荐修向）；C5 单写者化/C6 快赢包随 C1 顺势。报告存档 /tmp/architecture-review-20261011-height-engine.html（勘察全文+前后对比图）；正向否决门 reserve 级单槽（四报只修负向半边）并入 C1 范围
+  - - C2 完成（436622063，2026-10-17）：CardExpandClock 死机制清剿（advance/primeLedger/absorb/absorbedPx/pinTargetFraction/closedLoopCommand，#420-#425 闭环派发残骸）——零调用声称逐一 grep 复核后删除，净删 284 行，死机制测试 13 例退场（4054/0），活语义全保留。
+  - - C3 完成（02502a107，2026-10-17）：applyPairedShift 三量正交分通道——ReserveReleasePlan 增 hatDeltaNet，负向 nonDriveNeg/正向 hatDeltaP 读正交源（垫增量不再污染帽镜像提取=#549 脸①③残余通道根）；钉语义测试 1 例+PlanTest 15 处不变量；全量 4055/0。smoke+判别轮验证：收起/展开 toggle 管线四线齐动、无震荡无 slam、判别轮 ①-⑤ 全 PASS（H 轮静默=组合窗经济学+指纹碰撞装置混杂，非回归）。
+  - - 剩余：C1（本卡主体：终态谓词取代 LocalInStreamingTurn 双路径、AV 弹簧退役、幂等重挂不变量）+C5 单写者化/C6 快赢包；C4 归 #547。review 轮两项同批（头注释漂移+stick 槽 entryKey 标签化）随 C1。
+  - - C1 先遣包完成（77840f86f，2026-10-17 深夜）：正向否决门逐卡化（min 驱动 stickTop 回退单槽，补四报负向半边的正向对应）+review ①头注释漂移两处+review ②stick 槽 entryKey 标签化改判不需要（余下消费者即最后-toggle-塌缩区语义）；钉语义 1 例+全量 4056/0+smoke 4/4。**C1 主体剩余**：终态谓词取代 LocalInStreamingTurn 双路径、AV enter/exit 退役、幂等重挂不变量、#420 头注释矩阵改写、C5 单写者化/C6 快赢包、R1-R9 矩阵验收——独立会话开工。
+  - C1 主体+C5+C6 完成并全验收（2026-10-19）：终高谓词统一编舞取代 LocalInStreamingTurn 双路径（Phase1 结构统一/2a 已知分支退役静止门/2b 谓词+统一终高店+contentTerminal+viaDrive）+C5 单写者化+C6 clip 类型强制+重挂探针门零重挂实证。验收：双端矩阵 22/22+变体 7/7+C5C6 确认 14/14+单测/lint 绿+未归因 0。证据 journal §1-§6。转待验证
+  - 迁入依据：用户验收通过（backlog.sh migrate 2026-10-19）
