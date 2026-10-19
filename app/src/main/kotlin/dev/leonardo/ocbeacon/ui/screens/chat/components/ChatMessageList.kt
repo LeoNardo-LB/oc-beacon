@@ -217,14 +217,19 @@ private fun BannerReveal(
     CompositionLocalProvider(
         LocalCardExpandListState provides listState,
         LocalCardExpandDeparture provides onExpandDeparture,
-        LocalInStreamingTurn provides streamingActive,
     ) {
         Box(
             modifier = if (BuildConfig.DEBUG && diagKey.isNotEmpty()) {
                 Modifier.bannerHeightDiag(diagKey)
             } else Modifier
         ) {
-            CardExpandReveal(visible = visible, cacheKey = cacheKey) { content() }
+            CardExpandReveal(
+                visible = visible,
+                cacheKey = cacheKey,
+                // C1 2b（#544）：终高谓词取代流式分叉——横幅内容静态，但
+                // 流式 turn 活跃时环境移动，语义按内容移动处理（动画相）
+                contentTerminal = !streamingActive,
+            ) { content() }
         }
     }
 }
@@ -2951,7 +2956,6 @@ fun ChatMessageList(
                             CompositionLocalProvider(
                                 LocalCardExpandListState provides listState,
                                 LocalCardExpandDeparture provides onExpandDeparture,
-                                LocalInStreamingTurn provides entryStreaming,
                                 // #508:宿主 item 身份——展开反射归一的折叠算术需要
                                 // 知道 +H 落在哪个 item(宿主=锚永不折叠;宿主在上方
                                 // 按增长后容量向旧侧折算)。

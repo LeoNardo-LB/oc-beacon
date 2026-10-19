@@ -62,8 +62,9 @@ import kotlin.math.abs
  *   该分支视口由上方内容吸收,与现状一致,日志留痕。
  *
  * **竞态矩阵**(详见 backlog #420 明细):
- * - 流式 turn 内的卡片:降级为裸 AV([LocalInStreamingTurn])——item 级
- *   COMP-MSG 补偿独占,杜绝双重注入;
+ * - 终高未知(内容移动中/首展未测)的卡片:动画相——驱动盒逐档配对
+ *   (帽通道 flush 单出口);listState==null(横幅/预览/单测)才是裸 AV 降级
+ *   (C1/#544 第二刀改写,原「流式 turn 降级裸 AV」由终高谓词取代);
  * - 守卫(guard):展开累计位移越 [DEPARTURE_THRESHOLD_PX] 即回调
  *   [LocalCardExpandDeparture](关 autoScroll,视为离开跟随模式),否则
  *   250ms 后 GUARD 重锚会把用户拽回底部;
@@ -87,9 +88,6 @@ internal val LocalCardExpandListState = compositionLocalOf<LazyListState?> { nul
 
 /** 展开离底时的「离开跟随」回调(实现:关 autoScroll);null = 降级裸 AV。 */
 internal val LocalCardExpandDeparture = compositionLocalOf<(() -> Unit)?> { null }
-
-/** 当前 item 是否属于流式 turn(CML 逐 item 提供);true = 降级裸 AV。 */
-internal val LocalInStreamingTurn = staticCompositionLocalOf { false }
 
 /**
  * #508:本卡宿主 item 的 key(CML 逐 item 提供)。展开反射目标归一需知 +H 增长
@@ -535,6 +533,14 @@ internal fun CardExpandReveal(
      */
     prewarmEligible: (() -> Boolean)? = null,
     /**
+     * C1 Phase 2b（#544，spec §1.2）：内容终态信号——true=内容不再增长
+     * （静态卡/流式完结后），终高店可写真值、展开可走机件原子帧；
+     * false=内容移动中（活动流式 turn），终高未知，展开走动画相（驱动盒
+     * 逐档配对）。取代 [LocalInStreamingTurn] 的信息位（流式分叉退役）。
+     * 默认 true：静态卡族（工具卡/横幅/提问卡/压缩卡）零改动。
+     */
+    contentTerminal: Boolean = true,
+    /**
      * #429:展开集「高度计算期」信号——true=正在计算(等待 settle 落定),宿主
      * 以此渲染 loading 过渡(用户裁决 2026-09-24:先算高度+loading 过渡动画)。
      * 仅用户可见性驱动的展开集触发;null=不关心(存量调用点零改动)。
@@ -550,14 +556,30 @@ internal fun CardExpandReveal(
     val cacheKeyAtComposition = LocalCardExpandCacheKey.current
     // #540:列表级帽状态（机件原子帧单写者抬/落帽用；组合层读取同上）
     val hatReserve = LocalCardExpandReserve.current
+    // C1 Phase 2b：统一终高店（#423 finalHCache 与 #549 finalHSeed 合流提升——
+    // 双店分立是分叉时代产物；终高谓词/预热/floor/驱动种子自此同源）。
+    val finalH = androidx.compose.runtime.saveable.rememberSaveable(cacheKey) {
+        androidx.compose.runtime.mutableStateOf(-1)
+    }
+    // C1 Phase 2b（spec §1.2/§3）：终高谓词取代流式分叉——未知（终高店空
+    // 或内容移动中）→ 动画相（驱动盒）；已知且终态 → 机件原子帧（Phase 2a）。
+    // viaDrive=本展开集机器归属（收起镜像依赖各自账本：机件读 clock.
+    // lastReportedH、驱动盒读 drive.h——跨机收起=读垃圾账本），窗关且
+    // 收起落幕（!visible && h==0）复位。
+    val viaDrive = remember { androidx.compose.runtime.mutableStateOf(false) }
+    val useDrive = viaDrive.value || (visible && (!contentTerminal || finalH.value <= 0))
     // ===== C1（#544 第二刀，spec §3）统一编舞入口：降级只剩 listState==null
     //（横幅/预览/单测永存）与流式卡无帽供给的列表边角；流式卡经
     // [LocalInStreamingTurn] 过渡谓词入「终高未知→动画相」（驱动盒）——
     // Phase 2b 换终高谓词后该 local 退役（spec 终态：降级只剩 listState==null）。
     // #526 定罪探针：降级/动画相路径不走反射锚定——toggle 打点判别
     //（打点条件与签名与原分叉逐字节一致）。
-    if (BuildConfig.DEBUG && (listState == null || LocalInStreamingTurn.current)) {
-        val prevVis = remember { androidx.compose.runtime.mutableStateOf(visible) }
+    // 探针 prevVis 必须无条件 remember（折叠挂载时 useDrive=false 会使条件块
+    // 首入时机=已翻转后——晚初始化吃掉翻转事件，20261019-1208 矩阵 540/554/
+    // dsh_stream 三卡定罪）。门控只作用于日志发射。
+    val probePrevVis = remember { androidx.compose.runtime.mutableStateOf(visible) }
+    if (BuildConfig.DEBUG && (listState == null || useDrive)) {
+        val prevVis = probePrevVis
         if (prevVis.value != visible) {
             AppLogger.d(
                 "CardExpand",
@@ -568,7 +590,7 @@ internal fun CardExpandReveal(
             prevVis.value = visible
         }
     }
-    if (listState == null || (LocalInStreamingTurn.current && hatReserve == null)) {
+    if (listState == null || (useDrive && hatReserve == null)) {
         // 裸 AV 回落（原 !driven 分支体——横幅/预览/单测/无帽列表边角）。
         val degradeH = remember { androidx.compose.runtime.mutableIntStateOf(0) }
         val revealTopRootY = remember { androidx.compose.runtime.mutableFloatStateOf(Float.NaN) }
@@ -589,7 +611,7 @@ internal fun CardExpandReveal(
         }
         return
     }
-    if (LocalInStreamingTurn.current) {
+    if (useDrive) {
         // ===== 动画相（终高未知→驱动盒；原降级 driven 子分支逐字节迁入）=====
         // #540 方向 A 根修（取代 #526 事后回锚）：流式降级路径的展开/收起增长改经
         // 帽协议 flush 单事务「恒配对」释放——toggle 时开「展开配对窗」（计数制，
@@ -616,9 +638,6 @@ internal fun CardExpandReveal(
         // 共存共享）。重展开时 markdown 分期重组（staged 起步小）会把测高拽低 →
         // hTarget 被拽低 → 驱动反步进收盒 → 视口重锚下砸（实测 −931px slam）。
         // 种子使驱动直奔已知终高，分期在裁剪下追平（mech 预移同款 UX）。
-        val finalHSeed = androidx.compose.runtime.saveable.rememberSaveable(cacheKey) {
-            androidx.compose.runtime.mutableStateOf(-1)
-        }
         // 展开相单调护栏时钟：toggle 时刻起 600ms 内 hTarget 只升不降（分期重组
         // 的暂态矮化不得反拽驱动；流式真增长不受限）。600ms 后自由跟踪（重排
         // 收缩=合法补偿，r731 判例）。
@@ -642,6 +661,7 @@ internal fun CardExpandReveal(
                 prevVis.value = visible
                 if (visible || toggled.value) {
                     toggled.value = visible
+                    if (visible) viaDrive.value = true
                     // 驱动注册——四报修订：列表制（多卡并发不互逐）+ 权威续值
                     //（快速重向时 drive.h 是本帧已 pending 的高度真值，degradeH
                     // 是上一放置值滞后一步——覆盖会把动画往回拨一步=连点抖动源）。
@@ -652,7 +672,7 @@ internal fun CardExpandReveal(
                         // #549 Fix A：终高种子优先（重展开已知高度零延迟追靶）；
                         // 未知（首次）维持等测高 -1 语义
                         val staged = if (contentH.intValue >= 0) contentH.intValue else -1
-                        val seed = finalHSeed.value
+                        val seed = finalH.value
                         when {
                             seed > 0 && seed >= staged -> seed
                             staged > 0 -> staged
@@ -738,7 +758,7 @@ internal fun CardExpandReveal(
                     // #551：种子 settle 事件锚定——episode 关窗时刻以**当下**内容高
                     // 刷新（高度动态；上窗的值不跨事件滞留）。分期未追平的极端窗
                     // 由 toggle 时刻的 600ms 单调护栏兜底（staged 小值不反拽）。
-                    if (contentH.intValue > 0) finalHSeed.value = contentH.intValue
+                    if (contentH.intValue > 0) finalH.value = contentH.intValue
                     // 三轮：驱动完结注销（四报列表制）；未完结（40 帧上限早闭/手势
                     // 冻结）保留在列表给 flush 续步（稳态步进=0 无害）。
                     // 九报（#554）：吸收垫未清的驱动同样留册——flush 的增长泄放
@@ -762,6 +782,12 @@ internal fun CardExpandReveal(
                     if (!drive.animating && drive.absorbPx == 0 && !visible) {
                         pr.degradeDrives.removeAll { it === drive }
                     }
+                    // C1 2b：收起集落幕（h 归零**且垫已清**）复位机器归属——
+                    // 下次展开按当下终高谓词重选（终态店已活刷新 → 机件原子帧）。
+                    // 垫未清必须留驱动分支：垫的渲染载体（驱动盒 absorbPadHeight）
+                    // 随分支存在，跳走=垫量瞬塌=卡顶猛拉（20261019-123710 定罪
+                    // 收起卡顶 1377px；垫随流式增长泄放/重展开耗除/流终自清）。
+                    if (!visible && drive.h == 0 && drive.absorbPx == 0) viaDrive.value = false
                     if (BuildConfig.DEBUG) {
                         AppLogger.d(
                             "CardExpand",
@@ -849,6 +875,10 @@ internal fun CardExpandReveal(
                                     android.os.SystemClock.elapsedRealtime() - lastExpandAtMs.longValue < EXPAND_MONOTONE_GUARD_MS
                                 ) maxOf(sz.height, drive.hTarget) else sz.height
                                 if (drive.hTarget != desired) drive.hTarget = desired
+                                // C1 2b：终态活刷新——终态内容的每次实测都是真值
+                                //（店角色升级：流中部分高提示 → 终态真值；下次
+                                // 展开走机件原子帧）
+                                if (contentTerminal) finalH.value = sz.height
                             }
                         },
                     ) {
@@ -882,18 +912,11 @@ internal fun CardExpandReveal(
      * #423 批次十一(#262 复活):finalH 缓存(rememberSaveable,cacheKey 为键)
      * ——二次展开高度提前已知,渲染前双写零延迟;只向上自愈(防陈旧回写)。
      */
-    val finalHCacheRaw = androidx.compose.runtime.saveable.rememberSaveable(cacheKey) {
-        androidx.compose.runtime.mutableStateOf(-1)
-    }
-    val finalHCache = remember(cacheKey) {
-        androidx.compose.runtime.mutableStateOf(-1).also { it.value = finalHCacheRaw.value }
-    }
     fun storeFinalH(h: Int) {
-        // #551 高度参照系裁决（2026-10-13）：事件时刻直写——两处调用点均写
-        // settle/落地时刻的实测高（episode 派发落地高 / 预热稳定高），高度动态
-        // 变化，max 棘轮会把暂态膨胀高永久钉住（七报 tgt=13807 虚高实证同族）。
-        finalHCacheRaw.value = h
-        finalHCache.value = h
+        // #551 高度参照系裁决（2026-10-13）：事件时刻直写——调用点均写
+        // settle/落地/预热时刻的实测高，高度动态变化，max 棘轮会把暂态
+        // 膨胀高永久钉住（七报 tgt=13807 虚高实证同族）。
+        finalH.value = h
     }
 
     /** #423 批次十一:幕布系数(纯 draw 揭示;draw 相读,动画循环写)。 */
@@ -992,7 +1015,7 @@ internal fun CardExpandReveal(
                     // 追平期间短于已知 H 的增量由稳态配对（#430）逐帧接管。
                     // 未知 → settle 解未知后读落地高（#430：派发目标=落地高度，
                     // 不按缓存超额派发）。
-                    val knownH = finalHCache.value
+                    val knownH = finalH.value
                     val H: Int
                     if (knownH > 0) {
                         H = knownH
@@ -1508,7 +1531,7 @@ internal fun CardExpandReveal(
     // #533:saveable 只覆盖 LazyList item 级回收;SliceHost 槽位出窗即弃时
     // 随槽位销毁——进程级 CardExpandFinalHStore((cacheKey,width) 键控)补位,
     // 节点测量相融合取 max 并回写真实内容高。
-    val floorProvider = remember(finalHCache) { { finalHCache.value } }
+    val floorProvider = remember(finalH) { { finalH.value } }
         Box(
         modifier = modifier
             .clipToBounds()
