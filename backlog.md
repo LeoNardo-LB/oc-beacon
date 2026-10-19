@@ -69,13 +69,6 @@
 
 ## P2 — 优化与锦上添花
 
-- [~] **#548 beta 测试包版本序号自动递增脚本（testbuild.sh——免人工判定）** `build` `tooling`
-  - 痛点：每次 beta 测试包装机需人工判读 release-workflow §2 定规（bare -beta 视为第1号→下一次是 -beta-2、VERSION_CODE 同步+1、先改 properties 再 assemble、bump 是否落豁免域）——2026-10-12 装 0.4.0-beta-2/42 即全程手工
-  - 方案：scripts/testbuild.sh <flavor> [serial] [--no-install]——读 version.properties，仅同线纯序号递增（beta-N→beta-(N+1)/bare -beta→-beta-2）+VERSION_CODE+1 自动落盘；越域（开新线/通道晋升/stable 线）拒绝并指回 release.sh 确认门；assemble<Flavor>Release（dev 走时间戳免 bump）；可选无线装机（wake/unlock+MIUI 守卫）；bump 自动 chore commit
-  - 复用面：release.sh 的 derive_bump/apply_bump/版本解析可抽取共享；装机段可复用 debug-entry/soak env 的 wake+滑锁与 serial 解析（含 mDNS 名内嵌空格 cut -f1 教训，journal §36）；AGENTS 构建纪律（禁并发/超时）继承
-  - 交付（2026-10-19）：scripts/testbuild.sh <flavor> [serial] [--no-install] [--dry-run]——beta 同线纯序号递增（properties 真相源+tag 防回退护栏取 max）+VERSION_CODE+1 落盘+chore commit（单文件不卷入）+assemble+装机（wake/MIUI 点穿）+回读校验；越域（stable/晋升/stable 线）拒绝指回 release.sh 确认门；dev 免 bump（时间戳）
-  - 验证：dry-run 分支矩阵 7/7（含 bare→beta-2 精确复现 2026-10-12 手工现场 41→42、防回退护栏临时 tag 实证）；实测 5 轮双端（模拟器 beta-7/47+真机覆盖装 beta-8/48+全自动终验 beta-9/49，mDNS 空格 serial 完整保留）；实测揪出并根修 2 起 ADB 环境断链（miui-install 裸 adb+testbuild 字面量回退，三级回退修复+bash -n+干净环境验证）；版本判定核心零缺陷、app 代码零改动。证据 docs/journal/2026-10-19-548-testbuild.md §3-§7
-
 - [ ] **#545 IME 注入×历史会话加载竞态致主线程渲染冻结（BLANK-RENDER-FREEZE）** `ui` `ime` `race`
   - 5h soak ×5 复现：进入含历史会话后整串 input text 注入必现 Choreographer 跳帧后渲染冻结（a11y 树完整但空 2627B），无 FATAL/ANR，仅 force-stop 可恢复（空闲 3 分钟不自愈）
   - 手工几乎不可达（需程序化快速整串注入）；新空会话+分块注入（≤14 字符/块、0.6s 间歇）40+ 周期零复现——嫌疑面=IME 批量注入×历史加载/图片解码竞态

@@ -392,6 +392,22 @@ is_pure_sequence_bump() {
     beta) [[ "$C_LABEL" == "beta" || "$C_LABEL" == beta-* ]] ;;
     *)    return 1 ;;
   esac
+  # 2026-10-19 #548 验收定罪加固：properties 序号可领先 tag（testbuild.sh 本地
+  # 测试包消耗序号写 properties 不发 tag），此时 tag 域推导的新序号可能低于
+  # properties 当前序号（版本名回退，如 beta-9 → beta-2）——「纯序号递增」
+  # 语义要求单调不减，回退场景必须走确认门。正常发版流程新号恒为 N+1>N，
+  # 本检查零影响。
+  local cur_num new_num
+  if [ "$FLAVOR" = beta ]; then
+    cur_num="${CUR_VERSION_NAME##*-beta}"; cur_num="${cur_num#-}"
+    cur_num="${cur_num:-1}"   # bare -beta 视为第 1 号（§2.1 定规）
+    new_num="${NEW_VERSION_NAME##*-beta}"; new_num="${new_num#-}"
+  else
+    cur_num="${CUR_VERSION_NAME##*.}"    # X.Y.Z-dev.N → N
+    new_num="${NEW_VERSION_NAME##*.}"
+  fi
+  [[ "$cur_num" =~ ^[0-9]+$ && "$new_num" =~ ^[0-9]+$ ]] || return 1
+  [ "$new_num" -ge "$cur_num" ] || return 1
 }
 if is_pure_sequence_bump; then
   log "纯序号递增（$CUR_VERSION_NAME → $NEW_VERSION_NAME），免确认（2026-10-10 定规）"
