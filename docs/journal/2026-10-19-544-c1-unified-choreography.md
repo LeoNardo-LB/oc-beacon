@@ -66,3 +66,45 @@
 3. 关窗判据统一=集生命周期（驱动收敛+contentH 稳定），「3 帧稳定 sawChange」逻辑并入集完结判定。
 
 执行序修正：Phase 1（分叉条件+搬家，行为不变）→ Phase 2a（已知分支 retire 静止门——单独 commit+单腿验证）→ Phase 2b（未知分支统一到驱动盒——静态首展行为变化，551_static/551/554 腿重点）→ Phase 3（C5/C6）。每 Phase 间跑 11 卡矩阵签名对照。
+
+# §3 Phase 2b 设计定稿（2026-10-19 12:00，动刀前登记）
+
+## 核心洞察：终高店双角色
+- 流中窗关写入的 contentH 是部分高（#549 种子=驱动提示层：防分期矮化反拽，r400 slam 修复本体）；机件原子帧派发的 H 必须终态真值。统一为一店 + 终态信号参数：
+- 统一店：finalH = rememberSaveable(cacheKey)（两分支上方提升）；驱动分支窗关写（提示角色）；终态时驱动分支 onSizeChanged 活刷新（contentTerminal && expanded → finalH=contentH）；机件 settle/2a 对账/预热写真值。
+- 终态信号：CardExpandReveal 新参 contentTerminal: Boolean = true（静态卡默认终态；ReasoningBlock 传其 contentTerminal 参数[#556/#518① 派生]；PartContent 同）——取代 LocalInStreamingTurn 的信息位（活动 turn=内容移动=店不可信），local 本体删除。
+
+## 谓词与生命周期归属
+- viaDrive = remember { mutableStateOf(false) }：本展开集机器归属（收起镜像依赖各自账本：机件读 clock.lastReportedH，驱动盒读 drive.h——跨机收起=读垃圾）。
+- 进入驱动盒 ⇔ viaDrive || (visible && (!contentTerminal || finalH<=0))：流中/首展未知 → 动画相；预热(1.2s 空闲)填充店后 → 机件原子帧。
+- viaDrive 置位：驱动分支展开 toggle；复位：窗关 finally 且 !visible && drive.h==0（收起集落幕）。
+
+## 行为变化面（对照今日）
+1. 静态首展（预热未命中）：settle+原子 → 驱动盒渐进（spec §1.2；预热命中则不变）。
+2. 终态后重展开（曾流式的卡）：驱动盒+种子 → 机件原子帧（终态店已活刷新为真值）。
+3. 其余全同（流中谱=驱动盒 verbatim；静态已知=2a）。
+
+## 施工序
+①统一店提升+引用改写 ②viaDrive+谓词 ③终态活刷新 ④contentTerminal 参数+穿线 ⑤删 LocalInStreamingTurn ⑥#420 头注释矩阵改写 ⑦编译/单测/腿
+
+# §4 Phase 1-2b 完成战报（2026-10-19 13:10）
+
+| Phase | 内容 | commit | 验证 |
+|---|---|---|---|
+| 1 | 分叉重构统一入口（裸AV回落+流式过渡谓词入动画相分支，逐字节搬家） | a5b422414 | 编译/全量单测/540+557+551_static 三腿 PASS |
+| 2a | 终高谓词已知分支：finalH 命中直用已知 H 原子帧，settle+静止门该分支退役；幕布后店值对账 | a441d447c | 单测+551_static/551/554/540 四腿 PASS |
+| 2b | 终高谓词取代 LocalInStreamingTurn：统一终高店+contentTerminal 终态信号+viaDrive 生命周期+终态活刷新+local 删除+头矩阵改写 | 14892ee2d | 全矩阵 11/11 PASS |
+
+## 2b 两处装置/产品硬化（矩阵迭代定罪）
+1. 探针晚初始化（1208 矩阵 540/554/dsh 三卡 FAIL）：prevVis 条件 remember 在 useDrive=false 挂载期不初始化 → 首入=已翻转后吃掉翻转事件。修复=无条件 remember、仅日志门控。
+2. **垫塌回归**（123710 定罪，真产品回归）：viaDrive 复位条件漏垫——收起 h=0 但 absorbPx≠0 时跳分支 → 垫的渲染载体（驱动盒 absorbPadHeight）消失 → 垫量瞬塌=卡顶 1377px。修复=复位需垫清空（垫随泄放/耗除/流终自清后自然复位）。
+
+## 行为变化面（已落地并验证）
+- 静态首展（预热未命中）：settle+原子 → 驱动盒渐进（spec §1.2 未知→动画相；预热 1.2s 命中则仍机件原子帧）。
+- 终态后重展开（曾流式卡）：驱动盒+种子 → 机件原子帧（终态活刷新店值）。
+- 流中谱/静态已知谱/收起谱：全同今日（矩阵全绿佐证）。
+
+## 剩余（Phase 3）
+- C5 HeightReserveState 单写者化（字段私有化+flush 单事务意图协议）。
+- C6 快赢包（streamingGrowPairing 5 挂载点收编+探针单点开关+重挂率探针门）。
+- R1-R9 级真机矩阵验收（11 卡双端 campaign）+ 全量单测/lint 终扫。
