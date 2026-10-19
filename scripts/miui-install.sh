@@ -16,13 +16,24 @@
 #       按钮 zh 文案匹配；其他语言系统需在 BUTTONS 数组里补对应文案。
 
 set -u
+# ADB 可覆盖（2026-10-19 #548：调用方 PATH 无 adb 时可透传绝对路径；缺省三级回退）
+if [ -z "${ADB:-}" ]; then
+  ADB="$(command -v adb || true)"
+  [ -n "$ADB" ] || for c in "${ANDROID_HOME:-/nonexistent}/platform-tools/adb" \
+                            "${ANDROID_SDK_ROOT:-/nonexistent}/platform-tools/adb" \
+                            "$HOME/Android/Sdk/platform-tools/adb" \
+                            "$HOME/android-sdk/platform-tools/adb"; do
+    [ -x "$c" ] && ADB="$c" && break
+  done
+  ADB="${ADB:-adb}"
+fi
 APK=$1; shift || true
 SERIAL=${1:-e69a99d8}; [ "$#" -gt 0 ] && shift || true
 EXTRA_ARGS="$@"
 
 TMP=/data/local/tmp/miui_install.apk
 echo "[miui-install] pushing $APK -> $SERIAL"
-adb -s "$SERIAL" push "$APK" $TMP >/dev/null || { echo '[miui-install] push 失败'; exit 1; }
+"$ADB" -s "$SERIAL" push "$APK" $TMP >/dev/null || { echo '[miui-install] push 失败'; exit 1; }
 
 # 按钮匹配辅助：stdin = ui.xml，stdout = "x y" 或 "0 0"
 FIND_BTN=$(mktemp)
@@ -39,7 +50,7 @@ else:
 PYEOF
 
 echo "[miui-install] pm install $EXTRA_ARGS (后台) + 弹窗轮询"
-adb -s "$SERIAL" shell pm install $EXTRA_ARGS $TMP > /tmp/miui_install_out.txt 2>&1 &
+"$ADB" -s "$SERIAL" shell pm install $EXTRA_ARGS $TMP > /tmp/miui_install_out.txt 2>&1 &
 INSTALL_PID=$!
 
 PKG_BASE=$(basename "$APK" | sed 's/^app-//' | cut -d- -f1)  # 仅日志用
@@ -47,17 +58,17 @@ for i in $(seq 1 20); do
   sleep 2
   # 已装上就提前收工
   if ! kill -0 $INSTALL_PID 2>/dev/null; then break; fi
-  adb -s "$SERIAL" shell uiautomator dump /sdcard/miui_ui.xml >/dev/null 2>&1
-  BTN=$(adb -s "$SERIAL" shell cat /sdcard/miui_ui.xml | tr -d '\r' | python3 "$FIND_BTN")
+  "$ADB" -s "$SERIAL" shell uiautomator dump /sdcard/miui_ui.xml >/dev/null 2>&1
+  BTN=$("$ADB" -s "$SERIAL" shell cat /sdcard/miui_ui.xml | tr -d '\r' | python3 "$FIND_BTN")
   if [ "$BTN" != "0 0" ]; then
     read BX BY <<< "$BTN"
     echo "[miui-install] 点确认按钮(第${i}轮): $BX $BY"
-    adb -s "$SERIAL" shell input tap $BX $BY
+    "$ADB" -s "$SERIAL" shell input tap $BX $BY
   fi
 done
 
 wait $INSTALL_PID; RC=$?
 cat /tmp/miui_install_out.txt
-adb -s "$SERIAL" shell rm -f $TMP /sdcard/miui_ui.xml; rm -f "$FIND_BTN" /tmp/miui_install_out.txt
+"$ADB" -s "$SERIAL" shell rm -f $TMP /sdcard/miui_ui.xml; rm -f "$FIND_BTN" /tmp/miui_install_out.txt
 [ $RC -eq 0 ] && echo '[miui-install] ✅ 安装成功' || echo '[miui-install] ❌ 安装失败 (exit='$RC')'
 exit $RC
