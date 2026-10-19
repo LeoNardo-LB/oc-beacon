@@ -550,21 +550,47 @@ internal fun CardExpandReveal(
     val cacheKeyAtComposition = LocalCardExpandCacheKey.current
     // #540:列表级帽状态（机件原子帧单写者抬/落帽用；组合层读取同上）
     val hatReserve = LocalCardExpandReserve.current
-    if (listState == null || LocalInStreamingTurn.current) {
-        // #526 定罪探针：降级路径（无 listState=非会话列表场景 / 流式 turn）不
-        // 走反射锚定——DSH 展开方向不稳定疑涉此路径，toggle 时打点判别。
-        if (BuildConfig.DEBUG) {
-            val prevVis = remember { androidx.compose.runtime.mutableStateOf(visible) }
-            if (prevVis.value != visible) {
-                AppLogger.d(
-                    "CardExpand",
-                    "[DEBUG-526] degrade toggle visible=" + visible +
-                        " reason=" + (if (listState == null) "no-list-state" else "in-streaming-turn") +
-                        " host=" + hostItemKey.toString().take(24),
-                )
-                prevVis.value = visible
+    // ===== C1（#544 第二刀，spec §3）统一编舞入口：降级只剩 listState==null
+    //（横幅/预览/单测永存）与流式卡无帽供给的列表边角；流式卡经
+    // [LocalInStreamingTurn] 过渡谓词入「终高未知→动画相」（驱动盒）——
+    // Phase 2b 换终高谓词后该 local 退役（spec 终态：降级只剩 listState==null）。
+    // #526 定罪探针：降级/动画相路径不走反射锚定——toggle 打点判别
+    //（打点条件与签名与原分叉逐字节一致）。
+    if (BuildConfig.DEBUG && (listState == null || LocalInStreamingTurn.current)) {
+        val prevVis = remember { androidx.compose.runtime.mutableStateOf(visible) }
+        if (prevVis.value != visible) {
+            AppLogger.d(
+                "CardExpand",
+                "[DEBUG-526] degrade toggle visible=" + visible +
+                    " reason=" + (if (listState == null) "no-list-state" else "in-streaming-turn") +
+                    " host=" + hostItemKey.toString().take(24),
+            )
+            prevVis.value = visible
+        }
+    }
+    if (listState == null || (LocalInStreamingTurn.current && hatReserve == null)) {
+        // 裸 AV 回落（原 !driven 分支体——横幅/预览/单测/无帽列表边角）。
+        val degradeH = remember { androidx.compose.runtime.mutableIntStateOf(0) }
+        val revealTopRootY = remember { androidx.compose.runtime.mutableFloatStateOf(Float.NaN) }
+        Box(
+            modifier = modifier
+                .onSizeChanged { degradeH.intValue = it.height }
+                .onGloballyPositioned { coords ->
+                    revealTopRootY.value = coords.positionInRoot().y
+                },
+        ) {
+            AnimatedVisibility(
+                visible = visible,
+                enter = CardExpandEnterTransition,
+                exit = CardExpandExitTransition,
+            ) {
+                content()
             }
         }
+        return
+    }
+    if (LocalInStreamingTurn.current) {
+        // ===== 动画相（终高未知→驱动盒；原降级 driven 子分支逐字节迁入）=====
         // #540 方向 A 根修（取代 #526 事后回锚）：流式降级路径的展开/收起增长改经
         // 帽协议 flush 单事务「恒配对」释放——toggle 时开「展开配对窗」（计数制，
         // 同 item 多卡并发共容），尺寸稳定后关窗。窗内每档增量（含并发流式
@@ -579,7 +605,6 @@ internal fun CardExpandReveal(
         // 事务步进，与滚动写同遍 measure 原子消费）；内容常驻组合按自然高测高、
         // 顶锚裁剪=shrinkTowards/expandFrom Top 语义；淡入淡出由 alpha 派生。
         val degradeH = remember { androidx.compose.runtime.mutableIntStateOf(0) }
-        val pairingReserve = LocalCardExpandReserve.current
         // #540 二轮（表述乙）：揭示盒顶 root-Y——toggle 时刻换算 item 空间几何
         //（stickTop/spanDepth）供 flush 负向配对资格判定（粘揭示缘/区外零操作）。
         val revealTopRootY = remember { androidx.compose.runtime.mutableFloatStateOf(Float.NaN) }
@@ -598,9 +623,7 @@ internal fun CardExpandReveal(
         // 的暂态矮化不得反拽驱动；流式真增长不受限）。600ms 后自由跟踪（重排
         // 收缩=合法补偿，r731 判例）。
         val lastExpandAtMs = remember { androidx.compose.runtime.mutableLongStateOf(0L) }
-        val driven = listState != null && pairingReserve != null
-        if (driven) {
-            val pr = pairingReserve!!
+        val pr = hatReserve!!
             // 同值守卫（二轮④）：**收起态挂载**不开窗（避免每个折叠卡 mount 都效应）；
             // **展开态挂载**（重组重建槽位 while expanded）与真 toggle 一样开窗——
             // 重挂帧的 +H 全高入组合必须配对。
@@ -748,25 +771,6 @@ internal fun CardExpandReveal(
                     }
                 }
             }
-        }
-        if (!driven) {
-            Box(
-                modifier = modifier
-                    .onSizeChanged { degradeH.intValue = it.height }
-                    .onGloballyPositioned { coords ->
-                        revealTopRootY.value = coords.positionInRoot().y
-                    },
-            ) {
-                AnimatedVisibility(
-                    visible = visible,
-                    enter = CardExpandEnterTransition,
-                    exit = CardExpandExitTransition,
-                ) {
-                    content()
-                }
-            }
-            return
-        }
         // 三轮：驱动盒。高度唯一写者=flush（drive.h 仅在 applyPairedShift 事务内
         // 推进）；孤儿回落（列表中被逐，罕见面）=稳态快照（visible?内容高:0）。
         // 五报 F1：**已注册未接管**（hTarget 悬挂等测高）窗口同样走 drive.h——
@@ -776,14 +780,14 @@ internal fun CardExpandReveal(
         // −121 → 框架过滚纠正 fiso 回跳 −178 =「向上展开再跳回」三段式，
         // 2026-10-12 五报 r2）。driveRegistered 在组合期同步注册后恒真、
         // drive.h 为快照态活读——两窗口（等靶/动画中）合一，闪挂源消除。
-        val driveRegistered = pairingReserve?.degradeDrives?.contains(drive) == true
+        val driveRegistered = hatReserve?.degradeDrives?.contains(drive) == true
         val driveOwned = driveRegistered && drive.animating
         // #557：组合位销毁清册——驱动对象随卡死，死条目在册累积（每流式 turn
         // 一条）。垫未清的除外（#554 垫泄放需在册，跨 item 泄放语义）。
         androidx.compose.runtime.DisposableEffect(drive) {
             onDispose {
                 if (drive.absorbPx == 0) {
-                    pairingReserve?.degradeDrives?.removeAll { it === drive }
+                    hatReserve?.degradeDrives?.removeAll { it === drive }
                 }
             }
         }
@@ -808,7 +812,7 @@ internal fun CardExpandReveal(
                             // 只打到 content 槽不重算函数体 → 旧闭包恒读已注销驱动的
                             // 冻结 h（span 冻根源）。活读下未注册回退 contentH 直通
                             //（孤儿路径兜底；常态增长走驱动配对，见 win-close 注释）。
-                            if (pairingReserve?.degradeDrives?.contains(drive) == true) drive.h
+                            if (hatReserve?.degradeDrives?.contains(drive) == true) drive.h
                             else if (visible) contentH.intValue.coerceAtLeast(0) else 0
                         }
                         .clipToBounds()
@@ -831,7 +835,7 @@ internal fun CardExpandReveal(
                                     "CardExpand",
                                     "[DEBUG-557] contentH " + contentH.intValue + " -> " + sz.height +
                                         " hTarget=" + drive.hTarget + " reg=" +
-                                        (pairingReserve?.degradeDrives?.contains(drive) == true),
+                                        (hatReserve?.degradeDrives?.contains(drive) == true),
                                 )
                             }
                             contentH.intValue = sz.height
