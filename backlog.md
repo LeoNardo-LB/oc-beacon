@@ -69,21 +69,6 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#561 #146⑤A 工具输出截断结构化信号消费——outputPaths 透传建模+提示条结构化优先文本回退（B4 实现腿）** `data` `ui`
-  - 现状 outputPaths 全源码零消费（SessionNextEvent.ToolSuccess/V2Mappers/Part.Tool/ToolState 四层均无字段），UI 已用脆弱文本匹配（BashToolCard.kt:54 OUTPUT_TRUNCATION_PATH_REGEX，与 #332/#536 spill 同类风险）；修=ToolState.Completed+Part.Tool 增 outputPaths 透传+V2Mappers/ToolSuccess 建模
-  - 提示条改结构化优先、缺失回退现文本匹配（复用现有文案与互斥逻辑，文案不变则 i18n 零增）；V1 判缺失走回退零变化、DSH 无字段走回退零变化
-  - ⑤B（查看全文动作）为 B5 候选依赖 #559 取证（V1 GET /file/content 项目外 500 已实测受限、V2 /api/fs/read/* 待验）；⑤C 三信号统一管线再后；出处同调研报告
-
-- [ ] **#560 #146①A/B compaction 新命名消费三缺口——G2 delta 字段错配恒空串+G1 完成 UX 链断裂+ended 摘要建模（B4 实现腿）** `sse` `session`
-  - G2（确定性错配最优先）：schema delta 字段名实为 text，SessionNextEvent.kt:274-279 只映射 delta→恒空串→handleCompactionDelta 空串早退→新命名服务器进行中分割线实时摘要永远空白；修=CompactionDelta 双读 text ?: delta（对齐 V2EventParser.kt:164 契约）
-  - G1：新命名 ended 只终结横幅（SessionNextEventHandler.kt:312-318）不触发「压缩完毕 snackbar+消息刷新」（该链仅 SseEvent.SessionCompacted 驱动，EventDispatcher.kt:441-443）；修=成功态双发 SessionCompacted 复刻 V2EventParser.kt:151-154。①B 增项：ended text/recent 建模（G3，替代 refreshMessages REST 兜底）+失败通道按 #559 取证结论补
-  - B4 窗口（动 SessionNextEvent/EventDispatcher 承重链需完整回归窗口）；V1 无影响（走 session.compacted 既有链）/DSH 无影响；出处同调研报告
-
-- [ ] **#559 #146①⑤ 消费前置取证腿——4096 v2.0.26 compaction 命名族抓帧+outputPaths 在场性（R1 前真机顺带）** `sse` `v2`
-  - 纯观测零代码：真机挂 v2.0.26（4096）抓 session.next.compaction.* vs session.compaction.* 命名族实际发射谱；tool.success/REST part 级 outputPaths/truncated 在场性
-  - 结论决定 ①A 定性（新命名是否现网在发→G1/G2 是否当下就咬）与 ⑤B 可行性（V2 /api/fs/read/* 路径可达性）；一趟会话覆盖两题
-  - 出处：docs/research/2026-10-10-146-consumption-research.md 排期表（R1 前腿，不违 R1 前不进新功能）
-
 - [ ] **#545 IME 注入×历史会话加载竞态致主线程渲染冻结（BLANK-RENDER-FREEZE）** `ui` `ime` `race`
   - 5h soak ×5 复现：进入含历史会话后整串 input text 注入必现 Choreographer 跳帧后渲染冻结（a11y 树完整但空 2627B），无 FATAL/ANR，仅 force-stop 可恢复（空闲 3 分钟不自愈）
   - 手工几乎不可达（需程序化快速整串注入）；新空会话+分块注入（≤14 字符/块、0.6s 间歇）40+ 周期零复现——嫌疑面=IME 批量注入×历史加载/图片解码竞态
@@ -169,3 +154,4 @@
   - 2026-10-09 用户裁决：②③ wontfix 收口（上游三 issue 均 CLOSED NOT_PLANNED，客户端自救=重连快照重拉+只产 V2 cursor 即终态）；卡保留 ①（已修可消费 compaction.started 三档）/⑤（outputPaths 部分进展）/⑥（后台 shell 重做后复查）
   - 2026-10-10 系统调研完结（docs/research/2026-10-10-146-consumption-research.md）：①上游已修→客户端消费（G1/G2+⑤A）拆卡排期 B4 + R1 前取证腿；⑤B/C 视取证为 B5 候选；本卡余 PR 候选线（③>⑥>①>②）维持 P4 用户流程门槛
   - 2026-10-19 拆卡：消费腿落三卡——#559（取证腿，R1 前真机顺带）/#560（①A/B 三缺口实现，B4 窗口）/#561（⑤A outputPaths 消费，B4 窗口）；⑤B/C 视 #559 结论为 B5 候选；①C（DSH 式转录实体）不排期（收益与现有 Part.Compaction 分割线形态重叠）；本卡余 PR 候选线（③>⑥>①>②）维持 P4 用户流程门槛
+  - 2026-10-19 深夜勘误：前 note 所记「拆卡落三卡 #559/#560/#561」为重复登记——#539（10-10 11:54，调研报告后 2 小时）已把 ①A/B+⑤A/B 全部消费（现网取证+实现+验证齐备）；三卡已迁移关闭，今晚独立复测交叉验证一致（见 2026-10-10-539 journal 追加节）。本卡维持 P4 余 PR 候选线（③>⑥>①>②）不变
