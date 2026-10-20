@@ -69,13 +69,6 @@
 
 ## P2 — 优化与锦上添花
 
-- [~] **#545 IME 注入×历史会话加载竞态致主线程渲染冻结（BLANK-RENDER-FREEZE）** `ui` `ime` `race`
-  - 5h soak ×5 复现：进入含历史会话后整串 input text 注入必现 Choreographer 跳帧后渲染冻结（a11y 树完整但空 2627B），无 FATAL/ANR，仅 force-stop 可恢复（空闲 3 分钟不自愈）
-  - 手工几乎不可达（需程序化快速整串注入）；新空会话+分块注入（≤14 字符/块、0.6s 间歇）40+ 周期零复现——嫌疑面=IME 批量注入×历史加载/图片解码竞态
-  - 证据：/home/leonardo/.cache/soak5h/（2026-10-11 发现；soak 终报［非缺陷·重大环境发现］节）
-  - 2026-10-19 深夜攻坚一（RED+定罪+黑匣子）：①当前 HEAD RED 确认——真机复现率 4/7+对照轮（配方=force-stop→start→tap 会话→0.4s→整串 input text→dump 2627B）；模拟器 0.2-1.5s 八档零复现（MIUI 特有）②系统级取证：主线程+RenderThread 双 epoll 空闲（非死锁非自旋）、SigQ=0 无 ANR、空树=窗口装饰壳在而 semantics 缺席③冻结前最后帧时间线：IME 洪流→forceMeasureTheSubtree 测量风暴（Skipped 34/41）→a11y 响应构建中却返回空树→寂静④黑匣子探针三连进化（v1 心跳/v2 帧链均观测者效应 0 冻；v3 广播触发式零扰动 1/1 命中）⑤**定罪收口：invalidate 实验 frames 135→137 新帧正常而内容依旧空——冻结=Compose 组合内容真空**（组合在竞态中被清空/dispose，UI 正常渲染空内容）⑥剩余嫌疑：Recomposer 取消/detach-reattach 重建被吞/apply 异常消化——sentinel state 实验判别（下轮）。夜间收割 soak 已挂（至明 08:00）。证据 journal §8-§9
-  - 根修完成（2026-10-20，journal §10-§11）：九层判别链定谳——IME 注入洪流（MIUI input text 的 BACK 收键+SPACE 键流）×navigate 2.2s 排队延迟×焦点回退三叠竞态：BACK 弹 chat→焦点回退列表返回键→SPACE 连环 click=POP#8 连环 7 次→栈弹空（含 graph 根）→NavHost 空栈静默渲染空内容=永久冻结（主线程/RenderThread 双闲无 ANR 仅 force-stop 可恢复）；手工几乎不可达（真手指不会 0.5s 打 10 空格）+模拟器零复现（AOSP input text 走 commitText 无键流）双谜团同解。修=NavGraph 空栈守护（flow 即时恢复 startDestination——轮询 500ms 版实测失守 1/10：空栈后渲染链 ~500ms 内死亡，晚到栈恢复救不回）；35 轮 0 冻结 vs 基线 51.8%。单测 lint 绿。待用户验收
-
 - [~] **#543 #543 压缩卡换装重建窗双宿主——双 episode 双锚定三跳瞬态（R9 系统性 E2E 发现，定向复现已定罪）** `scroll` `chat`
   - 真机 R9 + 定向复现 2/4 RED：displayItems 重建（upsert:MergeStrategy→[452-display]）窗内同一压缩消息以两个不同 item key 的条目并存 ~300ms（两 CardExpandReveal 并发完整 episode），共享屏幕级 expansionKey 一次 toggle 点亮两宿主→同 +H 双锚定（111/127ms 间隔）→旧宿主离场收缩修正（R9 变体 −H 第三跳）；净效≈单次展开但三跳瞬态可见
   - 定罪档案：Room/服务器零重复（纯 UI 组合层）；diffListInto 单组合内原子（排除）；itemsIndexed key 含 chunk #c<i> 后缀——嫌疑=chatEntries 分片/换装身份变更未走 #509 原地换名语义；阴性对照（idle tap 单 episode）成立；有效复现配方 TurnFin+1.35~1.41s（burst#1 吞 tap，脚本 /tmp/543-round.sh v15）；证据 journal §20 + /tmp/543-*、/tmp/540r-s9b.log

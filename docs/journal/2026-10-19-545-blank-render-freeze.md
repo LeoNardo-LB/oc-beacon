@@ -134,3 +134,32 @@ navigation-compose 假设「start destination 恒在栈」——竞态可打破�
 
 单测绿（SseConnectionManager/ChatViewModelSend 各出现一次 flaky 单跑复跑均绿——与本批改动无关域）；lintDevDebug 过（7m04s，suppress 生效）。探针终态：FreezeWatchdog（L1/sentinel/广播）+NavGraph L2（简化公开 API）/L6（destination listener）/L9（pop 打点×10）保留 DEBUG 门控；L5/L8（RestrictedApi collect）判读使命完成退役。
 
+
+## ## 12. 用户委托验收轮（2026-10-20 下午，按 #544/#548 标准）
+
+五维矩阵 85 轮全绿：
+
+| 维度 | 场景 | 结果 |
+|---|---|---|
+| 1 NOT-RED | 时序矩阵 0.2/0.4/0.6/0.8×10+长串×5+双段注入×5=50 轮 | ✅ 50/50 零冻结（基线 51.8%）；守护每轮触发拦截 |
+| 2 零误伤 | 冷启×3+前后台×3+正常导航流 3 遍（列表→chat→back→home） | ✅ 守护零触发 |
+| 3 恢复质量 | 守护触发轮×3：闪回后重进会话发消息收回复→back | ✅ 3/3 功能完好；守护拉锯式正确防御（洪流期每次空栈即时救回，终态稳定） |
+| 4a E2E 回归 | 模拟器正式矩阵 551+554 | ✅ 双 PASS（首个 551 FAIL 定罪=模拟器 app 语言被切英文致 send_prompt 中文匹配失效——per-app locale 修复后绿，非回归） |
+| 4b 深链 | 回退腿（mock 死→服务器选择页=#339 语义）×3+真机正向腿直达会话×3 | ✅ 直达+零守护触发 |
+| 4c 单测+lint | 引用 eb6c7951e（开发轮双绿） | ✅ |
+| 5 复发判据 | 守护日志 logcat/Diagnostics 可查+watch7 就绪 | ✅ `[NavGraph] #545 empty backStack guard` |
+
+环境勘误：模拟器 app 语言漂移为英文（成因未查——某轮装包/冷启后跟随）致 E2E send 中文匹配失效；修复=cmd locale set-app-locales zh-CN。E2E 前置应校验 app 语言（记入 harness 域观察）。
+
+判定：#545 验收通过——原缺陷消灭（0/50 vs 51.8%）、守护零误伤、降级形态功能完好、导航域零回归、复发判据可查。
+
+
+## 已完结卡片迁入（2026-10-20）
+
+### **#545 IME 注入×历史会话加载竞态致主线程渲染冻结（BLANK-RENDER-FREEZE）** `ui` `ime` `race`
+  - 5h soak ×5 复现：进入含历史会话后整串 input text 注入必现 Choreographer 跳帧后渲染冻结（a11y 树完整但空 2627B），无 FATAL/ANR，仅 force-stop 可恢复（空闲 3 分钟不自愈）
+  - 手工几乎不可达（需程序化快速整串注入）；新空会话+分块注入（≤14 字符/块、0.6s 间歇）40+ 周期零复现——嫌疑面=IME 批量注入×历史加载/图片解码竞态
+  - 证据：/home/leonardo/.cache/soak5h/（2026-10-11 发现；soak 终报［非缺陷·重大环境发现］节）
+  - 2026-10-19 深夜攻坚一（RED+定罪+黑匣子）：①当前 HEAD RED 确认——真机复现率 4/7+对照轮（配方=force-stop→start→tap 会话→0.4s→整串 input text→dump 2627B）；模拟器 0.2-1.5s 八档零复现（MIUI 特有）②系统级取证：主线程+RenderThread 双 epoll 空闲（非死锁非自旋）、SigQ=0 无 ANR、空树=窗口装饰壳在而 semantics 缺席③冻结前最后帧时间线：IME 洪流→forceMeasureTheSubtree 测量风暴（Skipped 34/41）→a11y 响应构建中却返回空树→寂静④黑匣子探针三连进化（v1 心跳/v2 帧链均观测者效应 0 冻；v3 广播触发式零扰动 1/1 命中）⑤**定罪收口：invalidate 实验 frames 135→137 新帧正常而内容依旧空——冻结=Compose 组合内容真空**（组合在竞态中被清空/dispose，UI 正常渲染空内容）⑥剩余嫌疑：Recomposer 取消/detach-reattach 重建被吞/apply 异常消化——sentinel state 实验判别（下轮）。夜间收割 soak 已挂（至明 08:00）。证据 journal §8-§9
+  - 根修完成（2026-10-20，journal §10-§11）：九层判别链定谳——IME 注入洪流（MIUI input text 的 BACK 收键+SPACE 键流）×navigate 2.2s 排队延迟×焦点回退三叠竞态：BACK 弹 chat→焦点回退列表返回键→SPACE 连环 click=POP#8 连环 7 次→栈弹空（含 graph 根）→NavHost 空栈静默渲染空内容=永久冻结（主线程/RenderThread 双闲无 ANR 仅 force-stop 可恢复）；手工几乎不可达（真手指不会 0.5s 打 10 空格）+模拟器零复现（AOSP input text 走 commitText 无键流）双谜团同解。修=NavGraph 空栈守护（flow 即时恢复 startDestination——轮询 500ms 版实测失守 1/10：空栈后渲染链 ~500ms 内死亡，晚到栈恢复救不回）；35 轮 0 冻结 vs 基线 51.8%。单测 lint 绿。待用户验收
+  - 迁入依据：用户委托验收（2026-10-20，按 #544/#548 标准五维 85 轮）：1 NOT-RED 50/50 零冻结（基线 51.8%）/2 零误伤（冷启切换正常流全零触发）/3 恢复质量 3/3（闪回后发收回复+back 完好+拉锯防御终态稳）/4 E2E 551+554 双 PASS+深链回退正向 6 轮过（首个 FAIL 定罪模拟器语言环境非回归）/5 复发判据 logcat+Diagnostics 可查。九层判别链→根修（空栈守护 flow 即时版）→窗口敏感性实证（轮询失守）→五维验收全绿（§10-§12 记证）（backlog.sh migrate 2026-10-20）
