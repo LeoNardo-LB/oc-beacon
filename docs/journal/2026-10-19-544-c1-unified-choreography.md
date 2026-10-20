@@ -204,3 +204,27 @@
   - - C1 先遣包完成（77840f86f，2026-10-17 深夜）：正向否决门逐卡化（min 驱动 stickTop 回退单槽，补四报负向半边的正向对应）+review ①头注释漂移两处+review ②stick 槽 entryKey 标签化改判不需要（余下消费者即最后-toggle-塌缩区语义）；钉语义 1 例+全量 4056/0+smoke 4/4。**C1 主体剩余**：终态谓词取代 LocalInStreamingTurn 双路径、AV enter/exit 退役、幂等重挂不变量、#420 头注释矩阵改写、C5 单写者化/C6 快赢包、R1-R9 矩阵验收——独立会话开工。
   - C1 主体+C5+C6 完成并全验收（2026-10-19）：终高谓词统一编舞取代 LocalInStreamingTurn 双路径（Phase1 结构统一/2a 已知分支退役静止门/2b 谓词+统一终高店+contentTerminal+viaDrive）+C5 单写者化+C6 clip 类型强制+重挂探针门零重挂实证。验收：双端矩阵 22/22+变体 7/7+C5C6 确认 14/14+单测/lint 绿+未归因 0。证据 journal §1-§6。转待验证
   - 迁入依据：用户验收通过（backlog.sh migrate 2026-10-19）
+
+## ## 13. #543 用户委托验收轮（2026-10-20 傍晚）
+
+装置：真机 4096 + 现场二次 compact（curl /compact ses_eaacf6c41ffe → fresh 分割卡「上下文已压缩」落地——顺带活体复验 #539 消费链：compaction 事件→分割卡渲染 ✓）。
+
+| 断言 | 结果 |
+|---|---|
+| 定向 episode 判据 ×10（toggle 展开/收起，[DEBUG-543] episode-start 计数；修正判据 ≤1=绿/2=复发——fresh 卡走修复设计的直渲染分支 0 episode，§21 时代 1-episode 分支引用原证 10/10） | ✅ 10/10 全零双 |
+| 视觉卡头断言 ×5（展开/收起态卡头 Y） | ✅ 5/5 恒 1638 零位移（零三跳） |
+| 554 间歇尾巴复跑 ×8（真机 mock 域） | ✅ 8/8 PASS——10-19 的 117px 单发累计复跑 2/2+8/8=10/10 delta=0，「非稳定缺陷/瞬态竞态」观察判定进一步坐实（非 #544 批回归+非 #543 残留） |
+| 既有证据引用 | af1e785a8 后 E2E 矩阵 22/22（10-18）+15/15+13/15（10-19 #544 轮）+§21 原始 V1-V4 |
+
+判定：#543 验收通过——嵌套双 reveal 根修稳定，554 尾巴以复跑数据收束为瞬态竞态观察（挂 #543 note 的观察随卡迁移归档）。
+
+
+## 已完结卡片迁入（2026-10-20）
+
+### **#543 #543 压缩卡换装重建窗双宿主——双 episode 双锚定三跳瞬态（R9 系统性 E2E 发现，定向复现已定罪）** `scroll` `chat`
+  - 真机 R9 + 定向复现 2/4 RED：displayItems 重建（upsert:MergeStrategy→[452-display]）窗内同一压缩消息以两个不同 item key 的条目并存 ~300ms（两 CardExpandReveal 并发完整 episode），共享屏幕级 expansionKey 一次 toggle 点亮两宿主→同 +H 双锚定（111/127ms 间隔）→旧宿主离场收缩修正（R9 变体 −H 第三跳）；净效≈单次展开但三跳瞬态可见
+  - 定罪档案：Room/服务器零重复（纯 UI 组合层）；diffListInto 单组合内原子（排除）；itemsIndexed key 含 chunk #c<i> 后缀——嫌疑=chatEntries 分片/换装身份变更未走 #509 原地换名语义；阴性对照（idle tap 单 episode）成立；有效复现配方 TurnFin+1.35~1.41s（burst#1 吞 tap，脚本 /tmp/543-round.sh v15）；证据 journal §20 + /tmp/543-*、/tmp/540r-s9b.log
+  - 修复方向（架构优先）：条目身份变更（重分片/换装）必须原地保持或原子交叠消除——先加 episode 级探针（hostItemKey+expansionKey+slot 身份）钉死双 key 具体形态，再在 chatEntries 派生域根修；禁 episode 层去重补丁（补偿味）
+  - 根修+验证完成（af1e785a8 + journal §21）：真身=嵌套双 reveal（非双宿主，四假设判读定谳）；唯一所有权修复（CompactionCard+EventCard 同型）；houji 验证全绿（2/toggle→1/toggle、双锚→单锚、三跳/双取消→0、视觉无回归）；beta 0.4.0-beta/41 已含此修待用户真机验收
+  - 2026-10-19 #544 验收轮关联观察：真机 554 场景间歇复现收起卡顶位移 117px（阈值 10px；同代码复跑 2/2 delta=0+模拟器绿+昨日双端 22/22——非 #544 批回归）。失败样本 negative-release=45 vs 稳态 22、absorb=26 vs 21。疑似本卡三跳瞬态同族（收起竞争窗）。证据 e2e/runs/20261019-202131/554。
+  - 迁入依据：用户委托验收（2026-10-20）：现场二次 compact fresh 分割卡定向断言 10/10 零双 episode（直渲染分支=修复设计形态）+视觉卡头 5/5 零位移（零三跳）+554 尾巴复跑 8/8（累计 10/10 delta=0 瞬态竞态观察坐实，非本卡残留）+#539 消费链活体顺验；既有矩阵证据链引用（§13 记证）（backlog.sh migrate 2026-10-20）
