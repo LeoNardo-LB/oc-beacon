@@ -79,3 +79,58 @@ v3 触发命令：`adb shell am broadcast -a dev.ocbeacon.DEBUG_FREEZE_DUMP [--e
 
 组合为何空而 Activity/ComposeView 活着：①Recomposer 被取消（协程域异常传播）②detach/reattach 竞态中旧组合销毁新组合未建（重建步骤被吞）③组合 apply 异常被消化。判别法：MainActivity setContent 外层挂 DEBUG 门控 sentinel `mutableStateOf`——冻结态广播改值，组合层观察者有反应=Recomposer 活（组合空但可重组→②dispose 路径）；无反应=Recomposer 死（→①③）。
 
+
+## ## 10. 九层判别链闭合——根因定谳（2026-10-20 白天）
+
+soak 终报：1545 轮 801 冻结（51.8%），801 样本零偏差（RESUMED/focus/attached 全一致）。
+
+分层探针判别链（L1-L9，全部 DEBUG 门控广播/纯观察零扰动）：
+- L1 sentinel（广播 bump→组合根 snapshotFlow）：**Recomposer ALIVE**（4ms reacted）
+- L2 NavGraph 层：活（reacted+backStack 打印正常执行）
+- L3 chatScreen destination 层：**死**（never reacted）
+- L4 栈快照：**backStack=[] current=null**（连 graph 根都没了）
+- L5 栈序列：[?,home]→[?,home,sessions]→[?,home]→[] 
+- L6 destination 逐次回调（listener 不 conflate）：chat 曾入栈（延迟 2.2s）后被弹
+- L8 graph 指纹：全程同一对象（925b17b）——**setGraph 重设排除**
+- L9 全部 popBackStack 调用点打点：**POP#8（SessionListRoute.onNavigateBack）连环 7 次**
+
+### 完整因果链（定谳）
+
+1. tap 会话行 → navigate(chat) 在忙主线程排队 **2.2s** 后入栈（IME 首波×列表测量风暴）
+2. **MIUI input text 注入协议含 BACK**（收 IME 用）——在 chat 入栈后到达 → 系统 BACK 语义弹掉 chat（无 L9 打点=非程序回调）
+3. IME 收起后**焦点回退到 sessions 返回 IconButton**——洪流中 **~9 个空格（KEYCODE_SPACE）** 逐个到达，Space 对 focused Button=click → **onNavigateBack 连环 7 次**（50.19-50.52，间隔 ~0.1s）
+4. sessions pop → home pop → **空栈**（graph 根也被弹）
+5. NavHost 对空栈渲染空 → 无失效源无帧请求无 ANR → **永久冻结**（主线程/RenderThread 双 epoll 空闲=§8.2 实证）
+
+### 三大谜团全部解开
+
+- 「手工几乎不可达」：真手指不会 0.5s 打 10 空格+系统 BACK 注入
+- 「模拟器零复现」：AOSP input text 走 IME commitText，无 BACK/SPACE 键路径
+- 「无 crash 无 ANR」：空栈是 NavHost 的静默合法渲染（空内容）
+
+### 缺陷本质与修复方向
+
+navigation-compose 假设「start destination 恒在栈」——竞态可打破该不变量且**系统不自愈**。根修=**空栈守护**（NavGraph 检测空栈→自动回 startDestination）：从「永久冻结」降级为「闪回首页」；恢复 NavHost 栈非空不变量。证据 /tmp/545-layer/{l5,l6,l8,l9}-*.log
+
+
+## ## 11. 根修落地与窗口敏感性实证（2026-10-20 下午）
+
+### 11.1 修复：NavGraph 空栈守护（flow 即时版）
+
+生产代码（非 DEBUG 门控）：collect currentBackStack——空栈发射瞬间 navigate 回 startDestination（seenNonEmpty 防启动瞬态与连环自愈）。函数级 @SuppressLint("RestrictedApi")（currentBackStack 为 androidx.navigation 受限 API——lint 门禁拦截，探针取证+守护即时性必需）。
+
+### 11.2 窗口敏感性（轮询版失守定罪）
+
+- 轮询版（currentBackStackEntry==null 每 500ms 查）：10 轮 1 冻——R5 取证：守护 fired+栈已恢复 home（L6 dest->home 确认）**但屏幕仍空 5s+**——损伤双重（栈被弹空 A + 渲染链死亡 B），**空栈后 NavHost 走空内容渲染路径，~500ms 内渲染链已死，晚到的栈恢复救不回屏幕**。
+- flow 即时版（空栈发射 0ms 动作）：15/15+20/20=**0/35 冻结**，守护全触发拦截。修复前基线 51.8%（801/1545）。
+
+### 11.3 验证汇总
+
+| 版本 | 轮数 | 冻结 | 守护触发 |
+|---|---|---|---|
+| 修复前（soak 夜） | 1545 | 801（51.8%） | — |
+| 轮询版（弃用） | 10 | 1 | 全触发但晚 |
+| **flow 即时版（交付）** | **35** | **0** | 35/35 |
+
+单测绿（SseConnectionManager/ChatViewModelSend 各出现一次 flaky 单跑复跑均绿——与本批改动无关域）；lintDevDebug 过（7m04s，suppress 生效）。探针终态：FreezeWatchdog（L1/sentinel/广播）+NavGraph L2（简化公开 API）/L6（destination listener）/L9（pop 打点×10）保留 DEBUG 门控；L5/L8（RestrictedApi collect）判读使命完成退役。
+

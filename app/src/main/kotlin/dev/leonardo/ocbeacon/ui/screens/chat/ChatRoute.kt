@@ -43,6 +43,15 @@ fun NavGraphBuilder.chatScreen(
     ) { backStackEntry ->
         val args = ChatNav.fromEntry(backStackEntry)
 
+        // #545 L3 sentinel（DEBUG）：chatScreen destination 层活性探针——
+        // 冻结判别：L3 活+semantics 空=发布层断；L3 死=destination 组合被 dispose
+        if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                androidx.compose.runtime.snapshotFlow { dev.leonardo.ocbeacon.diag.FreezeWatchdog.sentinel3.value }
+                    .collect { v -> if (v > 0) android.util.Log.e("FREEZE-WATCH", "L3 chatScreen-destination reacted v=$v") }
+            }
+        }
+
         val sharedImages = getPendingShare(args.sessionId)
 
         ChatScreen(

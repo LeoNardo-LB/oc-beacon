@@ -72,6 +72,7 @@ internal fun isNavigableChildSessionId(childSessionId: String): Boolean =
  * [dev.leonardo.ocbeacon.ui.navigation.routes] 中的 Nav 对象。
  */
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@android.annotation.SuppressLint("RestrictedApi") // #545 守护需 currentBackStack（flow 即时性——轮询 500ms 版实测窗口失守 1/10，journal §11）
 @Composable
 fun NavGraph(
     windowSizeClass: WindowSizeClass,
@@ -87,6 +88,47 @@ fun NavGraph(
     val scope = rememberCoroutineScope()
     // #339：通知深链的重连腿——Activity 级 HomeViewModel（binder + connectToServer）
     val homeViewModel: dev.leonardo.ocbeacon.ui.screens.home.HomeViewModel = hiltViewModel()
+
+    // #545 空栈守护（根修，journal §10-§11 定谳）：竞态窗内回退栈可被连环弹空
+    //（IME 注入洪流×navigate 延迟×焦点回退三叠：系统 BACK 弹 chat 后焦点回退到
+    // 列表返回键，SPACE 键洪流连环 click=连环 pop）——空栈后 NavHost 走空内容
+    // 渲染路径，渲染链随之死亡（轮询版 500ms 延迟实测已失守）——**必须 flow 即时
+    // 恢复**：空栈发射瞬间 navigate 回 startDestination，从永久冻结降级为闪回首页。
+    LaunchedEffect(navController) {
+        var seenNonEmpty = false
+        navController.currentBackStack.collect { entries ->
+            if (entries.isNotEmpty()) {
+                seenNonEmpty = true
+            } else if (seenNonEmpty) {
+                seenNonEmpty = false
+                AppLogger.w(TAG, "#545 empty backStack guard → navigate start destination")
+                navController.navigate(Screen.Home.route) { launchSingleTop = true }
+            }
+        }
+    }
+
+    // #545 L2 sentinel（DEBUG）：NavGraph 主体层 Recomposer 活性探针——
+    // 冻结判别：L2 活+L3 死=chatScreen destination 被 dispose（回退栈竞态）；
+    // reacted 时附打印当前 backStack 路由链（L4：定位 backStack 被清 vs 渲染层丢）
+    if (dev.leonardo.ocbeacon.BuildConfig.DEBUG) {
+        LaunchedEffect(Unit) {
+            androidx.compose.runtime.snapshotFlow { dev.leonardo.ocbeacon.diag.FreezeWatchdog.sentinel2.value }
+                .collect { v ->
+                    if (v > 0) {
+                        android.util.Log.e("FREEZE-WATCH", "L2 NavGraph reacted v=$v current=${navController.currentDestination?.route}")
+                    }
+                }
+        }
+        // #545 L5 清栈序列记录器（纯观察，判读使命已完成退役；L6 listener 保留）
+        LaunchedEffect(navController) {
+            // L6：destination 变化回调（不 conflate——StateFlow 会合并中间态，
+            // listener 逐次必达，能看见被 conflate 吞掉的 chat 入栈/连环 pop）
+            navController.addOnDestinationChangedListener { _, destination, arguments ->
+                android.util.Log.i("FREEZE-WATCH",
+                    "L6 dest -> ${destination.route} sid=${arguments?.getString("sessionId")}")
+            }
+        }
+    }
 
     // 默认使用原生 UI（WebView 为旧版实现）
     val useNativeUi = true
@@ -291,7 +333,7 @@ fun NavGraph(
         composable(SettingsNav.route) {
             SettingsRoute(
                 onNavigateBack = {
-                    navController.popBackStack()
+                    run { android.util.Log.w("FREEZE-WATCH", "L9 POP#1"); navController.popBackStack() }
                 },
                 onNavigateToDiagnostics = {
                     navController.navigate(DiagnosticsNav.route)
@@ -302,7 +344,7 @@ fun NavGraph(
         // ============ 诊断页 ============
         composable(DiagnosticsNav.route) {
             dev.leonardo.ocbeacon.ui.screens.settings.DiagnosticsScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { run { android.util.Log.w("FREEZE-WATCH", "L9 POP#2"); navController.popBackStack() } }
             )
         }
 
@@ -313,7 +355,7 @@ fun NavGraph(
         ) { entry ->
             val params = ServerSettingsNav.fromEntry(entry)
             ServerSettingsRoute(
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack = { run { android.util.Log.w("FREEZE-WATCH", "L9 POP#3"); navController.popBackStack() } },
                 onNavigateToProviders = {
                     navController.navigate(ServerProvidersNav.createRoute(params.server.serverId))
                 },
@@ -329,7 +371,7 @@ fun NavGraph(
             arguments = ServerProvidersNav.navArguments
         ) {
             ServerProvidersRoute(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { run { android.util.Log.w("FREEZE-WATCH", "L9 POP#4"); navController.popBackStack() } }
             )
         }
 
@@ -339,7 +381,7 @@ fun NavGraph(
             arguments = ServerModelFilterNav.navArguments
         ) {
             ServerModelFilterRoute(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { run { android.util.Log.w("FREEZE-WATCH", "L9 POP#5"); navController.popBackStack() } }
             )
         }
 
@@ -347,7 +389,7 @@ fun NavGraph(
         composable(AboutNav.route) {
             AboutScreen(
                 onNavigateBack = {
-                    navController.popBackStack()
+                    run { android.util.Log.w("FREEZE-WATCH", "L9 POP#6"); navController.popBackStack() }
                 }
             )
         }
@@ -366,7 +408,7 @@ fun NavGraph(
                 navigateUrlFlow = webViewNavigateFlow,
                 isDarkTheme = isSystemInDarkTheme(),
                 onNavigateBack = {
-                    navController.popBackStack()
+                    run { android.util.Log.w("FREEZE-WATCH", "L9 POP#7"); navController.popBackStack() }
                 }
             )
         }
@@ -399,7 +441,7 @@ fun NavGraph(
                     )
                 },
                 onNavigateBack = {
-                    navController.popBackStack()
+                    run { android.util.Log.w("FREEZE-WATCH", "L9 POP#8"); navController.popBackStack() }
                 },
             )
         }
@@ -426,7 +468,7 @@ fun NavGraph(
                     initialJumpToMessageId = params.jumpToMessageId,
                     viewModel = chatViewModel,
                     onNavigateBack = {
-                    navController.popBackStack()
+                    run { android.util.Log.w("FREEZE-WATCH", "L9 POP#9"); navController.popBackStack() }
                 },
                 onNavigateToSession = { newSessionId ->
                     val route = ChatNav.createRoute(
@@ -523,7 +565,7 @@ fun NavGraph(
             WorkspaceRoute(
                 serverId = p.server.serverId,
                 sessionId = p.sessionId,
-                onBack = { navController.popBackStack() }
+                onBack = { run { android.util.Log.w("FREEZE-WATCH", "L9 POP#10"); navController.popBackStack() } }
             )
         }
     }

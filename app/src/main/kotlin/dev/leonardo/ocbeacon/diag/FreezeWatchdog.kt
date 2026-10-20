@@ -39,6 +39,16 @@ object FreezeWatchdog {
      */
     val sentinel = androidx.compose.runtime.mutableStateOf(0)
 
+    /**
+     * #545 分层 sentinel（L1 判别后收口：Recomposer 活+组合根活+内容空——
+     * 断裂层在组合根与可见内容之间）。L2=NavGraph 主体、L3=chatScreen
+     * destination（ChatRoute composable lambda 内）。广播 bump 三层同递增：
+     * L2 活+L3 死=destination 被 dispose（回退栈竞态——最大嫌疑）；
+     * L3 活+semantics 空=发布层断（AndroidComposeView 层）。
+     */
+    val sentinel2 = androidx.compose.runtime.mutableStateOf(0)
+    val sentinel3 = androidx.compose.runtime.mutableStateOf(0)
+
     private val registered = AtomicBoolean(false)
 
     fun install(activity: Activity) {
@@ -51,8 +61,8 @@ object FreezeWatchdog {
                 object : BroadcastReceiver() {
                     override fun onReceive(context: Context, intent: Intent) {
                         if (intent.getBooleanExtra("bump", false)) {
-                            sentinel.value++
-                            Log.e(TAG, "sentinel bumped to ${sentinel.value} — watch for 'sentinel reacted' (无 reacted=Recomposer 死)")
+                            sentinel.value++; sentinel2.value++; sentinel3.value++
+                            Log.e(TAG, "sentinels bumped — L1=${sentinel.value} L2=${sentinel2.value} L3=${sentinel3.value}")
                         }
                         if (intent.getBooleanExtra("invalidate", false)) {
                             // 定罪实验：冻结态强行请求重绘——有新帧=帧链活着（内容真空）；
