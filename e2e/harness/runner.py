@@ -283,6 +283,12 @@ def setup(card, args):
         raise RuntimeError("device offline: " + args.device)
     if args.apk:
         dev.install(args.apk)
+        # 2026-10-21 语言防漂移（20 号 D1 卸载重装实证）：install/uninstall 清数据会把
+        # app 内语言设置重置回系统默认（模拟器系统=en-US）——send_prompt 的中文
+        # 「发送」匹配随之失效（20261020-163229/551 FAIL 根因）。仅模拟器强制 per-app
+        # zh-CN（真机不动用户语言偏好）；E2E 文案判据依赖中文 UI（553/550 轮教训）
+        if str(args.device).startswith("emulator-"):
+            dev.shell(f"cmd locale set-app-locales {PKG} --locales zh-CN")
     dev.reverse(port)
     return dev, outdir, port
 
