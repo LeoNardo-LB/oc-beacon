@@ -66,9 +66,17 @@ class Mock:
             self.env.setdefault("MOCK_TITLE", title)
 
     def start(self):
-        # 清孤儿 mock（上一轮 runner 被 kill 时 finally 未执行会占住端口）
-        for pat in ("harness/mock_v2.py", "harness/mock_dsh.py"):
-            subprocess.run(["pkill", "-f", pat], capture_output=True)
+        # 清占本端口的孤儿 mock（上一轮 runner 被 kill 时 finally 未执行会占住端口）。
+        # 2026-10-21 #563 真机腿改定向杀：全路径 pkill harness/mock_v2.py 会连带
+        # 杀掉并行域其他合法实例（soak 队列 4399）；单端口场景下语义与旧版等价。
+        try:
+            out = subprocess.run(["ss", "-ltnp"], capture_output=True, text=True).stdout
+            for line in out.splitlines():
+                if f":{self.port} " in line and "python" in line:
+                    pid = line.split("pid=")[1].split(",")[0].strip()
+                    subprocess.run(["kill", pid], capture_output=True)
+        except Exception:
+            pass
         time.sleep(0.6)
         e = {**os.environ, **self.env, "MOCK_PORT": str(self.port)}
         script = "mock_dsh.py" if self.dsh else "mock_v2.py"
@@ -1348,8 +1356,115 @@ scenario_544_acc_stream.env = {"MOCK_DSH_SCENARIO": "stream", "MOCK_LINES": "18"
 scenario_544_acc_stream.dsh = True
 
 
+def _tap_chat_menu(dev, label, timeout=10):
+    """打开 ChatTopBar 更多菜单（desc=更多选项/More options）并点指定项（#563）。"""
+    end = time.time() + timeout
+    while time.time() < end:
+        ns = dev.nodes()
+        more = [n for n in ns if n["desc"] in ("更多选项", "More options")]
+        if more:
+            dev.tap(more[0]["cx"], more[0]["cy"])
+            time.sleep(1.0)
+            ns = dev.nodes()
+            item = [n for n in ns if n["text"] == label]
+            if item:
+                dev.tap(item[0]["cx"], item[0]["cy"])
+                return True
+        time.sleep(0.8)
+    return False
+
+
+def _wait_text(ctx, needle, timeout=15, dump_name=None):
+    """轮询 dump 直到文本/描述含 needle（#563）。"""
+    end = time.time() + timeout
+    while time.time() < end:
+        ns = ctx.dev.nodes()
+        if any(needle in (n["text"] or "") or needle in (n["desc"] or "") for n in ns):
+            return True
+        time.sleep(0.8)
+    if dump_name:
+        ctx.dump(dump_name)
+    return False
+
+
+def _prep_563(ctx):
+    """#563 公共前置：建会话→一轮对话制造历史→流结束。"""
+    _launch_and_open(ctx, True)
+    if not send_prompt(ctx.dev, "e2e563 make history"):
+        return False
+    wait_stream_end(ctx.dev, 90)
+    time.sleep(1)
+    return True
+
+
+def scenario_563(ctx):
+    """#563 ok：压缩全链——HTTP 受理即回→SSE started{reason,inputID,recent}→
+    delta{text}×6→ended{text 全文,recent}（#539 现网 2.0.26 实录 wire 形态）→
+    进行中横幅→「上下文已压缩」分割线卡片上屏→mock 历史替换。"""
+    if not _prep_563(ctx):
+        return {"pass": False, "checks": [("SEND", "FAIL")]}
+    if not _tap_chat_menu(ctx.dev, "压缩会话"):
+        return {"pass": False, "checks": [("MENU-COMPACT", "FAIL")]}
+    checks = []
+    banner = _wait_text(ctx, "正在压缩上下文", 10, "dump-563-banner.xml")
+    checks.append(("compaction-banner", "PASS" if banner else "FAIL"))
+    card = _wait_text(ctx, "上下文已压缩", 20, "dump-563-card.xml")
+    checks.append(("compaction-divider-card", "PASS" if card else "FAIL"))
+    st = ctx.mock.state()
+    checks.append(("mock-compacts=%s" % st.get("compacts"),
+                   "PASS" if st.get("compacts") == 1 else "FAIL"))
+    return {"pass": bool(banner and card and st.get("compacts") == 1), "checks": checks}
+
+
+scenario_563.env = {"MOCK_COMPACT": "ok", "MOCK_COMPACT_LINES": "6",
+                    "MOCK_SCENARIO": "plain", "MOCK_LINES": "4", "MOCK_TEXT_CHUNKS": "2"}
+
+
+def scenario_563_fail(ctx):
+    """#563 fail：仅 session.compaction.failed{error.message}（0.8s）——失败
+    snackbar「会话压缩失败」+ 横幅被终结（不残留）。"""
+    if not _prep_563(ctx):
+        return {"pass": False, "checks": [("SEND", "FAIL")]}
+    if not _tap_chat_menu(ctx.dev, "压缩会话"):
+        return {"pass": False, "checks": [("MENU-COMPACT", "FAIL")]}
+    checks = []
+    fail = _wait_text(ctx, "会话压缩失败", 15, "dump-563-fail.xml")
+    checks.append(("fail-snackbar", "PASS" if fail else "FAIL"))
+    time.sleep(4)
+    lingering = _wait_text(ctx, "正在压缩上下文", 2)
+    checks.append(("banner-terminated", "FAIL" if lingering else "PASS"))
+    return {"pass": bool(fail and not lingering), "checks": checks}
+
+
+scenario_563_fail.env = {"MOCK_COMPACT": "fail",
+                         "MOCK_SCENARIO": "plain", "MOCK_LINES": "4", "MOCK_TEXT_CHUNKS": "2"}
+
+
+def scenario_563_hold(ctx):
+    """#563 hold：started+delta×2 后无 ended——进行中横幅必须驻留（不误终结）、
+    分割线卡不上屏（终态未到）。降级观察装置（#562 验证复用）。"""
+    if not _prep_563(ctx):
+        return {"pass": False, "checks": [("SEND", "FAIL")]}
+    if not _tap_chat_menu(ctx.dev, "压缩会话"):
+        return {"pass": False, "checks": [("MENU-COMPACT", "FAIL")]}
+    checks = []
+    banner = _wait_text(ctx, "正在压缩上下文", 10, "dump-563-hold-start.xml")
+    checks.append(("compaction-banner", "PASS" if banner else "FAIL"))
+    time.sleep(12)
+    persist = _wait_text(ctx, "正在压缩上下文", 3)
+    checks.append(("banner-persist-12s", "PASS" if persist else "FAIL"))
+    card = _wait_text(ctx, "上下文已压缩", 2)
+    checks.append(("no-terminal-card", "FAIL" if card else "PASS"))
+    ctx.dump("dump-563-hold-end.xml")
+    return {"pass": bool(banner and persist and not card), "checks": checks}
+
+
+scenario_563_hold.env = {"MOCK_COMPACT": "hold",
+                         "MOCK_SCENARIO": "plain", "MOCK_LINES": "4", "MOCK_TEXT_CHUNKS": "2"}
+
+
 ALL_CARDS = ["557", "556_plain", "556_bracket", "540", "554", "551", "547", "549", "540_dsh_stream", "540_dsh_tool", "552",
-             "544_acc", "544_acc_stream", "544_acc_term"]
+             "544_acc", "544_acc_stream", "544_acc_term", "563", "563_fail", "563_hold"]
 
 
 def main():

@@ -12,6 +12,12 @@ step.ended → execution.succeeded），新增场景化控制面：
     rename  思考流中途换宿主 assistantMessageID（#547 host rename 形态）
     hold    思考结束后保持 turn 未完结（不 step.ended）——#540 输出后降级窗
 
+  MOCK_COMPACT=ok|fail|hold（#563：POST /api/session/:id/compact 触发压缩事件族）
+    ok      started{reason,inputID,recent} → delta{text}×N → ended{text 全文,recent}
+            + 消息历史替换（末条 user + type=compaction 摘要消息）——#539 现网实录形态
+    fail    0.8s 后仅 session.compaction.failed{error.message}（历史不变）
+    hold    started+delta×2 后不 ended——横幅驻留/降级观察（#562 验证复用）
+  MOCK_COMPACT_LINES=N               delta 段数（默认 6）
   MOCK_LINES / MOCK_INTERVAL / MOCK_PAUSE_EVERY / MOCK_PAUSE_SECS
   MOCK_TEXT_CHUNKS / MOCK_TEXT_INTERVAL
   MOCK_RENAME_AT（rename 场景：第 N 行思考后换宿主）
@@ -45,6 +51,9 @@ HOLD_OPEN = os.environ.get("MOCK_HOLD_OPEN", "0") == "1"
 NO_END = os.environ.get("MOCK_NO_END", "0") == "1"
 LINE_CHARS = int(os.environ.get("MOCK_LINE_CHARS", "0"))
 UNIQUE_LINES = os.environ.get("MOCK_UNIQUE_LINES", "0") == "1"
+COMPACT_MODE = os.environ.get("MOCK_COMPACT", "ok")   # ok|fail|hold（#563）
+COMPACT_LINES = int(os.environ.get("MOCK_COMPACT_LINES", "6"))
+COMPACT_COUNT = [0]
 
 LOCK = threading.Lock()
 SESSIONS = {}
@@ -174,6 +183,57 @@ def run_turn(sid, prompt_text, uid=None):
     print("[turn] done sid=%s turn=%d lines=%d" % (sid, turn_no, LINES), flush=True)
 
 
+def run_compact(sid):
+    """#563：V2 压缩事件族（wire 形态=2026-10-10 #539 现网 2.0.26 实录，全程 beta
+    命名族 session.compaction.*，无 session.next.* 帧）：
+      started{sessionID, reason, inputID, recent} → delta{sessionID, text}×N
+      → ended{sessionID, reason, model, text 全文摘要, recent}（成功）
+      / failed{sessionID, reason, error{message}}（失败，历史不变）
+    ended 后把消息历史替换为「末条 user + type=compaction 摘要消息」——app 侧
+    V2Mappers 按 obj["type"]=="compaction" 生成 Part.Compaction（分割线卡片上屏）。
+    HTTP 受理即回（V2 异步语义：进行中/终态全由 SSE 驱动）。
+    """
+    aid = "msg_cmp_%d" % now_ms()
+    COMPACT_COUNT[0] += 1
+    print("[compact] start sid=%s mode=%s" % (sid, COMPACT_MODE), flush=True)
+    if COMPACT_MODE == "fail":
+        time.sleep(0.8)
+        emit("session.compaction.failed", sessionID=sid, reason="mock",
+             error={"message": "mock compaction failure (MOCK_COMPACT=fail)"})
+        print("[compact] failed sid=%s" % sid, flush=True)
+        return
+    with LOCK:
+        recent = [m["parts"][0]["text"] for m in MESSAGES.get(sid, [])
+                  if m.get("role") == "user" and m.get("parts")][-2:]
+    time.sleep(0.3)
+    emit("session.compaction.started", sessionID=sid, reason="manual",
+         inputID=aid, recent=recent)
+    chunks = ["Compaction summary chunk %d: the transcript above was folded "
+              "into this digest by the mock compaction path. " % (i + 1)
+              for i in range(COMPACT_LINES)]
+    streamed = chunks[:2] if COMPACT_MODE == "hold" else chunks
+    for i, c in enumerate(streamed):
+        time.sleep(0.45)
+        emit("session.compaction.delta", sessionID=sid, text=c)
+    if COMPACT_MODE == "hold":
+        print("[compact] hold sid=%s（started+delta×%d，无 ended）" % (sid, len(streamed)), flush=True)
+        return
+    time.sleep(0.4)
+    full = "".join(chunks)
+    emit("session.compaction.ended", sessionID=sid, reason="manual",
+         model={"id": "mock-thinker", "providerID": "mock", "variant": "slow"},
+         text=full, recent=recent)
+    # 历史替换：保留末条 user（压缩触发点对位），其余折叠进 compaction 摘要消息
+    with LOCK:
+        msgs = MESSAGES.get(sid, [])
+        last_user = next((m for m in reversed(msgs) if m.get("role") == "user"), None)
+        ts = now_ms()
+        MESSAGES[sid] = ([dict(last_user)] if last_user else []) + [
+            {"id": aid, "type": "compaction", "text": full,
+             "time": {"created": ts, "updated": ts}}]
+    print("[compact] done sid=%s lines=%d" % (sid, COMPACT_LINES), flush=True)
+
+
 class H(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -202,7 +262,8 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/_state":
             with LOCK:
                 return self._json({"sessions": list(SESSIONS.keys()), "turns": TURN_COUNT[0],
-                                   "events": EVENT_SEQ[0], "scenario": SCENARIO})
+                                   "events": EVENT_SEQ[0], "scenario": SCENARIO,
+                                   "compacts": COMPACT_COUNT[0], "compact_mode": COMPACT_MODE})
         if p == "/api/session":
             with LOCK:
                 return self._json({"data": list(SESSIONS.values())})
@@ -218,6 +279,16 @@ class H(BaseHTTPRequestHandler):
             return self._json({"data": {"id": sid, "title": "mock", "time": {"created": now_ms(), "updated": now_ms()}}})
         if p == "/api/event":
             return self._sse()
+        if p == "/api/provider":
+            # #563：压缩前置（SessionActionsDelegate 需 selectedProvider/ModelId
+            # 非空）——provider/model 列表空时选择器空转，「压缩会话」点击即被拒
+            return self._json({"data": [{"id": "mock", "name": "Mock Provider"}]})
+        if p == "/api/model":
+            return self._json({"data": [{
+                "id": "mock-thinker", "name": "Mock Thinker", "providerID": "mock",
+                "status": "active",
+                "variants": [{"id": "slow"}],
+            }]})
         # 未实现端点一律空对象（app 对 GET /provider /model /form 等降级）
         return self._json({})
 
@@ -254,7 +325,7 @@ class H(BaseHTTPRequestHandler):
             sid = p.split("/")[3]
             try:
                 obj = json.loads(body.decode() or "{}")
-                text = (obj.get("prompt") or {}).get("text") or (obj.get("payload") or {}).get("text") or "(empty)"
+                text = (obj.get("prompt") or {}).get("text") or (obj.get("payload") or {}).get("text") or (obj.get("text")) or "(empty)"
             except Exception:
                 text = "(unparsed)"
             uid = "msg_user_%d" % now_ms()
@@ -262,6 +333,12 @@ class H(BaseHTTPRequestHandler):
             return self._json({"data": {"id": uid, "sessionID": sid, "type": "user",
                                         "timeCreated": now_ms(),
                                         "payload": {"text": text}}})
+        if "/compact" in p:
+            # #563：HTTP 受理即回（app V2ApiClient POST body {providerID, modelID}）；
+            # 事件族/历史替换见 run_compact
+            sid = p.split("/")[3]
+            threading.Thread(target=run_compact, args=(sid,), daemon=True).start()
+            return self._json({"data": {"ok": True, "sessionID": sid}})
         return self._json({"data": {}})
 
     def _sse(self):
@@ -302,6 +379,6 @@ class H(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    print("[mock7] :%d scenario=%s lines=%d interval=%.2fs text=%d pause=%d/%ss hold=%s"
-          % (PORT, SCENARIO, LINES, INTERVAL, TEXT_CHUNKS, PAUSE_EVERY, PAUSE_SECS, HOLD_OPEN), flush=True)
+    print("[mock7] :%d scenario=%s lines=%d interval=%.2fs text=%d pause=%d/%ss hold=%s compact=%s/%d"
+          % (PORT, SCENARIO, LINES, INTERVAL, TEXT_CHUNKS, PAUSE_EVERY, PAUSE_SECS, HOLD_OPEN, COMPACT_MODE, COMPACT_LINES), flush=True)
     ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()
