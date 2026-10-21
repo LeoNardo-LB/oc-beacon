@@ -59,6 +59,9 @@ class Mock:
         self.port = port
         self.env = dict(env)
         self.workdir = workdir
+        # 2026-10-22 修复（#486/#464/#550 三卡同踩）：workdir 不自建 → mock 日志
+        # 打不开即崩——#550 首启 20s 崩溃与队列首晚三连崩的根因
+        os.makedirs(workdir, exist_ok=True)
         self.proc = None
         self.dsh = dsh
         self.log = os.path.join(workdir, "mock.log")
@@ -159,7 +162,9 @@ def open_session(dev, title, timeout=30):
         hits = [n for n in ns if n["text"] == title]
         if hits:
             n = hits[0]
-            dev.tap(300, n["cy"])
+            # 2026-10-22 修复（#550 soak 定罪）：固定 x=300 在宽行/偏置布局上会
+            # 落到行内非可点区（等效 no-op）——改节点中心坐标
+            dev.tap(n["cx"], n["cy"])
             for _ in range(30):
                 time.sleep(0.5)
                 if composer_node(dev):
@@ -215,8 +220,9 @@ def send_prompt(dev, text, timeout=30):
         if s2:
             send = s2
     _ok = _mark(dev) > base
-    SEND_DIAG[0] = "mark=%s base_hit;btn=%r;edit=%r" % (
-        SEND_DIAG[0],
+    # 2026-10-22 修复（#550 soak 定罪）：旧格式串把 SEND_DIAG[0] 自身填进 %s 位
+    # → 每次重试 mark=mark=mark= 无限拼接，诊断不可读
+    SEND_DIAG[0] = "no-post;btn=%r;edit=%r" % (
         (send[0]["cx"], send[0]["cy"]) if send else None,
         [n["text"][:16] for n in dev.nodes() if "EditText" in n["cls"]][:1])
     return _ok
