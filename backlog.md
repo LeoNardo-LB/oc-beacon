@@ -83,6 +83,7 @@
   - 模拟器终验 r81 遗留观察：p2 长答案完成后停止按钮残留约 2 分钟才消失，非滚动/展开域违规；疑 V2 会话标题生成阶段持续置 busy 状态所致；复发时抓 SessionState FSM 状态流取证再定修向
   - 证据：/home/leonardo/.cache/540emu/FINAL-EMU-REPORT.md 遗留观察节
   - 2026-10-20 凌晨主动复测（模拟器+4096 v2 长答案 60s 流）：停止按钮残留实测 ~9s（t+2s 在场→t+9s 消失），非 ~2 分钟——疑已被后续批次顺带治愈（r81 观察后 ChatScreen 域动过 #547/#544）；FSM 时间线干净（SseIdle→Idle [force-complete] 一刀切），无 Title agent 保持 busy 迹象（服务器标题生成独立于会话 FSM）。观察阈值更新：残留 >15s 即复发信号，届时抓 FSM 流+dump 复测。取证 /tmp/553/{full,fsm,title}.log
+  - 2026-10-21 真机复测腿+根因归属修正：本轮「停止按钮 42s+ 在场」定罪为**服务器侧执行挂起**（/api/session/active 显 running 7 分钟无推进无事件；app 侧 FSM 干净——L3 校验发现 server-Busy/无 SSE 矛盾后按 zombie 策略保守等待，停止按钮=Busy 正确反映；app 点停止即恢复，服务器 active 清空）。结合模拟器 9s 干净样本：**#553 现象主体=服务器侧 turn 状态收敛慢/挂起（provider 链无超时兜底，上游域），app 域无可修**（可选体验优化=无事件 N 分钟 UI 降级提示，另议）。观察维持，复发以 [SessionStateService] server says Busy but no SSE events 日志+curl /api/session/active 双证定界
 
 - [ ] **#546 16KB 页对齐构建改进（MIUI 安装告警）** `build` `infra`
   - dev-debug 安装时 MIUI 弹「应用兼容性」告警：libdatastore_shared_counter/libandroidx.graphics.path/libsqlite3x/libzstd-jni 四库 .so 未 16KB 对齐（面向未来 16KB 页设备的前瞻提示，当前 4KB 页设备不影响运行）
