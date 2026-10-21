@@ -498,6 +498,8 @@
     <string name="settings_compress_images_max_side_keep_original">Зберегти оригінальну роздільну здатність</string>
     <string name="chat_send_shell">Надіслати команду shell</string>
     <string name="chat_shell_mode_hold_send_hint">Режим shell активний. Утримуйте «Надіслати», щоб повернутися назад.</string>
+    <!-- #562：会话停滞降级提示 -->
+    <string name="chat_stall_hint">Сервер якийсь час не надсилає дані. Можете продовжити очікування або зупинити цей хід.</string>
     <string name="menu_review_changes">Переглянути зміни</string>
     <string name="session_path">Шлях</string>
     <string name="session_count">Сесії</string>

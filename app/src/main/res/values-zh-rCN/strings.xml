@@ -506,6 +506,8 @@
     <string name="settings_compress_images_max_side_keep_original">保持原始分辨率</string>
     <string name="chat_send_shell">发送 Shell 命令</string>
     <string name="chat_shell_mode_hold_send_hint">Shell 模式已激活。长按发送可切换回原模式。</string>
+    <!-- #562：会话停滞降级提示 -->
+    <string name="chat_stall_hint">服务器长时间未发送数据。你可以继续等待或停止本轮。</string>
     <string name="menu_review_changes">查看更改</string>
     <string name="session_path">路径</string>
     <string name="session_count">会话</string>

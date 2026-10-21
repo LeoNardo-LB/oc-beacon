@@ -127,6 +127,8 @@
     <string name="chat_send_queued">Send (queued)</string>
     <string name="chat_send_shell">Send shell command</string>
     <string name="chat_shell_mode_hold_send_hint">Shell mode active. Hold Send to switch back.</string>
+    <!-- #562：会话停滞降级提示（Busy 且 120s 无 SSE 事件；服务器侧执行挂起时 app 保守等待的体验兜底） -->
+    <string name="chat_stall_hint">No data from the server for a while. You can keep waiting or stop this turn.</string>
     <string name="chat_stop">Stop</string>
     <!-- 堆积消息（busy 发送气泡菜单，2026-08-20 设计定稿） -->
     <!-- 堆积/TODO 面板（2026-08-20 设计定稿） -->

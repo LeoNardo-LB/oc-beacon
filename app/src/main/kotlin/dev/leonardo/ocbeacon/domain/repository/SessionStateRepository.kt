@@ -27,6 +27,13 @@ interface SessionStateRepository {
     /** 每台服务器的 FSM 转移历史。 */
     val historyFlow: StateFlow<Map<String, List<TransitionRecord>>>
 
+    /**
+     * #562（会话停滞降级提示）：Busy 且长时间（120s）无 SSE 事件、且非合法
+     * 等待态（#191 打标）的会话集合——纯派生旁路（不写 FSM）。UI 据此渲染
+     * 「连接可能已停滞」提示；事件恢复/状态转移后 ≤5s 自动出集。
+     */
+    val stalledSessions: StateFlow<Set<String>>
+
     /** 绑定当前服务器上下文。 */
     fun setServerId(serverId: String)
 

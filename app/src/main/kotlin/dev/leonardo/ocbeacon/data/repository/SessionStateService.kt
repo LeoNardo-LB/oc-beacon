@@ -16,6 +16,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -59,6 +60,41 @@ private const val STATE_RETENTION_MS = 24 * 60 * 60 * 1000L
  *  （reasoning/text/tool/usage 均无）→ 视为服务器 runner 卡死（僵尸 running），
  *  强制转 Idle 恢复列表状态。真实执行中即使模型思考也会有 reasoning delta。 */
 internal const val ZOMBIE_BUSY_MS = 3 * 60 * 1000L
+
+/**
+ * #562（会话停滞降级提示）：Busy 且超过此时长无任何 SSE 事件 → UI 降级提示
+ * 「连接可能已停滞」。取值锚点：正常流式事件间隔 ≪ 秒级、标题生成/合法等待
+ * 静默窗几十秒（#553 干净样本实测 ~9s）≪ 120s ≪ [ZOMBIE_BUSY_MS] 3min（僵尸
+ * 强制中断）——提示先于中断，用户在 app 保守等待期（#191 waiting / 服务器侧
+ * 执行挂起，见 #553 定界）不再面对无解释的持续转圈。纯派生旁路：不写 FSM、
+ * 不影响 zombie/waiting 判定路径。
+ */
+internal const val STALL_HINT_MS = 2 * 60 * 1000L
+
+/**
+ * #562：停滞评估（纯函数，单测锚点）。条件全部满足才入集合：
+ * - core 为 Busy（流式中/执行中才谈停滞）；
+ * - 距 [SessionFSMState.lastEventAt]（真实 SSE 事件时间，REST 校验不刷新）超阈值；
+ * - 不在 #191 合法等待打标窗内（待处理输入/活跃子智能体会话——UI 已有对应
+ *   等待形态，提示「停滞」属误导）。
+ */
+internal fun evaluateStalled(
+    states: Map<String, dev.leonardo.ocbeacon.domain.model.SessionFSMState>,
+    waitingConfirmedAt: Map<String, Long>,
+    now: Long,
+    thresholdMs: Long = STALL_HINT_MS,
+    waitingWindowMs: Long = WAITING_CONFIRM_WINDOW_MS,
+): Set<String> = buildSet {
+    states.forEach { (sessionId, state) ->
+        if (state.core is SessionStatus.Busy &&
+            now - state.lastEventAt > thresholdMs
+        ) {
+            val confirmedAt = waitingConfirmedAt[sessionId]
+            val waitingFresh = confirmedAt != null && now - confirmedAt < waitingWindowMs
+            if (!waitingFresh) add(sessionId)
+        }
+    }
+}
 
 /** #191（方案 B·等待确认自适应降频）：REST 已确认等待态（待处理输入/活跃子智能体会话）的
  * L2 抑制窗口。窗口内 checkStaleness 跳过该会话的 L2 重触发——等待态观测节奏从 5s 风暴
@@ -158,9 +194,20 @@ class SessionStateService @Inject constructor(
             _histories.update { it - expired.toSet() }
             expired.forEach(waitingConfirmedAt::remove) // #191：防打标 map 无界增长
         }
+        // #562：停滞提示派生重估（每 tick 全量重建，无事件即出集——提示随状态
+        // 恢复自动消失；waitingFresh 会话被打标排除，60s 打标窗过期自动回归评估）
+        _stalledSessions.value = evaluateStalled(_fsmStates.value, waitingConfirmedAt, now)
     }
 
     private val _fsmStates = MutableStateFlow<Map<String, SessionFSMState>>(emptyMap())
+
+    /**
+     * #562：停滞提示派生集（单一真相源旁路，纯读派生不写 FSM）。每 staleness
+     * tick（5s）重估全量；会话转 Idle/移除后下一 tick 自愈出集。UI 据此渲染
+     * 「连接可能已停滞」降级提示（见 [evaluateStalled] 判据）。
+     */
+    private val _stalledSessions = MutableStateFlow<Set<String>>(emptySet())
+    override val stalledSessions: StateFlow<Set<String>> = _stalledSessions.asStateFlow()
     private val _histories = MutableStateFlow<Map<String, List<TransitionRecord>>>(emptyMap())
 
     override val statusFlow: StateFlow<Map<String, SessionStatus>> = _fsmStates

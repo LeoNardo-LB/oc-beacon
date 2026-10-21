@@ -506,6 +506,8 @@
     <string name="settings_compress_images_max_side_keep_original">احتفظ بالدقة الأصلية</string>
     <string name="chat_send_shell">إرسال أمر شل</string>
     <string name="chat_shell_mode_hold_send_hint">وضع الشل نشط. اضغط مع الاستمرار على إرسال للعودة.</string>
+    <!-- #562：会话停滞降级提示 -->
+    <string name="chat_stall_hint">لم تصل بيانات من الخادم منذ فترة. يمكنك مواصلة الانتظار أو إيقاف هذا الدور.</string>
     <string name="menu_review_changes">مراجعة التغييرات</string>
     <string name="session_path">مسار</string>
     <string name="session_count">الجلسات</string>

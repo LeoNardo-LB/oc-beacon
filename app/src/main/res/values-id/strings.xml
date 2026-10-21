@@ -496,6 +496,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_compress_images_max_side_keep_original">Pertahankan resolusi asli</string>
     <string name="chat_send_shell">Kirim perintah shell</string>
     <string name="chat_shell_mode_hold_send_hint">Mode shell aktif. Tahan Kirim untuk kembali.</string>
+    <!-- #562：会话停滞降级提示 -->
+    <string name="chat_stall_hint">Tidak ada data dari server untuk sementara. Anda dapat terus menunggu atau menghentikan giliran ini.</string>
     <string name="menu_review_changes">Tinjau perubahan</string>
     <string name="session_path">Path</string>
     <string name="session_count">Sesi</string>

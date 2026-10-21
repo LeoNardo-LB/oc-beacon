@@ -914,6 +914,18 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * #562（会话停滞降级提示）：当前会话是否处于停滞提示态——Busy 且 120s 无
+     * SSE 事件且非 #191 合法等待（service 域纯派生，见
+     * [SessionStateRepository.stalledSessions]）。驱动输入栏上方降级横幅
+     * [dev.leonardo.ocbeacon.ui.screens.chat.input.StallHintBanner]；事件恢复
+     * 后 ≤5s 自动消失。
+     */
+    val stalledCurrent: StateFlow<Boolean> =
+        combine(sessionStateRepository.stalledSessions, sessionLifecycle.sessionIdFlow) { stalled, sid ->
+            sid != null && sid in stalled
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     /** updateQueue 结果提示（resId）——QueueDock collect 显示 snackbar。 */
     private val _queueActionResult = MutableSharedFlow<Int>(extraBufferCapacity = 4)
     val queueActionResult: SharedFlow<Int> = _queueActionResult

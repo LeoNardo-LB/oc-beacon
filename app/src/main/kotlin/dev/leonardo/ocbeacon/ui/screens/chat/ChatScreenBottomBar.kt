@@ -156,6 +156,9 @@ internal fun ChatScreenBottomBar(
     val planState by viewModel.planState.collectAsStateWithLifecycle()
     val planChipVisible = PlanChipGate.chipVisible(ServerFeatures.PLAN in serverCapabilities, planState)
     val planExitFailedMsg = stringResource(R.string.plan_exit_failed)
+    // #562（会话停滞降级提示）：Busy 且 120s 无 SSE 事件（非 #191 合法等待）——
+    // 输入栏上方降级横幅；事件恢复后 ≤5s 自动消失
+    val stalled by viewModel.stalledCurrent.collectAsStateWithLifecycle()
 
     // #106 lint 清偿（LocalContextGetResourceValueCall）：snackbar 文案 hoist 到
     // 组合层 stringResource（lambda 内不可调用 @Composable）；带参格式串 hoist
@@ -616,6 +619,7 @@ internal fun ChatScreenBottomBar(
                 },
                 onSlashCommand = handleSlashCommand,
                 onStop = { viewModel.interruptSession() },
+                stalled = stalled,
                 restoredDraft = restoredDraft,
                 onConsumeRestoredDraft = { viewModel.composer.consumeRestoredDraft() },
                 onQuickNavigate = onQuickNavigate,

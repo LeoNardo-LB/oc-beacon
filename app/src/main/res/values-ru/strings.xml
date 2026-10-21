@@ -499,6 +499,8 @@
 Токены: ~%4$d -&gt; ~%5$d</string>
     <string name="chat_send_shell">Отправить команду shell</string>
     <string name="chat_shell_mode_hold_send_hint">Режим shell активен. Удерживайте «Отправить», чтобы вернуться назад.</string>
+    <!-- #562：会话停滞降级提示 -->
+    <string name="chat_stall_hint">Сервер некоторое время не присылает данные. Можно продолжить ожидание или остановить этот ход.</string>
     <string name="menu_review_changes">Просмотреть изменения</string>
     <string name="session_path">Путь</string>
     <string name="session_count">Сессии</string>

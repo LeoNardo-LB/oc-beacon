@@ -488,6 +488,8 @@
     <string name="settings_compress_images_max_side_keep_original">Conserver la résolution d’origine</string>
     <string name="chat_send_shell">Envoyer une commande shell</string>
     <string name="chat_shell_mode_hold_send_hint">Mode shell actif. Maintenez Envoyer pour revenir.</string>
+    <!-- #562：会话停滞降级提示 -->
+    <string name="chat_stall_hint">Aucune donnée du serveur depuis un moment. Vous pouvez continuer à attendre ou arrêter ce tour.</string>
     <string name="menu_review_changes">Examiner les modifications</string>
     <string name="session_path">Chemin</string>
     <string name="session_count">Sessions</string>

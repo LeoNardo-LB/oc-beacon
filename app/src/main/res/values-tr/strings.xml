@@ -490,6 +490,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_compress_images_max_side_keep_original">Orijinal çözünürlüğü koru</string>
     <string name="chat_send_shell">Kabuk komutu gönder</string>
     <string name="chat_shell_mode_hold_send_hint">Kabuk modu aktif. Geri dönmek için Gönder\'e basılı tutun.</string>
+    <!-- #562：会话停滞降级提示 -->
+    <string name="chat_stall_hint">Sunucudan bir süredir veri gelmiyor. Beklemeye devam edebilir veya bu turu durdurabilirsiniz.</string>
     <string name="menu_review_changes">Değişiklikleri gözden geçir</string>
     <string name="session_path">Yol</string>
     <string name="session_count">Oturumlar</string>

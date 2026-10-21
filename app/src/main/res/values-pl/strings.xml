@@ -498,6 +498,8 @@ Tokeny: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_compress_images_max_side_keep_original">Zachowaj oryginalną rozdzielczość</string>
     <string name="chat_send_shell">Wyślij polecenie powłoki</string>
     <string name="chat_shell_mode_hold_send_hint">Tryb powłoki aktywny. Przytrzymaj Wyślij, aby wrócić.</string>
+    <!-- #562：会话停滞降级提示 -->
+    <string name="chat_stall_hint">Od dłuższego czasu brak danych z serwera. Możesz dalej czekać lub zatrzymać tę turę.</string>
     <string name="menu_review_changes">Przejrzyj zmiany</string>
     <string name="session_path">Ścieżka</string>
     <string name="session_count">Sesje</string>

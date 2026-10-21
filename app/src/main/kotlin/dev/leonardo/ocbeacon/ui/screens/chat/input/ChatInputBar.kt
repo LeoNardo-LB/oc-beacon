@@ -101,6 +101,8 @@ internal fun ChatInputBar(
     /** #497 D4：外部焦点控制通道（透传 ChatTextField；可空=不接线）。 */
     focusRequester: FocusRequester? = null,
     onStop: () -> Unit = {},
+    /** #562（会话停滞降级提示）：Busy 且 120s 无 SSE 事件——输入栏上方降级横幅。 */
+    stalled: Boolean = false,
     restoredDraft: RevertedDraftPayload? = null,
     onConsumeRestoredDraft: () -> Unit = {},
     onQuickNavigate: () -> Unit = {},
@@ -292,6 +294,9 @@ internal fun ChatInputBar(
                 isShellMode = isShellMode,
                 isAmoled = isAmoled
             )
+
+            // #562：停滞降级横幅（与 ShellModeHintBanner 同视觉语言；事件恢复自动消失）
+            StallHintBanner(stalled = stalled)
 
             // 输入行
             Row(

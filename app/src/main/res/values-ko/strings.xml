@@ -490,6 +490,8 @@
     <string name="settings_compress_images_max_side_keep_original">원본 해상도 유지</string>
     <string name="chat_send_shell">셸 명령어 보내기</string>
     <string name="chat_shell_mode_hold_send_hint">셸 모드가 활성화되었습니다. 길게 눌러 보내기로 전환하세요.</string>
+    <!-- #562：会话停滞降级提示 -->
+    <string name="chat_stall_hint">서버에서 한동안 데이터가 오지 않습니다. 계속 기다리거나 이번 턴을 중단할 수 있습니다.</string>
     <string name="menu_review_changes">변경 사항 검토</string>
     <string name="session_path">경로</string>
     <string name="session_count">세션</string>

@@ -490,6 +490,8 @@
     <string name="settings_compress_images_max_side_keep_original">元の解像度を保持</string>
     <string name="chat_send_shell">シェルコマンドを送信</string>
     <string name="chat_shell_mode_hold_send_hint">シェルモードが有効です。戻すには送信を長押ししてください。</string>
+    <!-- #562：会话停滞降级提示 -->
+    <string name="chat_stall_hint">サーバーからしばらくデータが届いていません。待ち続けるか、このターンを停止できます。</string>
     <string name="menu_review_changes">変更内容を確認</string>
     <string name="session_path">パス</string>
     <string name="session_count">セッション</string>

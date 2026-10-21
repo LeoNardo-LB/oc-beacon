@@ -490,6 +490,8 @@ Token: ~%4$d -&gt; ~%5$d</string>
     <string name="settings_compress_images_max_side_keep_original">Originalauflösung beibehalten</string>
     <string name="chat_send_shell">Shell-Befehl senden</string>
     <string name="chat_shell_mode_hold_send_hint">Shell-Modus aktiv. Halten Sie \'Senden\', um zurückzuschalten.</string>
+    <!-- #562：会话停滞降级提示 -->
+    <string name="chat_stall_hint">Seit einer Weile keine Daten vom Server. Sie können weiter warten oder diese Runde stoppen.</string>
     <string name="menu_review_changes">Änderungen überprüfen</string>
     <string name="session_path">Pfad</string>
     <string name="session_count">Sitzungen</string>
