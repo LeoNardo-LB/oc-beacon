@@ -43,7 +43,15 @@ while true; do
   D=$(( CUR_F - PREV_F )); DT=$(( CUR_T - PREV_T ))
   if [ "$D" -eq 0 ] && [ "$DT" -ge "$GAP" ]; then
     SZ=$(dump_size)
-    echo "[watch7] $(date +%H:%M:%S) FREEZE-SUSPECT: frames=$CUR_F (+0/${DT}s) dump=${SZ}B"
+    # 2026-10-21 判据改进（10h 浸泡 133 误报定罪后）：静止页零帧≠冻结——
+    # 真冻结=零帧 **且** dump 空树（<5KB，#545 组合内容真空签名）。
+    # 静止页（回复完成等待窗等合法静止）轻记跳过，不落取证包不刷屏。
+    if [ "$SZ" -lt 5000 ] 2>/dev/null; then
+      echo "[watch7] $(date +%H:%M:%S) FREEZE-CONFIRMED: frames=$CUR_F (+0/${DT}s) dump=${SZ}B 空树签名"
+    else
+      echo "[watch7] $(date +%H:%M:%S) still(idle): frames +0/${DT}s dump=${SZ}B 正常内容，跳过"
+      PREV_F=$(frames); PREV_T=$(date +%s); continue
+    fi
     E="$OUT/$(date +%Y%m%d-%H%M%S)"; mkdir -p "$E"
     # a. 黑匣子拉快照（DEBUG 包；release 包此步无响应不影响后续）
     "$ADB" -s "$SER" logcat -c
@@ -55,7 +63,7 @@ while true; do
     PID=$("$ADB" -s "$SER" shell pidof "$PKG" | tr -d '\r')
     if [ -n "$PID" ]; then
       "$ADB" -s "$SER" shell run-as "$PKG" cat /proc/$PID/task/$PID/syscall > "$E/main-syscall.txt" 2>&1
-      for t in $("" -s "$SER" shell run-as "$PKG" ls /proc/$PID/task | tr -d '\r'); do
+      for t in $("$ADB" -s "$SER" shell run-as "$PKG" ls /proc/$PID/task | tr -d '\r'); do
         echo "$t $("$ADB" -s "$SER" shell run-as "$PKG" cat /proc/$PID/task/$t/comm 2>/dev/null | tr -d '\r')" >> "$E/threads.txt"
       done
     fi

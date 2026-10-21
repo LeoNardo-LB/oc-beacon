@@ -89,6 +89,7 @@
   - 处置：升级 AGP/NDK 或依赖版本使打包对齐；release/beta 包是否同样触发待观察
   - 发现源：2026-10-11 #540 三轮验证装机（journal §31 测试侧沉淀）
   - 2026-10-20 检测装置落地+现状复测：scripts/so-align-check.py（ELF PT_LOAD p_align 解析，多 APK 多 ABI 汇总）——devDebug+betaRelease 实测四库三绿一红：libandroidx.graphics.path/libdatastore_shared_counter/libzstd-jni-1.5.7-16 已 16384 对齐（较 10-11 卡记录的四库全告警已部分解决），唯 libsqlite3x.so 全 ABI 仍 4096——修向聚焦 requery sqlite-android 依赖升级（上游 3.4x+ 已带 16KB 对齐构建），AGP/NDK 全局升级可豁免
+  - 2026-10-21 上游调研修正：requery/sqlite-android 的 16KB 对齐是 OPEN 状态（issue #195 未解决——最新 3.50.4 亦未对齐，需 NDK 构建链重做 ELF segment 对齐，上游明确待有能力者接手）——前 note「修向聚焦升级」无升级门，修正定性：等上游修复后升级（外部前提性质）；自编译/换库工程量大且 app 非 Play 发行（GitHub 侧载），4KB 页设备零运行影响，16KB 页设备暂罕见。观察维持，前置=上游 #195
 
 - [ ] **#537 DSH 同步通道 1KB 截断——工具卡全文与 spill 通知不落 Room，离线重开降级** `dsh` `data`
   - 2026-10-09 #536 E2E 通道性发现：DSH 服务器同步/投影通道把工具输出截到 ~1KB（尾标 [truncated, full output on server] 为服务器原话）——spill 通知与全文只存在于打开会话时的实时拉取，cached_parts 恒短版
