@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#562**（2026-10-19 #561 #146⑤A 工具输出截断结构化信号消费——ou）。
+**编号**：全局递增，不回收。下一编号：**#564**（2026-10-21 #563 mock_v2 compaction 剧本装置（）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。**反馈归卡（2026-09-12 用户定规）**：用户对某张卡片的反馈/裁决一律经 `backlog.sh note <N>` 记入**该卡片**明细，**不另开新卡**承载反馈；仅当反馈引出**新的独立缺陷**时才另立卡片，并在两卡明细互相引用（#401→#408 为先例）。**工作流脚本类直接修（2026-09-29 用户定规）**：项目工作流/脚本层的修复（`scripts/` 流程脚本等不进 APK 的项目设施）**不立卡**——发现即直接修+自测，证据记入当批 journal；#480 为末代先例（已立卡的按原流程走完迁移）。
 
@@ -56,6 +56,11 @@
 ## P1 — 核心功能需求
 
 
+- [ ] **#562 会话 Busy 且长时间无 SSE 事件的停滞降级提示（#553 附带体验优化，用户 2026-10-21 批准开工）** `v2` `ui` `sse`
+  - #553 定罪服务器侧执行挂起（running 无事件无推进，app FSM 干净按 zombie 策略等待）——app 域无可修，但可做体验兜底：Busy 且 N 分钟无 SSE 事件时 UI 降级提示「连接可能已停滞」
+  - 约束：SessionStateService 单一真相源纪律不动 FSM 语义，stall 为派生观察流；阈值保守（正常流式事件间隔≪秒级、标题生成静默窗几十秒）；验证走真机 4096
+  - 2026-10-21 完成并验证（commit 07a0edb3；单测 7/lint/i18n/真机双场景全 PASS，journal §#562）：120s 停滞横幅+waiting 排除+5s 自愈消失；zombie/waiting 判定零改动。等用户验收后迁移。
+
 - [ ] **#550 六报②展开后标题消失+全面不可点击——低频未复现，监视器待自然捕获** `ui` `race`
   - 用户报告（beta-2/0.4.0-beta/42）：卡片、思考展开后标题没了，各种原本可点击的地方变得无法点击；莫名其妙（随机）
   - 已排除：ReasoningBlock 标题行无条件常驻（非设计显隐）；dev 包 23 探针轮+beta 包 40 探针轮（focus/dump 响应性）零死 UI；logcat 缓冲无 FATAL/ANR/输入超时；graphicsLayer alpha=0+clipToBounds 零高盒的命中域不构成持久盾（瞬态窗口）
@@ -70,6 +75,11 @@
   - 2026-10-21 10h 浸泡（subagent 监督，00:25-10:23）：1067 轮程序化交互（六报②三断言+25s 流式窗）零命中零守护零冻结签名（watch7 133 事件全定罪静止页误报）——beta-12 稳定性数据大幅增厚（累计 4 手动+1067 浸泡零异常）；维持 P1 观察（程序化交互未覆盖真实多卡展开/长会话场景，用户日常 beta-12 为最高价值窗）；附带装置沉淀：mDNS 解析 grep -oE 定规（三连踩家族）+watch7 判据改进挂账（静止页误报）。证据 /tmp/550-soak/FINAL-REPORT.md + journal 2026-10-21-550-soak-10h
 
 ## P2 — 优化与锦上添花
+
+- [ ] **#563 mock_v2 compaction 剧本装置（E2E 离线覆盖 compaction 域回归）** `e2e` `infra`
+  - mock_v2.py 现零 compaction（#543 验收被迫走真机真服务器）；#539 已消费三档事件（started/delta(text)/ended(text+recent)+failed），app 侧实现齐备可测
+  - 补 MOCK compaction 场景：POST /api/session/:id/compact 触发 SSE compaction 事件族（复刻 4096 实测 wire 形态）；纯装置零 app 风险，验证=模拟器 E2E 消费链
+  - 2026-10-21 完成并验证（真机三剧本 ok/fail/hold 全 PASS，journal §#563）：compact 事件族+历史替换+provider/model 端点+E2E 三场景+E2E 并行安全（Mock.start 定向清孤儿）。装置收益：compaction 域回归离线可测（不再依赖 4096 真服务器）；hold 模式复用为 #562 停滞验证装置。等用户验收后迁移。
 
 - [ ] **#522 B案升 stable 后余留装备清扫——JankHoldGate A/B 开关 + STREAM_DELTA_BUS 旗标退役（#499 余留范围）** `chore` `refactor`
   - 前置：STREAM_SHARD_PILOT / STREAM_DELTA_BUS 升 stable 并观察一批——当前 stable 均 false，JankHold 冻结链在 stable 仍是承重活体（B案开=旁路），现退役会回归 stable 流式滚动组合风暴。
