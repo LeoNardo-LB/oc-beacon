@@ -32,3 +32,17 @@
 ## #550 升格裁决（2026-10-22 23:08 用户批准）
 
 - 观察卡升格「已复现待根修（mock 配方域）」；证据链=soak 五证链 HIT+配方复现 3/3+干净环境样本；根修前取证项两项（流形态等价性+真空起点定位）已入卡。
+
+## 已完结卡片迁入（2026-10-23）
+
+### **#563 mock_v2 compaction 剧本装置（E2E 离线覆盖 compaction 域回归）** `e2e` `infra`
+  - mock_v2.py 现零 compaction（#543 验收被迫走真机真服务器）；#539 已消费三档事件（started/delta(text)/ended(text+recent)+failed），app 侧实现齐备可测
+  - 补 MOCK compaction 场景：POST /api/session/:id/compact 触发 SSE compaction 事件族（复刻 4096 实测 wire 形态）；纯装置零 app 风险，验证=模拟器 E2E 消费链
+  - 2026-10-21 完成并验证（真机三剧本 ok/fail/hold 全 PASS，journal §#563）：compact 事件族+历史替换+provider/model 端点+E2E 三场景+E2E 并行安全（Mock.start 定向清孤儿）。装置收益：compaction 域回归离线可测（不再依赖 4096 真服务器）；hold 模式复用为 #562 停滞验证装置。等用户验收后迁移。
+  - 迁入依据：装置卡 AI 自行验收（用户 2026-10-23 00:02 预授权）：三剧本×2 重复 6/6 PASS+边界 LINES=20 PASS/LINES=1 判读豁免（横幅 0.85s 窗<uiautomator 采样 1.8s 物理限制，终态双断言 PASS=消费链正常）+既有卡 544_acc/551 回归零破坏+真机三剧本 PASS（昨日）；compaction 域回归离线可测达成（backlog.sh migrate 2026-10-23）
+
+### **#562 会话 Busy 且长时间无 SSE 事件的停滞降级提示（#553 附带体验优化，用户 2026-10-21 批准开工）** `v2` `ui` `sse`
+  - #553 定罪服务器侧执行挂起（running 无事件无推进，app FSM 干净按 zombie 策略等待）——app 域无可修，但可做体验兜底：Busy 且 N 分钟无 SSE 事件时 UI 降级提示「连接可能已停滞」
+  - 约束：SessionStateService 单一真相源纪律不动 FSM 语义，stall 为派生观察流；阈值保守（正常流式事件间隔≪秒级、标题生成静默窗几十秒）；验证走真机 4096
+  - 2026-10-21 完成并验证（commit 07a0edb3；单测 7/lint/i18n/真机双场景全 PASS，journal §#562）：120s 停滞横幅+waiting 排除+5s 自愈消失；zombie/waiting 判定零改动。等用户验收后迁移。
+  - 迁入依据：AI 自行验收（用户预授权）：真机双场景 PASS（昨日）+模拟器双场景×2 重复 PASS（正例 140s 出现/停止即消/负例 90s 零误报）+单测 7 fresh 全绿+lint exit 0+回归零破坏；#553 服务器侧挂起的 app 侧体验兜底语义达成；残余观察=真实使用中横幅频率（轻 UI 面已复刻 ShellModeHintBanner 既有语言，主观不适可后续微调）（backlog.sh migrate 2026-10-23）

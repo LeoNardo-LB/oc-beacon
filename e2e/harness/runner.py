@@ -1380,14 +1380,15 @@ def _tap_chat_menu(dev, label, timeout=10):
     return False
 
 
-def _wait_text(ctx, needle, timeout=15, dump_name=None):
-    """轮询 dump 直到文本/描述含 needle（#563）。"""
+def _wait_text(ctx, needle, timeout=15, dump_name=None, interval=0.8):
+    """轮询 dump 直到文本/描述含 needle（#563）。interval 可调——超快场景
+    （如 MOCK_COMPACT_LINES=1 横幅 ~1.2s 闪现）须 0.3s 级轮询防漏检。"""
     end = time.time() + timeout
     while time.time() < end:
         ns = ctx.dev.nodes()
         if any(needle in (n["text"] or "") or needle in (n["desc"] or "") for n in ns):
             return True
-        time.sleep(0.8)
+        time.sleep(interval)
     if dump_name:
         ctx.dump(dump_name)
     return False

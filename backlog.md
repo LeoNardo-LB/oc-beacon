@@ -56,11 +56,6 @@
 ## P1 — 核心功能需求
 
 
-- [ ] **#562 会话 Busy 且长时间无 SSE 事件的停滞降级提示（#553 附带体验优化，用户 2026-10-21 批准开工）** `v2` `ui` `sse`
-  - #553 定罪服务器侧执行挂起（running 无事件无推进，app FSM 干净按 zombie 策略等待）——app 域无可修，但可做体验兜底：Busy 且 N 分钟无 SSE 事件时 UI 降级提示「连接可能已停滞」
-  - 约束：SessionStateService 单一真相源纪律不动 FSM 语义，stall 为派生观察流；阈值保守（正常流式事件间隔≪秒级、标题生成静默窗几十秒）；验证走真机 4096
-  - 2026-10-21 完成并验证（commit 07a0edb3；单测 7/lint/i18n/真机双场景全 PASS，journal §#562）：120s 停滞横幅+waiting 排除+5s 自愈消失；zombie/waiting 判定零改动。等用户验收后迁移。
-
 - [ ] **#550 六报②展开后标题消失+全面不可点击——已复现（非空栈型组合内容真空，mock 配方 3/3）待根修（2026-10-22 用户裁决升格）** `ui` `race`
   - 用户报告（beta-2/0.4.0-beta/42）：卡片、思考展开后标题没了，各种原本可点击的地方变得无法点击；莫名其妙（随机）
   - 已排除：ReasoningBlock 标题行无条件常驻（非设计显隐）；dev 包 23 探针轮+beta 包 40 探针轮（focus/dump 响应性）零死 UI；logcat 缓冲无 FATAL/ANR/输入超时；graphicsLayer alpha=0+clipToBounds 零高盒的命中域不构成持久盾（瞬态窗口）
@@ -77,11 +72,6 @@
   - 2026-10-22 23:08 用户裁决升格：观察→**已复现待根修（mock 配方域）**。根修前取证项：①流形态等价性（mock giant 流↔真实服务器事件序列对比）②真空起点定位（流完成后释放路径嫌疑域：giant 完成的 step.ended/execution.succeeded 处理链→组合树子节点零尺寸的传播链）——判读边界见 journal 五卡总收节
 
 ## P2 — 优化与锦上添花
-
-- [ ] **#563 mock_v2 compaction 剧本装置（E2E 离线覆盖 compaction 域回归）** `e2e` `infra`
-  - mock_v2.py 现零 compaction（#543 验收被迫走真机真服务器）；#539 已消费三档事件（started/delta(text)/ended(text+recent)+failed），app 侧实现齐备可测
-  - 补 MOCK compaction 场景：POST /api/session/:id/compact 触发 SSE compaction 事件族（复刻 4096 实测 wire 形态）；纯装置零 app 风险，验证=模拟器 E2E 消费链
-  - 2026-10-21 完成并验证（真机三剧本 ok/fail/hold 全 PASS，journal §#563）：compact 事件族+历史替换+provider/model 端点+E2E 三场景+E2E 并行安全（Mock.start 定向清孤儿）。装置收益：compaction 域回归离线可测（不再依赖 4096 真服务器）；hold 模式复用为 #562 停滞验证装置。等用户验收后迁移。
 
 - [ ] **#522 B案升 stable 后余留装备清扫——JankHoldGate A/B 开关 + STREAM_DELTA_BUS 旗标退役（#499 余留范围）** `chore` `refactor`
   - 前置：STREAM_SHARD_PILOT / STREAM_DELTA_BUS 升 stable 并观察一批——当前 stable 均 false，JankHold 冻结链在 stable 仍是承重活体（B案开=旁路），现退役会回归 stable 流式滚动组合风暴。
