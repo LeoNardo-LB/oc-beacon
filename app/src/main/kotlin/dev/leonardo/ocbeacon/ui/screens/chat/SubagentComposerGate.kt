@@ -26,6 +26,18 @@ internal object SubagentComposerGate {
             (subagentsSupported && mode == SubagentCatalogEntry.MODE_CONTINUABLE)
 
     /**
+     * #550 根修（2026-10-23）：interaction.error 对 composer 的隐藏条件收窄——
+     * 仅在「无消息可看」（=ChatErrorState 兜底显示条件）时隐藏。断线期 REST
+     * 失败置起的 error 无清除路径（重连成功不自愈）曾让 Room 缓存可看的会话
+     * 永久失去输入栏（「消息能看没法回复」锁死——mock 域 soak HIT + 断线重进
+     * 实验复现双证，journal 2026-10-23-550-root-cause-rca）。#310① 的「加载
+     * 失败保守隐藏防误发」语义由 messagesEmpty 分支继续承载（真空转加载失败
+     * 态时 ChatErrorState 占屏，composer 隐藏不冲突）。
+     */
+    fun composerVisibleOnError(error: String?, messagesEmpty: Boolean): Boolean =
+        !(error != null && messagesEmpty)
+
+    /**
      * 只读提示行：one-shot（明确不可续聊）或 unresolved（续聊无法建立）；
      * 加载中（null）不显示——防把在途会话误标只读。文案分流见调用点：
      * one-shot 用专用文案，unresolved 与能力位缺席共用只读镜像文案。

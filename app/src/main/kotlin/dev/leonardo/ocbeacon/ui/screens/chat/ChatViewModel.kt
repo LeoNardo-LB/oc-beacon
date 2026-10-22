@@ -580,6 +580,21 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             sessionErrorEvent.collect { _sessionErrorToast.value = it }
         }
+        // #550 根修（2026-10-23）：断线期滞留的 interaction.error 在重连成功边沿自愈
+        // ——loadMessages() 开头 errorSink(null) + 成功保持 null；此前 error 无任何
+        // 清除路径（断线一次→重进会话→Room 缓存可看但输入栏被 error 条件永久隐藏）。
+        viewModelScope.launch {
+            var wasConnected = sseConnectionManager.linkState(serverId) == ServerLinkState.Connected
+            serverLinkState.collect { state ->
+                val connected = state == ServerLinkState.Connected
+                if (connected && !wasConnected &&
+                    messageData.interactionState.value.error != null
+                ) {
+                    messageData.paginationDelegate.loadMessages()
+                }
+                wasConnected = connected
+            }
+        }
     }
 
     val draftAttachmentUris: StateFlow<List<String>> get() = draftDelegate.draftAttachmentUris

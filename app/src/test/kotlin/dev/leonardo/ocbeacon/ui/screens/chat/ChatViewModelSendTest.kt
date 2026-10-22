@@ -429,4 +429,55 @@ class ChatViewModelSendTest {
         viewModel.consumeSessionErrorToast()
         assertNull(viewModel.sessionErrorToast.value)
     }
+
+    // ========== #550 根修：断线滞留 error 的重连边沿自愈 ==========
+
+    /**
+     * #550：断线期滞留的 interaction.error（曾永久滞留——重连成功无清除路径，
+     * composer 被 error 条件永久隐藏）在 ServerLinkState 回到 Connected 的边沿
+     * 自动重试 loadMessages 并清除。error 置起走 refreshMessages 失败链
+     * （compactionFailedEvent → refreshMessages → REST 失败 → reportError——
+     * 生产来源复刻）。
+     */
+    @Test
+    fun `reconnect edge clears stale interaction error`() = runTest {
+        val linkFlow = MutableStateFlow<dev.leonardo.ocbeacon.service.ServerLinkState>(
+            dev.leonardo.ocbeacon.service.ServerLinkState.Connecting)
+        every { sseConnectionManager.observeLinkState(any()) } returns linkFlow
+        every { sseConnectionManager.linkState(any()) } returns
+            dev.leonardo.ocbeacon.service.ServerLinkState.Connecting
+        clearMocks(eventDispatcher)
+        io.mockk.every { eventDispatcher.commandsChanged } returns kotlinx.coroutines.flow.MutableSharedFlow()
+        io.mockk.every { eventDispatcher.parts } returns kotlinx.coroutines.flow.MutableStateFlow(emptyMap<String, List<dev.leonardo.ocbeacon.domain.model.Part>>())
+        val compactionFailFlow = MutableSharedFlow<Pair<String, String>>(extraBufferCapacity = 4)
+        every { eventDispatcher.compactionFailures } returns compactionFailFlow
+
+        val viewModel = createViewModel()
+        val subJob = subscribeToInteractionState(viewModel)
+        advanceUntilIdle()
+
+        // error 置起：压缩失败事件 → refreshMessages → 断线 REST 失败 → reportError
+        io.mockk.coEvery { manageSessionUseCase.listMessages(any(), any(), any()) } throws
+            java.io.IOException("offline")
+        compactionFailFlow.tryEmit("test-session" to "summarize failed")
+        advanceUntilIdle()
+        assertEquals("offline", viewModel.interactionState.value.error)
+
+        // 重连成功边沿 → 自愈重试（listMessages 成功 → errorSink(null)）
+        io.mockk.coEvery { manageSessionUseCase.listMessages(any(), any(), any()) } returns emptyList()
+        linkFlow.value = dev.leonardo.ocbeacon.service.ServerLinkState.Connected
+        every { sseConnectionManager.linkState(any()) } returns
+            dev.leonardo.ocbeacon.service.ServerLinkState.Connected
+        advanceUntilIdle()
+
+        assertNull("reconnect must clear stale error", viewModel.interactionState.value.error)
+
+        // 跨用例协程稳定化：VM 的长期 collect（边沿自愈/stateIn WhileSubscribed）挂起于
+        // 本用例的 testScheduler——回稳态+取消外部订阅，防 teardown(unmockkAll/resetMain)
+        // 后协程恢复消费已卸载 mock 抛未捕获异常（UncaughtExceptionsBeforeTest 污染
+        // 后续用例，全类跑实证）。
+        subJob.cancel()
+        linkFlow.value = dev.leonardo.ocbeacon.service.ServerLinkState.Connecting
+        advanceUntilIdle()
+    }
 }

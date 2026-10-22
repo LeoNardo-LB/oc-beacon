@@ -451,7 +451,14 @@ internal fun ChatScreenBottomBar(
             doSend()
         }
     }
-    if (subagentComposerVisible && !isTerminalMode && interaction.error == null) {
+    // #550 根修（2026-10-23）：error 只在「无消息可看」（=ChatErrorState 兜底显示
+    // 条件）时才隐藏 composer——断线期 REST 失败置起的 interaction.error 恒留
+    // （重连成功无清除路径）曾让 Room 缓存可看的会话永久失去输入栏（「消息能看
+    // 没法回复」锁死，mock 域 soak HIT+实验复现双证）。语义收编纯函数
+    // [SubagentComposerGate.composerVisibleOnError]（单测钉死四象限）。
+    if (subagentComposerVisible && !isTerminalMode &&
+        SubagentComposerGate.composerVisibleOnError(interaction.error, messageState.messages.isEmpty())
+    ) {
         // #497 D4：挂载即焦点接力——骨架期预约的聚焦在此兑现（requestFocus 对
         // 未挂载节点会抛 IllegalStateException，runCatching 兜底静默）。
         LaunchedEffect(Unit) {

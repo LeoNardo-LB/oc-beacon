@@ -139,4 +139,24 @@ class SubagentComposerGateTest {
             SubagentComposerGate.composerVisible("parent-1", true, SubagentComposerGate.MODE_UNRESOLVED),
         )
     }
+
+    // ---- composerVisibleOnError（#550 根修：error 隐藏条件收窄） ----
+
+    @Test
+    fun `no error shows composer regardless of messages`() {
+        assertTrue(SubagentComposerGate.composerVisibleOnError(null, true))
+        assertTrue(SubagentComposerGate.composerVisibleOnError(null, false))
+    }
+
+    @Test
+    fun `error with empty messages hides composer - ChatErrorState 兜底对齐`() {
+        // 真空转加载失败态：ChatErrorState 占屏，composer 隐藏（#310① 防误发语义承载）
+        assertFalse(SubagentComposerGate.composerVisibleOnError("Failed to load", true))
+    }
+
+    @Test
+    fun `error with cached messages keeps composer - 550 永久锁死回归锚点`() {
+        // 断线期 error 恒留 + Room 缓存可看：输入栏必须保持（消息能看就该能回复）
+        assertTrue(SubagentComposerGate.composerVisibleOnError("Failed to load", false))
+    }
 }
