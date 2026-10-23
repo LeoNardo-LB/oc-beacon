@@ -56,26 +56,6 @@
 ## P1 — 核心功能需求
 
 
-- [ ] **#550 六报②展开后标题消失+全面不可点击——已复现（非空栈型组合内容真空，mock 配方 3/3）待根修（2026-10-22 用户裁决升格）** `ui` `race`
-  - 用户报告（beta-2/0.4.0-beta/42）：卡片、思考展开后标题没了，各种原本可点击的地方变得无法点击；莫名其妙（随机）
-  - 已排除：ReasoningBlock 标题行无条件常驻（非设计显隐）；dev 包 23 探针轮+beta 包 40 探针轮（focus/dump 响应性）零死 UI；logcat 缓冲无 FATAL/ANR/输入超时；graphicsLayer alpha=0+clipToBounds 零高盒的命中域不构成持久盾（瞬态窗口）
-  - 在查假设：#545 BLANK-RENDER-FREEZE 同族（渲染冻结仅 force-stop 可恢复——待用户差分：是否 force-stop 才恢复/离开重进屏幕是否自愈）；beta-2 无四刀的闪光脸下游（巨型内容单帧全量组合=长主线程停顿——beta-3 复测差分）；#547 组合期写流的后向写面
-  - 监视器已布防（watch6b.sh：beta 前台时 gfxinfo 10s 零新帧=冻结嫌疑自动抓 dump/截图/logcat，~2.7h 窗口）；用户在 beta-3 复测报告①时若②复发即有现场
-  - 复验轮（subagent 22:30-23:27，REVERIFY-REPORT.md）：B3/B4 fresh 复验被上游 provider 凭据失效阻塞（22:41 起免费+付费层全线 401/零输出，用户域凭据问题）——同构建间接证据（probe6 23×focus 全绿/p6b 40×全绿/s5+fuzz 无真命中）支持未见跳跃/死 UI；补跑脚本就绪 repro6c_dev.sh/repro6c_beta.sh（含前台包校验——勘误：此前 p6c beta 轮实为 dev 前台误测，两包同代码结论不变）
-  - B1（高度偏移）同构建历史 5 轮全绿+B2（贴底上向）fresh+历史双证 PASS；新发现扫描器误报类：IME inset 动画窗（键盘收起 notifyFinished/onReady 产生 −838/−753 单次外部位移，非手势非 toggle）——scan5r5 需补 IME 窗排除（登记入 #549 修向附带）
-  - 环境修复+补验收官（2026-10-13 凌晨）：所谓凭据全线失效实为双源——zhipuai-coding-plan 余额耗尽（curl 实证 error 1113，充值属用户域）+opencode 免费中继账号凭据失效（401，重登录属用户域）；deepseek key 活着（余额 91 元）但模型 id 被误用（deepseek-reasoner 不在册，正确为 deepseek-flash/v4-pro）——改走 deepseek-flash 后测试链全恢复（出流+reasoning）
-  - B3/B4 补验（用户原话协议：空起步展开×12+ 轮，dev 探针版）：零真命中——全部 TITLE-GONE 经 dump 定罪=思考卡被流式答案顶出 a11y 视口（屏幕实为答案正文+完成栏，正常贴底 UX）；唯一 OSC=markdown 表格重排凹陷（数据驱动合法补偿）；零 DEAD-UI/FOCUS-0。判定：四刀修复版上 B3/B4 未复现
-  - 工具教训：TITLE 存活探针须带滚动感知（a11y 视口裁剪伪影）；scan5r5 需补 IME-inset 窗排除与重排凹陷容忍（本轮三类伪影全记录在案）
-  - 2026-10-20 傍晚 AI 验收处置（用户委托）：①机制关联分析——#545 当日定谳（空栈→组合内容真空→a11y 空树）与卡内第一备查假设「#545 同族」高度相关：『全面不可点击』拟合 a11y 空树、『标题没了』拟合内容消失；但 #545 signature=整屏空白 vs 六报②=部分元素消失（卡片在标题没了）——不完全吻合，不能强判同族；关键差分（force-stop 才恢复？/离开重进自愈？）仍待用户日常观察。②装置升级——beta-12/52（0.4.0-beta-12，含 #545 空栈守护+#543 唯一所有权+全部近期根修）已装真机；watch7 冻结监视器挂起（30s 间隔 gfxinfo 零新帧检测+自动取证包；beta 包无 FreezeWatchdog 黑匣子=DEBUG 门控不进 release，取证退化为外部四件套——守护日志 #545 empty backStack guard 在 logcat/Diagnostics 可查=同族复发的仪器判据）。③判定：维持 P1 观察（低频未复现本性）——若守护日志触发+死 UI 症状同现=同族实锤可关联收口；零触发零症状=继续观察。监视跑至明晨，用户日常使用 beta-12 即为自然观察窗
-  - 2026-10-21 10h 浸泡（subagent 监督，00:25-10:23）：1067 轮程序化交互（六报②三断言+25s 流式窗）零命中零守护零冻结签名（watch7 133 事件全定罪静止页误报）——beta-12 稳定性数据大幅增厚（累计 4 手动+1067 浸泡零异常）；维持 P1 观察（程序化交互未覆盖真实多卡展开/长会话场景，用户日常 beta-12 为最高价值窗）；附带装置沉淀：mDNS 解析 grep -oE 定规（三连踩家族）+watch7 判据改进挂账（静止页误报）。证据 /tmp/550-soak/FINAL-REPORT.md + journal 2026-10-21-550-soak-10h
-  - 2026-10-22 模拟器 soak 5h（队列串行腿2，/tmp/soak-550/FINAL-REPORT.md 终版）：**真 HIT=非空栈型组合内容真空**（五证链：RESUMED+焦点在/组合树子节点全零尺寸/纯色屏≥2min/invalidate 不可救/#545 空栈守护 0 触发）——与六报②症状高度拟合（a11y 空树=全面不可点击/内容空=标题没了），#545 姐妹形态谱系（守护盲区互补）；**配方复现 3/3=100%**（giant 流完成→下一 turn ≤40s 渐进真空 editor→标题→全树→纯色，含模拟器重启后干净样本 R#35——程序化诱因怀疑削弱，mock↔真实流形态等价性未证）；后段 2h 慢性准真空（send 恒败导航部分可用，无自然恢复）。执行代理判定建议：观察升「已复现待根修（mock 配方域）」，根修前取证=流形态等价性+真空起点定位（流完成后释放路径嫌疑域）——**升格待用户裁决**。真机 10h+beta-12 日常零复发与 mock 复现不矛盾（流形态差异+每轮 force-stop 消灭真空窗）。装置沉淀：soak.py 五版终态+8 坑位+a11y 挂死队列级预警（dump 空≠屏幕空）+harness 修复三处回灌宿主
-  - 2026-10-22 23:08 用户裁决升格：观察→**已复现待根修（mock 配方域）**。根修前取证项：①流形态等价性（mock giant 流↔真实服务器事件序列对比）②真空起点定位（流完成后释放路径嫌疑域：giant 完成的 step.ended/execution.succeeded 处理链→组合树子节点零尺寸的传播链）——判读边界见 journal 五卡总收节
-  - 2026-10-23 凌晨根修腿收官：根因链实验定谳（journal 2026-10-23-550-root-cause-rca）——①soak「组合内容真空」叙事推翻：HIT 截图实为完整 UI（纯色=低信息量高压缩误判），「渐进真空」=断线下游装置断言盲区链（AlertDialog 焦点劫持→dump 剪枝/桌面与权限对话框抢窗/a11y 层挂死）+tap 无 POST=断线本地拒绝（#267 哨兵正确行为）+主线程空闲（8×debuggerd 栈实证，阻塞假设排除）
-  - ②真缺陷=断线重进输入栏整块消失+error 永久滞留（interaction.error 无清除路径→ChatScreenBottomBar error 条件永久隐藏 composer，「消息能看没法回复」锁死，重连 50s 不恢复实验实证）——与六报②「各种原本可点击的地方变得无法点击/莫名其妙」拟合
-  - ③根修两腿=error 隐藏条件收窄（SubagentComposerGate.composerVisibleOnError 纯函数，仅 ChatErrorState 兜底态隐藏）+重连 Connected 边沿自愈（ChatViewModel 重试 loadMessages 清 error）
-  - ④验证=Gate 单测 3 用例四象限+ChatViewModelSendTest 边沿自愈用例 11/11+模拟器断线重进输入栏保持（修复前 EditText=0→修复后=1）+恢复后 send 链路健康
-  - ⑤判读边界：「展开后标题没了」子症状未在本链闭合（挂 note 真机观察）；mock↔真实流形态等价性已证不构成复现障碍（事件族序列等证/delta 粒度保守方向/ended 全文回显有实录——本案根因与流形态无关）
-
 ## P2 — 优化与锦上添花
 
 - [ ] **#522 B案升 stable 后余留装备清扫——JankHoldGate A/B 开关 + STREAM_DELTA_BUS 旗标退役（#499 余留范围）** `chore` `refactor`
@@ -99,6 +79,7 @@
   - 发现源：2026-10-11 #540 三轮验证装机（journal §31 测试侧沉淀）
   - 2026-10-20 检测装置落地+现状复测：scripts/so-align-check.py（ELF PT_LOAD p_align 解析，多 APK 多 ABI 汇总）——devDebug+betaRelease 实测四库三绿一红：libandroidx.graphics.path/libdatastore_shared_counter/libzstd-jni-1.5.7-16 已 16384 对齐（较 10-11 卡记录的四库全告警已部分解决），唯 libsqlite3x.so 全 ABI 仍 4096——修向聚焦 requery sqlite-android 依赖升级（上游 3.4x+ 已带 16KB 对齐构建），AGP/NDK 全局升级可豁免
   - 2026-10-21 上游调研修正：requery/sqlite-android 的 16KB 对齐是 OPEN 状态（issue #195 未解决——最新 3.50.4 亦未对齐，需 NDK 构建链重做 ELF segment 对齐，上游明确待有能力者接手）——前 note「修向聚焦升级」无升级门，修正定性：等上游修复后升级（外部前提性质）；自编译/换库工程量大且 app 非 Play 发行（GitHub 侧载），4KB 页设备零运行影响，16KB 页设备暂罕见。观察维持，前置=上游 #195
+  - 2026-10-23 前提重验：**阻塞维持**——requery/sqlite-android #195 仍 OPEN 且被上游文档列为「最紧迫的未解决问题」（zread 知识库明言「需要熟悉 NDK 构建配置和 ELF 段要求的人接手，正等待具备专业知识和动力的人」）；最新版 SQLite 3.5x 线均未带 16KB 对齐
 
 - [ ] **#537 DSH 同步通道 1KB 截断——工具卡全文与 spill 通知不落 Room，离线重开降级** `dsh` `data`
   - 2026-10-09 #536 E2E 通道性发现：DSH 服务器同步/投影通道把工具输出截到 ~1KB（尾标 [truncated, full output on server] 为服务器原话）——spill 通知与全文只存在于打开会话时的实时拉取，cached_parts 恒短版
@@ -143,11 +124,13 @@
 - [ ] **#381 192.168.110.248:248 重配——凭据宿主零痕迹不可探查（2026-09-09 用户裁决入 P4）** `infra`
   - **前提**：上游提供远程凭据探知能力——用户原话「后续看看 dsh 官方是否会支持远程探知 token 或其他认证手段」（DSH 官方远程 token 发现，或 OAuth/设备码流等替代认证）；前提满足后 `cred-probe.sh opencode 248 <名称>` 即可接管（/proc 探针现成）；若上游确认不会支持，再议弃用或人工一次性重配
   - 2026-10-09 前提重验：未满足维持——oauth/device_code/mdns/discovery 全包 0 命中、CLI 无 token 子命令、README 明文 no query token outside root exchange / --host 0.0.0.0 unsupported。边际变化：cookie 签名 secret 已持久化 .credentials.yaml（跨重启有效默认 30 天），官方文档化「token 一次性兑换长期 cookie」——未来可探索兑换复用。证据：docs/research/2026-10-09-p4-upstream-preconditions-check.md
+  - 2026-10-23 0.2.1 前提重验（用户裁决基准=dsh-v0.2.1-rc.2，2026-10-17 最新）：**阻塞维持**——连接 token 远程探知仍无：①credentials 域设计红线=secret 单向不可读（ctx.remote.credentials 仅 describe/set/unset 跨 remote wire，无读路径；describe 视图无值槽位是显式安全设计）②新增 dsh-authorization 包（人工引导授权流：OAuth/一次性码/账号选择——插件注册 flow+surface 发起）与 deepseek-account（浏览器 PKCE 登录，startSignIn 要求 callbackOrigin=loopback 本地回环）均**本机限定**（0.2.1-rc.1 changelog 明言「Web 版支持在本机 HTTP 访问时登录」）。边际变化备查：远程凭据**写入**面已开（config surface 可经 remote 写引用值）——若上游未来把 authorization begin() 的 interaction 暴露给 remote wire（远程发起授权流）即达成「替代认证」前提，届时重验
 
 - [ ] **#332 spill 提示行——服务器无结构化信号（工具结果溢出 notice 内嵌纯文本）** `dsh` `sse`
   - **前提**：dsh-spill-policy 全链查实——溢出替换为有界 head/tail 预览+locator 提示全部内嵌工具结果 output 文本,transcript 无 spill 事件（session 事件枚举/types/实现三路 grep 0）;文案模式匹配脆弱（#136 先例:服务器改文案即静默失效）。待服务器暴露结构化字段再实现。→ `docs/research/2026-09-05-audit-309-313.md` #312③ + 实现 agent 取证（暂不可实现）
   - 2026-10-09 前提重验：未满足维持——61 事件枚举/ToolResultMessage 载荷零 spill 结构化字段，上游自认文本约定不可认证（hasSpillNotice 注释「not authenticated tool-output origin」+ README Known Limitations 首条）。可参考上游固定拼写 formatSpillNotice 实现替代自造正则。证据：docs/research/2026-10-09-p4-upstream-preconditions-check.md
   - 2026-10-09 用户裁决：授权降级实现（上游固定拼写文案匹配，实现处须详细注释约定来源与不可认证性）→新卡 #536；本卡维持 P4 挂结构化信号长期观察，上游升级时复查后切换
+  - 2026-10-23 0.2.1 前提重验：**阻塞维持**——spill 仍纯文本约定（0.2.1-rc.2 与 master 的 spill-policy/notice.ts 同构：formatSpillNotice/hasSpillNotice 文本拼接与识别，注释自认「identifies the text convention, not authenticated tool-output origin」）。利好备查：hasSpillNotice 为上游官方导出的权威识别函数（与 #536 降级实现的文案匹配同构判定）——若上游改拼写，函数同步演进，客户端 #536 实现的判据可参照其源码校准
 
 - [ ] **#146 OpenCode 官方问题清单（issue/PR 候选）** `upstream`
   - **前提**：上游 anomalyco/opencode 合入变更——需先过用户流程门槛（本地定位官方源码→修复→完整测试含 E2E+交叉验证→人工测试→用户放行才可提交 PR；源码已就位）；2026-09-03 用户裁决长期挂起，上游不提不影响本 app（客户端防御均已落地）
@@ -161,3 +144,4 @@
   - 2026-10-10 系统调研完结（docs/research/2026-10-10-146-consumption-research.md）：①上游已修→客户端消费（G1/G2+⑤A）拆卡排期 B4 + R1 前取证腿；⑤B/C 视取证为 B5 候选；本卡余 PR 候选线（③>⑥>①>②）维持 P4 用户流程门槛
   - 2026-10-19 拆卡：消费腿落三卡——#559（取证腿，R1 前真机顺带）/#560（①A/B 三缺口实现，B4 窗口）/#561（⑤A outputPaths 消费，B4 窗口）；⑤B/C 视 #559 结论为 B5 候选；①C（DSH 式转录实体）不排期（收益与现有 Part.Compaction 分割线形态重叠）；本卡余 PR 候选线（③>⑥>①>②）维持 P4 用户流程门槛
   - 2026-10-19 深夜勘误：前 note 所记「拆卡落三卡 #559/#560/#561」为重复登记——#539（10-10 11:54，调研报告后 2 小时）已把 ①A/B+⑤A/B 全部消费（现网取证+实现+验证齐备）；三卡已迁移关闭，今晚独立复测交叉验证一致（见 2026-10-10-539 journal 追加节）。本卡维持 P4 余 PR 候选线（③>⑥>①>②）不变
+  - 2026-10-23 上游复查（PR 候选线收窄）：**⑥上游已重做**——anomalyco/opencode 8-26 合入 #44844（后台任务 durable 化：kv 持久记录/重启恢复/持久终态）+10-18 #56321（shell 状态延迟到输出捕获完成）+10-19 #56982（killed 状态启用+事件序稳定化 exited(killed)→deleted）——原症状「后台 shell 状态恒 completed（exit 7 亦然）」的 status 域已三态化+持久化，⑥的 PR 候选资格消失。触发本卡登记的「后台 shell 重建后复查」：客户端防御性派生（正文文本判失败）可否退役=下次真机窗口顺带实测（连 4096 触发后台 shell 看 shell.exited 状态分布）。②③维持 wontfix、①已修已消费（#539）——**本卡 PR 候选线收窄为仅③**（V2 cursor 400 降级，官方 NOT_PLANNED 已定局，客户端只产 V2 cursor 自救为终态——③实际也无 PR 可提，卡实质=上游问题归档观察）
