@@ -46,3 +46,30 @@
   - 约束：SessionStateService 单一真相源纪律不动 FSM 语义，stall 为派生观察流；阈值保守（正常流式事件间隔≪秒级、标题生成静默窗几十秒）；验证走真机 4096
   - 2026-10-21 完成并验证（commit 07a0edb3；单测 7/lint/i18n/真机双场景全 PASS，journal §#562）：120s 停滞横幅+waiting 排除+5s 自愈消失；zombie/waiting 判定零改动。等用户验收后迁移。
   - 迁入依据：AI 自行验收（用户预授权）：真机双场景 PASS（昨日）+模拟器双场景×2 重复 PASS（正例 140s 出现/停止即消/负例 90s 零误报）+单测 7 fresh 全绿+lint exit 0+回归零破坏；#553 服务器侧挂起的 app 侧体验兜底语义达成；残余观察=真实使用中横幅频率（轻 UI 面已复刻 ShellModeHintBanner 既有语言，主观不适可后续微调）（backlog.sh migrate 2026-10-23）
+
+### **#553 V2 长答案完成后「停止」按钮残留 ~2 分钟（疑标题生成保持 busy）——终验观察项** `v2` `ui` `sse`
+  - 模拟器终验 r81 遗留观察：p2 长答案完成后停止按钮残留约 2 分钟才消失，非滚动/展开域违规；疑 V2 会话标题生成阶段持续置 busy 状态所致；复发时抓 SessionState FSM 状态流取证再定修向
+  - 证据：/home/leonardo/.cache/540emu/FINAL-EMU-REPORT.md 遗留观察节
+  - 2026-10-20 凌晨主动复测（模拟器+4096 v2 长答案 60s 流）：停止按钮残留实测 ~9s（t+2s 在场→t+9s 消失），非 ~2 分钟——疑已被后续批次顺带治愈（r81 观察后 ChatScreen 域动过 #547/#544）；FSM 时间线干净（SseIdle→Idle [force-complete] 一刀切），无 Title agent 保持 busy 迹象（服务器标题生成独立于会话 FSM）。观察阈值更新：残留 >15s 即复发信号，届时抓 FSM 流+dump 复测。取证 /tmp/553/{full,fsm,title}.log
+  - 2026-10-21 真机复测腿+根因归属修正：本轮「停止按钮 42s+ 在场」定罪为**服务器侧执行挂起**（/api/session/active 显 running 7 分钟无推进无事件；app 侧 FSM 干净——L3 校验发现 server-Busy/无 SSE 矛盾后按 zombie 策略保守等待，停止按钮=Busy 正确反映；app 点停止即恢复，服务器 active 清空）。结合模拟器 9s 干净样本：**#553 现象主体=服务器侧 turn 状态收敛慢/挂起（provider 链无超时兜底，上游域），app 域无可修**（可选体验优化=无事件 N 分钟 UI 降级提示，另议）。观察维持，复发以 [SessionStateService] server says Busy but no SSE events 日志+curl /api/session/active 双证定界
+  - 2026-10-22 模拟器 soak 5.3h（队列串行腿5，/tmp/soak-553/FINAL-REPORT.md）：giant 150/150 CLEAN **残留全部 <2s**（比 10-20 干净谱 ~9s 更快，分布退化单点零在场采样）+hold 对照 36 轮满 75s 驻留+tap-stop→gone 36/36——**HIT=0 未复现，维持 P3 观察**（与根因归属一致：现象主体=服务器侧收敛慢，app FSM 干净；mock 腿为 app 侧负证增厚，复发定界仍按卡内双证）。装包事故=INSTALL_FAILED_VERSION_DOWNGRADE（-d 降级装修复+坚持旧快照防 #562 停滞提示代码污染判读）；装置沉淀七条（hold 天然对照裁定法/MOCK_HOLD_OPEN 真实驱动变量/hold 轮恢复路径缺失等）
+  - 迁入依据：观察收口（用户 2026-10-23 批准评估方案）：app 域无可修定罪成立（服务器侧执行挂起，/api/session/active running 7 分钟无推进双证+FSM 干净+点停止即恢复）+mock 负证增厚（队列腿5 giant 150/150 残留全 <2s+hold 对照 36/36 tap-stop 恢复）+体验兜底已交付（#562 停滞横幅=该场景 app 侧可达的语义终点）。复发时按卡内双证定界（server says Busy but no SSE events 日志+curl /api/session/active）；若复发频率高再议服务器侧上游反馈（backlog.sh migrate 2026-10-23）
+
+### **#486 SSE retry 重建帧 watch（原#471④）：断连续传+滚出视口弃树+ever=false 理论盲区，复发再战勿主动开工** `scroll` `chat`
+  - 原 #471④ 用户裁决 c 降级观察（v1+v2 四场景不可复现，331k 行取证 Loading=0，#472 hold/registry/preParsed 防御栈有效）；#471 整卡迁移后观察线独立成卡（spec §8：watch 不关）
+  - 理论盲区：断连续传+滚出视口弃树重建+ever=false 帧（0 触发）；若复发，残余只剩 staged/换装差（-1330px ③族已消失）——spec §8 残余收窄注记
+  - 判读取证：MDResize 负 d / RESETKEY / nonPrefix / rawTail 探针均保留 DEBUG-only（2026-09-30 用户裁决）
+  - 2026-10-09 用户裁决：改「等复现」为 soak 长时主动狩猎→转 #535；本卡保留判读上下文。关键勘误：2026-09-30 实验 A/B 均未含「滚动离屏」第三要素（longcat 限流未跑成三联场景）——「0 触发」实为「0 试验」，见 journal 2026-09-30-471-4 §4.2
+  - 2026-10-10 B2评估：根修（LRU账本wasStreamed+终态缓存LRU32，coldReveal单帧揭示）已落地并全验证——同内容冷重入0空窗（仪器化mainClock 0帧+模拟器/真机交互面）；两晚soak（3.6h+1h）零复发。残余理论面收窄为：流式中途销毁的部分内容缓存miss→coldReveal 1帧（设计底线）与主题切换重着色（已由skip守卫同一性判定保全）。无新线索→维持watch（复发再战），勿主动开工语义不变。
+  - 2026-10-20 三联构造器备货+首跑（scripts/probe_486_sse_rebuild.py，借 harness 成熟原语 Mock/launch/open_session）：断流 pause 2.5s+流式卡滚出视口+恢复编排——2 轮实跑全家族探针触发（R2: MDResize×8/RESETKEY×1/nonPrefix×4/rawTail×1/452-display×2，证据 /tmp/486/20261020-025903/）——2026-09-30 勘误的「0 试验」盲区现有即战装置；复发时跑该脚本对照 #471 spec §8 判读（探针命中组合 vs 正常流式基线差分）。坑位入档：模拟器英文 UI 需双语言发送键匹配、mock 场景须 create_session
+  - 2026-10-22 模拟器 soak 5h（队列串行腿3，/tmp/soak-486/FINAL-REPORT.md 终版七节）：360 轮 81 变体全覆盖×4+遍（断流 pause 2.5/8/20s×滚出 half/full/double×恢复 still/rollback/nextflow 三联矩阵+32 基线轮）**零 HIT**——机器判据五条全零（负 d 谱 112 个全部=-280px 单值零方差全来自 rollback 变体/RESETKEY 最大 1 每轮/无 452 崩塌/无 FATAL/无进程死）；探针谱与 2026-10-20 首跑基线同族（MDResize 8.6 每轮 vs 基线 8）。spec §8 判读：三联窗内重建帧确实发生（RESETKEY 112 次）但无异常组合，2026-09-30 勘误的「0 试验」盲区现有 328 轮三联实扫数据；-1330px ③族未回归。**判定：维持 watch，盲区收窄实证落袋**；新判读锚点沉淀（复发时对照谱形：MDResize≈8.6/轮、RESETKEY≤1/轮、负d=-280 单值、452 零崩塌——谱形偏离即升级信号）。事故链（误仲裁→无效收口→互污强杀→重跑）完整入报告 §1
+  - 迁入依据：观察收口（用户 2026-10-23 批准）：三晚 soak 零复发证据链完整（B2 两晚+队列腿3 360 轮 81 变体×4+遍三联矩阵+32 基线）——机器判据五条全零（负 d 谱 -280px 单值零方差/RESETKEY≤1 每轮/无 452 崩塌/无 FATAL/无进程死）+根修防线（LRU 账本 wasStreamed+终态缓存）在位+理论残余=设计底线（流式中途销毁部分内容缓存 miss→coldReveal 1 帧）。谱形锚点已沉淀（MDResize≈8.6/轮、RESETKEY≤1、负d=-280 单值、452 零崩塌——偏离即升级信号），复发时跑 probe_486_sse_rebuild.py 对照（backlog.sh migrate 2026-10-23）
+
+### **#464 UI 暖态下列表/卡片点击偶发失效(冷启可靠)** `chat-ui`
+  - 2026-09-29 #461/#462 取证副产物:force-stop 冷启后输入 tap 可靠命中(会话行/卡标题),同一 app 暖运行数分钟后点击同坐标零效果(无日志无 UI 变化,vibrator 反馈存在=命中可点击元素但未触发业务);两次独立取证会话复现,冷启后恢复。疑点:点击消费被某 overlay/焦点态拦截或状态门;影响面=自动化测试可靠性,人工使用未报告。待真机复现窗定罪(diagnosing-bugs 流程),暂无用户主诉不阻塞。
+  - 2026-09-29 审计顺带实证:一次拖动送达零响应不再现(见 #465 注记);#477 dump 全盲为坐标类判读新增干扰源——本卡与 #465 高度重复,建议合并为单卡观察项待裁决
+  - 2026-09-29 用户裁决:吸收 #465 合并,本卡为该域唯一观察卡(暖态间歇 input 送达零业务响应;今日一次拖动零响应不再现实证在案;#477 dump 全盲为坐标判读新干扰源)——再撞上即现场抓 input dispatcher+app 双侧日志
+  - 2026-10-09 用户裁决：转 #535 soak 主动狩猎（tap 效果断言+失配现场抓取 dumpsys input/logcat/meminfo；dump+截图双通道防 #477 dump 全盲假阳性）
+  - 2026-10-10 B2评估：两晚soak探索tap共9起可疑全裁定良性（目标均为clickable语义但无动作的列表文本项——'7×15=105'等TextView，属harness注释预期的合法no-op误捕；InputDispatcher无吞证据）。原症状（暖态偶发点击失效）未再复现，无根因线索→维持观察；判读工具沉淀：dumpsys input消费记录+前后签名对比可复跑。
+  - 2026-10-22 模拟器 soak 5.1h（队列串行腿4，/tmp/soak-464/FINAL-REPORT.md）：487 轮巡检 159 次 tap 断言全 ok **零 MISS**（T1 进会话/T2 思考卡展开收起翻转/T4 BACK+busy 窗 41 轮机会 tap 其中有动作 19）——原症状（暖态偶发点击零业务响应）未复现，观察维持（与 B2 评估两晚 soak 结论一致）。假阴性源全排除（态守卫仅 idle 断罪/新鲜 dump 坐标/失败重试 1 次再定罪）；Compose clickable=false 语义陷阱入坑位（会话行实为可点但 dump 语义否——no-op 防御须按业务动作断言非 clickable 语义，B2 教训实质化）。无效首跑勘误节+门谓词 break 缺失根因入报告
+  - 迁入依据：观察收口（用户 2026-10-23 批准）：两轮 soak 零复发证据链完整（B2 两晚 9 起可疑全裁定良性 TextView no-op+队列腿4 487 轮 159 tap 断言全 ok 零 MISS，假阴性源全排除：态守卫仅 idle 断罪/新鲜 dump 坐标/失败重试再定罪）+判读工具沉淀（dumpsys input 消费记录+前后签名对比可复跑）。Compose clickable=false 语义陷阱与业务动作断言法已入坑位档案（backlog.sh migrate 2026-10-23）
