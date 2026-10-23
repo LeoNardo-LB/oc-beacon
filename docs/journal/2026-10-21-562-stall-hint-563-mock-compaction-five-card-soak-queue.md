@@ -73,3 +73,14 @@
   - 2026-10-10 B2评估：两晚soak探索tap共9起可疑全裁定良性（目标均为clickable语义但无动作的列表文本项——'7×15=105'等TextView，属harness注释预期的合法no-op误捕；InputDispatcher无吞证据）。原症状（暖态偶发点击失效）未再复现，无根因线索→维持观察；判读工具沉淀：dumpsys input消费记录+前后签名对比可复跑。
   - 2026-10-22 模拟器 soak 5.1h（队列串行腿4，/tmp/soak-464/FINAL-REPORT.md）：487 轮巡检 159 次 tap 断言全 ok **零 MISS**（T1 进会话/T2 思考卡展开收起翻转/T4 BACK+busy 窗 41 轮机会 tap 其中有动作 19）——原症状（暖态偶发点击零业务响应）未复现，观察维持（与 B2 评估两晚 soak 结论一致）。假阴性源全排除（态守卫仅 idle 断罪/新鲜 dump 坐标/失败重试 1 次再定罪）；Compose clickable=false 语义陷阱入坑位（会话行实为可点但 dump 语义否——no-op 防御须按业务动作断言非 clickable 语义，B2 教训实质化）。无效首跑勘误节+门谓词 break 缺失根因入报告
   - 迁入依据：观察收口（用户 2026-10-23 批准）：两轮 soak 零复发证据链完整（B2 两晚 9 起可疑全裁定良性 TextView no-op+队列腿4 487 轮 159 tap 断言全 ok 零 MISS，假阴性源全排除：态守卫仅 idle 断罪/新鲜 dump 坐标/失败重试再定罪）+判读工具沉淀（dumpsys input 消费记录+前后签名对比可复跑）。Compose clickable=false 语义陷阱与业务动作断言法已入坑位档案（backlog.sh migrate 2026-10-23）
+
+### **#454 v1 真机 IME 换行注入后 prompt 未发出** `chat` `device` `v1`
+  - 真机 IME keyevent 66 发送路径:消息含注入换行(Run\n\n)时 prompt POST 未发出,乐观气泡悬挂;二次干净发送正常(prompt_async 202)。发送链路疑有 IME 竞态边角,#453 验证时顺带观察,未复现第二次
+  - 2026-10-09 用户裁决：转 #535 狩猎（两层：单元红用例 sendMessage("Run\n\n") 断言 sendPrompt/parts 形状先行排除纯逻辑面；E2E 注入循环 50-100 次扫时序面）
+  - 2026-10-10 B2评估：纯逻辑面单测早已排除（sendMessage('Run\n\n')正确POST raw text）；仪器腿最终3/3零MISS（态守卫=仅idle发送键时注入后，前两晚4起MISS全归因忙窗/导航竞态/通道陷阱——LogcatCapture缺席假阴性+IME动画坐标陈旧）。无缺陷线索→维持观察；h454双通道断言（屏上回显or POST计数）沉淀为可复跑资产。
+  - 2026-10-21 模拟器 soak 5h（队列串行腿1，/tmp/soak-454/）：720 轮双通道断言零 MISS（Run\n\n 121 轮+换行变体 479 轮全 SENT，无乐观气泡悬挂）——症状在模拟器域未复现，观察维持。装置局限四点如实入档：①keyevent 66 硬键流未覆盖真机软键盘 IME action 分发（原症状路径）②busy 时序面未真实构造（mock 8 行流 3s<注入耗时，103 busy 轮全降级 settle）③AOSP vs MIUI 输入栈差④单日窗。附两起工程事故已定罪归档：oomd 杀 gnome-shell（19.6min 空窗自愈）+watchdog 收口竞态（GATE epoch/相对秒错配误降级 DONE，零数据影响）
+  - 迁入依据：观察收口（预授权仪器面自行验收）：三域证据链闭合——①纯逻辑面（sendMessage('Run
+
+') 正确 POST raw text 单测早已排除）②模拟器域 720 轮双通道零 MISS（队列腿1，含 121 轮 Run
+
++479 换行变体）③**真机域 50 轮零 MISS（2026-10-23 真机腿，MIUI 输入栈原盲区补扫）**：三变体轮换（v0 纯文本/v1 单换行/v2 双换行原症状形态）×input text MIUI 协议+keyevent 66 换行注入+tap 发送，双通道断言（POST status 行+屏显回显）全过——R10/R30/R40/R50 里程碑全 landed+post+echo 三绿，R20 双换行形态屏显回显权威通过（post 计数=logcat 缓冲滚动假阴性）。原症状（v1 真机 IME keyevent 66 换行注入 prompt 未发出）在当前构建不复现，观察收口。证据 /tmp/454-real/leg.log；装置沉淀：真机流完成判据用按钮 desc 回纯『发送』轮询（日志判据在真机 logcat -d 高负载下不可靠——wait_stream_end 卡节奏教训）（backlog.sh migrate 2026-10-23）
