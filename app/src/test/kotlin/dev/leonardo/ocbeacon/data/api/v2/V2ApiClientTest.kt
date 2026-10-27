@@ -203,16 +203,27 @@ class V2ApiClientTest {
     }
 
     @Test
-    fun `renameSession posts title to V2 rename path`() = runTest {
-        val responseBody = """{"data":{"id":"sess_1","projectID":"prj_1","time":{"created":1000,"updated":2000},"location":{"directory":"/home"}}}"""
+    fun `renameSession patches title then GETs session back - 564`() = runTest {
+        // #564：PATCH /api/session/{id} + {"title"} → 204 空体（服务器无 /rename 端点，
+        // 旧 POST 路径 404 空体致 parseRoot 抛异常）；成功后 GET 回读最新会话。
+        val sessionBody = """{"data":{"id":"sess_1","projectID":"prj_1","time":{"created":1000,"updated":2000},"location":{"directory":"/home"}}}"""
         val engine = MockEngine { request ->
-            assertEquals("/api/session/sess_1/rename", request.url.encodedPath)
-            respond(responseBody, HttpStatusCode.OK,
-                headersOf(HttpHeaders.ContentType to listOf("application/json")))
+            when (request.method.value) {
+                "PATCH" -> {
+                    assertEquals("/api/session/sess_1", request.url.encodedPath)
+                    respond("", HttpStatusCode.NoContent)
+                }
+                "GET" -> respond(sessionBody, HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType to listOf("application/json")))
+                else -> error("unexpected method ${request.method.value}")
+            }
         }
         val api = buildClient(engine)
         val result = api.renameSession(v2Conn, "sess_1", "New Title")
         assertEquals("sess_1", result.id)
+        val requests = engine.requestHistory
+        assertEquals(listOf("PATCH", "GET"), requests.map { it.method.value })
+        assertEquals("""{"title":"New Title"}""", (requests[0].body as TextContent).text)
     }
 
     // ============ Message ============

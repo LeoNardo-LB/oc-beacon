@@ -105,7 +105,7 @@ private const val TAG = "V2Api"
  * - 列表响应：{ "data": [...], "cursor": { "previous": "...", "next": "..." } }
  * - 消息格式：用 type 判别联合，content 数组替代 parts
  * - Session abort → interrupt
- * - Session patch title → rename (POST /api/session/{id}/rename)
+ * - Session patch title → rename (PATCH /api/session/{id}，204 后 GET 回读；#564)
  * - 健康检查：GET /api/health（无 /global 前缀）
  *
  * C1-2/C1-3（2026-08-26 架构走查，Q2-a）：直接实现 [SessionApi] 与
@@ -234,14 +234,20 @@ class V2ApiClient @Inject constructor(
     }
 
     override suspend fun renameSession(conn: ServerConnection, sessionId: String, title: String): Session {
-        val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/rename") {
+        // #564（2026-10-28 浸泡批次01 双点实锤）：V2/DSH 服务器无 POST /api/session/{id}/rename
+        // （404 空 body → parseRoot 抛异常 → 上层 catch 后仅 snackbar/日志，title 永不改）。
+        // 正确端点 = PATCH /api/session/{id} + {"title":...} → 204 空体（curl 实证；
+        // 与 V1 客户端 PATCH /session/{id} 同构，仅 /api 前缀差异）。204 无负载 →
+        // GET 回读最新会话返回（仓储层 rename 不消费负载，回读满足接口契约且防未来版本带体）。
+        val response = httpClient.patch("${conn.baseUrl}/api/session/$sessionId") {
             auth(conn)
             contentType(ContentType.Application.Json)
             setBody(mapOf("title" to title))
         }
-        val root = parseRoot(response.bodyAsText())
-        val data = V2ResponseWrapper.unwrap(root)
-        return V2SessionMapper.toSession(data)
+        if (!response.status.isSuccess()) {
+            throw IllegalStateException("renameSession failed: HTTP ${response.status.value}")
+        }
+        return getSession(conn, sessionId)
     }
 
     /** V2 用 interrupt 替代 V1 的 abort */
