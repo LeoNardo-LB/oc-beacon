@@ -237,6 +237,33 @@ internal class DraftInputDelegate(
         return draft
     }
 
+    /**
+     * #568：会话物化（懒创建落定）时迁移空键草稿（""→真实 id）。
+     * 打字期 saveDraft 以 sessionIdProvider() 为键——未创建会话恒 ""（共享槽）；
+     * 发送成功 clearDraft 清的是真实键，空键残留永不清理（A-10 DataStore 实锤：
+     * 首条消息文本在成功后永久滞留空键）。迁移语义：持久层搬移 + 空键清除；
+     * 内存态仅在对应槽位空时兜底回填（不覆盖现场）。
+     */
+    suspend fun migrateBlankDraft(realSessionId: String) {
+        if (realSessionId.isBlank()) return
+        val blank = draftRepository.getDraft("") ?: return
+        if (blank.isEmpty) return
+        if (_draftText.value.isBlank()) {
+            _draftText.value = blank.text
+        }
+        if (_draftAttachmentUris.value.isEmpty()) {
+            _draftAttachmentUris.value = blank.imageUris
+        }
+        if (_confirmedFilePaths.value.isEmpty() && blank.confirmedFilePaths.isNotEmpty()) {
+            _confirmedFilePaths.value = blank.confirmedFilePaths.toSet()
+        }
+        saveDraft()
+        persistMutex.withLock {
+            draftRepository.clearDraft("")
+        }
+        AppLogger.i(TAG, "Migrated blank-key draft to session $realSessionId (${blank.text.length} chars)")
+    }
+
     /** 发送失败后设置恢复草稿状态。 */
     fun setRestoredDraft(payload: RevertedDraftPayload) {
         _restoredDraft.value = payload

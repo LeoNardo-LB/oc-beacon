@@ -267,6 +267,7 @@ class ChatViewModel @Inject constructor(
         scope = viewModelScope,
         onMessagesNeedLoading = { loadMessagesForSession() },
         onStartObservingMessages = { startObservingMessages() },
+        onSessionMaterialized = { realId -> composer.migrateBlankDraft(realId) },
     )
     val sessionId: String get() = sessionLifecycle.sessionId
 

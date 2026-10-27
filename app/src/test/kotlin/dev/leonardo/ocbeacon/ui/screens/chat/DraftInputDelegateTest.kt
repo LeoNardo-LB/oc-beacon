@@ -159,4 +159,50 @@ class DraftInputDelegateTest {
         assertNull(d.restorePersistedDraft())
         assertTrue(d.draftText.value.isBlank())
     }
+
+    // ============ #568：空键草稿迁移（会话物化点） ============
+
+    @Test
+    fun `migrateBlankDraft moves persisted blank draft to real id and clears blank key - 568`() = runTest {
+        coEvery { draftRepository.getDraft("") } returns Draft(text = "typed before creation")
+        val d = delegate(this, sessionId = "ses_real_1")
+
+        d.migrateBlankDraft("ses_real_1")
+        advanceUntilIdle()
+
+        // 迁移落盘：真实键承接（经 saveDraft——物化后 sessionIdProvider 已是真实 id）
+        coVerify { draftRepository.saveDraft("ses_real_1", match { it.text == "typed before creation" }) }
+        // 空键清除（残留不再滞留）
+        coVerify { draftRepository.clearDraft("") }
+        // 空内存态兜底回填
+        assertEquals("typed before creation", d.draftText.value)
+    }
+
+    @Test
+    fun `migrateBlankDraft no-ops when blank key empty - 568`() = runTest {
+        coEvery { draftRepository.getDraft("") } returns null
+        val d = delegate(this, sessionId = "ses_real_1")
+
+        d.migrateBlankDraft("ses_real_1")
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { draftRepository.saveDraft(any(), any()) }
+        coVerify(exactly = 0) { draftRepository.clearDraft(any()) }
+    }
+
+    @Test
+    fun `migrateBlankDraft keeps in-memory user state while migrating persistence - 568`() = runTest {
+        coEvery { draftRepository.getDraft("") } returns Draft(text = "blank slot text")
+        val d = delegate(this, sessionId = "ses_real_1")
+
+        d.updateDraftText("user is typing now")
+        d.migrateBlankDraft("ses_real_1")
+        advanceUntilIdle()
+
+        // 现场不覆盖：内存态保留用户输入
+        assertEquals("user is typing now", d.draftText.value)
+        // 持久层仍完成迁移+清空键
+        coVerify { draftRepository.saveDraft("ses_real_1", match { it.text == "user is typing now" }) }
+        coVerify { draftRepository.clearDraft("") }
+    }
 }

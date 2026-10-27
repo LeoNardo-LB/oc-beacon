@@ -45,6 +45,8 @@ internal class SessionLifecycleDelegate(
     private val scope: CoroutineScope,
     private val onMessagesNeedLoading: suspend () -> Unit,
     private val onStartObservingMessages: () -> Unit,
+    /** #568：会话物化（""→真实 id）回调——空键草稿迁移挂此点（幂等，仅首物化触发）。 */
+    private val onSessionMaterialized: suspend (String) -> Unit = {},
 ) {
     private val directoryParam: String = safeDecodeParam(savedStateHandle.get<String>(ChatNav.PARAM_DIRECTORY) ?: "")
     private val _sessionId = MutableStateFlow(
@@ -143,6 +145,11 @@ internal class SessionLifecycleDelegate(
             sessionRepository.setSessions(serverId, listOf(session))
             _sessionId.value = session.id
             sessionDirectory = session.directory.ifBlank { dir }
+            // #568（2026-10-28 浸泡 A-10 DataStore 实锤）：打字期草稿以 sessionIdProvider()=""
+            // 落盘（共享空键槽），发送成功 clearDraft 清的是真实键——空键残留永不清理。
+            // 物化点迁移：""草稿搬至真实 id 并清空键（重复迁移幂等：空键已空即 no-op）。
+            runCatching { onSessionMaterialized(session.id) }
+                .onFailure { AppLogger.w(TAG, "Draft migration on materialize failed: ${it.message}") }
             if (!sessionLoaded.isCompleted) {
                 sessionLoaded.complete(Unit)
             }

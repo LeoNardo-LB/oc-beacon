@@ -67,6 +67,47 @@ class SessionLifecycleDelegateTest {
     }
 
     @Test
+    fun `ensureSession materialization invokes onSessionMaterialized with real id - 568`() = runTest {
+        val useCase = mockk<ManageSessionUseCase>()
+        val repo = mockk<SessionRepository>(relaxed = true)
+        coEvery { useCase.createSession("srv", any()) } returns mkSession("mat-1", "/proj")
+        var materializedId: String? = null
+        var callCount = 0
+
+        val delegate = SessionLifecycleDelegate(
+            useCase, repo, "srv",
+            newSessionHandle(),
+            this, {}, {},
+            onSessionMaterialized = { id -> materializedId = id; callCount++ }
+        )
+
+        delegate.ensureSession()
+
+        assertEquals("mat-1", materializedId)
+        // 重复 ensureSession（幂等早退路径）不再触发迁移回调
+        delegate.ensureSession()
+        assertEquals(1, callCount)
+    }
+
+    @Test
+    fun `ensureSession existing session does not invoke materialization callback - 568`() = runTest {
+        val useCase = mockk<ManageSessionUseCase>(relaxed = true)
+        val repo = mockk<SessionRepository>(relaxed = true)
+        var called = false
+
+        val delegate = SessionLifecycleDelegate(
+            useCase, repo, "srv",
+            newSessionHandle(sessionId = "existing"),
+            this, {}, {},
+            onSessionMaterialized = { called = true }
+        )
+
+        delegate.ensureSession()
+
+        assertFalse(called)
+    }
+
+    @Test
     fun `ensureSession concurrent calls create only once`() = runTest {
         val useCase = mockk<ManageSessionUseCase>()
         val repo = mockk<SessionRepository>(relaxed = true)
