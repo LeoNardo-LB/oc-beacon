@@ -1,5 +1,7 @@
 package dev.leonardo.ocbeacon.ui.screens.chat
 
+import dev.leonardo.ocbeacon.BuildConfig
+import dev.leonardo.ocbeacon.logging.AppLogger
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -386,12 +388,26 @@ internal fun ChatScreenBottomBar(
                         // 命令注册表）一律按普通消息发送——上屏入转录，由会话 agent
                         // 调起技能（服务器实证：消息面 → run_code → bash → python3
                         // 技能脚本 → 回复可见；命令通道对未注册名受理即蒸发）。
-                        if (slashCommandsSupported &&
-                            rawText.startsWith("/") && !rawText.startsWith("/ ") && confirmedFilePaths.isEmpty()) {
+                        // #566（2026-10-28 浸泡受控复现）：外门原含 slashCommandsSupported
+                        // 门控——Busy 排队路径实测漏拦（半角 / 实锤 0x2f，POST 原文 33ms，
+                        // 零拦截痕迹；IDLE 同会话拦截正常）。客户端命令是 app 本地动词
+                        // （G2-① 哲学），拦截不得依赖服务器能力位：外门去能力位，服务器
+                        // 命令分支保留能力位（命令通道需要它），客户端分支无条件拦截。
+                        // #566 诊断：斜杠文本到达发送口的门控变量快照（若再漏拦，
+                        // 复现窗口读此行即可定谳失效变量）
+                        if (BuildConfig.DEBUG && rawText.startsWith("/")) {
+                            AppLogger.d(
+                                "ChatSendGate",
+                                "#566 gate: cap=$slashCommandsSupported files=${confirmedFilePaths.size} " +
+                                    "busy=$stableBusy steer=$steer text=${rawText.take(24)}"
+                            )
+                        }
+                        if (rawText.startsWith("/") && !rawText.startsWith("/ ") && confirmedFilePaths.isEmpty()) {
                             val parts = rawText.trim().split(WHITESPACE_SPLIT_REGEX, 2)
                             val commandName = parts[0].removePrefix("/")
                             val commandArgs = parts.getOrElse(1) { "" }
-                            if (commandName.isNotBlank() && modelConfig.commands.any { it.name == commandName }) {
+                            if (slashCommandsSupported &&
+                                commandName.isNotBlank() && modelConfig.commands.any { it.name == commandName }) {
                                 viewModel.executeCommand(commandName, commandArgs) { ok ->
                                     coroutineScope.launch {
                                         snackbarHostState.showSnackbar(
