@@ -400,6 +400,7 @@ class SseEventParserTest {
         assertTrue(parser.canParse("session.error"))
         assertTrue(parser.canParse("session.diff"))
         assertTrue(parser.canParse("session.compacted"))
+        assertTrue(parser.canParse("session.renamed"))
         assertTrue(parser.canParse("vcs.branch.updated"))
         assertTrue(parser.canParse("project.updated"))
         assertTrue(parser.canParse("lsp.updated"))
@@ -430,6 +431,25 @@ class SseEventParserTest {
         val status = event as SseEvent.SessionStatus
         assertEquals("sess_1", status.sessionId)
         assertTrue(status.status is dev.leonardo.ocbeacon.domain.model.SessionStatus.Idle)
+    }
+
+    @Test
+    fun `SessionEventParser parse session_renamed flat V2 payload maps to SessionUpdated - 565`() {
+        // #565 实抓线格式（2026-10-28 V2b 抓帧）：data:{sessionID,title} 扁平——
+        // rename 后 UI 标题即时刷新依赖此映射（DSH 通道 session/title 同款语义）。
+        val parser = SessionEventParser(json)
+        val props = parseJsonObject(
+            """{
+                "sessionID": "ses_e81011a40ffe5BflyNSqtmxF1I",
+                "title": "soak-capture-renamed"
+            }"""
+        )
+        val event = parser.parse("session.renamed", props)
+        assertNotNull(event)
+        assertTrue(event is SseEvent.SessionUpdated)
+        val updated = event as SseEvent.SessionUpdated
+        assertEquals("ses_e81011a40ffe5BflyNSqtmxF1I", updated.info.id)
+        assertEquals("soak-capture-renamed", updated.info.title)
     }
 
     @Test

@@ -21,6 +21,7 @@ class SessionEventParser(private val json: Json) : SseEventParser {
     private val handledTypes = setOf(
         "session.status", "session.idle", "session.created", "session.updated",
         "session.deleted", "session.error", "session.diff", "session.compacted",
+        "session.renamed",
         "vcs.branch.updated", "project.updated", "lsp.updated"
     )
 
@@ -62,6 +63,17 @@ class SessionEventParser(private val json: Json) : SseEventParser {
                 }
 
                 "session.updated" -> {
+                    val infoObj = props["info"]?.jsonObject ?: props
+                    val info = decodeSessionCompat(infoObj)
+                    SseEvent.SessionUpdated(info)
+                }
+
+                // #565（2026-10-28 浸泡实锤）：V2/DSH 服务器 rename 成功后广播
+                // session.renamed（payload 实抓：{sessionID, title} 扁平），原未处理
+                // → 聊天顶栏/列表标题滞留旧值直到重进。映射到 SessionUpdated——
+                // decodeSessionCompat 双格式容错，下游 handleSessionUpdated 走
+                // _sessions 合并（title 即时生效；DSH 通道 session/title 同款语义）。
+                "session.renamed" -> {
                     val infoObj = props["info"]?.jsonObject ?: props
                     val info = decodeSessionCompat(infoObj)
                     SseEvent.SessionUpdated(info)
