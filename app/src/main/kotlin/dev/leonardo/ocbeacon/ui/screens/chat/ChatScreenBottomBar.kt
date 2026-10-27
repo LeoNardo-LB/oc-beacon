@@ -373,7 +373,7 @@ internal fun ChatScreenBottomBar(
                         // 连图掉 prompt 通道直接喂模型（有 @file 时）。
                         if (slashCommandsSupported &&
                             dev.leonardo.ocbeacon.ui.screens.chat.input.SlashCommandGate.blocksImages(
-                                rawText, attachments.size,
+                                trimmedRaw, attachments.size,
                             )
                         ) {
                             coroutineScope.launch {
@@ -395,14 +395,19 @@ internal fun ChatScreenBottomBar(
                         // 命令分支保留能力位（命令通道需要它），客户端分支无条件拦截。
                         // #566 诊断：斜杠文本到达发送口的门控变量快照（若再漏拦，
                         // 复现窗口读此行即可定谳失效变量）
-                        if (BuildConfig.DEBUG && rawText.startsWith("/")) {
+                        if (BuildConfig.DEBUG && trimmedRaw.startsWith("/")) {
                             AppLogger.d(
                                 "ChatSendGate",
                                 "#566 gate: cap=$slashCommandsSupported files=${confirmedFilePaths.size} " +
-                                    "busy=$stableBusy steer=$steer text=${rawText.take(24)}"
+                                    "busy=$stableBusy steer=$steer text=${trimmedRaw.take(24)}"
                             )
                         }
-                        if (rawText.startsWith("/") && !rawText.startsWith("/ ") && confirmedFilePaths.isEmpty()) {
+                        // #566 根修（真根因，A-07 T1/T2 定谳）：前导空白（IME 组合态残留）
+                        // 击穿 rawText.startsWith("/") → 服务器+客户端双拦截整段跳过 →
+                        // 斜杠原文喂模型（A-04/A-07 历史全部漏拦同源）。外门改用
+                        // trimmedRaw（doSend 已算，#253 ! 前缀 trimStart 同哲学）；
+                        // 77133a622 的去能力位改动保留为无害加固。
+                        if (trimmedRaw.startsWith("/") && !trimmedRaw.startsWith("/ ") && confirmedFilePaths.isEmpty()) {
                             val parts = rawText.trim().split(WHITESPACE_SPLIT_REGEX, 2)
                             val commandName = parts[0].removePrefix("/")
                             val commandArgs = parts.getOrElse(1) { "" }
