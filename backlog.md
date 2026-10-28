@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#571**（2026-10-28 #570 步骤组流式渲染崩溃——StepGroupCard）。
+**编号**：全局递增，不回收。下一编号：**#572**（2026-10-28 #571 错误回复转录零呈现——step/executio）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。**反馈归卡（2026-09-12 用户定规）**：用户对某张卡片的反馈/裁决一律经 `backlog.sh note <N>` 记入**该卡片**明细，**不另开新卡**承载反馈；仅当反馈引出**新的独立缺陷**时才另立卡片，并在两卡明细互相引用（#401→#408 为先例）。**工作流脚本类直接修（2026-09-29 用户定规）**：项目工作流/脚本层的修复（`scripts/` 流程脚本等不进 APK 的项目设施）**不立卡**——发现即直接修+自测，证据记入当批 journal；#480 为末代先例（已立卡的按原流程走完迁移）。
 
@@ -65,6 +65,11 @@
 
 ## P2 — 优化与锦上添花
 
+- [~] **#571 错误回复转录零呈现——step/execution.failed 事件无 UI 错误面（配额/服务错误静默失败）** `v2,sse,ux,error,fix-soak`
+  - B批次12配额窗口实锤：finish=error 空回复转录区零呈现（SessionNextEventHandler Unhandled step.failed/execution.failed）——用户消息发出后无回复无错误解释=静默失败；真实用户配额耗尽日即遇；DSH 有 turn-error 行机制 V2 缺；证据 pointB/batch-12
+  - 根修：V2EventParser 补 session.execution.failed→SessionError（实抓 error={type,message}）——三效齐发：FSM SseError→toIdle(forceComplete)（B-13 FINDING-1 按钮滞留 50-90s 根治）+转录错误行（D1③）+snackbar/未读。三用例绿。待装验证证（quota 窗口即真实场景）
+  - 验证闭环（B-14 a/b/d/f 全 PASS）：t=15s 转录错误行全文+FSM 同拍收尾+四层链同毫秒（12:17:12.443）+连发去重恒 1 行——配额窗口真实场景自证。verify 收口
+
 - [ ] **#569 服务器冻结态发送挂起 265s+ 无超时无失败反馈——HTTP 读超时缺失候选** `net,ux,timeout,fix-soak`
   - A批次10实锤：SIGSTOP 冻结 V2（连接接受不响应）→发送 POST 挂起 265s+ 仅转圈，无超时无 AlertDialog；HTTP client 读超时缺失候选（Ktor OkHttp engine 配置域）；独立可用性缺陷；证据 pointA/batch-10
 
@@ -96,6 +101,7 @@
   - A-09 实锤:S2/S3 发送失败的打字文本以&#10;拼接残留于草稿,切换到 S1 后出现在其 composer(A-06 ping 残留同族首复现);疑 draft 恢复时序/草稿作用域跨会话;证据 /tmp/soak24h/pointA/evidence/a09-draft-leak-s1.*
   - 根修落地：SessionLifecycleDelegate 物化回调+DraftInputDelegate.migrateBlankDraft（持久层搬移+清空键+内存兜底不覆盖现场）；双测试 5 用例绿。剩余 P3=中词拼接历史形态定向用例+revert 通道归属校验待后续批次验证
   - 验证闭环（A-11 M1-M5 5/5）：成功清除/物化迁移/失败保留+复服重迁/既有会话零回归/成功清空零回归——迁移日志三连在场，泄漏症状消除，DataStore 病理化石存档。verify 收口（残余=空键共享槽位语义+中词拼接历史形态，随后续批次观察）
+  - B-13 FINDING-2 残余定形：草稿发送消费后（POST 200 admission）UI+内存层未清（composer 持留跨后台/重进）而持久层已清=内存 _draftText 与持久态分叉——E8-1 快照比对/queueRow 路径 clearDraft 语义待查，随后续批次
 
 - [ ] **#546 16KB 页对齐构建改进（MIUI 安装告警）** `build` `infra`
   - dev-debug 安装时 MIUI 弹「应用兼容性」告警：libdatastore_shared_counter/libandroidx.graphics.path/libsqlite3x/libzstd-jni 四库 .so 未 16KB 对齐（面向未来 16KB 页设备的前瞻提示，当前 4KB 页设备不影响运行）
