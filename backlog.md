@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#564**（2026-10-21 #563 mock_v2 compaction 剧本装置（）。
+**编号**：全局递增，不回收。下一编号：**#571**（2026-10-28 #570 步骤组流式渲染崩溃——StepGroupCard）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。**反馈归卡（2026-09-12 用户定规）**：用户对某张卡片的反馈/裁决一律经 `backlog.sh note <N>` 记入**该卡片**明细，**不另开新卡**承载反馈；仅当反馈引出**新的独立缺陷**时才另立卡片，并在两卡明细互相引用（#401→#408 为先例）。**工作流脚本类直接修（2026-09-29 用户定规）**：项目工作流/脚本层的修复（`scripts/` 流程脚本等不进 APK 的项目设施）**不立卡**——发现即直接修+自测，证据记入当批 journal；#480 为末代先例（已立卡的按原流程走完迁移）。
 
@@ -56,7 +56,33 @@
 ## P1 — 核心功能需求
 
 
+- [ ] **#570 步骤组流式渲染崩溃——StepGroupCard IndexOutOfBoundsException 索引/长度竞态** `chat,streaming,crash,fix-soak`
+  - A批次12浸泡首崩实锤：新会话首条助手回复步骤组流式渲染期间 Index 4 out of bounds for length 4（MessageCardAssistant.kt:1473 Compose 重组链竞态）；pid 重启+MIUI 崩溃弹窗劫持；证据 pointA/b12-crash-full.txt+dump
+  - 根修（fadba6f10）：stepSlices.getOrNull(i) 越界防御跳过——窗口索引滞后于流式收缩帧竞态（Compose 重组链 lambda 实锤）；下一帧 spec 重建自然收敛；待装包窗口+A-13 复现验证
+
+- [~] **#564 V2 重命名会话静默失败——POST /rename 端点 404，正确为 PATCH /api/session/{id}** `v2,api,fix-soak`
+  - 浸泡批次01真机实锤（2次复现）：V2ApiClient POST /api/session/{id}/rename→404 空 body→JsonDecodingException→_error 无 UI 呈现=静默失败；curl 实证正确端点 PATCH /api/session/{id}+title 204。修端点+错误可见化；证据 /tmp/soak24h/pointA/batch-01.log 03:18 + t7-r8-rename-dialog.png
+
 ## P2 — 优化与锦上添花
+
+- [ ] **#569 服务器冻结态发送挂起 265s+ 无超时无失败反馈——HTTP 读超时缺失候选** `net,ux,timeout,fix-soak`
+  - A批次10实锤：SIGSTOP 冻结 V2（连接接受不响应）→发送 POST 挂起 265s+ 仅转圈，无超时无 AlertDialog；HTTP client 读超时缺失候选（Ktor OkHttp engine 配置域）；独立可用性缺陷；证据 pointA/batch-10
+
+- [~] **#567 流式期发送键 tap 死区——活跃流中单击发送零派发** `chat,ux,send,fix-soak`
+  - A批次05实锤：活跃流式窗口内单击「发送（排队）」5 次一致零派发（无 onSend/无菜单/无 doSend）；流结束同位置 tap 77ms 即达。嫌疑=canSend 的 isSending 清除窗或 inputEnabled 流态门控（SendStopButton.kt:225 if(canSend) onSend()）。独立 UX 缺陷非 #566 域；证据 pointA/batch-05
+  - 改判定谳（B-05 判别数据）：BusySendMenuPopup 对 uiautomator 完全不可见（focusable=false #361 设计）但真实存在且功能完好（B-05 截图+queue/steer 功能闭环实证）；A-05 死区 5 连 tap=与不可见菜单开合振荡的装置伪影，真实用户无死区。定性非 app 缺陷，关闭；沉淀装置规约：busy 菜单交互验证必须走截图通道
+  - B-06 判别数据补强：模拟器 busy 单击稳定弹菜单（截图 diff 0.059/0.039 实证）+queueRow=true+按序消费——菜单功能正常实锤；真机死区=隐形菜单 dump 误判。附加发现：菜单不进 a11y 树=读屏用户不可达（#477 域关联的真可达性缺口，随 #477 观察域一并跟踪）
+
+- [~] **#566 Busy 排队发送路径漏拦斜杠命令——排队指令作为真 prompt 喂模型** `chat,slash,queue,fix-soak`
+  - A批次04中场实锤：流式 Busy 态输入 /rename xxx→点发送（排队）→未被本地拦截，流结束后作为真 prompt 发给模型（用户气泡在场）。ChatScreenBottomBar:414 已修的非 Busy 路径漏了排队分支；Busy 态 chat 内 rename 通道因此失效；证据 pointA/b04-d16.xml
+  - 受控复现定谳：Busy 单击直达排队（无菜单无拦截）33ms POST 原文；修复=外门去 slashCommandsSupported 门控（本地动词哲学）+ChatSendGate 诊断日志；待装包窗口验证
+  - 验证闭环（A-05）：修复后 6 次 tap 零漏拦（对照修复前 2 次 POST 漏拦）；4× ChatSendGate 诊断行健康（cap=true files=0）；doSend 层拦截 100%。勘误：原复现场景多为流末瞬态 idle 发送（queueRow=false 佐证）
+  - 真根因定谳+根修（00cc3a2c4）：前导空白（IME 组合态残留）击穿 rawText.startsWith("/") 外门=T1/T2 双测试实证全部历史漏拦同源；根修=外门改 trimmedRaw（#253 同哲学）；77133a622 去能力位保留为无害加固。待 A-08 装验证证
+  - 根修验证闭环（A-08，1793138837）：T1-T6 全 PASS 零 POST 泄漏（T2 前导空格/T6 流末瞬间=原始形态精确复刻）；转录含 A-07 时代漏拦气泡直接对照；≥30min 复现验证 A-05+A-07+A-08 三批累积达标——verify 收口
+
+- [~] **#565 V2 rename 后 UI 标题不实时刷新——SSE session.renamed 事件未处理** `v2,sse,ux,fix-soak`
+  - A批次02实锤：chat路径 rename 后顶栏/列表滞留旧标题直到重进（列表路径自身例外即时刷新）；logcat SseClientV2 unhandled event: session.renamed；核心修复#564端点+持久化不受影响；V1 无此问题（SessionUpdated 已处理）。修事件处理+标题流刷新；证据 pointA/batch-02.log
+  - 修复已落（44b40a12a）：session.renamed→SessionUpdated 映射+实抓线格式单测绿；APK 1793132163 已装模拟器（04:40），B-04 验证中
 
 - [ ] **#522 B案升 stable 后余留装备清扫——JankHoldGate A/B 开关 + STREAM_DELTA_BUS 旗标退役（#499 余留范围）** `chore` `refactor`
   - 前置：STREAM_SHARD_PILOT / STREAM_DELTA_BUS 升 stable 并观察一批——当前 stable 均 false，JankHold 冻结链在 stable 仍是承重活体（B案开=旁路），现退役会回归 stable 流式滚动组合风暴。
@@ -65,6 +91,11 @@
   - 2026-10-09 R1 排程裁决 ok：stable 随批发版带双旗标（STREAM_SHARD_PILOT/STREAM_DELTA_BUS，build.gradle.kts stable 块现值 false 实证）提升→stable soak 观察一批→B4 清扫本卡；若 B2 狩猎批修了 #486（同 scroll 域）则 B4 必须隔批串行
 
 ## P3 — 观察项
+
+- [~] **#568 composer 草稿跨会话残留+拼接——失败打字文本跟随会话切换泄漏** `chat,draft,ux,fix-soak`
+  - A-09 实锤:S2/S3 发送失败的打字文本以&#10;拼接残留于草稿,切换到 S1 后出现在其 composer(A-06 ping 残留同族首复现);疑 draft 恢复时序/草稿作用域跨会话;证据 /tmp/soak24h/pointA/evidence/a09-draft-leak-s1.*
+  - 根修落地：SessionLifecycleDelegate 物化回调+DraftInputDelegate.migrateBlankDraft（持久层搬移+清空键+内存兜底不覆盖现场）；双测试 5 用例绿。剩余 P3=中词拼接历史形态定向用例+revert 通道归属校验待后续批次验证
+  - 验证闭环（A-11 M1-M5 5/5）：成功清除/物化迁移/失败保留+复服重迁/既有会话零回归/成功清空零回归——迁移日志三连在场，泄漏症状消除，DataStore 病理化石存档。verify 收口（残余=空键共享槽位语义+中词拼接历史形态，随后续批次观察）
 
 - [ ] **#546 16KB 页对齐构建改进（MIUI 安装告警）** `build` `infra`
   - dev-debug 安装时 MIUI 弹「应用兼容性」告警：libdatastore_shared_counter/libandroidx.graphics.path/libsqlite3x/libzstd-jni 四库 .so 未 16KB 对齐（面向未来 16KB 页设备的前瞻提示，当前 4KB 页设备不影响运行）
