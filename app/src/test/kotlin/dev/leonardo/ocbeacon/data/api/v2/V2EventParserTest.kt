@@ -45,6 +45,43 @@ class V2EventParserTest {
     }
 
     @Test
+    fun `execution failed maps to SessionError with quota message - 571`() {
+        // #571 实抓线格式（2026-10-28 配额窗口）：error={type:"provider.quota",message:...}
+        // ——SessionError 三效：FSM SseError→toIdle(forceComplete)+转录错误行+snackbar/未读。
+        val event = parser.parse(
+            "session.execution.failed",
+            props("""{"sessionID":"ses_1","error":{"type":"provider.quota","message":"Free usage limit reached. Subscribe to OpenCode Go."}}""")
+        )
+        assertNotNull(event)
+        assertTrue("应为 SessionError，实际 ${event!!::class.simpleName}", event is SseEvent.SessionError)
+        val error = event as SseEvent.SessionError
+        assertEquals("ses_1", error.sessionId)
+        assertEquals("Free usage limit reached. Subscribe to OpenCode Go.", error.error)
+    }
+
+    @Test
+    fun `execution failed falls back to type when message absent - 571`() {
+        val event = parser.parse(
+            "session.execution.failed",
+            props("""{"sessionID":"ses_2","error":{"type":"provider.error"}}""")
+        )
+        assertNotNull(event)
+        val error = event as SseEvent.SessionError
+        assertEquals("provider.error", error.error)
+    }
+
+    @Test
+    fun `execution failed defaults when error object absent - 571`() {
+        val event = parser.parse(
+            "session.execution.failed",
+            props("""{"sessionID":"ses_3"}""")
+        )
+        assertNotNull(event)
+        val error = event as SseEvent.SessionError
+        assertEquals("Execution failed", error.error)
+    }
+
+    @Test
     fun `shell created maps to ShellJobStarted`() {
         // V2 实测：服务器广播 shell.created（旧事件名），payload {info: Shell.Info}
         val event = parser.parse(

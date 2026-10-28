@@ -72,6 +72,21 @@ class V2EventParser(private val json: Json) : SseEventParser {
             "session.execution.succeeded" -> {
                 return SseEvent.SessionIdle(sessionId = sessionIdOrNull(props) ?: "")
             }
+            // #571（2026-10-28 浸泡配额窗口实锤）：execution.failed（provider.quota
+            // 等明确失败）原无映射——FSM 滞留 Busy 50-90s 靠 L3 兜底 + 错误零呈现
+            //（转录静默失败，B-13 FINDING-1/#571 双症状同源）。SessionError 三效
+            // 齐发：FSM SseError→toIdle(forceComplete)、转录错误行（D1③ 机制：
+            // snackbar+转录行+未读）。payload 实抓：error={type,message} 对象。
+            "session.execution.failed" -> {
+                val errObj = props["error"]?.jsonObject
+                val message = errObj?.get("message")?.jsonPrimitive?.contentOrNull
+                    ?: errObj?.get("type")?.jsonPrimitive?.contentOrNull
+                    ?: "Execution failed"
+                return SseEvent.SessionError(
+                    sessionId = sessionIdOrNull(props) ?: "",
+                    error = message
+                )
+            }
         }
         // 后台 shell 生命周期——映射为具体事件（驱动 ShellJob 状态流与消息流 Shell 卡片）
         when (eventType) {
