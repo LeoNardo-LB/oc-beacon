@@ -1469,8 +1469,14 @@ private fun StepGroupCard(
                     )
                 }
                 StepGroupWindowedBody(spec = spec) { i ->
+                    // #570（2026-10-28 浸泡 A-12 首崩实锤）：流式步骤组收缩帧竞态——
+                    // StepGroupWindowedBody 窗口索引滞后于 stepSlices 收缩（Index 4 /
+                    // length 4，Compose 重组链 lambda$4$2）。越界片静默跳过：下一帧
+                    // spec 以新 stepFingerprints 重建、窗口自然收敛（丢一帧边缘片
+                    // 渲染，不丢数据——片内容源自同一 stepSlices 快照链）。
+                    val slice = stepSlices.getOrNull(i) ?: return@StepGroupWindowedBody
                     // #463:片内逐组渲染——step 首组(按 part id 匹配)前插分割线
-                    stepSlices[i].forEach { g ->
+                    slice.forEach { g ->
                         (g as? PartGroup.Single)?.part?.id
                             ?.let { stepFirstGroupIds[it] }
                             ?.let { ord -> StepDivider(ord) }
