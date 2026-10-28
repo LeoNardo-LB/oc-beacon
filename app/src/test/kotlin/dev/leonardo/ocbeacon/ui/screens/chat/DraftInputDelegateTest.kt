@@ -205,4 +205,33 @@ class DraftInputDelegateTest {
         coVerify { draftRepository.saveDraft("ses_real_1", match { it.text == "user is typing now" }) }
         coVerify { draftRepository.clearDraft("") }
     }
+
+    @Test
+    fun `resyncPersistedDraft replaces stale sent text with current input - 568 finding2`() = runTest {
+        coEvery { draftRepository.getDraft(any()) } returns null
+        val d = delegate(this, sessionId = "ses_1")
+
+        // 场景：旧文本已发送成功，但用户已输入新内容（E8-1 快照不匹配）
+        d.updateDraftText("old sent text")
+        d.updateDraftText("new composing text")
+        d.resyncPersistedDraft("new composing text")
+        advanceUntilIdle()
+
+        // 持久层=当前输入（非已发送旧文本）
+        coVerify { draftRepository.saveDraft("ses_1", match { it.text == "new composing text" }) }
+        assertEquals("new composing text", d.draftText.value)
+    }
+
+    @Test
+    fun `resyncPersistedDraft clears persistence when current input blank - 568 finding2`() = runTest {
+        coEvery { draftRepository.getDraft(any()) } returns null
+        val d = delegate(this, sessionId = "ses_1")
+
+        d.updateDraftText("old sent text")
+        d.resyncPersistedDraft("")
+        advanceUntilIdle()
+
+        coVerify { draftRepository.clearDraft("ses_1") }
+        assertTrue(d.draftText.value.isBlank())
+    }
 }

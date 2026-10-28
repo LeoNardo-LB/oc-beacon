@@ -264,6 +264,23 @@ internal class DraftInputDelegate(
         AppLogger.i(TAG, "Migrated blank-key draft to session $realSessionId (${blank.text.length} chars)")
     }
 
+    /**
+     * #568 FINDING-2（2026-10-28 浸泡三重实锤）：发送成功但 E8-1 快照不匹配
+     * （用户已输入新内容，UI 保留新输入）时——持久层必须重存为「当前输入」。
+     * 原实现不动持久层：已发送文本滞留持久键，跨时点 restore 回填+新输入
+     * 拼接=静默数据污染（A-16 真机：5h 前已发送文本与新 prompt 拼接喂模型）。
+     */
+    fun resyncPersistedDraft(currentText: String) {
+        if (_draftText.value != currentText) {
+            _draftText.value = currentText
+        }
+        if (currentText.isBlank()) {
+            clearDraft()
+        } else {
+            saveDraft()
+        }
+    }
+
     /** 发送失败后设置恢复草稿状态。 */
     fun setRestoredDraft(payload: RevertedDraftPayload) {
         _restoredDraft.value = payload

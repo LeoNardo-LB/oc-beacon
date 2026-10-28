@@ -519,6 +519,12 @@ fun ChatScreen(
                 viewModel.composer.clearConfirmedPaths()
                 viewModel.composer.clearFileSearch()
                 attachmentHandler.clearAttachments()
+            } else {
+                // #568 FINDING-2 修复（2026-10-28 浸泡 A-16 真机实锤+B-13/B-18 三重）：
+                // E8-1 保留新输入（快照不匹配）时原实现不动持久层——已发送文本滞留
+                // 持久键，跨时点 restore 回填+新输入拼接=静默数据污染路径。持久层
+                // 必须重存为「当前输入」（新输入值得保留；旧文本不滞留）。
+                viewModel.composer.resyncPersistedDraft(inputText.text)
             }
         }
     }
