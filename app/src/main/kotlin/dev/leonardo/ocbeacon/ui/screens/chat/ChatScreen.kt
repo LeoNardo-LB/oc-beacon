@@ -263,6 +263,21 @@ import dev.leonardo.ocbeacon.ui.theme.SpacingTokens
 
 private const val TAG_SCROLL = "ChatScroll"
 
+/**
+ * 草稿回填 → 输入框的映射（拼接可见性 UX，浸泡 2026-10-28 遗留裁决项 ②）：
+ * 回填旧草稿/revert 文本时**全选高亮**（selection = TextRange(0, length)）而非
+ * 光标置尾——旧文本对用户可见（高亮），后续输入**覆盖**而非静默拼接。
+ *
+ * 动机（#568 族 A-16 真机实证）：光标置尾时，5h 前的旧草稿与新输入拼接成一条
+ * prompt 喂给模型，用户无感知。FINDING-2（resyncPersistedDraft）已堵持久层
+ * 污染源；本映射堵 UI 可见性半边——旧文本在场=高亮在场=可预期覆盖语义。
+ *
+ * 保持不变：草稿恢复本身（文本原样回填）、E8-1 新输入保护（回填仅当输入框
+ * 空且未输入）、revert 恢复链路（仅选择域变化）。
+ */
+internal fun restoredDraftFieldValue(text: String): TextFieldValue =
+    TextFieldValue(text, TextRange(0, text.length))
+
 
 
 // jumpToBottom / animateScrollToBottom 已移除 —— reverseLayout=true 原生锚定底部。
@@ -314,13 +329,15 @@ fun ChatScreen(
     var userHasTyped by remember { mutableStateOf(false) }
     LaunchedEffect(draftText) {
         if (!userHasTyped && draftText.isNotEmpty() && inputText.text.isEmpty()) {
-            inputText = TextFieldValue(draftText, TextRange(draftText.length))
+            // 拼接可见性：全选高亮回填——新输入覆盖旧草稿（而非光标置尾拼接）
+            inputText = restoredDraftFieldValue(draftText)
         }
     }
     // 监听应将文本恢复到输入框的 revert 事件
     LaunchedEffect(Unit) {
         viewModel.composer.revertedDraftEvent.collect { payload ->
-            inputText = TextFieldValue(payload.text, TextRange(payload.text.length))
+            // 同款全选高亮语义（revert 文本回填与草稿回填一致——旧文本可预期覆盖）
+            inputText = restoredDraftFieldValue(payload.text)
         }
     }
     // listState 提升到 ViewModel —— 在导航切换后依然存活。
