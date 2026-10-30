@@ -13,10 +13,21 @@ import dev.leonardo.ocbeacon.domain.usecase.SendMessageUseCase
 import dev.leonardo.ocbeacon.ui.screens.sessions.SessionScrollSignal
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 private const val TAG = "ChatSendDelegate"
+
+/**
+ * #569：发送链级死线——覆盖 ensureSession / 模型·agent 切换 / prompt 受理的
+ * 全部串行等待总和。per-request 30s（[dev.leonardo.ocbeacon.data.api.sendChainTimeout]）
+ * 管单调用；本死线保证任意串行组合（如 switchAgent 吞 30s 后 prompt 再 30s，
+ * 或 ensureSession 挂起）≤65s 必出失败反馈——浸泡 A-10 的 265s+ 无反馈挂起
+ * （3×120s 串行叠加）自此有界。
+ */
+internal const val SEND_CHAIN_DEADLINE_MS: Long = 65_000L
 
 /**
  * 管理此前内联在 [ChatViewModel] 中的消息发送逻辑。
@@ -122,57 +133,61 @@ internal class ChatSendDelegate(
         scrollSignal.requestScrollToTop()
         scope.launch {
             try {
-                val currentSessionId = ensureSession()
-                // P5-5：从 modelConfigState（已解析的有效值）读取，而非
-                // 原始 _selectedProviderId（在新会话首次发送时可能为 null）。
-                val modelCfg = modelConfigProvider()
-                val model = if (modelCfg.selectedProviderId != null && modelCfg.selectedModelId != null) {
-                    ModelSelection(
-                        providerId = modelCfg.selectedProviderId,
-                        modelId = modelCfg.selectedModelId
-                    )
-                } else null
+                // #569：网络段整体纳入链级死线（sid 经返回值传出，簿记在域外）。
+                val currentSessionId = withTimeout(SEND_CHAIN_DEADLINE_MS) {
+                    val sid = ensureSession()
+                    // P5-5：从 modelConfigState（已解析的有效值）读取，而非
+                    // 原始 _selectedProviderId（在新会话首次发送时可能为 null）。
+                    val modelCfg = modelConfigProvider()
+                    val model = if (modelCfg.selectedProviderId != null && modelCfg.selectedModelId != null) {
+                        ModelSelection(
+                            providerId = modelCfg.selectedProviderId,
+                            modelId = modelCfg.selectedModelId
+                        )
+                    } else null
 
-                // 发送前清除 revert —— message.removed SSE 事件已从缓存中
-                // 清理旧消息，因此不会闪烁。
-                chatRepository.clearRevert(currentSessionId)
+                    // 发送前清除 revert —— message.removed SSE 事件已从缓存中
+                    // 清理旧消息，因此不会闪烁。
+                    chatRepository.clearRevert(sid)
 
-                // #310① 发送分流：DSH 子会话（parentSessionId 非空）走
-                // subagents/prompt（mode=continuable 续聊）——无 queue/steer 档位、
-                // 无模型参数（steer 长按语义仅主会话）；主会话路径零改动。
-                val parentSessionId = chatRepository.getSessionsSnapshot()
-                    .firstOrNull { it.id == currentSessionId }?.parentId
-                if (parentSessionId != null && subagentsSupportedProvider()) {
-                    chatRepository.subagentPrompt(serverId, parentSessionId, currentSessionId, parts)
-                        .getOrThrow()
-                    if (BuildConfig.DEBUG) {
-                        AppLogger.d(TAG, "Sent continuable prompt to subagent $currentSessionId (parent $parentSessionId, ${parts.size} parts)")
+                    // #310① 发送分流：DSH 子会话（parentSessionId 非空）走
+                    // subagents/prompt（mode=continuable 续聊）——无 queue/steer 档位、
+                    // 无模型参数（steer 长按语义仅主会话）；主会话路径零改动。
+                    val parentSessionId = chatRepository.getSessionsSnapshot()
+                        .firstOrNull { it.id == sid }?.parentId
+                    if (parentSessionId != null && subagentsSupportedProvider()) {
+                        chatRepository.subagentPrompt(serverId, parentSessionId, sid, parts)
+                            .getOrThrow()
+                        if (BuildConfig.DEBUG) {
+                            AppLogger.d(TAG, "Sent continuable prompt to subagent $sid (parent $parentSessionId, ${parts.size} parts)")
+                        }
+                    } else {
+                        // 悲观消息：POST 受理后不显示任何占位，等待服务器 SSE
+                        // 回显 MessageUpdated 时消息出现在列表（opencode 官方行为）。
+                        // 发送期间 UI 由 isSending 驱动发送按钮转圈（SendStopButton）；
+                        // 失败 → 草稿退回输入框 + AlertDialog（sendFailureSink）。
+                        // #362：busy+queue（「消息排队」）为转录外瞬态队列行——不播种
+                        // echo（DSH inbox.nextTurn / V2 inbox，轮末恰消费 1 条后进转录）。
+                        // busy 判定取发送时刻 FSM 状态（Busy/Retry）。
+                        val statusNow = sessionStateRepository.statusFlow.value[sid]
+                        val busyNow = statusNow is dev.leonardo.ocbeacon.domain.model.SessionStatus.Busy ||
+                            statusNow is dev.leonardo.ocbeacon.domain.model.SessionStatus.Retry
+                        val queueRow = busyNow && !steer
+                        sendMessageUseCase.sendPrompt(
+                            serverId = serverId,
+                            sessionId = sid,
+                            parts = parts,
+                            model = model,
+                            agent = modelCfg.selectedAgent,
+                            variant = selectedVariantProvider(),
+                            directory = sessionDirectoryProvider(),
+                            steer = steer,
+                            seedTranscript = !queueRow
+                        )
+                        if (BuildConfig.DEBUG) AppLogger.d(TAG, "Sent prompt to session $sid (${parts.size} parts, queueRow=$queueRow)")
+                        if (queueRow) onQueueSubmitted()
                     }
-                } else {
-                    // 悲观消息：POST 受理后不显示任何占位，等待服务器 SSE
-                    // 回显 MessageUpdated 时消息出现在列表（opencode 官方行为）。
-                    // 发送期间 UI 由 isSending 驱动发送按钮转圈（SendStopButton）；
-                    // 失败 → 草稿退回输入框 + AlertDialog（sendFailureSink）。
-                    // #362：busy+queue（「消息排队」）为转录外瞬态队列行——不播种
-                    // echo（DSH inbox.nextTurn / V2 inbox，轮末恰消费 1 条后进转录）。
-                    // busy 判定取发送时刻 FSM 状态（Busy/Retry）。
-                    val statusNow = sessionStateRepository.statusFlow.value[currentSessionId]
-                    val busyNow = statusNow is dev.leonardo.ocbeacon.domain.model.SessionStatus.Busy ||
-                        statusNow is dev.leonardo.ocbeacon.domain.model.SessionStatus.Retry
-                    val queueRow = busyNow && !steer
-                    sendMessageUseCase.sendPrompt(
-                        serverId = serverId,
-                        sessionId = currentSessionId,
-                        parts = parts,
-                        model = model,
-                        agent = modelCfg.selectedAgent,
-                        variant = selectedVariantProvider(),
-                        directory = sessionDirectoryProvider(),
-                        steer = steer,
-                        seedTranscript = !queueRow
-                    )
-                    if (BuildConfig.DEBUG) AppLogger.d(TAG, "Sent prompt to session $currentSessionId (${parts.size} parts, queueRow=$queueRow)")
-                    if (queueRow) onQueueSubmitted()
+                    sid
                 }
                 // 2026-08-16 修复（进行中图标过早）：置 Busy 从"POST 发出前"移到
                 // "POST 成功后"——用户期望：发送按钮转圈（本地 isSending）表示
@@ -184,6 +199,12 @@ internal class ChatSendDelegate(
                 // 发送成功：通知 UI 清空输入框（失败时不通知——消息保留在输入框）。
                 // 携带已发送文本快照，供 UI 判断输入框是否已被用户改写。
                 onSendSuccess(sentText)
+            } catch (e: TimeoutCancellationException) {
+                // withTimeout 的取消形态是 CancellationException 子类——必须在
+                // 通用 CancellationException 再抛之前拦截，否则超时变静默失败
+                // （spinner 停但无失败反馈=浸泡 A-10 的另一半可用性缺陷）。
+                AppLogger.e(TAG, "Send chain deadline exceeded (${SEND_CHAIN_DEADLINE_MS}ms)", e)
+                sendFailureSink("Send timed out after ${SEND_CHAIN_DEADLINE_MS / 1000}s — server unresponsive")
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 AppLogger.e(TAG, "Failed to send message", e)

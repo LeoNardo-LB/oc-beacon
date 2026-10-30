@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.api.v2
 
 import dev.leonardo.ocbeacon.data.api.auth
+import dev.leonardo.ocbeacon.data.api.sendChainTimeout
 
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.api.ApiClient
@@ -515,6 +516,9 @@ class V2ApiClient @Inject constructor(
             httpClient.post("${conn.baseUrl}/api/session/$sessionId/prompt") {
                 auth(conn)
                 directoryHeader(directory)
+                // #569：发送链调用 30s 超时——冻结服务器（连接接受不响应）下
+                // 不再各吃 client 级 120s 串行叠加（浸泡 A-10 265s+ 挂起根因）。
+                sendChainTimeout()
                 contentType(ContentType.Application.Json)
                 setBody(bodyObj)
             }
@@ -624,6 +628,8 @@ class V2ApiClient @Inject constructor(
         }
         val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/model") {
             auth(conn)
+            // #569：发送链前置调用同享 30s 超时（发送链三串行调用之一）。
+            sendChainTimeout()
             contentType(ContentType.Application.Json)
             setBody(bodyObj)
         }
@@ -650,6 +656,9 @@ class V2ApiClient @Inject constructor(
         }
         val response = httpClient.post("${conn.baseUrl}/api/session/$sessionId/agent") {
             auth(conn)
+            // #569：发送链前置调用同享 30s 超时——原实现吞 120s 超时后再发 prompt，
+            // 是 265s 拼图的主要碎片（runCatching 容错语义保留，只是不再贵）。
+            sendChainTimeout()
             contentType(ContentType.Application.Json)
             setBody(mapOf("agent" to agentId))
         }

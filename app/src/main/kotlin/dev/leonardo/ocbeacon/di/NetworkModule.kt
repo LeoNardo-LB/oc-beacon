@@ -65,6 +65,13 @@ object NetworkModule {
         }
         
         install(HttpTimeout) {
+            // #569（2026-10-30 机制定案，Ktor 3.5.2 反汇编实证）：
+            // - requestTimeoutMillis 由 HttpTimeout 插件层 killer 实施（OkHttp engine
+            //   的 setupTimeoutAttributes 不映射它，但插件对非 WS/非 SSE 请求到点
+            //   取消请求上下文）——SSE 客户端以 per-request MAX_VALUE 豁免；
+            // - socketTimeoutMillis 由 engine 映射为 OkHttp read/writeTimeout（读空闲上限）。
+            // 120s 是普通 REST 兜底；用户可感知的发送链另压 30s/调用 + 65s 链级死线
+            // （data/api/SendChainTimeout.kt + ChatSendDelegate，浸泡 A-10 265s+ 根治）。
             requestTimeoutMillis = 120_000
             connectTimeoutMillis = 15_000
             socketTimeoutMillis = 120_000

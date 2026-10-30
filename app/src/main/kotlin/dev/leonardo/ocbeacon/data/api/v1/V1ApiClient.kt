@@ -1,6 +1,7 @@
 package dev.leonardo.ocbeacon.data.api.v1
 
 import dev.leonardo.ocbeacon.data.api.auth
+import dev.leonardo.ocbeacon.data.api.sendChainTimeout
 
 import dev.leonardo.ocbeacon.BuildConfig
 import dev.leonardo.ocbeacon.data.api.ApiClient
@@ -410,6 +411,8 @@ class V1ApiClient @Inject constructor(
         val response = httpClient.post("${conn.baseUrl}/session/$sessionId/prompt_async") {
             auth(conn)
             directoryHeader(directory)
+            // #569：发送链调用 30s 超时（V2 同款；冻结服务器不再 120s 挂起）。
+            sendChainTimeout()
             contentType(ContentType.Application.Json)
             setBody(PromptRequest(
                 parts = parts,
