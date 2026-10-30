@@ -4,7 +4,7 @@
 
 **卡片格式**：标题（含全局编号）+ Tag + 状态 checkbox + **≤3 行**摘要 + 链接。需求全文、实现要点、验证证据一律写在链接目标（spec / journal）中，不内联。登记新批次用 `./scripts/backlog-new-batch.sh "<批次名>"`（自动建 journal 文件）；改动后跑 `./scripts/backlog-check.sh` 校验机械不变量。**放置规则（check 脚本强制）**：卡片一律写在下方对应 **Pn 节内**（按优先级定义归位；一节内新卡置顶）；头部编号行与优先级定义表之间**不放任何卡片**（仅允许编号勘误等注释）。**P4 格式增补**：P4 卡必含「**前提**：…」行——说清实现前提是什么、当前为何不可实现（外部硬阻碍所在）。**术语句**：卡片标题与摘要用词遵循 [CONTEXT.md](CONTEXT.md) 术语表（堆积消息/子智能体/轮次/撤销/中断…）；「待处理」保留给权限/问题（状态词待验证/待办/待裁决不受影响）；Tag 英文与 #N 编号不受中文术语约束；API 英文原词（cursor/fork）合法，_Avoid_ 仅限中文对应词。
 
-**编号**：全局递增，不回收。下一编号：**#572**（2026-10-28 #571 错误回复转录零呈现——step/executio）。
+**编号**：全局递增，不回收。下一编号：**#573**（2026-10-30 #572 #572 草稿/revert 回填输入框静默拼接）。
 
 **操作纪律（2026-09-09 用户定规，账本事故后）**：卡片区**禁止手工直编**——登记/明细追加/状态流转/完结迁移一律经 `./scripts/backlog.sh`（add/note/status/migrate；真实 backlog 变更后自动跑 check）；journal 新节追加用 `backlog.sh journal append`（append-only）或编辑工具定位插入，**禁止全量覆写重写 journal**（2026-09-09 演示批覆写丢章事故定规）。**裁决优先级（2026-09-09 用户定规）**：同一问题域存在多项历史裁决时**以最新裁决为准**；新裁决落地时须回写旧裁决域卡片的注记（#350 为先例）。**反馈归卡（2026-09-12 用户定规）**：用户对某张卡片的反馈/裁决一律经 `backlog.sh note <N>` 记入**该卡片**明细，**不另开新卡**承载反馈；仅当反馈引出**新的独立缺陷**时才另立卡片，并在两卡明细互相引用（#401→#408 为先例）。**工作流脚本类直接修（2026-09-29 用户定规）**：项目工作流/脚本层的修复（`scripts/` 流程脚本等不进 APK 的项目设施）**不立卡**——发现即直接修+自测，证据记入当批 journal；#480 为末代先例（已立卡的按原流程走完迁移）。
 
@@ -56,9 +56,15 @@
 ## P1 — 核心功能需求
 
 
-- [ ] **#570 步骤组流式渲染崩溃——StepGroupCard IndexOutOfBoundsException 索引/长度竞态** `chat,streaming,crash,fix-soak`
+- [~] **#572 #572 草稿/revert 回填输入框静默拼接——全选高亮可见性（浸泡裁决项②）** `chat,ux,draft,fix-soak`
+  - A-16 实锤：回填旧草稿光标置尾，新输入拼接（5h 前旧草稿+新 prompt 一条喂模型）；UI 半边根修
+  - 修复（b22c99be6）：ChatScreen 两处回填改全选 TextRange(0,len)（restoredDraftFieldValue 单一映射点）；持久层半边已由 #568 FINDING-2 resync 关闭
+  - 验证：单测 4 新增+全量 4093 绿；真机视觉 E2E 双路径全选渲染（草稿回填/revert 回填，截图 /tmp/e2e569）；平台边界记档 journal §三（触屏 tap 折叠=平台行为，软键盘流交付=高亮可见性）——verify
+
+- [~] **#570 步骤组流式渲染崩溃——StepGroupCard IndexOutOfBoundsException 索引/长度竞态** `chat,streaming,crash,fix-soak`
   - A批次12浸泡首崩实锤：新会话首条助手回复步骤组流式渲染期间 Index 4 out of bounds for length 4（MessageCardAssistant.kt:1473 Compose 重组链竞态）；pid 重启+MIUI 崩溃弹窗劫持；证据 pointA/b12-crash-full.txt+dump
   - 根修（fadba6f10）：stepSlices.getOrNull(i) 越界防御跳过——窗口索引滞后于流式收缩帧竞态（Compose 重组链 lambda 实锤）；下一帧 spec 重建自然收敛；待装包窗口+A-13 复现验证
+  - verify 收口（B-17 三重覆盖）：真实模型流六变体全 PASS（pid 恒定+OOB=0+FATAL=0）+错误流零越界+A-12 根修定性——配额重置窗口 15:30 解锁完整验证
 
 - [~] **#564 V2 重命名会话静默失败——POST /rename 端点 404，正确为 PATCH /api/session/{id}** `v2,api,fix-soak`
   - 浸泡批次01真机实锤（2次复现）：V2ApiClient POST /api/session/{id}/rename→404 空 body→JsonDecodingException→_error 无 UI 呈现=静默失败；curl 实证正确端点 PATCH /api/session/{id}+title 204。修端点+错误可见化；证据 /tmp/soak24h/pointA/batch-01.log 03:18 + t7-r8-rename-dialog.png
@@ -70,8 +76,11 @@
   - 根修：V2EventParser 补 session.execution.failed→SessionError（实抓 error={type,message}）——三效齐发：FSM SseError→toIdle(forceComplete)（B-13 FINDING-1 按钮滞留 50-90s 根治）+转录错误行（D1③）+snackbar/未读。三用例绿。待装验证证（quota 窗口即真实场景）
   - 验证闭环（B-14 a/b/d/f 全 PASS）：t=15s 转录错误行全文+FSM 同拍收尾+四层链同毫秒（12:17:12.443）+连发去重恒 1 行——配额窗口真实场景自证。verify 收口
 
-- [ ] **#569 服务器冻结态发送挂起 265s+ 无超时无失败反馈——HTTP 读超时缺失候选** `net,ux,timeout,fix-soak`
+- [~] **#569 服务器冻结态发送挂起 265s+ 无超时无失败反馈——HTTP 读超时缺失候选** `net,ux,timeout,fix-soak`
   - A批次10实锤：SIGSTOP 冻结 V2（连接接受不响应）→发送 POST 挂起 265s+ 仅转圈，无超时无 AlertDialog；HTTP client 读超时缺失候选（Ktor OkHttp engine 配置域）；独立可用性缺陷；证据 pointA/batch-10
+  - 根因定案（推翻'超时缺失'假设，journal 2026-10-30-569 §一）：Ktor 3.5.2 反汇编实证 requestTimeout 由插件层 killer 实施（engine 不映射但插件生效）；265s+=发送链三串行调用各吃 120s，switchAgent 的 runCatching 吞 120s 后 prompt 再 120s
+  - 修复（963992b41）：per-request sendChainTimeout 30s/10s/30s（V2 switchModel/switchAgent/prompt+V1 prompt_async）+ ChatSendDelegate 链级死线 65s（TimeoutCancellationException 先于 CancellationException 拦截→失败框）；SSE 长流 MAX_VALUE 豁免不受波及
+  - 验证：单测 6 新增（冻结服务器行为钉/SSE 滴流豁免钉/配置钉/链级死线钉）+全量 4093 绿；真机 E2E 三腿（冻结窗内 T+30.0s HttpRequestTimeoutException[30000ms]→T+32.17s 失败框（旧 265s+）；断连态 3.4s #267 快速失败零回归；恢复后 41ms 受理+47.1s 完整生成）——verify 收口
 
 - [~] **#567 流式期发送键 tap 死区——活跃流中单击发送零派发** `chat,ux,send,fix-soak`
   - A批次05实锤：活跃流式窗口内单击「发送（排队）」5 次一致零派发（无 onSend/无菜单/无 doSend）；流结束同位置 tap 77ms 即达。嫌疑=canSend 的 isSending 清除窗或 inputEnabled 流态门控（SendStopButton.kt:225 if(canSend) onSend()）。独立 UX 缺陷非 #566 域；证据 pointA/batch-05
@@ -102,6 +111,9 @@
   - 根修落地：SessionLifecycleDelegate 物化回调+DraftInputDelegate.migrateBlankDraft（持久层搬移+清空键+内存兜底不覆盖现场）；双测试 5 用例绿。剩余 P3=中词拼接历史形态定向用例+revert 通道归属校验待后续批次验证
   - 验证闭环（A-11 M1-M5 5/5）：成功清除/物化迁移/失败保留+复服重迁/既有会话零回归/成功清空零回归——迁移日志三连在场，泄漏症状消除，DataStore 病理化石存档。verify 收口（残余=空键共享槽位语义+中词拼接历史形态，随后续批次观察）
   - B-13 FINDING-2 残余定形：草稿发送消费后（POST 200 admission）UI+内存层未清（composer 持留跨后台/重进）而持久层已清=内存 _draftText 与持久态分叉——E8-1 快照比对/queueRow 路径 clearDraft 语义待查，随后续批次
+  - FINDING-2 根修（三重实锤后）：E8-1 mismatch 分支补 resyncPersistedDraft——持久层重存当前输入，已发送文本不再滞留持久键（5h 跨时点拼接污染路径闭合）；拼接可见性 UX（restore 回填高亮）升用户裁决。双测绿，待装验证证
+  - FINDING-2 修复验证双点闭环（A-17 三腿含 SIGSTOP 冻结窗确定性触发+B-21 双腿 pb 铁证）+单测+#568 主修 M 矩阵——#568 全域 verify 终收口；拼接可见性 UX（restore 高亮）遗留用户裁决项
+  - FINDING-2 修复双点闭环（A-17 V1a/V1b/V3 三腿+B-21 双腿）：mismatch 重存（SIGSTOP 冻结窗确定性触发）+常规清空+跨时点污染闭合（冷启回填单文本零拼接）——5h 拼接污染路径根除。#568 全域 verify 维持
 
 - [ ] **#546 16KB 页对齐构建改进（MIUI 安装告警）** `build` `infra`
   - dev-debug 安装时 MIUI 弹「应用兼容性」告警：libdatastore_shared_counter/libandroidx.graphics.path/libsqlite3x/libzstd-jni 四库 .so 未 16KB 对齐（面向未来 16KB 页设备的前瞻提示，当前 4KB 页设备不影响运行）
