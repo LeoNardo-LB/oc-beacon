@@ -17,6 +17,8 @@ import dev.leonardo.ocbeacon.data.local.MessageDao
 import dev.leonardo.ocbeacon.data.local.Migrations
 import dev.leonardo.ocbeacon.data.local.OcBeaconDatabase
 import dev.leonardo.ocbeacon.data.local.SessionSyncDao
+import dev.leonardo.ocbeacon.data.local.scalarLong
+import dev.leonardo.ocbeacon.data.local.scalarText
 import javax.inject.Singleton
 
 @Module
@@ -33,7 +35,9 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): OcBeaconDatabase =
         // WAL 模式：driver 路径下由 Room 主动配置（journal_mode=WAL +
         // synchronous=NORMAL + busy_timeout=3000 + 读写连接池，Room 2.8.4
-        // 字节码实证）——并发读写语义与 requery 时代等价。
+        // 字节码实证）——并发读写模型与 requery 时代等价（读写分离连接池）；
+        // 可观测差异：busy_timeout 由 requery 连接池的 8s 收紧为 3000ms
+        // （WAL 下写冲突罕见，真机流式+检索并发实测无影响）。
         // #272/#546：捆绑 SQLite（androidx sqlite-bundled，含 FTS5 模块）——
         // 小米等 ROM 系统 SQLite 无 fts5，BM25 检索需全设备可用的 FTS5。
         // #546 由 requery openHelperFactory 迁来（上游 16KB 对齐 OPEN 无期）；
@@ -66,21 +70,22 @@ object DatabaseModule {
                 override fun onOpen(connection: SQLiteConnection) {
                     // #546 引擎诊断（每次 open 一行，进程级低频）：journal 模式 /
                     // SQLite 版本 / auto_vacuum / user_version——真机验收 V4 的
-                    // logcat 断言锚点。
+                    // logcat 断言锚点。日志走 android.util.Log：onOpen 阶段
+                    // AppLogger 持久化写库会重入（与 [478-vacuum] 埋点同款豁免）。
                     try {
                         android.util.Log.i(
                             "OcBeaconDB",
-                            "[546-engine] journal=" + queryText(connection, "PRAGMA journal_mode") +
-                                ", sqlite=" + queryText(connection, "SELECT sqlite_version()") +
-                                ", auto_vacuum=" + queryText(connection, "PRAGMA auto_vacuum") +
-                                ", user_version=" + queryText(connection, "PRAGMA user_version"),
+                            "[546-engine] journal=" + (connection.scalarText("PRAGMA journal_mode") ?: "?") +
+                                ", sqlite=" + (connection.scalarText("SELECT sqlite_version()") ?: "?") +
+                                ", auto_vacuum=" + connection.scalarLong("PRAGMA auto_vacuum") +
+                                ", user_version=" + connection.scalarLong("PRAGMA user_version"),
                         )
                     } catch (e: Exception) {
                         android.util.Log.w("OcBeaconDB", "[546-engine] diag failed: " + e.message)
                     }
                     try {
-                        val pageSize = queryLong(connection, "PRAGMA page_size") ?: return
-                        val freePages = queryLong(connection, "PRAGMA freelist_count") ?: return
+                        val pageSize = connection.scalarLong("PRAGMA page_size") ?: return
+                        val freePages = connection.scalarLong("PRAGMA freelist_count") ?: return
                         val freeBytes = pageSize * freePages
                         if (freeBytes < VACUUM_FREE_BYTES_THRESHOLD) return
                         val t0 = System.currentTimeMillis()
@@ -100,17 +105,6 @@ object DatabaseModule {
                     }
                 }
 
-                /** 单值文本查询（PRAGMA/标量 SELECT）。失败抛出，由调用方 catch。 */
-                private fun queryText(connection: SQLiteConnection, sql: String): String =
-                    connection.prepare(sql).use { s -> if (s.step()) s.getText(0) else "?" }
-
-                /** 单值整数查询（PRAGMA）。失败返回 null（诊断路径静默降级）。 */
-                private fun queryLong(connection: SQLiteConnection, sql: String): Long? =
-                    try {
-                        connection.prepare(sql).use { s -> if (s.step()) s.getLong(0) else null }
-                    } catch (e: Exception) {
-                        null
-                    }
             })
             .build()
 

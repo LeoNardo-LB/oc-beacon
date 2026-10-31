@@ -162,6 +162,11 @@ class MessageFtsIndex @Inject constructor(
                 }
                 synchronized(lock) { ensured = true }
                 true
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                // #546 复审（Spec 轴）：useWriterConnection 是挂起点，协程取消必须
+                // 原样上抛——吞掉会既破坏结构化取消，又把 unavailable 置真令本进程
+                // 永久走 LIKE 降级（假性 FTS 不可用）。
+                throw e
             } catch (e: Exception) {
                 android.util.Log.w(
                     "MessageFtsIndex",

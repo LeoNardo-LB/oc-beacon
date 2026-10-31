@@ -13,13 +13,14 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * #546：bundled driver（setDriver 路径）下的迁移链端到端实证（真机仪器测试）。
+ * #546：bundled driver（setDriver 路径）下 v9→v10 迁移的仪器实证（真机）。
  *
  * 背景：Room 2.8.4 的 Migration.migrate(SQLiteConnection) 基类对非 Support
  * 连接抛 NotImplementedError——全部迁移已改双签名（SqlMigration / 9_10 双
  * override）。本测试证明 driver 路径真迁移（v9→v10：FTS5 DDL + 触发器 +
  * 回填 + 标量查询埋点）在 bundled 引擎上完整可跑，防「存量 v<10 用户升级
- * 即崩」回归。
+ * 即崩」回归。范围注记：仅覆盖 9→10（其余 1..9 链共享 SqlMigration 同一
+ * 机制，语句更简单；全链留待未来 schema 11 迁移时随发版回归）。
  *
  * 手法：driver 模式建 v10 库并写入两条 text part（数据注入与断言均用
  * BundledSQLiteDriver 直连，Room 侧只负责开库触发建 schema/迁移）→ 降级到

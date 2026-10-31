@@ -14,14 +14,24 @@ internal fun SQLiteConnection.exec(sql: String) {
 }
 
 /**
- * #546：双引擎迁移基类。Room 2.8 driver 模式（setDriver/bundled）下
- * Migration.migrate(SQLiteConnection) 基类对非 Support 连接直接抛
+ * #546：SQLiteConnection 单值标量查询（prepare+step+取首列）——生产侧共享点
+ * （DatabaseModule 引擎诊断 / MIGRATION_9_10 埋点），无行返回 null。
+ */
+internal fun SQLiteConnection.scalarLong(sql: String): Long? =
+    prepare(sql).use { if (it.step()) it.getLong(0) else null }
+
+/** 同 [scalarLong]，文本列。 */
+internal fun SQLiteConnection.scalarText(sql: String): String? =
+    prepare(sql).use { if (it.step()) it.getText(0) else null }
+
+/**
+ * #546：双引擎迁移基类。Room 2.8.4 字节码实证：driver 与 Support 两条框架
+ * 路径（BaseRoomConnectionManager.onMigrate / RoomOpenHelper）**均汇入
+ * migrate(SQLiteConnection)**——基类对 bundled 原生连接直接抛
  * NotImplementedError("...requires overriding the migrate(SQLiteConnection)
- * function")（room-runtime 2.8.4 字节码实证）——Support 签名单覆写已不足：
- * - driver 路径调 migrate(SQLiteConnection)，基类不回转 Support 签名；
- * - Support 路径（框架 openHelper / Robolectric 单测）经 SupportSQLiteConnection
- *   包装链仍调 migrate(SupportSQLiteDatabase)。
- * 故两条签名都覆写，共享同一语句列表，SQL 语义零漂移。
+ * function")，故该签名是唯一生效覆写点；migrate(SupportSQLiteDatabase) 覆写
+ * 在框架路径不可达（仅显式直调可达），保留作 SupportSQLiteDatabase 契约的
+ * 完备实现与直测锚点。两签名共享同一语句列表，SQL 语义零漂移。
  */
 abstract class SqlMigration(startVersion: Int, endVersion: Int) : Migration(startVersion, endVersion) {
     protected abstract val statements: List<String>

@@ -109,9 +109,7 @@ abstract class OcBeaconDatabase : RoomDatabase() {
             }
 
             override fun migrate(connection: SQLiteConnection) {
-                rebuild(connection::exec) { sql ->
-                    connection.prepare(sql).use { if (it.step()) it.getLong(0) else null }
-                }
+                rebuild(connection::exec, connection::scalarLong)
             }
 
             override fun migrate(db: SupportSQLiteDatabase) {
