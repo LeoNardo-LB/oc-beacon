@@ -58,11 +58,6 @@
 
 ## P2 — 优化与锦上添花
 
-- [ ] **#573 #573 历史错误消息重载零呈现——服务器持久化 assistant finish=error 不进转录（#571 验收新发现）** `v2,sse,ux,error`
-  - F 组验收判别实锤（journal 2026-10-31 §八）：V2c 双错误发送后重进会话，服务器 /message 持久化 2 条 assistant finish=error 但转录仅渲染最新 1 条瞬态错误行（session_error_0 单例 key），历史失败原因对用户不可见
-  - 范围界定：#571 修实时呈现（PASS）；本卡=历史重载路径（消息映射层是否给 finish=error 消息建错误 part 待查）
-  - 复现装置：V2c 死 provider rig（journal §二，端口 4197 可重启）；真实场景=配额耗尽日的历史会话
-
 - [ ] **#522 B案升 stable 后余留装备清扫——JankHoldGate A/B 开关 + STREAM_DELTA_BUS 旗标退役（#499 余留范围）** `chore` `refactor`
   - 前置：STREAM_SHARD_PILOT / STREAM_DELTA_BUS 升 stable 并观察一批——当前 stable 均 false，JankHold 冻结链在 stable 仍是承重活体（B案开=旁路），现退役会回归 stable 流式滚动组合风暴。
   - 清扫面：JankHoldGate system-prop A/B、ChatScreen jkHold 冻结链（含 B3 埋点）、STREAM_DELTA_BUS 旗标与旁路分支；probe 按 keep-probes 裁决保留。#499 于 2026-10-06 完成范围内部迁移，余留拆本卡。
