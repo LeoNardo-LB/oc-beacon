@@ -74,6 +74,7 @@
   - 2026-10-21 上游调研修正：requery/sqlite-android 的 16KB 对齐是 OPEN 状态（issue #195 未解决——最新 3.50.4 亦未对齐，需 NDK 构建链重做 ELF segment 对齐，上游明确待有能力者接手）——前 note「修向聚焦升级」无升级门，修正定性：等上游修复后升级（外部前提性质）；自编译/换库工程量大且 app 非 Play 发行（GitHub 侧载），4KB 页设备零运行影响，16KB 页设备暂罕见。观察维持，前置=上游 #195
   - 2026-10-23 前提重验：**阻塞维持**——requery/sqlite-android #195 仍 OPEN 且被上游文档列为「最紧迫的未解决问题」（zread 知识库明言「需要熟悉 NDK 构建配置和 ELF 段要求的人接手，正等待具备专业知识和动力的人」）；最新版 SQLite 3.5x 线均未带 16KB 对齐
   - 2026-10-31 根修完成（用户裁决换库开工）：requery sqlite-android 3.45.0 → androidx.sqlite:sqlite-bundled 2.6.2（与 Room 2.8.4 传递线同版，零漂移）。setDriver(BundledSQLiteDriver) + 全量 Migration 双签名（Room 2.8.4 基类对 bundled 连接抛 NotImplementedError 硬雷，防存量 v<10 用户升级崩溃）+ ContentSearch 迁 useWriter/useReaderConnection（openHelper 在 driver 模式失效，真机实测）+ [546-engine] 诊断锚点。验证：so-align 四库 16/16 全 16384（libsqlite3x→libsqliteJni）；存量库覆盖安装 712/984/61 逐项一致+integrity ok；FTS BM25 命中+高亮正常；fresh 库建库/FTS/查询全通（auto_vacuum=FULL 与 requery 时代一致，SQLITE_DEFAULT_AUTOVACUUM=1 编译佐证）；BundledMigrationTest 真机 OK（driver 路径 v9→v10 实证）。commit 5d222b031。证据 /tmp/accept546/。
+  - 2026-10-31 复审收口（commit 87746402b，双轴 code-review 意见落地）：ensureAvailable rethrow CancellationException（防吞取消+永久 LIKE 假降级）；注释如实化+标量查询聚拢。遗留观察：betaRelease 侧 so-align 未重跑（打包管线同源风险低），随下次发版 assemble 顺验后闭卡；[546-engine] 诊断行闭卡后退役。
 
 - [ ] **#537 DSH 同步通道 1KB 截断——工具卡全文与 spill 通知不落 Room，离线重开降级** `dsh` `data`
   - 2026-10-09 #536 E2E 通道性发现：DSH 服务器同步/投影通道把工具输出截到 ~1KB（尾标 [truncated, full output on server] 为服务器原话）——spill 通知与全文只存在于打开会话时的实时拉取，cached_parts 恒短版
