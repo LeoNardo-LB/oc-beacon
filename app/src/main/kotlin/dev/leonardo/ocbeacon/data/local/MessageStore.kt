@@ -663,6 +663,7 @@ class MessageStore @Inject constructor(
         is Part.Compaction -> "compaction"
         is Part.Retry -> "retry"
         is Part.Abort -> "abort"
+        is Part.Error -> "error"
         is Part.Agent -> "agent"
         is Part.Permission -> "permission"
         is Part.Question -> "question"

@@ -29,6 +29,7 @@ object PartSerializer : JsonContentPolymorphicSerializer<Part>(Part::class) {
             "compaction" -> Part.Compaction.serializer()
             "retry" -> Part.Retry.serializer()
             "abort" -> Part.Abort.serializer()
+            "error" -> Part.Error.serializer()
             "agent" -> Part.Agent.serializer()
             // #200 F01：补齐与 typeName() 对称的分发（原缺分支落 Unknown）
             "permission" -> Part.Permission.serializer()
@@ -284,6 +285,22 @@ sealed class Part {
         val reason: String = ""
     ) : Part()
 
+    /**
+     * #573（2026-10-31 验收发现）：轮次失败持久行——V2 快照映射层对
+     * `finish=error`（非 aborted）的 assistant 消息合成（错误原文进转录，
+     * 随消息持久 Room，重载/冷启不丢）。与实时错误行
+     * （sessionErrorRows 瞬态单例，仅最新）互补：本 part 是逐消息的、
+     * 历史性的失败记录。渲染复用 SessionErrorCard（对齐 DSH turn-error
+     * transcript 内 status 行语义）。合成点见 V2Mappers #573。
+     */
+    @Serializable
+    data class Error(
+        override val id: String,
+        @SerialName("sessionID") override val sessionId: String,
+        @SerialName("messageID") override val messageId: String,
+        val text: String = ""
+    ) : Part()
+
     @Serializable
     data class SessionTurn(
         override val id: String,
@@ -348,6 +365,7 @@ fun Part.rekeyed(messageId: String): Part = when (this) {
     is Part.Permission -> copy(messageId = messageId)
     is Part.Question -> copy(messageId = messageId)
     is Part.Abort -> copy(messageId = messageId)
+    is Part.Error -> copy(messageId = messageId)
     is Part.SessionTurn -> copy(messageId = messageId)
     is Part.Deliverables -> copy(messageId = messageId)
     is Part.Unknown -> copy(messageId = messageId)

@@ -82,6 +82,7 @@ private fun partTraceName(part: Part): String = when (part) {
     is Part.Permission -> "flng:pt:perm"
     is Part.Question -> "flng:pt:question"
     is Part.Abort -> "flng:pt:abort"
+    is Part.Error -> "flng:pt:error"
     is Part.Retry -> "flng:pt:retry"
     else -> "flng:pt:other"
 }
@@ -550,6 +551,11 @@ private fun PartContentInner(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error
             )
+        }
+        // #573：轮次失败持久行——错误原文随消息进转录（快照合成，冷启不丢）；
+        // 复用 SessionErrorCard（与实时错误行同视觉，对齐 DSH turn-error 行）。
+        is Part.Error -> {
+            SessionErrorCard(error = part.text)
         }
         is Part.Retry -> {
             Text(

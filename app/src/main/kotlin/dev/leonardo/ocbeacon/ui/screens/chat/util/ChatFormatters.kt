@@ -135,6 +135,7 @@ internal fun resolveUserCommandLabel(parts: List<Part>): String? {
                         part !is Part.Permission &&
                         part !is Part.Question &&
                         part !is Part.Abort &&
+                        part !is Part.Error &&
                         part !is Part.Retry &&
                         part !is Part.Unknown
             }

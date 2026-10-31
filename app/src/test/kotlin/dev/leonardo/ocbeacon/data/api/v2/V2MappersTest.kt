@@ -504,12 +504,87 @@ class V2MappersTest {
     @Test
     fun `non-aborted error does not synthesize abort marker`() {
         // finish=error 但 type!=aborted（如 provider 错误）不冒充中断——
-        // 错误展示走 Message.Assistant.error 独立通道，不属 #206 范围
+        // #573：改走 Part.Error 持久行（下方 #573 族断言），abort 仍零合成
         val obj = json.parseToJsonElement(
             interruptedAssistantJson(errorBlock = "{\"type\":\"rate_limit\",\"message\":\"too fast\"}")
         ).jsonObject
         val result = V2MessageMapper.toMessageWithParts(obj, "ses_1")!!
         assertTrue(result.parts.filterIsInstance<Part.Abort>().isEmpty())
+        // #573：错误原文以持久 part 呈现（不再零呈现）
+        assertEquals(1, result.parts.filterIsInstance<Part.Error>().size)
+    }
+
+    // ============ #573 finish=error 非 aborted 的轮次失败持久行（Part.Error） ============
+
+    @Test
+    fun `non-aborted finish=error synthesizes Part-Error persistent row`() {
+        // V2c 死 provider rig 实抓形态：provider.transport + ConnectionRefused
+        val raw = """
+            {"type":"assistant","id":"msg_err_1","sessionID":"ses_1",
+             "time":{"created":1000},
+             "finish":"error","error":{"type":"provider.transport","message":"ConnectionRefused: Unable to connect. Is the computer able to access the url?"},
+             "content":[]}
+        """
+        val obj = json.parseToJsonElement(raw).jsonObject
+        val result = V2MessageMapper.toMessageWithParts(obj, "ses_1")!!
+        val errors = result.parts.filterIsInstance<Part.Error>()
+        assertEquals(1, errors.size)
+        assertEquals("msg_err_1_error", errors[0].id)
+        assertEquals("ses_1", errors[0].sessionId)
+        assertEquals("msg_err_1", errors[0].messageId)
+        assertEquals("ConnectionRefused: Unable to connect. Is the computer able to access the url?", errors[0].text)
+        // 持久行位于 parts 尾部（轮次终结语义，同 Abort 契约）
+        assertTrue(result.parts.last() is Part.Error)
+        // 互斥：不合成 Abort
+        assertTrue(result.parts.filterIsInstance<Part.Abort>().isEmpty())
+    }
+
+    @Test
+    fun `aborted message does not co-synthesize Error part`() {
+        // 单一终结标记原则：aborted 走 Abort，不叠加 Error
+        val obj = json.parseToJsonElement(interruptedAssistantJson()).jsonObject
+        val result = V2MessageMapper.toMessageWithParts(obj, "ses_1")!!
+        assertTrue(result.parts.filterIsInstance<Part.Error>().isEmpty())
+        assertTrue(result.parts.filterIsInstance<Part.Abort>().isNotEmpty())
+    }
+
+    @Test
+    fun `finish=error with null error object synthesizes nothing`() {
+        // 契约异常形态（error:null 无文可显）——不合成，不自造文案
+        val obj = json.parseToJsonElement(
+            interruptedAssistantJson(errorBlock = "null")
+        ).jsonObject
+        val result = V2MessageMapper.toMessageWithParts(obj, "ses_1")!!
+        assertTrue(result.parts.filterIsInstance<Part.Error>().isEmpty())
+        assertTrue(result.parts.filterIsInstance<Part.Abort>().isEmpty())
+    }
+
+    @Test
+    fun `Part-Error id is stable for refetch dedup`() {
+        // 稳定 id 契约（同 Abort）：REST 重取 mergePartsList 按 id 去重不双显
+        val raw = """
+            {"type":"assistant","id":"msg_err_2","sessionID":"ses_1",
+             "time":{"created":1000},
+             "finish":"error","error":{"type":"provider.transport","message":"dead"},
+             "content":[]}
+        """
+        val obj = json.parseToJsonElement(raw).jsonObject
+        val a = V2MessageMapper.toMessageWithParts(obj, "ses_1")!!
+        val b = V2MessageMapper.toMessageWithParts(obj, "ses_1")!!
+        assertEquals(
+            a.parts.filterIsInstance<Part.Error>().single().id,
+            b.parts.filterIsInstance<Part.Error>().single().id,
+        )
+    }
+
+    @Test
+    fun `blank error message synthesizes nothing`() {
+        // error.message 空白=无文可显，不合成空错误行
+        val obj = json.parseToJsonElement(
+            interruptedAssistantJson(errorBlock = "{\"type\":\"provider.transport\",\"message\":\"\"}")
+        ).jsonObject
+        val result = V2MessageMapper.toMessageWithParts(obj, "ses_1")!!
+        assertTrue(result.parts.filterIsInstance<Part.Error>().isEmpty())
     }
 
     @Test

@@ -20,6 +20,7 @@ internal fun isBubbleRenderablePart(part: Part): Boolean {
         is Part.Permission,
         is Part.Question,
         is Part.Abort,
+        is Part.Error,
         is Part.Retry,
         is Part.Tool -> true
         else -> false

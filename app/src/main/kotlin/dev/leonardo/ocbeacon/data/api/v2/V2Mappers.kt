@@ -333,18 +333,42 @@ object V2MessageMapper {
                 // as? 而非 ?.jsonObject：服务器可空字段 "error":null 是 JsonNull，
                 // 后者扩展在 JsonNull 上抛 IllegalStateException（反例测试实证）
                 val errorObj = obj["error"] as? JsonObject
-                val abortPart = if (finish == "error" &&
-                    errorObj?.get("type")?.jsonPrimitive?.contentOrNull == "aborted"
-                ) {
-                    listOf(Part.Abort(
-                        id = "${id}_abort",
-                        sessionId = sessionId,
-                        messageId = id,
-                        reason = errorObj["message"]?.jsonPrimitive?.contentOrNull ?: ""
-                    ))
-                } else emptyList()
+                // #573（2026-10-31 验收发现）：finish=error 但非 aborted（如
+                // provider.transport/配额 429）的助手消息此前 parts 全空 →
+                // 转录零呈现——历史失败原因对用户不可见（V2c 死 provider 双发
+                // 判别实锤：服务器持久化 2 条 finish=error，重载后一条不剩）。
+                // 合成 Part.Error 持久行（错误原文进转录，随消息进 Room，冷启
+                // 不丢）；稳定 id "${id}_error" 同 Abort 幂等契约。error 对象
+                // 缺失（finish=error + error:null 的契约异常形态）无文可显，
+                // 不合成——避免自造文案。
+                // 实时呈现（sessionErrorRows 瞬态单例）不受影响：两者互补——
+                // 瞬态行管「最新错误的即时可见」，本 part 管「逐轮历史持久」。
+                val terminalErrorPart = when {
+                    finish == "error" &&
+                        errorObj?.get("type")?.jsonPrimitive?.contentOrNull == "aborted" ->
+                        listOf(Part.Abort(
+                            id = "${id}_abort",
+                            sessionId = sessionId,
+                            messageId = id,
+                            reason = errorObj["message"]?.jsonPrimitive?.contentOrNull ?: ""
+                        ))
+                    finish == "error" -> {
+                        val errorText = errorObj
+                            ?.get("message")?.jsonPrimitive?.contentOrNull
+                            ?.takeIf { it.isNotBlank() }
+                        if (errorText != null) {
+                            listOf(Part.Error(
+                                id = "${id}_error",
+                                sessionId = sessionId,
+                                messageId = id,
+                                text = errorText
+                            ))
+                        } else emptyList()
+                    }
+                    else -> emptyList()
+                }
 
-                MessageWithParts(info = message, parts = parts + abortPart)
+                MessageWithParts(info = message, parts = parts + terminalErrorPart)
             }
             "system" -> {
                 val text = obj["text"]?.jsonPrimitive?.contentOrNull ?: ""
