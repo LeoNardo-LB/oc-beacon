@@ -37,6 +37,10 @@ class FakeSessionStateRepository @Inject constructor() : SessionStateRepository 
     override val activityFlow: StateFlow<Map<String, SessionActivity?>> = _activityFlow.asStateFlow()
     override val historyFlow: StateFlow<Map<String, List<TransitionRecord>>> = _historyFlow.asStateFlow()
 
+    /** #546 顺手补：接口新增 stalledSessions（#569 send-timeout 系）后的最小实现——测试不覆盖 stalled 语义。 */
+    override val stalledSessions: StateFlow<Set<String>> =
+        MutableStateFlow<Set<String>>(emptySet()).asStateFlow()
+
     val requestedValidations = mutableListOf<String>()
 
     override fun setServerId(serverId: String) = Unit

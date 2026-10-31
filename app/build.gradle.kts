@@ -270,10 +270,13 @@ dependencies {
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
-    // #272：捆绑全量 SQLite（含 FTS5 模块）——小米等 ROM 系统 SQLite 无 fts5 模块，
-    // 作为 Room openHelperFactory 使 BM25 全设备可用（APK +数 MB 体积代价，用户裁决接受）。
-    // 坐标在 JitPack（Maven Central 无此 artifact），版本锁定 3.45.0
-    implementation("com.github.requery:sqlite-android:3.45.0")
+    // #272/#546：androidx 官方捆绑全量 SQLite（含 FTS5 模块）——小米等 ROM 系统
+    // SQLite 无 fts5 模块，BM25 检索需全设备可用（APK +数 MB 体积代价，用户裁决接受）。
+    // #546 由 com.github.requery:sqlite-android:3.45.0 迁来：requery 上游 16KB ELF
+    // 对齐 OPEN 无期（requery#195，3.5x 线均未修），androidx 官方线已合规（libsqlite3x
+    // → libandroidx.sqlite.bundled）。版本 2.6.2 与 Room 2.8.4 传递的 androidx.sqlite
+    // 同线——解析结果零漂移，单变量变更。
+    implementation("androidx.sqlite:sqlite-bundled:2.6.2")
 
     // zstd 压缩（归档桶）
     implementation("com.github.luben:zstd-jni:1.5.7-16@aar")

@@ -1,9 +1,12 @@
 package dev.leonardo.ocbeacon.data.local
 
-import android.database.sqlite.SQLiteException
+import androidx.room.useReaderConnection
+import androidx.room.useWriterConnection
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** 单条内容检索命中。rank = FTS5 bm25()（越小越相关）；LIKE 降级路径 rank=null（按时间排序）。 */
@@ -102,7 +105,11 @@ object MessageFtsSchema {
  * - 流式期索引滞后到下一次快照 REPLACE 收敛（与旧手动维护时机等价）。
  * - 只索引 text part（user/assistant 正文，落库本就不截断）；reasoning/工具输出不入索引（用户裁决）。
  * - 运行时探测 FTS5 可用性：API<30 系统无 FTS5 模块 → available=false，调用方走 LIKE 降级。
- * - 非线程安全内部状态由 [synchronized] 保护；方法为阻塞式，调用方须在 IO 上下文。
+ * - #546：引擎触点全部改走 Room 2.8 useWriterConnection/useReaderConnection +
+ *   usePrepared（KMP 连接 API，官方推荐的低层访问姿势）——openHelper（Support
+ *   API）在 setDriver(bundled) 模式下抛 "no SupportSQLiteOpenHelper.Factory was
+ *   configured"（真机 13:33 实测），use*Connection 在 driver/Support 两路径下
+ *   均收敛（Support 路径经内部适配）。
  */
 @Singleton
 class MessageFtsIndex @Inject constructor(
@@ -110,6 +117,7 @@ class MessageFtsIndex @Inject constructor(
     private val databaseRecovery: DatabaseRecovery,
 ) {
     private val lock = Any()
+    private val ensureMutex = Mutex()
     private var ensured = false
     private var unavailable = false
 
@@ -122,31 +130,47 @@ class MessageFtsIndex @Inject constructor(
      * 迁移前首次搜索）建表后立即从 cached_parts text 行回填一次。
      * 日志走 android.util.Log：本方法可能在 DB 初始化路径上被触发，AppLogger
      * 持久化写库会重入。
+     *
+     * #546：suspend 化（useConnection 是挂起 API）；单飞互斥由 [ensureMutex]
+     * 承担（flag 读写仍轻量同步，双检防止并发首搜重复 DDL）。
      */
-    fun ensureAvailable(): Boolean = synchronized(lock) {
-        if (ensured) return true
-        if (unavailable) return false
-        try {
-            val db = database.openHelper.writableDatabase
-            val existed = db
-                .query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '${MessageFtsSchema.TABLE}'")
-                .use { it.moveToFirst() }
-            db.execSQL(MessageFtsSchema.CREATE)
-            MessageFtsSchema.TRIGGERS.forEach(db::execSQL)
-            ensured = true
-            if (!existed) {
-                db.execSQL(MessageFtsSchema.BACKFILL)
-                android.util.Log.i("MessageFtsIndex", "[478] FTS5 external-content table created + backfilled")
+    suspend fun ensureAvailable(): Boolean {
+        synchronized(lock) {
+            if (ensured) return true
+            if (unavailable) return false
+        }
+        return ensureMutex.withLock {
+            synchronized(lock) {
+                if (ensured) return true
+                if (unavailable) return false
             }
-            true
-        } catch (e: SQLiteException) {
-            android.util.Log.w(
-                "MessageFtsIndex",
-                "FTS5 unavailable, LIKE fallback engaged: " + e.javaClass.simpleName + ": " + e.message,
-                e,
-            )
-            unavailable = true
-            false
+            try {
+                var existed = false
+                database.useWriterConnection { conn ->
+                    conn.usePrepared(
+                        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '${MessageFtsSchema.TABLE}'",
+                    ) { existed = it.step() }
+                    // DDL 经 prepare+step 执行（IF NOT EXISTS 幂等）
+                    conn.usePrepared(MessageFtsSchema.CREATE) { it.step() }
+                    MessageFtsSchema.TRIGGERS.forEach { ddl ->
+                        conn.usePrepared(ddl) { it.step() }
+                    }
+                    if (!existed) {
+                        conn.usePrepared(MessageFtsSchema.BACKFILL) { it.step() }
+                        android.util.Log.i("MessageFtsIndex", "[478] FTS5 external-content table created + backfilled")
+                    }
+                }
+                synchronized(lock) { ensured = true }
+                true
+            } catch (e: Exception) {
+                android.util.Log.w(
+                    "MessageFtsIndex",
+                    "FTS5 unavailable, LIKE fallback engaged: " + e.javaClass.simpleName + ": " + e.message,
+                    e,
+                )
+                synchronized(lock) { unavailable = true }
+                false
+            }
         }
     }
 
@@ -214,22 +238,25 @@ class MessageFtsIndex @Inject constructor(
             hit.copy(snippet = "…" + hit.snippet.substring(cut) + "…")
         }
     }
-    private suspend fun queryHits(sql: String, args: Array<out Any?>): List<ContentSearchHit> =
+    /** #546：经 useReaderConnection/usePrepared 执行（driver/Support 两路径通用），参数全部文本绑定（与旧 SimpleSQLiteQuery 行为等价，INTEGER affinity 上下文自动数值化）。 */
+    private suspend fun queryHits(sql: String, args: Array<out String>): List<ContentSearchHit> =
         databaseRecovery.withCorruptionRecovery {
-            val cursor = database.openHelper.readableDatabase.query(sql, args)
-            val out = mutableListOf<ContentSearchHit>()
-            cursor.use { c ->
-                while (c.moveToNext()) {
-                    out += ContentSearchHit(
-                        sessionId = c.getString(0),
-                        messageId = c.getString(1),
-                        role = c.getString(2) ?: "",
-                        snippet = c.getString(3) ?: "",
-                        created = if (c.isNull(4)) 0L else c.getLong(4),
-                        rank = if (c.isNull(5)) null else c.getDouble(5),
-                    )
+            database.useReaderConnection { conn ->
+                conn.usePrepared(sql) { stmt ->
+                    args.forEachIndexed { i, arg -> stmt.bindText(i + 1, arg) }
+                    val out = mutableListOf<ContentSearchHit>()
+                    while (stmt.step()) {
+                        out += ContentSearchHit(
+                            sessionId = stmt.getText(0),
+                            messageId = stmt.getText(1),
+                            role = if (stmt.isNull(2)) "" else stmt.getText(2),
+                            snippet = if (stmt.isNull(3)) "" else stmt.getText(3),
+                            created = if (stmt.isNull(4)) 0L else stmt.getLong(4),
+                            rank = if (stmt.isNull(5)) null else stmt.getDouble(5),
+                        )
+                    }
+                    out
                 }
             }
-            out
         } ?: emptyList()
 }

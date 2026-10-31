@@ -3,6 +3,7 @@ package dev.leonardo.ocbeacon.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
+import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
@@ -34,10 +35,8 @@ abstract class OcBeaconDatabase : RoomDatabase() {
 
     companion object {
         /** #289：v5→v6 堆积消息表移除。 */
-        val MIGRATION_5_6: Migration = object : Migration(5, 6) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("DROP TABLE IF EXISTS pending_messages")
-            }
+        val MIGRATION_5_6: Migration = object : SqlMigration(5, 6) {
+            override val statements = listOf("DROP TABLE IF EXISTS pending_messages")
         }
 
         /**
@@ -51,12 +50,12 @@ abstract class OcBeaconDatabase : RoomDatabase() {
          * （会话开场注入/首轮消息）永久缺失（ack-four 实测：seq-9..12 不再入库）。
          * 全表重置：各会话下次进入走全量重放（幂等，代价一次分页拉取）。
          */
-        val MIGRATION_7_8: Migration = object : Migration(7, 8) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("DELETE FROM cached_messages WHERE id GLOB 'seq-[0-9]*'")
-                db.execSQL("DELETE FROM cached_parts WHERE messageId GLOB 'seq-[0-9]*'")
-                db.execSQL("DELETE FROM session_sync_state")
-            }
+        val MIGRATION_7_8: Migration = object : SqlMigration(7, 8) {
+            override val statements = listOf(
+                "DELETE FROM cached_messages WHERE id GLOB 'seq-[0-9]*'",
+                "DELETE FROM cached_parts WHERE messageId GLOB 'seq-[0-9]*'",
+                "DELETE FROM session_sync_state",
+            )
         }
 
         /**
@@ -64,10 +63,8 @@ abstract class OcBeaconDatabase : RoomDatabase() {
          * 未重置 session_sync——增量同步判定「无新事件」跳过拉取，被清空的早期
          * 事件永久缺失（ack-four 实测）。v9 对已迁设备补一次水位重置。
          */
-        val MIGRATION_8_9: Migration = object : Migration(8, 9) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("DELETE FROM session_sync_state")
-            }
+        val MIGRATION_8_9: Migration = object : SqlMigration(8, 9) {
+            override val statements = listOf("DELETE FROM session_sync_state")
         }
 
         /**
@@ -84,32 +81,43 @@ abstract class OcBeaconDatabase : RoomDatabase() {
          * ③与文件回收见 DatabaseModule 的阈值 VACUUM。
          *
          * 埋点走 android.util.Log：迁移期间 AppLogger 持久化写库会重入死锁。
+         *
+         * #546：双引擎签名（driver/Support 两路径分派规则见 [SqlMigration]）——
+         * 执行器与标量查询注入 [rebuild]，SQL 语义零漂移。
          */
         val MIGRATION_9_10: Migration = object : Migration(9, 10) {
-            override fun migrate(db: SupportSQLiteDatabase) {
+            private fun rebuild(exec: (String) -> Unit, scalar: (String) -> Long?) {
                 val t0 = android.os.SystemClock.elapsedRealtime()
                 // 旧库可能从未建过 FTS（从未触发搜索的设备）——COUNT 容错，DROP IF EXISTS 兜底
                 val oldRows = try {
-                    db.query("SELECT COUNT(*) FROM ${MessageFtsSchema.TABLE}").use {
-                        if (it.moveToFirst()) it.getLong(0) else 0L
-                    }
+                    scalar("SELECT COUNT(*) FROM ${MessageFtsSchema.TABLE}") ?: 0L
                 } catch (e: Exception) {
                     0L
                 }
-                db.execSQL("DROP TABLE IF EXISTS ${MessageFtsSchema.TABLE}")
-                db.execSQL(MessageFtsSchema.CREATE)
-                MessageFtsSchema.TRIGGERS.forEach(db::execSQL)
-                db.execSQL(MessageFtsSchema.BACKFILL)
+                exec("DROP TABLE IF EXISTS ${MessageFtsSchema.TABLE}")
+                exec(MessageFtsSchema.CREATE)
+                MessageFtsSchema.TRIGGERS.forEach(exec)
+                exec(MessageFtsSchema.BACKFILL)
                 // external-content 表 COUNT(*)=content 表行数（含 reasoning 等
                 // 非索引行），真实倒排行数以 _docsize 影子表计
-                val newRows = db
-                    .query("SELECT COUNT(*) FROM ${MessageFtsSchema.TABLE}_docsize")
-                    .use { if (it.moveToFirst()) it.getLong(0) else 0L }
+                val newRows = scalar("SELECT COUNT(*) FROM ${MessageFtsSchema.TABLE}_docsize") ?: 0L
                 android.util.Log.i(
                     "OcBeaconDB",
                     "[478-migration] FTS external-content rebuilt: old=$oldRows indexed=$newRows rows, " +
                         (android.os.SystemClock.elapsedRealtime() - t0) + "ms",
                 )
+            }
+
+            override fun migrate(connection: SQLiteConnection) {
+                rebuild(connection::exec) { sql ->
+                    connection.prepare(sql).use { if (it.step()) it.getLong(0) else null }
+                }
+            }
+
+            override fun migrate(db: SupportSQLiteDatabase) {
+                rebuild(db::execSQL) { sql ->
+                    db.query(sql).use { if (it.moveToFirst()) it.getLong(0) else null }
+                }
             }
         }
     }
