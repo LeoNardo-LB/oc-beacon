@@ -295,6 +295,7 @@ MAJOR.MINOR.PATCH                   # 正式版：禁止任何后缀/序号（�
 - [ ] `gh release view <TAG> --json assets`：**恰好 1 个 APK**，命名 `oc-beacon-<VERSION>.apk`
 - [ ] `gh release view <TAG>`：**说明非空且非仅 Full Changelog 链接**——按 §4.5 模板撰写（含版本摘要）
 - [ ] `aapt2 dump badging` 验证 APK：包名/versionCode/versionName 正确
+- [ ] **16KB 对齐顺验（#546，2026-11-01 起）**：`python3 scripts/so-align-check.py app/build/outputs/apk/<flavor>/release/*.apk`——四库全 16384（libsqliteJni/libzstd-jni/graphics.path/datastore_shared_counter）；devDebug 侧已全绿，此处防依赖集变化回退
 - [ ] **签名验证（所有 flavor）**：`apksigner verify --print-certs` 的证书 DN 应为 `CN=OC Beacon, OU=Development, O=LeoNardo-LB, C=CN`（release keystore，alias=oc-beacon——2026-08-20 由 oc-tether 改名，密钥材料不变），**不得是 `CN=Android Debug`**
   - 若为 debug 签名 → 检查 GitHub Secrets（`gh secret list` 需含 KEYSTORE_BASE64/ALIAS/PASSWORD）与 build.gradle.kts 的 `if (!hasPropertiesFile)` 回退逻辑
 - [ ] stable 的 APK 签名是 release keystore（oc-beacon），可覆盖安装
